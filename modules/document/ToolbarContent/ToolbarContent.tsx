@@ -5,6 +5,8 @@ import { Text } from "@nextui-org/react";
 import { IconButton, Button, useText } from "@/components";
 import Link from "next/link";
 import { useMutation } from "@/utils/trpc";
+import { useRouter } from "next/router";
+import { MouseEvent } from "react";
 
 const Container = styled.div({
   flexGrow: 1,
@@ -22,7 +24,7 @@ const ToolbarContent = () => {
   const document = useSelector(selectDocumentData);
   const save = useMutation(['document.save']);
   const dispatch = useDocumentDispatch();
-
+  const router = useRouter()
   const handleSave = () => {
     save.mutate({
       docId: document.id,
@@ -38,12 +40,13 @@ const ToolbarContent = () => {
       }
     })
   }
-
+  const handleBack = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    router.back();
+  }
   return (
     <Container>
-      <Link href="/documents" passHref>
-        <IconButton as="a"><HiArrowLeft /></IconButton>
-      </Link>
+      <IconButton onClick={handleBack} as="a"><HiArrowLeft /></IconButton>
       <Text h4 css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '500px' }}>{document.name}</Text>
       <Button
         auto
