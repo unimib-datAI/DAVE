@@ -3,41 +3,41 @@ export type Translation = {
     toolbar: {
       browseDocs: string;
       logout: string;
-    },
+    };
     subTitle: string;
     nWords: string;
     selectAnnotationSet: string;
     computeBtn: string;
-  },
+  };
   documents: {
     toolbar: {
       searchInput: string;
       logout: string;
-    },
+    };
     modals: {
       searchInput: string;
       noResults: string;
-    }
+    };
     addCard: {
       title: string;
       subTitle: string;
-    },
+    };
     title: string;
-  },
+  };
   document: {
     toolbar: {
       save: string;
       logout: string;
-    },
+    };
     subToolbar: {
       annotationSet: {
         label: string;
         new: string;
       };
       types: {
-        label: string
-      }
-    },
+        label: string;
+      };
+    };
     leftSidebar: {
       actionsTooltips: {
         select: string;
@@ -46,6 +46,7 @@ export type Translation = {
         clusters: string;
         filter: string;
         settings: string;
+        data: string;
       };
       addContent: {
         title: string;
@@ -53,13 +54,17 @@ export type Translation = {
         addType: string;
         loadTaxonomy: string;
         tooltipNotRecognized: string;
-      },
+      };
       clustersContent: {
         title: string;
         description: string;
-        mentions: string
-      }
-    },
+        mentions: string;
+      };
+      metadataContent: {
+        title: string;
+        description: string;
+      };
+    };
     rightSidebar: {
       title: string;
       description: string;
@@ -68,7 +73,7 @@ export type Translation = {
       links: string;
       emptyLinks: string;
       editBtn: string;
-    },
+    };
     modals: {
       addType: {
         title: string;
@@ -79,13 +84,13 @@ export type Translation = {
         parentTypeInput: string;
         btnConfirm: string;
         btnCancel: string;
-      },
+      };
       addAnnotationSet: {
         title: string;
         description: string;
         nameInput: string;
         presetInput: string;
-      },
+      };
       editAnnotation: {
         title: string;
         context: string;
@@ -102,10 +107,10 @@ export type Translation = {
           candidateTitle: string;
           candidateDescription: string;
           add: string;
-        }
+        };
         btnConfirm: string;
         btnCancel: string;
-      }
-    }
-  }
-}
+      };
+    };
+  };
+};

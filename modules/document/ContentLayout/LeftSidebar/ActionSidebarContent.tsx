@@ -1,9 +1,12 @@
-import styled from "@emotion/styled"
-import dynamic, { Loader } from "next/dynamic";
-import { ComponentType, Suspense } from "react";
-import { UIAction } from "../../DocumentProvider/types";
-import { selectDocumentAction, useSelector } from "../../DocumentProvider/selectors";
-import ActionSidebarContentSkeleton from "./ActionSidebarContentSkeleton";
+import styled from '@emotion/styled';
+import dynamic, { Loader } from 'next/dynamic';
+import { ComponentType, Suspense } from 'react';
+import { UIAction } from '../../DocumentProvider/types';
+import {
+  selectDocumentAction,
+  useSelector,
+} from '../../DocumentProvider/selectors';
+import ActionSidebarContentSkeleton from './ActionSidebarContentSkeleton';
 
 const Container = styled.div({
   display: 'flex',
@@ -14,16 +17,20 @@ const Container = styled.div({
 });
 
 const content: Record<UIAction, ComponentType> = {
-  add: dynamic(() => import('../../SidebarAddAnnotation/SidebarAddAnnotation'), {
-    suspense: true
-  }),
+  add: dynamic(
+    () => import('../../SidebarAddAnnotation/SidebarAddAnnotation'),
+    {
+      suspense: true,
+    }
+  ),
   select: () => null,
   delete: () => null,
   clusters: dynamic(() => import('../../SidebarClusters/SidebarClusters'), {
-    suspense: true
+    suspense: true,
   }),
-  settings: () => null
-}
+  settings: () => null,
+  data: dynamic(() => import('../../SidebarMetadataDetails/SidebarMetadata')),
+};
 
 const ActionSidebarContent = () => {
   const action = useSelector(selectDocumentAction);
@@ -35,7 +42,7 @@ const ActionSidebarContent = () => {
         <Content />
       </Suspense>
     </Container>
-  )
-}
+  );
+};
 
 export default ActionSidebarContent;

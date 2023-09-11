@@ -156,9 +156,9 @@ export function memo<TDeps extends readonly any[], TResult>(
             font-size: .6rem;
             font-weight: bold;
             color: hsl(${Math.max(
-            0,
-            Math.min(120 - 120 * resultFpsPercentage, 120)
-          )}deg 100% 31%);`,
+              0,
+              Math.min(120 - 120 * resultFpsPercentage, 120)
+            )}deg 100% 31%);`,
           opts?.key
         );
       }
@@ -182,8 +182,25 @@ export const removeStopScroll = () => {
   });
 };
 
-export const groupBy = <T>(array: T[], predicate: (value: T, index: number, array: T[]) => string) =>
+export const groupBy = <T>(
+  array: T[],
+  predicate: (value: T, index: number, array: T[]) => string
+) =>
   array.reduce((acc, value, index, array) => {
     (acc[predicate(value, index, array)] ||= []).push(value);
     return acc;
   }, {} as { [key: string]: T[] });
+
+export const createObjectFromJson = <T>(jsonObject: any): T => {
+  const result: any = {};
+
+  for (const key in jsonObject) {
+    if (jsonObject.hasOwnProperty(key)) {
+      if (typeof jsonObject[key] !== 'undefined') {
+        result[key] = jsonObject[key];
+      }
+    }
+  }
+
+  return result as T;
+};

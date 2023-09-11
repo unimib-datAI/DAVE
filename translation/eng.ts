@@ -1,4 +1,4 @@
-import { Translation } from "./type";
+import { Translation } from './type';
 
 const t: Translation = {
   infer: {
@@ -7,38 +7,38 @@ const t: Translation = {
     nWords: '{n} words',
     toolbar: {
       browseDocs: 'Browse documents',
-      logout: 'Logout'
+      logout: 'Logout',
     },
-    selectAnnotationSet: 'Set'
+    selectAnnotationSet: 'Set',
   },
   documents: {
     toolbar: {
       logout: 'Logout',
-      searchInput: 'Search for a document'
+      searchInput: 'Search for a document',
     },
     modals: {
       searchInput: 'Search documents...',
-      noResults: 'No results for your query'
+      noResults: 'No results for your query',
     },
     addCard: {
       title: 'Add document',
-      subTitle: 'Upload a new document to annotate'
+      subTitle: 'Upload a new document to annotate',
     },
-    title: 'Documents ({n})'
+    title: 'Documents ({n})',
   },
   document: {
     toolbar: {
       logout: 'Logout',
-      save: 'Salva'
+      save: 'Salva',
     },
     subToolbar: {
       annotationSet: {
         label: 'Set',
-        new: 'New annotation set'
+        new: 'New annotation set',
       },
       types: {
-        label: 'Tipi'
-      }
+        label: 'Tipi',
+      },
     },
     leftSidebar: {
       actionsTooltips: {
@@ -48,19 +48,26 @@ const t: Translation = {
         filter: 'Filter annotation',
         settings: 'Settings',
         clusters: 'Entities clusters',
+        data: 'Show metadata',
       },
       clustersContent: {
         title: 'Entities Clusters',
-        description: 'Below are shown the entities clusters with their mentions',
-        mentions: '{n} mentions'
+        description:
+          'Below are shown the entities clusters with their mentions',
+        mentions: '{n} mentions',
+      },
+      metadataContent: {
+        title: "Document's metadata",
+        description: 'Below are shown the document metadata',
       },
       addContent: {
         title: 'Add annotation',
         description: 'Add a new annotation by selecting a span of text',
         addType: 'Add new type',
         loadTaxonomy: 'Load taxonomy',
-        tooltipNotRecognized: 'This type is not automatically\nrecognized by the algorithm.'
-      }
+        tooltipNotRecognized:
+          'This type is not automatically\nrecognized by the algorithm.',
+      },
     },
     rightSidebar: {
       title: 'Annotation details',
@@ -69,47 +76,52 @@ const t: Translation = {
       typeHierarchy: 'Type hierarchy',
       links: 'Links',
       editBtn: 'Edit',
-      emptyLinks: 'This annotation has not been linked to anything yet.'
+      emptyLinks: 'This annotation has not been linked to anything yet.',
     },
     modals: {
       addType: {
         title: 'Add entity type',
-        description: 'Create a new type to be used to annotate entities in your documents.',
+        description:
+          'Create a new type to be used to annotate entities in your documents.',
         typeNameInput: 'Name of new type',
         tagInput: 'Tag',
         subClassOf: 'Subclass of',
         parentTypeInput: 'Type',
         btnConfirm: 'Add',
-        btnCancel: 'Cancel'
+        btnCancel: 'Cancel',
       },
       addAnnotationSet: {
         title: 'Create a new Annotation Set',
-        description: 'Create a new annotation set. Select an empty preset or an existing set of annotations as starting point:',
+        description:
+          'Create a new annotation set. Select an empty preset or an existing set of annotations as starting point:',
         nameInput: 'Annotation Set name',
-        presetInput: 'Preset'
+        presetInput: 'Preset',
       },
       editAnnotation: {
         title: 'Edit entity annotation',
         context: 'Context',
         type: 'Type',
-        typeDescription: 'Edit the type of the entity by selecting it among the available ones.',
+        typeDescription:
+          'Edit the type of the entity by selecting it among the available ones.',
         links: 'Links',
-        linksDescription: 'Edit links by selecting the true candidate for the entity.',
+        linksDescription:
+          'Edit links by selecting the true candidate for the entity.',
         searchLink: 'Search link...',
         addCandidate: {
           btn: 'Add candidate',
           title: 'Add a new candidate',
-          description: 'Add a new candidate by either inserting a link to a resource or by manually filling in the form below.',
+          description:
+            'Add a new candidate by either inserting a link to a resource or by manually filling in the form below.',
           add: 'Aggiungi',
           candidateTitle: 'Candidate title',
           candidateDescription: 'Candidate description',
-          resourceLink: 'Resource link...'
+          resourceLink: 'Resource link...',
         },
         btnConfirm: 'Confirm',
-        btnCancel: 'Cancel'
-      }
-    }
-  }
+        btnCancel: 'Cancel',
+      },
+    },
+  },
 };
 
 export default t;
