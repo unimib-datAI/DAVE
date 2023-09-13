@@ -62,6 +62,9 @@ dependencies:
   immer:
     specifier: ^9.0.14
     version: 9.0.14
+  jotai:
+    specifier: ^2.4.2
+    version: 2.4.2(@types/react@17.0.43)(react@18.0.0)
   lodash.get:
     specifier: ^4.4.2
     version: 4.4.2
@@ -3326,6 +3329,22 @@ packages:
 
   /jose@4.8.1:
     resolution: {integrity: sha512-+/hpTbRcCw9YC0TOfN1W47pej4a9lRmltdOVdRLz5FP5UvUq3CenhXjQK7u/8NdMIIShMXYAh9VLPhc7TjhvFw==}
+    dev: false
+
+  /jotai@2.4.2(@types/react@17.0.43)(react@18.0.0):
+    resolution: {integrity: sha512-90jXVOd9h6gi5JXk558M+wnJfaaVN2WegcNOCfiFbWboNaDl6DkRgiY/K1oeqTfYJmq8yM7XPsL99LAvcOPqhw==}
+    engines: {node: '>=12.20.0'}
+    peerDependencies:
+      '@types/react': '>=17.0.0'
+      react: '>=17.0.0'
+    peerDependenciesMeta:
+      '@types/react':
+        optional: true
+      react:
+        optional: true
+    dependencies:
+      '@types/react': 17.0.43
+      react: 18.0.0
     dev: false
 
   /js-sha3@0.8.0:
