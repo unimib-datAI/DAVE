@@ -1,5 +1,5 @@
 # Use node alpine as it's a small node image
-FROM node:alpine
+FROM node:16-alpine
 
 ARG ACCESS_USERNAME
 ARG ACCESS_PASSWORD
@@ -12,7 +12,7 @@ ARG NEXT_PUBLIC_BASE_PATH
 
 RUN npm install -g pnpm
 
-# Create the directory on the node image 
+# Create the directory on the node image
 # where our Next.js app will live
 RUN mkdir -p /app
 
@@ -35,5 +35,5 @@ EXPOSE 3000
 # Build
 RUN pnpm build
 
-# Run yarn dev, as we would via the command line 
+# Run yarn dev, as we would via the command line
 CMD ["pnpm", "start"]
