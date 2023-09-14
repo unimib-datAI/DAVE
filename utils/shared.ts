@@ -204,3 +204,26 @@ export const createObjectFromJson = <T>(jsonObject: any): T => {
 
   return result as T;
 };
+
+export function maskWords(inputString: string) {
+  // Split the input string into an array of words
+  const words = inputString.split(' ');
+
+  // Iterate through each word and replace letters with *
+  const maskedWords = words.map((word: string) => {
+    if (word.length <= 1) {
+      // If the word has only one character, don't mask it
+      return word;
+    } else {
+      // Replace all characters except the first one with *
+      const firstLetter = word.charAt(0);
+      const maskedPart = '*'.repeat(word.length - 1);
+      return firstLetter + maskedPart;
+    }
+  });
+
+  // Join the masked words back into a single string
+  const maskedString = maskedWords.join(' ');
+
+  return maskedString;
+}
