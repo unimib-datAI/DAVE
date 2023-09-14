@@ -18,6 +18,7 @@ import {
 } from 'react';
 import { useNERContext } from './nerContext';
 import { FiX } from '@react-icons/all-files/fi/FiX';
+import { FiLink } from '@react-icons/all-files/fi/FiLink';
 import { keyframes } from '@emotion/react';
 import { maskWords } from '@/utils/shared';
 
@@ -197,6 +198,7 @@ function EntityNode(props: EntityNodeProps) {
       >
         {children}
         <TagLabel color={color}>{getTypesText(annotation)}</TagLabel>
+        {annotation.features.url && <FiLink />}
         {showAnnotationDelete && (
           <DeleteButton onClick={handleOnTagDelete(annotation)}>
             <FiX />
