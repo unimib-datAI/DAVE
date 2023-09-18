@@ -1,9 +1,10 @@
-import styled from "@emotion/styled";
-import { selectViews, useSelector } from "../DocumentProvider/selectors";
-import { useViewIndex } from "../ViewProvider/ViewProvider";
-import FixedItems from "./FixedItems";
-import SelectAnnotationSet from "./SelectAnnotationSet";
-import SelectTypeFilter from "./SelectTypeFilter";
+import styled from '@emotion/styled';
+import { selectViews, useSelector } from '../DocumentProvider/selectors';
+import { useViewIndex } from '../ViewProvider/ViewProvider';
+import FixedItems from './FixedItems';
+import SelectAnnotationSet from './SelectAnnotationSet';
+import SelectTypeFilter from './SelectTypeFilter';
+import { AnonimizeSwitch } from './AnonimizeSwitch';
 
 const Container = styled.div({
   display: 'flex',
@@ -12,16 +13,15 @@ const Container = styled.div({
   justifyContent: 'space-between',
   padding: '5px',
   background: '#FFF',
-  borderBottom: '1px solid #F3F3F5'
-})
+  borderBottom: '1px solid #F3F3F5',
+});
 
 const ItemsContainer = styled.div({
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
-  gap: '10px'
-})
-
+  gap: '10px',
+});
 
 const Toolsbar = () => {
   const views = useSelector(selectViews);
@@ -34,10 +34,11 @@ const Toolsbar = () => {
       <ItemsContainer>
         <SelectAnnotationSet />
         <SelectTypeFilter />
+        <AnonimizeSwitch />
       </ItemsContainer>
       {isLastView && <FixedItems />}
     </Container>
-  )
+  );
 };
 
 export default Toolsbar;

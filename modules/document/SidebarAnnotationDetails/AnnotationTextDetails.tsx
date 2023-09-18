@@ -1,15 +1,17 @@
-import { Flex, useText } from "@/components";
-import { EntityAnnotation } from "@/server/routers/document";
-import styled from "@emotion/styled";
-import { Text } from "@nextui-org/react";
-import { scrollEntityIntoView } from "../DocumentProvider/utils";
-import EntityContext from "./EntityContext";
-import TypesHierarchy from "./TypesHierarchy";
+import { Flex, useText } from '@/components';
+import { EntityAnnotation } from '@/server/routers/document';
+import styled from '@emotion/styled';
+import { Text } from '@nextui-org/react';
+import { scrollEntityIntoView } from '../DocumentProvider/utils';
+import EntityContext from './EntityContext';
+import TypesHierarchy from './TypesHierarchy';
+import { useAtom } from 'jotai';
+import { anonimizedNamesAtom } from '@/utils/atoms';
 
 type TextAnnotationDetails = {
   text: string;
   annotation: EntityAnnotation;
-}
+};
 
 const TextAnnotationDetailsContainer = styled.button({
   textAlign: 'left',
@@ -21,35 +23,39 @@ const TextAnnotationDetailsContainer = styled.button({
   transition: 'background 250ms ease-out',
   background: 'rgba(0,0,0,0.04)',
   '&:hover': {
-    background: 'rgba(0,0,0,0.06)'
-  }
-})
-
+    background: 'rgba(0,0,0,0.06)',
+  },
+});
 
 const TextAnnotationDetails = ({ text, annotation }: TextAnnotationDetails) => {
   const t = useText('document');
-
   const types_set = new Set(annotation.features.types || []);
   types_set.add(annotation.type);
   const types = Array.from(types_set);
 
   return (
     <>
-      <Text size={15} b>{t('rightSidebar.entityContext')}</Text>
-      <TextAnnotationDetailsContainer onClick={() => scrollEntityIntoView(annotation.id)}>
+      <Text size={15} b>
+        {t('rightSidebar.entityContext')}
+      </Text>
+      <TextAnnotationDetailsContainer
+        onClick={() => scrollEntityIntoView(annotation.id)}
+      >
         <EntityContext text={text} annotation={annotation} />
       </TextAnnotationDetailsContainer>
-      <Text size={15} b>{t('rightSidebar.typeHierarchy')}</Text>
+      <Text size={15} b>
+        {t('rightSidebar.typeHierarchy')}
+      </Text>
       {types.map((type, index) => (
         <Flex key={type} direction="row" alignItems="center" gap="5px">
-          <Text size={11} b>{index + 1}.</Text>
+          <Text size={11} b>
+            {index + 1}.
+          </Text>
           <TypesHierarchy type={type} />
         </Flex>
       ))}
-
     </>
-
-  )
-}
+  );
+};
 
 export default TextAnnotationDetails;

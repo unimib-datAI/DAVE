@@ -21,6 +21,8 @@ import { FiX } from '@react-icons/all-files/fi/FiX';
 import { FiLink } from '@react-icons/all-files/fi/FiLink';
 import { keyframes } from '@emotion/react';
 import { maskWords } from '@/utils/shared';
+import { useAtom } from 'jotai';
+import { anonimizedNamesAtom } from '@/utils/atoms';
 
 type EntityNodeProps = EntityNode<AdditionalAnnotationProps>;
 
@@ -109,6 +111,8 @@ function EntityNode(props: EntityNodeProps) {
     highlightAnnotation,
     showAnnotationDelete,
   } = useNERContext();
+  //get anonimization status
+  const [anonimized, setAnonimized] = useAtom(anonimizedNamesAtom);
 
   useEffect(() => {
     if (highlightAnnotation === annotation.id) {
@@ -184,7 +188,7 @@ function EntityNode(props: EntityNodeProps) {
     annotation: Annotation<AdditionalAnnotationProps>;
   }) => {
     //this code is used to anonimize the person's name
-    if (annotation.type === 'persona') {
+    if (annotation.type === 'persona' && anonimized) {
       children = maskWords(children as string);
     }
     const tagElement = (

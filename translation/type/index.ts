@@ -30,6 +30,7 @@ export type Translation = {
       logout: string;
     };
     subToolbar: {
+      anonimize: string;
       annotationSet: {
         label: string;
         new: string;

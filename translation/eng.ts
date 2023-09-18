@@ -32,6 +32,7 @@ const t: Translation = {
       save: 'Salva',
     },
     subToolbar: {
+      anonimize: "Anonimize person's names",
       annotationSet: {
         label: 'Set',
         new: 'New annotation set',

@@ -1,25 +1,36 @@
-import { Annotation } from "@/lib/ner/core/types";
-import { AdditionalAnnotationProps, EntityAnnotation } from "@/server/routers/document";
-import styled from "@emotion/styled";
-import { Text } from "@nextui-org/react"
-import { darken } from "polished";
-import { useMemo, useCallback } from "react";
-import { selectDocumentTaxonomy, useSelector } from "../DocumentProvider/selectors";
-import { getAllNodeData } from "../../../components/Tree";
+import { Annotation } from '@/lib/ner/core/types';
+import {
+  AdditionalAnnotationProps,
+  EntityAnnotation,
+} from '@/server/routers/document';
+import styled from '@emotion/styled';
+import { Text } from '@nextui-org/react';
+import { darken } from 'polished';
+import { useMemo, useCallback } from 'react';
+import {
+  selectDocumentTaxonomy,
+  useSelector,
+} from '../DocumentProvider/selectors';
+import { getAllNodeData } from '../../../components/Tree';
+import { useAtom } from 'jotai';
+import { anonimizedNamesAtom } from '@/utils/atoms';
+import { maskWords } from '@/utils/shared';
 
 type EntityContextProps = {
   text: string;
   annotation: EntityAnnotation;
-}
+};
 
-const Tag = styled.span<{ color: string, level: number }>(({ color, level }) => ({
-  position: 'relative',
-  padding: `${level * 3}px 5px`,
-  borderRadius: '6px',
-  background: color,
-  color: darken(0.70, color),
-  cursor: 'pointer',
-}));
+const Tag = styled.span<{ color: string; level: number }>(
+  ({ color, level }) => ({
+    position: 'relative',
+    padding: `${level * 3}px 5px`,
+    borderRadius: '6px',
+    background: color,
+    color: darken(0.7, color),
+    cursor: 'pointer',
+  })
+);
 
 const TagLabel = styled.span<{ color: string }>(({ color }) => ({
   fontSize: '11px',
@@ -31,12 +42,12 @@ const TagLabel = styled.span<{ color: string }>(({ color }) => ({
   pointerEvents: 'none',
   background: darken(0.35, color),
   color: color,
-  verticalAlign: 'middle'
+  verticalAlign: 'middle',
 }));
-
 
 const EntityContext = ({ text, annotation }: EntityContextProps) => {
   const taxonomy = useSelector(selectDocumentTaxonomy);
+  const [anonimized, setAnonimized] = useAtom(anonimizedNamesAtom);
 
   const context = useMemo(() => {
     const { start, end } = annotation;
@@ -44,10 +55,9 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
     const endOffset = end + 50 > text.length ? text.length - end : end + 50;
     return {
       contextLeft: text.slice(startOffset, start),
-      contextRight: text.slice(end, endOffset)
-    }
-  }, [text, annotation])
-
+      contextRight: text.slice(end, endOffset),
+    };
+  }, [text, annotation]);
 
   const getTypesText = (ann: Annotation<AdditionalAnnotationProps>) => {
     const types_set = new Set(annotation.features.types || []);
@@ -57,9 +67,8 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
     if (nMoreTypes === 0) {
       return types[0];
     }
-    return `${types[0]} +${nMoreTypes}`
-  }
-
+    return `${types[0]} +${nMoreTypes}`;
+  };
 
   const taxonomyNode = useMemo(() => {
     const types_set = new Set(annotation.features.types || []);
@@ -70,16 +79,26 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
 
   return (
     <Text size={14} css={{ fontStyle: 'italic', color: 'rgba(0,0,0,0.7)' }}>
-      <span>{context.contextLeft === '' ? `${context.contextLeft}` : `"...${context.contextLeft}`}</span>
-      <Tag color={taxonomyNode.color} level={0} >
-        {annotation.features.mention}
+      <span>
+        {context.contextLeft === ''
+          ? `${context.contextLeft}`
+          : `"...${context.contextLeft}`}
+      </span>
+      <Tag color={taxonomyNode.color} level={0}>
+        {anonimized
+          ? maskWords(annotation.features.mention)
+          : annotation.features.mention}
         <TagLabel color={taxonomyNode.color}>
           {getTypesText(annotation)}
         </TagLabel>
       </Tag>
-      <span>{context.contextRight === '' ? `${context.contextRight}` : `${context.contextRight}..."`}</span>
+      <span>
+        {context.contextRight === ''
+          ? `${context.contextRight}`
+          : `${context.contextRight}..."`}
+      </span>
     </Text>
-  )
-}
+  );
+};
 
 export default EntityContext;
