@@ -1,7 +1,7 @@
 import { DocumentWithChunk } from '@/server/routers/search';
 import { chatHistoryAtom } from '@/utils/atoms';
 import { useAtom } from 'jotai';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 export type Message = {
   role: 'system' | 'assistant' | 'user';
@@ -33,13 +33,24 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
   const [chatHistory, setChatHistory] = useAtom(chatHistoryAtom);
 
   const [state, setState] = useState<MessagesState>({
-    messages: [...initialMessages, ...chatHistory] || [],
-    contexts: [...new Array(initialMessages.length)],
-    statuses: [...new Array(initialMessages.length)],
+    messages:
+      chatHistory.messages.length === 0
+        ? [...initialMessages]
+        : [...chatHistory.messages] || [],
+    contexts:
+      chatHistory.contexts.length === 0
+        ? [...new Array(initialMessages.length)]
+        : [...chatHistory.contexts],
+    statuses:
+      chatHistory.contexts.length === 0
+        ? [...new Array(initialMessages.length)]
+        : [...chatHistory.statuses],
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
-
+  useEffect(() => {
+    setChatHistory(state);
+  }, [state]);
   const messagesRef = useRef(state.messages);
 
   const stream = async ({
@@ -91,6 +102,7 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
           contexts: [...s.contexts, context],
           statuses: [...s.statuses, false],
         }));
+
         initial = false;
       } else {
         setState((s) => {
@@ -111,7 +123,6 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
           };
         });
       }
-      setChatHistory((s) => [...s, { role: 'assistant', content: chunkValue }]);
     }
 
     setState((s) => {
@@ -138,7 +149,7 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
         const contextChunks = generateOptions.context
           .flatMap((doc) => doc.chunks.map((chunk) => `"${chunk.text}"`))
           .join('\n\n');
-        return `CONTESTO:\n${contextChunks}\nnDOMANDA:\n${message}`;
+        return `CONTESTO:\n${contextChunks}\nDOMANDA:\n${message}`;
       }
       return message;
     };
@@ -157,11 +168,12 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
       contexts: [...s.contexts, undefined],
       statuses: [...s.statuses, undefined],
     }));
-    setChatHistory((s) => [...s, newMessage]);
+    // setChatHistory([...chatHistory, newMessage]);
 
     setIsStreaming(true);
     await stream({ ...generateOptions, messages: messagesRef.current });
     setIsStreaming(false);
+    console.log('final', messagesRef.current);
   };
 
   const restartChat = () => {
