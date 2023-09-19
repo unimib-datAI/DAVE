@@ -136,9 +136,9 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
     const generateContent = () => {
       if (generateOptions.context) {
         const contextChunks = generateOptions.context
-          .flatMap((doc) => doc.chunks.map((chunk) => chunk.text))
+          .flatMap((doc) => doc.chunks.map((chunk) => `"${chunk.text}"`))
           .join('\n\n');
-        return `CONTEXT:\n${contextChunks}\nQUERY:\n${message}`;
+        return `CONTESTO:\n${contextChunks}\nnDOMANDA:\n${message}`;
       }
       return message;
     };

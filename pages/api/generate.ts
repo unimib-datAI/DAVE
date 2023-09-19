@@ -13,8 +13,8 @@ export type GenerateRequest = {
 };
 
 const defaultSystemPromptSearch =
-  "Replay to the user QUERY only using the information in the CONTEXT. If you don't know the answer just say that you don't know.";
-const defaultSystemPrompt = 'Answer to the user questions';
+  "Sei un assistente che parla esclusivamente italiano. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni nel CONTESTO. Se non conosci la risposta, limitati a dire che non lo sai.";
+const defaultSystemPrompt = "Rispondi alle domande dell'utente.";
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== 'POST') {

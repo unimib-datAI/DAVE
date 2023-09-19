@@ -76,7 +76,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     {
       endpoint: '/api/generate',
       initialMessages: [
-        { role: 'assistant', content: 'Hi, how can I help you?' },
+        { role: 'assistant', content: 'Ciao, come posso aiutarti?' },
       ],
     }
   );
