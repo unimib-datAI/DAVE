@@ -85,7 +85,7 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
           : `"...${context.contextLeft}`}
       </span>
       <Tag color={taxonomyNode.color} level={0}>
-        {anonimized
+        {anonimized && annotation.type === 'persona'
           ? maskWords(annotation.features.mention)
           : annotation.features.mention}
         <TagLabel color={taxonomyNode.color}>
