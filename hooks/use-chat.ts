@@ -177,6 +177,7 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
 
   const restartChat = () => {
     messagesRef.current = initialMessages;
+    setChatHistory({ messages: initialMessages, contexts: [], statuses: [] });
     setState((s) => ({ ...s, messages: initialMessages }));
   };
 
