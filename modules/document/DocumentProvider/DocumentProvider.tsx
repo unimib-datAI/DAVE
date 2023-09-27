@@ -18,7 +18,9 @@ import { createTaxonomy } from './utils';
  */
 const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   const [id] = useParam<string>('id');
-  const { data, isFetching } = useQuery(['document.getDocument', { id: id }], { staleTime: Infinity });
+  const { data, isFetching } = useQuery(['document.getDocument', { id: id }], {
+    staleTime: Infinity,
+  });
 
   if (isFetching || !data) {
     return <SkeletonLayout />;
@@ -69,7 +71,6 @@ const initializeState = (data: Document): State => {
   }
   // create taxonomy from the base one and by adding additional sub types of unknown
   const taxonomy = createTaxonomy(baseTaxonomy, entityAnnotationSets);
-
   // order the annotations once for each annotation set
   Object.values(data.annotation_sets).forEach((annSet) => {
     annSet.annotations = orderAnnotations(annSet.annotations);

@@ -1,4 +1,4 @@
-import { type MutableRefObject, useEffect } from "react";
+import { type MutableRefObject, useEffect } from 'react';
 
 const config: MutationObserverInit = {
   attributes: true,
@@ -15,7 +15,6 @@ function useMutationObserver(
   useEffect(() => {
     // Create an observer instance linked to the callback function
     if (ref.current) {
-      console.log(ref.current);
       const observer = new MutationObserver(callback);
 
       // Start observing the target node for configured mutations

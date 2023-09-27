@@ -9,8 +9,8 @@ import { useMemo } from 'react';
 
 type AnnotationLinkDetailsProps = {
   annotationFeatures:
-  | Annotation<AdditionalAnnotationProps>['features']
-  | undefined;
+    | Annotation<AdditionalAnnotationProps>['features']
+    | undefined;
 };
 
 const Container = styled.div({
@@ -71,7 +71,9 @@ const ListAdditionalCandidates = ({
                   textOverflow: 'ellipsis',
                 }}
               >
-                <Link href={candidate.url} target="_blank">{candidate.url}</Link>
+                <Link href={candidate.url} target="_blank">
+                  {candidate.url}
+                </Link>
               </Text>
             </ListItemContent>
           </ListItemContainer>
@@ -115,7 +117,6 @@ const AnnotationLinkDetails = ({
       isNil = annotationFeatures.is_nil;
     }
 
-    console.log(isNil);
     return isNil;
   };
 
@@ -137,7 +138,9 @@ const AnnotationLinkDetails = ({
           <>
             <Text>{annotationFeatures.title}</Text>
             <Text size={12}>
-              <Link href={annotationFeatures.url} target="_blank">{annotationFeatures.url}</Link>
+              <Link href={annotationFeatures.url} target="_blank">
+                {annotationFeatures.url}
+              </Link>
             </Text>
           </>
         )}

@@ -35,7 +35,6 @@ const SidebarMetadata = () => {
   const features = createObjectFromJson<DocumentMetadataFeatures>(
     documentData?.features
   );
-  console.log('DOCUMENT', features);
   return documentData ? (
     <Container>
       <ContentTitle>

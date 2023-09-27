@@ -173,7 +173,6 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
     setIsStreaming(true);
     await stream({ ...generateOptions, messages: messagesRef.current });
     setIsStreaming(false);
-    console.log('final', messagesRef.current);
   };
 
   const restartChat = () => {

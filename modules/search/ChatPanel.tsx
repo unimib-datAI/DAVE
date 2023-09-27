@@ -107,7 +107,6 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     }
 
     const useDocumentContext = !devMode || formValues.useDocumentContext;
-    console.log('message', formValues.message);
     const context = useDocumentContext
       ? await mostSimilarDocumentsMutation.mutateAsync({
           query: formValues.message,

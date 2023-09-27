@@ -103,7 +103,6 @@ export const search = createRouter()
       query: z.string(),
     }),
     resolve: async ({ input }) => {
-      console.log('query', input.query);
       const documents = (await fetch(
         `${process.env.API_INDEXER}/chroma/collection/test/query`,
         {

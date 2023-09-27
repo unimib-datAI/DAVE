@@ -174,7 +174,6 @@ function EntityNode(props: EntityNodeProps) {
     }
     return `${types[0]} +${nMoreTypes}`;
   };
-
   /**
    * Get a tag element
    */
@@ -202,7 +201,8 @@ function EntityNode(props: EntityNodeProps) {
       >
         {children}
         <TagLabel color={color}>{getTypesText(annotation)}</TagLabel>
-        {annotation.features.url && <FiLink />}
+        {annotation.features.url &&
+          annotation.features.url.startsWith('https://') && <FiLink />}
         {showAnnotationDelete && (
           <DeleteButton onClick={handleOnTagDelete(annotation)}>
             <FiX />

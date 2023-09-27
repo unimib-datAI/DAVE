@@ -114,8 +114,6 @@ const ReviewDocument = () => {
       return;
     }
 
-    console.log(`Saving docId ${docId}`);
-
     saveDocumentMutation.mutate(
       {
         sourceId,
@@ -135,15 +133,12 @@ const ReviewDocument = () => {
   }, [total, done, sourceId, docId, docToSave, isDocDone]);
 
   const handleOverwriteDocument = () => {
-    saveDocumentMutation.mutate(
-      {
-        sourceId,
-        docId,
-        document: docToSave,
-      }
-    );
-  }
-
+    saveDocumentMutation.mutate({
+      sourceId,
+      docId,
+      document: docToSave,
+    });
+  };
 
   useDocumentEventListener('keydown', (event) => {
     // disable hotkeys if in loading state or if I'm holding down the keys
@@ -171,8 +166,10 @@ const ReviewDocument = () => {
     // assign new item and go next
     if (event.key === 'q' && event.ctrlKey) {
       event.preventDefault();
-      const hrefKey = currentAnnotation?.features.mention.replace(/\s{1,}/g, '+').toLowerCase();
-      const href = `https://it.wikipedia.org/wiki/Special:Search?go=Go&search=${hrefKey}`
+      const hrefKey = currentAnnotation?.features.mention
+        .replace(/\s{1,}/g, '+')
+        .toLowerCase();
+      const href = `https://it.wikipedia.org/wiki/Special:Search?go=Go&search=${hrefKey}`;
       window.open(href, '_blank');
       return;
     }
@@ -183,7 +180,7 @@ const ReviewDocument = () => {
 
       flushSync(() => {
         dispatch({
-          type: 'confirmAnnotation'
+          type: 'confirmAnnotation',
         });
       });
       scrollToNextItem();
@@ -196,7 +193,7 @@ const ReviewDocument = () => {
       event.preventDefault();
       flushSync(() => {
         dispatch({
-          type: 'nilAnnotation'
+          type: 'nilAnnotation',
         });
       });
       scrollToNextItem();

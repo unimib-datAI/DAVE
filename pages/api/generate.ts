@@ -42,7 +42,6 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   params.messages.unshift({ role: 'system', content: systemContent });
   // remove display message only used in the app
   const messages = params.messages.map(({ usrMessage, ...rest }) => rest);
-  console.log('messages used', messages);
   try {
     const response = await fetch(`${process.env.API_LLM}/generate`, {
       headers: {
