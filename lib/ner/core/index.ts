@@ -22,11 +22,56 @@ export const orderAnnotations = <T>(annotations: Annotation<T>[]) => {
 };
 
 /**
+ * JavaScript and Python handle characters and strings differently due to Unicode encoding.
+ * In Python, strings are represented as sequences of Unicode characters, while JavaScript
+ * represents strings as sequences of UTF-16 code units, which can lead to differences
+ * in handling emojis and characters outside the Basic Multilingual Plane (BMP).
+ *
+ * This function converts Python string indexes to JavaScript string indexes.
+ *
+ * @param {number} pyIndex The index in the Python string.
+ * @param {string} pyString The Python string containing Unicode characters.
+ * @returns {number} The equivalent index in the JavaScript string.
+ */
+export const pythonToJSIndex = <T>(pyIndex: number, pyString: string): number => {
+  let jsIndex = 0;
+  for (let i = 0; i < pyIndex && jsIndex < pyString.length; i++) {
+    let char = pyString.charAt(jsIndex);
+    if (char >= '\uD800' && char <= '\uDBFF') {
+      jsIndex += 2; // Skip high surrogate
+    } else {
+      jsIndex += 1;
+    }
+  }
+  return jsIndex;
+};
+
+// def js_to_python_index(js_index, js_string):
+//     python_index = 0
+//     for i in range(js_index):
+//         if ord(js_string[python_index]) >= 0xD800 and ord(js_string[python_index]) <= 0xDBFF:
+//             python_index += 2  # Skip high surrogate
+//         else:
+//             python_index += 1
+//         if python_index > len(js_string) - 1:
+//             break
+//     return python_index
+
+// # Example usage:
+// js_string = "JavaScript 😊"  # JavaScript string containing an emoji
+// js_index = 12  # Index of emoji in JavaScript
+// python_index = js_to_python_index(js_index, js_string)
+// print("Python index:", python_index)  # Output: Python index: 11
+
+
+/**
  * Get a span of text: text, start and end
  */
 export const getSpan = (text: string, start: number, end: number) => {
+  const jsstart = pythonToJSIndex(start, text);
+  const jsend = pythonToJSIndex(end, text);
   return {
-    text: text.slice(start, end),
+    text: text.slice(jsstart, jsend),
     start,
     end,
   };
