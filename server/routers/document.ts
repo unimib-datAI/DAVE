@@ -4,6 +4,8 @@ import { TRPCError } from '@trpc/server';
 import fetchJson from '@/lib/fetchJson';
 import { getAuthHeader } from '../get-auth-header';
 import { Annotation } from '@/lib/ner/core/types';
+import fs from 'fs';
+import path from 'path';
 
 export type Document = {
   _id: string;
@@ -78,9 +80,34 @@ export type SectionAnnotation = Annotation;
 
 const baseURL = `${process.env.API_BASE_URI}/mongo`;
 // const baseURL = `${process.env.API_BASE_URI}`;
-
+//TODO: modificare chiamata per cercare il doc in locale
 const getDocumentById = async (id: number): Promise<Document> => {
   try {
+    const localDocumentsDirectory = path.join(process.cwd(), '/_files');
+
+    let documents: Document[] = [];
+    fs.readdir(localDocumentsDirectory, (err, files) => {
+      if (err) {
+        console.log('Error reading directory:', err);
+        return;
+      }
+
+      let data: Document[] = [];
+      files.forEach((file) => {
+        if (path.extname(file) === '.json') {
+          const filePath = path.join(localDocumentsDirectory, file);
+          const fileData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          documents.push(fileData);
+        }
+      });
+    });
+    const selectedDocument = documents.find((doc) => doc.id === id);
+    if (selectedDocument) return selectedDocument;
+    else
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: `Document with id '${id}' not found.`,
+      });
     const document = await fetchJson<any, Document>(
       `${baseURL}/document/${id}`,
       {
@@ -118,28 +145,63 @@ export type GetPaginatedDocuments = {
   nextPage: number | null;
 };
 
+//edited function to get documents from local directory
 const getDocuments = async (
   cursor: number,
   limit: number,
   q?: string
 ): Promise<GetPaginatedDocuments> => {
-  const res = await fetchJson<any, GetPaginatedDocuments>(
-    `${baseURL}/document?q=${q}&page=${cursor}&limit=${limit}`,
-    {
-      headers: {
-        Authorization: getAuthHeader(),
-      },
-    }
-  );
-  return res;
+  return new Promise<GetPaginatedDocuments>((resolve, reject) => {
+    const localDocumentsDirectory = path.join(process.cwd(), '/_files');
+
+    let documents: Document[] = [];
+    fs.readdir(localDocumentsDirectory, (err, files) => {
+      if (err) {
+        console.log('Error reading directory:', err);
+        return;
+      }
+
+      files.forEach((file) => {
+        if (path.extname(file) === '.json') {
+          const filePath = path.join(localDocumentsDirectory, file);
+          const fileData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          let document = fileData as GetDocumentsDoc;
+          document._id = fileData.id.toString();
+          documents.push(fileData);
+        }
+      });
+    });
+    let returnData: GetPaginatedDocuments = {
+      docs: documents,
+      totalDocs: documents.length,
+      limit: limit,
+      totalPages: 1,
+      page: cursor,
+      pagingCounter: 1,
+      hasPrevPage: false,
+      hasNextPage: false,
+      prevPage: null,
+      nextPage: null,
+    };
+
+    resolve(returnData);
+  });
+  // const res = await fetchJson<any, GetPaginatedDocuments>(
+  //   `${baseURL}/document?q=${q}&page=${cursor}&limit=${limit}`,
+  //   {
+  //     headers: {
+  //       Authorization: getAuthHeader(),
+  //     },
+  //   }
+  // );
+  // return res;
 };
 
 export const documents = createRouter()
   .query('getDocument', {
-    input: z
-      .object({
-        id: z.any(),
-      }),
+    input: z.object({
+      id: z.any(),
+    }),
     resolve: ({ input }) => {
       const { id } = input;
       return getDocumentById(id);
