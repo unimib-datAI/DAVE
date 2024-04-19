@@ -85,42 +85,32 @@ const getDocumentById = async (id: number): Promise<Document> => {
   try {
     const localDocumentsDirectory = path.join(process.cwd(), '/_files');
 
-    let documents: Document[] = [];
-    fs.readdir(localDocumentsDirectory, (err, files) => {
-      if (err) {
-        console.log('Error reading directory:', err);
-        return;
-      }
+    const files = await fs.promises.readdir(localDocumentsDirectory);
+    let selectedDocument: Document | undefined = undefined;
+    const fileReadPromises = files.map(async (file) => {
+      if (path.extname(file) === '.json') {
+        const filePath = path.join(localDocumentsDirectory, file);
+        const fileData = JSON.parse(
+          await fs.promises.readFile(filePath, 'utf8')
+        );
 
-      let data: Document[] = [];
-      files.forEach((file) => {
-        if (path.extname(file) === '.json') {
-          const filePath = path.join(localDocumentsDirectory, file);
-          const fileData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-          documents.push(fileData);
+        if (Number(fileData.id) === Number(id)) {
+          selectedDocument = fileData as Document;
         }
-      });
+      }
     });
-    const selectedDocument = documents.find((doc) => doc.id === id);
+    await Promise.all(fileReadPromises);
     if (selectedDocument) return selectedDocument;
     else
       throw new TRPCError({
         code: 'NOT_FOUND',
-        message: `Document with id '${id}' not found.`,
+        message: `Document with id boh '${id}' not found.`,
       });
-    const document = await fetchJson<any, Document>(
-      `${baseURL}/document/${id}`,
-      {
-        headers: {
-          Authorization: getAuthHeader(),
-        },
-      }
-    );
-    return document;
   } catch (err) {
+    console.error('Error reading directory:', err);
     throw new TRPCError({
       code: 'NOT_FOUND',
-      message: `Document with id '${id}' not found.`,
+      message: `Document with id except '${id}' not found.`,
     });
   }
 };
@@ -151,40 +141,43 @@ const getDocuments = async (
   limit: number,
   q?: string
 ): Promise<GetPaginatedDocuments> => {
-  return new Promise<GetPaginatedDocuments>((resolve, reject) => {
+  return new Promise<GetPaginatedDocuments>(async (resolve, reject) => {
     const localDocumentsDirectory = path.join(process.cwd(), '/_files');
-
     let documents: Document[] = [];
-    fs.readdir(localDocumentsDirectory, (err, files) => {
-      if (err) {
-        console.log('Error reading directory:', err);
-        return;
-      }
 
-      files.forEach((file) => {
+    try {
+      const files = await fs.promises.readdir(localDocumentsDirectory);
+
+      const fileReadPromises = files.map(async (file) => {
         if (path.extname(file) === '.json') {
           const filePath = path.join(localDocumentsDirectory, file);
-          const fileData = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          const fileData = JSON.parse(
+            await fs.promises.readFile(filePath, 'utf8')
+          );
           let document = fileData as GetDocumentsDoc;
           document._id = fileData.id.toString();
           documents.push(fileData);
         }
       });
-    });
-    let returnData: GetPaginatedDocuments = {
-      docs: documents,
-      totalDocs: documents.length,
-      limit: limit,
-      totalPages: 1,
-      page: cursor,
-      pagingCounter: 1,
-      hasPrevPage: false,
-      hasNextPage: false,
-      prevPage: null,
-      nextPage: null,
-    };
 
-    resolve(returnData);
+      await Promise.all(fileReadPromises);
+
+      let returnData: GetPaginatedDocuments = {
+        docs: documents,
+        totalDocs: documents.length,
+        limit: limit,
+        totalPages: 1,
+        page: cursor,
+        pagingCounter: 1,
+        hasPrevPage: false,
+        hasNextPage: false,
+        prevPage: null,
+        nextPage: null,
+      };
+      resolve(returnData);
+    } catch (err) {
+      console.log('Error reading directory:', err);
+    }
   });
   // const res = await fetchJson<any, GetPaginatedDocuments>(
   //   `${baseURL}/document?q=${q}&page=${cursor}&limit=${limit}`,
