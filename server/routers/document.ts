@@ -154,6 +154,9 @@ const getDocuments = async (
           const fileData = JSON.parse(
             await fs.promises.readFile(filePath, 'utf8')
           );
+          delete fileData.text;
+          delete fileData.annotation_sets;
+
           let document = fileData as GetDocumentsDoc;
           document._id = fileData.id.toString();
           documents.push(fileData);
@@ -177,6 +180,7 @@ const getDocuments = async (
       resolve(returnData);
     } catch (err) {
       console.log('Error reading directory:', err);
+      console.error(err);
     }
   });
   // const res = await fetchJson<any, GetPaginatedDocuments>(
