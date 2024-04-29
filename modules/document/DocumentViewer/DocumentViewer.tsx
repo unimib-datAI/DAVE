@@ -67,6 +67,18 @@ const DocumentViewer = () => {
           });
         }
         break;
+      //replicated case for clusters to allow easier navigation when selecting a cluster
+      case 'clusters':
+        {
+          dispatch({
+            type: 'setCurrentEntityId',
+            payload: {
+              viewIndex,
+              annotationId: annotation.id,
+            },
+          });
+        }
+        break;
       case 'delete':
         {
           dispatch({
