@@ -4,7 +4,13 @@ import { useHashUrlId } from '@/hooks';
 import useNER from '@/lib/ner/core/use-ner';
 import { EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { MouseEvent, useEffect } from 'react';
+import {
+  MouseEvent,
+  PropsWithChildren,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import {
   selectAddSelectionColor,
   selectDocumentAction,
@@ -33,7 +39,7 @@ const DocumentContainer = styled.div`
   content-visibility: auto;
 `;
 
-const DocumentViewer = () => {
+const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
   const viewIndex = useViewIndex();
   const action = useSelector(selectDocumentAction);
   const text = useSelector(selectDocumentText);
@@ -46,6 +52,9 @@ const DocumentViewer = () => {
   const sectionUrlHashId = useHashUrlId();
   const highlightAnnotationId = useSelector(selectHighlightAnnotationId);
   const dispatch = useDocumentDispatch();
+  useEffect(() => {
+    console.log('page number', page);
+  }, [page]);
   useEffect(() => {
     const element = document.querySelector(`#${sectionUrlHashId}`);
     if (!element) {
@@ -122,7 +131,10 @@ const DocumentViewer = () => {
       <DocumentContainer>
         <NER
           taxonomy={taxonomy}
-          text={text}
+          text={text
+            .split(' ')
+            .slice(0, 500 * page)
+            .join(' ')}
           entityAnnotations={filteredAnnotations}
           sectionAnnotations={sectionAnnotations}
           highlightAnnotation={highlightAnnotationId}

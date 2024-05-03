@@ -134,6 +134,52 @@ export type GetPaginatedDocuments = {
   prevPage: number | null;
   nextPage: number | null;
 };
+/**
+ * Function used to retrieve all documents from disk, when a query is not specified,
+ * it is for demo purpose, in production it should be used to retrieve documents from the database
+ */
+const getLocalDocuments = async () => {
+  const localDocumentsDirectory = path.join(process.cwd(), '/_files');
+  let documents: Document[] = [];
+
+  try {
+    const files = await fs.promises.readdir(localDocumentsDirectory);
+
+    const fileReadPromises = files.map(async (file) => {
+      if (path.extname(file) === '.json') {
+        const filePath = path.join(localDocumentsDirectory, file);
+        const fileData = JSON.parse(
+          await fs.promises.readFile(filePath, 'utf8')
+        );
+        delete fileData.text;
+        delete fileData.annotation_sets;
+
+        let document = fileData as GetDocumentsDoc;
+        document._id = fileData.id.toString();
+        documents.push(fileData);
+      }
+    });
+
+    await Promise.all(fileReadPromises);
+
+    let returnData: GetPaginatedDocuments = {
+      docs: documents,
+      totalDocs: documents.length,
+      limit: 100,
+      totalPages: 1,
+      page: 1,
+      pagingCounter: 1,
+      hasPrevPage: false,
+      hasNextPage: false,
+      prevPage: null,
+      nextPage: null,
+    };
+    return returnData;
+  } catch (err) {
+    console.log('Error reading directory:', err);
+    console.error(err);
+  }
+};
 
 //edited function to get documents from local directory
 const getDocuments = async (
@@ -142,35 +188,35 @@ const getDocuments = async (
   q?: string
 ): Promise<GetPaginatedDocuments> => {
   return new Promise<GetPaginatedDocuments>(async (resolve, reject) => {
-    const localDocumentsDirectory = path.join(process.cwd(), '/_files');
-    let documents: Document[] = [];
+    console.info('getDocuments', cursor, limit);
 
-    try {
-      const files = await fs.promises.readdir(localDocumentsDirectory);
-
-      const fileReadPromises = files.map(async (file) => {
-        if (path.extname(file) === '.json') {
-          const filePath = path.join(localDocumentsDirectory, file);
-          const fileData = JSON.parse(
-            await fs.promises.readFile(filePath, 'utf8')
-          );
-          delete fileData.text;
-          delete fileData.annotation_sets;
-
-          let document = fileData as GetDocumentsDoc;
-          document._id = fileData.id.toString();
-          documents.push(fileData);
-        }
+    if (!q) {
+      let returnData: GetPaginatedDocuments | undefined =
+        await getLocalDocuments();
+      if (returnData) {
+        resolve(returnData);
+      } else {
+        reject(new Error('Failed to retrieve documents.'));
+      }
+    } else {
+      let documents = await fetch('http://localhost:8000/query', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: q,
+        }),
       });
-
-      await Promise.all(fileReadPromises);
+      let resDocuments: GetDocumentsDoc[] =
+        (await documents.json()) as GetDocumentsDoc[];
 
       let returnData: GetPaginatedDocuments = {
-        docs: documents,
-        totalDocs: documents.length,
-        limit: limit,
+        docs: resDocuments,
+        totalDocs: resDocuments.length,
+        limit: 100,
         totalPages: 1,
-        page: cursor,
+        page: 1,
         pagingCounter: 1,
         hasPrevPage: false,
         hasNextPage: false,
@@ -178,9 +224,6 @@ const getDocuments = async (
         nextPage: null,
       };
       resolve(returnData);
-    } catch (err) {
-      console.log('Error reading directory:', err);
-      console.error(err);
     }
   });
   // const res = await fetchJson<any, GetPaginatedDocuments>(

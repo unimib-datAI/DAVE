@@ -269,7 +269,7 @@ function EntityNode(props: EntityNodeProps) {
   // memoized the tag recursion so that it runs only when the tag prop changes
   // const tagContent = useMemo(() => recurseTag(), [recurseTag]);
 
-  return <>{getTag({ color, annotation, children: text })}</>;
+  return <>{text ? getTag({ color, annotation, children: text }) : null}</>;
 }
 
 export default EntityNode;

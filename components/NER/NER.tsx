@@ -3,7 +3,14 @@ import { FlattenedTaxonomy } from '@/modules/document/DocumentProvider/types';
 import { getAllNodeData } from '@/components/Tree';
 import { EntityAnnotation, SectionAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { useCallback, useMemo, MouseEvent, ReactNode } from 'react';
+import {
+  useCallback,
+  useMemo,
+  MouseEvent,
+  ReactNode,
+  useRef,
+  useEffect,
+} from 'react';
 import EntityNode from './EntityNode';
 import { NERContext } from './nerContext';
 import Section from './Section';
