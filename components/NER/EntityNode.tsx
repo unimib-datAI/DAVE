@@ -122,7 +122,14 @@ function EntityNode(props: EntityNodeProps) {
       }, 1000);
     }
   }, [highlightAnnotation]);
-
+  useEffect(() => {
+    if (highlightAnnotation === annotation.id) {
+      setHighlight(true);
+      setTimeout(() => {
+        setHighlight(false);
+      }, 1000);
+    }
+  }, []);
   const handleTagClick =
     (ann: Annotation<AdditionalAnnotationProps>) => (event: MouseEvent) => {
       event.stopPropagation();

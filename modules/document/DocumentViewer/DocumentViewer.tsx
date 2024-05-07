@@ -52,8 +52,7 @@ const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
   const sectionUrlHashId = useHashUrlId();
   const highlightAnnotationId = useSelector(selectHighlightAnnotationId);
   const dispatch = useDocumentDispatch();
-  const [paginatedText, setPaginatedText] = useState('');
- 
+
   useEffect(() => {
     const element = document.querySelector(`#${sectionUrlHashId}`);
     if (!element) {
@@ -124,7 +123,7 @@ const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
       },
     });
   };
- 
+
   return (
     <Container>
       <DocumentContainer>

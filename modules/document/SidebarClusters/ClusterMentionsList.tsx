@@ -57,8 +57,8 @@ const IconButtonContainer = styled.div({
 });
 
 const Mark = styled.mark({
-  background: '#f7f7a2'
-})
+  background: '#f7f7a2',
+});
 
 const highlightMatchingText = (text: string, matchingText: string) => {
   const matchRegex = RegExp(matchingText, 'ig');
@@ -66,24 +66,25 @@ const highlightMatchingText = (text: string, matchingText: string) => {
   // Matches array needed to maintain the correct letter casing
   const matches = [...Array.from(text.matchAll(matchRegex))];
 
-  return text
-    .split(matchRegex)
-    .map((nonBoldText, index, arr) => (
-      <Fragment key={index}>
-        {nonBoldText}
-        {index + 1 !== arr.length && <Mark>{matches[index]}</Mark>}
-      </Fragment>
-    ));
+  return text.split(matchRegex).map((nonBoldText, index, arr) => (
+    <Fragment key={index}>
+      {nonBoldText}
+      {index + 1 !== arr.length && <Mark>{matches[index]}</Mark>}
+    </Fragment>
+  ));
 };
 
 const ClusterMentionsList = ({ mentions }: ClusterMentionsListProps) => {
   // const dispatch = useDocumentDispatch();
-  const router = useRouter()
+  const router = useRouter();
 
   const handleOnClick = (id: number) => (event: MouseEvent) => {
+    console.log('cluter clicked');
     event.stopPropagation();
 
-    router.push(`/documents/${router.query.id}?annotationId=${id}`, undefined, { shallow: true })
+    router.push(`/documents/${router.query.id}?annotationId=${id}`, undefined, {
+      shallow: true,
+    });
   };
 
   return (

@@ -3,6 +3,7 @@ import styled from '@emotion/styled';
 import {
   MouseEvent,
   PropsWithChildren,
+  UIEventHandler,
   useCallback,
   useEffect,
   useRef,

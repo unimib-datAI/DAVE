@@ -13,12 +13,10 @@ const DocumentContainer = styled.div({
 const View = () => {
   const [page, setPage] = useState(1);
   async function loadNextPage() {
-    console.log('loading next page');
     setPage((prevPage) => prevPage + 1);
   }
   async function loadPrevPage() {
-    console.log('loading next page');
-    setPage((prevPage) => (prevPage > 0 ? prevPage - 1 : 0));
+    setPage((prevPage) => (prevPage > 1 ? prevPage - 1 : 1));
   }
   return (
     <>

@@ -69,15 +69,17 @@ const NER = ({
     }),
     [props, getTaxonomyNode]
   );
-
+  console.log('highlighted', props.highlightAnnotation);
   return (
     <NERContext.Provider value={contextValue}>
       <NodesContainer>
         {nodes.map((node) => {
-          let startIndex = page - 4 > 0 ? (page - 4) * 5000 : 0;
-          let endIndex = page * 5000;
+          let endIndex = page * 5000 < text.length ? page * 5000 : text.length;
+          if (page === 1) endIndex = 5000;
+          let startIndex = 0;
+          if (page > 1 && endIndex !== text.length)
+            startIndex = page - 4 > 0 ? (page - 4) * 5000 : 0;
           if (node.start > startIndex && node.end < endIndex) {
-            console.log('node', node.start > startIndex && node.end < endIndex);
             if (node.type === 'section') {
               return (
                 <Section {...node}>
