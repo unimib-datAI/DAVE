@@ -19,6 +19,7 @@ import { SectionsList } from '../SectionsList';
 
 type NERProps = {
   text: string;
+  page: number;
   entityAnnotations: EntityAnnotation[];
   sectionAnnotations?: SectionAnnotation[];
   taxonomy: FlattenedTaxonomy;
@@ -46,6 +47,7 @@ const NER = ({
   entityAnnotations,
   sectionAnnotations,
   taxonomy,
+  page,
   ...props
 }: NERProps) => {
   const nodes = useNER({
@@ -72,23 +74,29 @@ const NER = ({
     <NERContext.Provider value={contextValue}>
       <NodesContainer>
         {nodes.map((node) => {
-          if (node.type === 'section') {
-            return (
-              <Section {...node}>
-                {node.contentNodes.map(({ key, ...nodeProps }) => {
-                  if (nodeProps.type === 'text') {
-                    return <TextNode key={key} {...nodeProps} />;
-                  }
-                  return <EntityNode key={key} {...nodeProps} />;
-                })}
-              </Section>
-            );
+          let startIndex = page - 4 > 0 ? (page - 4) * 5000 : 0;
+          let endIndex = page * 5000;
+          if (node.start > startIndex && node.end < endIndex) {
+            console.log('node', node.start > startIndex && node.end < endIndex);
+            if (node.type === 'section') {
+              return (
+                <Section {...node}>
+                  {node.contentNodes.map(({ key, ...nodeProps }) => {
+                    if (nodeProps.type === 'text') {
+                      return <TextNode key={key} {...nodeProps} />;
+                    }
+                    return <EntityNode key={key} {...nodeProps} />;
+                  })}
+                </Section>
+              );
+            }
+            if (node.type === 'text') {
+              return <TextNode {...node} />;
+              return null;
+            }
+            const { key, ...props } = node;
+            return <EntityNode key={key} {...props} />;
           }
-          if (node.type === 'text') {
-            return <TextNode {...node} />;
-          }
-          const { key, ...props } = node;
-          return <EntityNode key={key} {...props} />;
         })}
       </NodesContainer>
     </NERContext.Provider>

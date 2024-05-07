@@ -52,9 +52,8 @@ const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
   const sectionUrlHashId = useHashUrlId();
   const highlightAnnotationId = useSelector(selectHighlightAnnotationId);
   const dispatch = useDocumentDispatch();
-  useEffect(() => {
-    console.log('page number', page);
-  }, [page]);
+  const [paginatedText, setPaginatedText] = useState('');
+ 
   useEffect(() => {
     const element = document.querySelector(`#${sectionUrlHashId}`);
     if (!element) {
@@ -125,16 +124,13 @@ const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
       },
     });
   };
-
+ 
   return (
     <Container>
       <DocumentContainer>
         <NER
           taxonomy={taxonomy}
-          text={text
-            .split(' ')
-            .slice(0, 500 * page)
-            .join(' ')}
+          text={text}
           entityAnnotations={filteredAnnotations}
           sectionAnnotations={sectionAnnotations}
           highlightAnnotation={highlightAnnotationId}
@@ -143,6 +139,7 @@ const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
           onTagClick={handleTagClick}
           onTextSelection={onTextSelection}
           onTagDelete={handleTagDelete}
+          page={page}
         />
       </DocumentContainer>
     </Container>

@@ -112,7 +112,8 @@ const Scrollbar = (props: ScrollbarProps) => {
 const Scroller = ({
   children,
   onScrollEnd,
-}: PropsWithChildren<{ onScrollEnd: () => void }>) => {
+  onScrollTop,
+}: PropsWithChildren<{ onScrollEnd: () => void; onScrollTop: () => void }>) => {
   const [scrollBoxSizes, setScrollBoxSizes] =
     useState<ScrollBoxSizes>(scrollbarBoxSizes);
   const [isScrollbarVisible, setIsScrollbarVisible] = useState(false);
@@ -133,9 +134,8 @@ const Scroller = ({
     setIsScrollbarVisible(false);
   };
 
-  const handleScroll = (e: {
-    target: { scrollHeight: number; scrollTop: number; clientHeight: number };
-  }) => {
+  const handleScroll = (e: Event) => {
+    const target = e.target as HTMLElement;
     if (!scrollHostRef.current) {
       return;
     }
@@ -145,11 +145,12 @@ const Scroller = ({
     newTop = Math.min(newTop, offsetHeight - scrollBoxSizes.boxHeight);
     setScrollBoxSizes((s) => ({ ...s, thumbTop: newTop }));
     const bottom =
-      e.target.scrollHeight - e.target.scrollTop === e.target.clientHeight;
+      target.scrollHeight - target.scrollTop === target.clientHeight;
     if (bottom) {
-      // Call your function here
-      console.log('Reached bottom!');
       onScrollEnd();
+    }
+    if (target.scrollTop === 0) {
+      onScrollTop();
     }
   };
 

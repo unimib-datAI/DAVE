@@ -16,10 +16,14 @@ const View = () => {
     console.log('loading next page');
     setPage((prevPage) => prevPage + 1);
   }
+  async function loadPrevPage() {
+    console.log('loading next page');
+    setPage((prevPage) => (prevPage > 0 ? prevPage - 1 : 0));
+  }
   return (
     <>
       <Toolsbar />
-      <Scroller onScrollEnd={loadNextPage}>
+      <Scroller onScrollEnd={loadNextPage} onScrollTop={loadPrevPage}>
         <DocumentContainer>
           <DocumentViewer page={page} />
         </DocumentContainer>
