@@ -1,14 +1,22 @@
-import { Cluster } from '@/server/routers/document';
+import { Cluster, EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
 import { Text } from '@nextui-org/react';
 import { Fragment, MouseEvent, useState } from 'react';
 import { scrollEntityIntoView } from '../DocumentProvider/utils';
 import { FiArrowRight } from '@react-icons/all-files/fi/FiArrowRight';
-import { useDocumentDispatch } from '../DocumentProvider/selectors';
+import {
+  selectDocumentText,
+  useDocumentDispatch,
+  useSelector,
+} from '../DocumentProvider/selectors';
 import { useRouter } from 'next/router';
+import { useAtom } from 'jotai';
+import { documentPageAtom } from '@/utils/atoms';
+import { getStartAndEndIndexForPagination } from '@/utils/shared';
 
 type ClusterMentionsListProps = {
   mentions: (Cluster['mentions'][number] & { mentionText: string })[];
+  annotations: EntityAnnotation[];
 };
 
 const ListContainer = styled.div({
@@ -74,14 +82,24 @@ const highlightMatchingText = (text: string, matchingText: string) => {
   ));
 };
 
-const ClusterMentionsList = ({ mentions }: ClusterMentionsListProps) => {
+const ClusterMentionsList = ({
+  mentions,
+  annotations,
+}: ClusterMentionsListProps) => {
   // const dispatch = useDocumentDispatch();
   const router = useRouter();
-
-  const handleOnClick = (id: number) => (event: MouseEvent) => {
-    console.log('cluter clicked');
+  const text = useSelector(selectDocumentText);
+  const [page, setPage] = useAtom(documentPageAtom);
+  const handleOnClick = (id: number, mention: any) => (event: MouseEvent) => {
     event.stopPropagation();
+    const { startIndex, endIndex } = getStartAndEndIndexForPagination(
+      page,
+      text
+    );
 
+    if (annotations[id]) {
+      setPage(Math.floor(annotations[id].start / 5000) + 1);
+    }
     router.push(`/documents/${router.query.id}?annotationId=${id}`, undefined, {
       shallow: true,
     });
@@ -92,7 +110,7 @@ const ClusterMentionsList = ({ mentions }: ClusterMentionsListProps) => {
       {mentions.map((m) => (
         <MentionButton
           title={m.mentionText}
-          onClick={handleOnClick(m.id)}
+          onClick={handleOnClick(m.id, m)}
           key={m.id}
         >
           {highlightMatchingText(m.mentionText, m.mention)}

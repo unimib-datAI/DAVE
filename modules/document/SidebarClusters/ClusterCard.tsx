@@ -1,6 +1,6 @@
 import { useText } from '@/components';
 import { getAllNodeData, getNodesPath } from '@/components/Tree';
-import { Cluster } from '@/server/routers/document';
+import { Cluster, EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
 import { Text } from '@nextui-org/react';
 import { darken } from 'polished';
@@ -14,6 +14,7 @@ import ClusterMentionsList from './ClusterMentionsList';
 
 type ClusterCardProps = ProcessedCluster & {
   selected: boolean;
+  annotations: EntityAnnotation[]
   onClick: () => void;
 };
 
@@ -65,6 +66,7 @@ const Tag = styled.span<{ color: string }>(({ color }) => ({
 const ClusterCard = ({
   id,
   mentions,
+  annotations,
   type,
   title,
   selected,
@@ -92,7 +94,7 @@ const ClusterCard = ({
         <Text size="12px">
           {t('leftSidebar.clustersContent.mentions', { n: mentions.length })}
         </Text>
-        {selected && <ClusterMentionsList mentions={mentions} />}
+        {selected && <ClusterMentionsList mentions={mentions} annotations={annotations} />}
       </ClusterContainer>
     </>
   );

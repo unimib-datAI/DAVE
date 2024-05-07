@@ -24,6 +24,8 @@ import {
   useSelector,
 } from '../DocumentProvider/selectors';
 import { useViewIndex } from '../ViewProvider/ViewProvider';
+import { useAtom } from 'jotai';
+import { documentPageAtom } from '@/utils/atoms';
 
 const Container = styled.div({
   padding: '0 20px',
@@ -39,7 +41,7 @@ const DocumentContainer = styled.div`
   content-visibility: auto;
 `;
 
-const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
+const DocumentViewer = ({}: PropsWithChildren<{}>) => {
   const viewIndex = useViewIndex();
   const action = useSelector(selectDocumentAction);
   const text = useSelector(selectDocumentText);
@@ -51,6 +53,7 @@ const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
   );
   const sectionUrlHashId = useHashUrlId();
   const highlightAnnotationId = useSelector(selectHighlightAnnotationId);
+  const [page, setPage] = useAtom(documentPageAtom);
   const dispatch = useDocumentDispatch();
 
   useEffect(() => {
@@ -60,7 +63,10 @@ const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
     }
     element.scrollIntoView();
   }, [sectionUrlHashId]);
-
+  useEffect(() => {
+    if(!highlightAnnotationId) return;
+    console.log('highlightAnnotationId', highlightAnnotationId);
+  }, [highlightAnnotationId]);
   const handleTagClick = (event: MouseEvent, annotation: EntityAnnotation) => {
     switch (action.value) {
       case 'select':

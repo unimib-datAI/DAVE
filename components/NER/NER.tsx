@@ -16,6 +16,7 @@ import { NERContext } from './nerContext';
 import Section from './Section';
 import TextNode, { SelectionNode } from './TextNode';
 import { SectionsList } from '../SectionsList';
+import { getStartAndEndIndexForPagination } from '@/utils/shared';
 
 type NERProps = {
   text: string;
@@ -69,16 +70,19 @@ const NER = ({
     }),
     [props, getTaxonomyNode]
   );
-  console.log('highlighted', props.highlightAnnotation);
+  useEffect(() => {
+    console.log('highlighted', page);
+  }, [page]);
+
   return (
     <NERContext.Provider value={contextValue}>
       <NodesContainer>
         {nodes.map((node) => {
-          let endIndex = page * 5000 < text.length ? page * 5000 : text.length;
-          if (page === 1) endIndex = 5000;
-          let startIndex = 0;
-          if (page > 1 && endIndex !== text.length)
-            startIndex = page - 4 > 0 ? (page - 4) * 5000 : 0;
+          const { startIndex, endIndex } = getStartAndEndIndexForPagination(
+            page,
+            text
+          );
+
           if (node.start > startIndex && node.end < endIndex) {
             if (node.type === 'section') {
               return (

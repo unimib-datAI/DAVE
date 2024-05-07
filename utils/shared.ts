@@ -227,3 +227,11 @@ export function maskWords(inputString: string) {
 
   return maskedString;
 }
+
+export function getStartAndEndIndexForPagination(page: number, text: string) {
+  let endIndex = page * 5000 < text.length ? page * 5000 : text.length;
+  if (page === 1) endIndex = 5000;
+  let startIndex = 0;
+  if (page > 1 && endIndex !== text.length) startIndex = (page - 1) * 5000;
+  return { startIndex, endIndex };
+}

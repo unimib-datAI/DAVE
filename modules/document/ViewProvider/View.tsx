@@ -3,6 +3,8 @@ import styled from '@emotion/styled';
 import DocumentViewer from '../DocumentViewer/DocumentViewer';
 import { Toolsbar } from '../Toolsbar';
 import { useState } from 'react';
+import { useAtom } from 'jotai';
+import { documentPageAtom } from '@/utils/atoms';
 
 const DocumentContainer = styled.div({
   display: 'flex',
@@ -11,7 +13,7 @@ const DocumentContainer = styled.div({
 });
 
 const View = () => {
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useAtom(documentPageAtom)
   async function loadNextPage() {
     setPage((prevPage) => prevPage + 1);
   }

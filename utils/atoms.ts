@@ -7,7 +7,7 @@ type MessagesState = {
   statuses: (boolean | undefined)[];
 };
 export const anonimizedNamesAtom = atom<boolean>(true);
-
+export const documentPageAtom = atom<number>(1);
 export const chatHistoryAtom = atom<MessagesState>({
   messages: [],
   contexts: [],
