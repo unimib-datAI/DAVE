@@ -147,10 +147,10 @@ const Scroller = ({
     setScrollBoxSizes((s) => ({ ...s, thumbTop: newTop }));
     const bottom =
       target.scrollHeight - target.scrollTop === target.clientHeight;
-    if (bottom) {
+    if (bottom && onScrollEnd) {
       onScrollEnd();
     }
-    if (target.scrollTop === 0) {
+    if (target.scrollTop === 0 && onScrollTop) {
       onScrollTop();
     }
   };
