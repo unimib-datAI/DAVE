@@ -139,7 +139,7 @@ export const search = createRouter()
     }),
     resolve: async ({ input }) => {
       const res = await fetch(
-        `${process.env.API_INDEXER}/elastic/index/test/query`,
+        `${process.env.API_INDEXER}/elastic/index/dave-documents/query`,
         {
           method: 'POST',
           headers: {
