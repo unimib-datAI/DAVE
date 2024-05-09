@@ -131,6 +131,10 @@ export type DocumentMetadataFeatures = {
   annosentenza: Number;
   attestazione: String;
   cf_giudice: String;
+  neo4j_id: String;
+  start_time: String;
+  participants: String[];
+  number_of_messages: Number;
   parte: String;
   codicegl: String;
   codiceoggetto: Number;

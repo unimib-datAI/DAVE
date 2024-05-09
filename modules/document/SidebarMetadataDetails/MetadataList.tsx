@@ -16,14 +16,34 @@ const ListContainer = styled.div({
 });
 
 const MetadataList = ({ features }: MetadataListProps) => {
+  console.log('features props', features);
   return (
     <ListContainer>
-      <MetadataCard title={'name'} content={features.name} />
-      <MetadataCard title={'nomegiudice'} content={features.nomegiudice} />
-      <MetadataCard title={'cf_giudice'} content={features.cf_giudice} />
-      <MetadataCard title={'parte'} content={features.parte} />
-      <MetadataCard title={'controparte'} content={features.controparte} />
-      <MetadataCard title={'gradogiudizio'} content={features.gradogiudizio} />
+      {!features.neo4j_id ? (
+        <>
+          <MetadataCard title={'name'} content={features.name} />
+          <MetadataCard title={'nomegiudice'} content={features.nomegiudice} />
+          <MetadataCard title={'cf_giudice'} content={features.cf_giudice} />
+          <MetadataCard title={'parte'} content={features.parte} />
+          <MetadataCard title={'controparte'} content={features.controparte} />
+          <MetadataCard
+            title={'gradogiudizio'}
+            content={features.gradogiudizio}
+          />
+        </>
+      ) : (
+        <>
+          <MetadataCard title={'start_time'} content={features.start_time} />
+          <MetadataCard
+            title={'participants'}
+            content={features.participants.join('\n')}
+          />
+          <MetadataCard
+            title={'number_messages'}
+            content={features.number_of_messages}
+          />
+        </>
+      )}
     </ListContainer>
   );
 };
