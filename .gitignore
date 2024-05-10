@@ -14,10 +14,12 @@
 
 # production
 /build
-/_files
+
 # misc
 .DS_Store
 *.pem
+/_files
+_chats
 
 # debug
 npm-debug.log*

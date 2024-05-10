@@ -19,6 +19,7 @@ const MetadataList = ({ features }: MetadataListProps) => {
   console.log('features props', features);
   return (
     <ListContainer>
+      {/* Checks if is a chat or not  */}
       {!features.neo4j_id ? (
         <>
           <MetadataCard title={'name'} content={features.name} />
@@ -33,13 +34,13 @@ const MetadataList = ({ features }: MetadataListProps) => {
         </>
       ) : (
         <>
-          <MetadataCard title={'start_time'} content={features.start_time} />
+          <MetadataCard title={'start time'} content={features.start_time} />
           <MetadataCard
             title={'participants'}
             content={features.participants.join('\n')}
           />
           <MetadataCard
-            title={'number_messages'}
+            title={'number of messages'}
             content={features.number_of_messages}
           />
         </>

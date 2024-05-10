@@ -23,6 +23,7 @@ export type GetSimilarDocumentResponse = GetSimilarDocument[];
 
 export type FacetedQueryHit = {
   _id: string;
+  id:Number,
   mongo_id: string;
   text: string;
   name: string;
@@ -103,6 +104,7 @@ export const search = createRouter()
       query: z.string(),
     }),
     resolve: async ({ input }) => {
+     
       const documents = (await fetch(
         `${process.env.API_INDEXER}/chroma/collection/test/query`,
         {
@@ -138,8 +140,9 @@ export const search = createRouter()
       cursor: z.number().nullish(),
     }),
     resolve: async ({ input }) => {
+       let index = process.env.VARIANT ? 'indagini-documents' : 'dave-documents';
       const res = await fetch(
-        `${process.env.API_INDEXER}/elastic/index/dave-documents/query`,
+        `${process.env.API_INDEXER}/elastic/index/${index}/query`,
         {
           method: 'POST',
           headers: {

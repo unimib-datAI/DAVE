@@ -83,7 +83,7 @@ const baseURL = `${process.env.API_BASE_URI}/mongo`;
 //TODO: modificare chiamata per cercare il doc in locale
 const getDocumentById = async (id: number): Promise<Document> => {
   try {
-    const localDocumentsDirectory = path.join(process.cwd(), '/_files');
+    const localDocumentsDirectory = path.join(process.cwd(), process.env.VARIANT ? '/_chats' :'/_files');
 
     const files = await fs.promises.readdir(localDocumentsDirectory);
     let selectedDocument: Document | undefined = undefined;
@@ -139,7 +139,10 @@ export type GetPaginatedDocuments = {
  * it is for demo purpose, in production it should be used to retrieve documents from the database
  */
 const getLocalDocuments = async () => {
-  const localDocumentsDirectory = path.join(process.cwd(), '/_files');
+  const localDocumentsDirectory = path.join(
+    process.cwd(),
+    process.env.VARIANT ? '/_chats' : '/_files'
+  );
   let documents: Document[] = [];
 
   try {
