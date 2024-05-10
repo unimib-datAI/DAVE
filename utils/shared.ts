@@ -207,6 +207,9 @@ export const createObjectFromJson = <T>(jsonObject: any): T => {
 
 export function maskWords(inputString: string) {
   // Split the input string into an array of words
+  if (!inputString) {
+    return '';
+  }
   const words = inputString.split(' ');
 
   // Iterate through each word and replace letters with *

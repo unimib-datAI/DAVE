@@ -71,6 +71,7 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
   };
 
   const taxonomyNode = useMemo(() => {
+    console.log('opened annotation', annotation);
     const types_set = new Set(annotation.features.types || []);
     types_set.add(annotation.type);
     const types = Array.from(types_set);
@@ -86,8 +87,8 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
       </span>
       <Tag color={taxonomyNode.color} level={0}>
         {anonimized && annotation.type === 'persona'
-          ? maskWords(annotation.features.mention)
-          : annotation.features.mention}
+          ? maskWords(text.substring(annotation.start, annotation.end))
+          : text.substring(annotation.start, annotation.end)}
         <TagLabel color={taxonomyNode.color}>
           {getTypesText(annotation)}
         </TagLabel>
