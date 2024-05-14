@@ -75,7 +75,6 @@ const NER = ({
     [props, getTaxonomyNode]
   );
   useEffect(() => {
-    console.log('new page', page);
      const { startIndex, endIndex } = getStartAndEndIndexForPagination(
        page,
        text
@@ -87,9 +86,7 @@ const NER = ({
   return (
     <NERContext.Provider value={contextValue}>
       <NodesContainer
-        onScroll={(event) => {
-          console.log('scroll', event);
-        }}
+        
       >
         {nodes.map((node) => {
          

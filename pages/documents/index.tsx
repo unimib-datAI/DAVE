@@ -47,7 +47,6 @@ const Documents: NextPageWithLayout = () => {
       getPreviousPageParam: (firstPage) => firstPage.prevPage ?? undefined,
     }
   );
-  console.log('example doc data', data);
 
   useEffect(() => {
     if (inView) {

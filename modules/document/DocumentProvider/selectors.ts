@@ -145,7 +145,6 @@ export const selectDocumentClusters = createSelector(
     }
 
     const annSetClusters = features.clusters[activeAnnotationSet];
-    console.log('foundclusters ', features);
     if (!annSetClusters) {
       return null;
     }

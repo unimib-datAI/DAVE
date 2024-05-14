@@ -44,7 +44,6 @@ const useNER = <T = {}, U = {}>(props: USENERProps<T, U>) => {
   sections = sections.filter(
     (section) => section.start >= startIndex && section.end <= endIndex
   );
-  console.log(entities[0]);
   if (sections && sections.length > 0) {
     document = createSectionNodes(text, sections, entities);
   } else {

@@ -18,7 +18,6 @@ import { createTaxonomy } from './utils';
  */
 const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   const [id] = useParam<string>('id');
-  console.log('getting document from ui with id ', id);
   const { data, isFetching } = useQuery(['document.getDocument', { id: id }], {
     staleTime: Infinity,
   });

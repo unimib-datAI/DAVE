@@ -63,10 +63,7 @@ const DocumentViewer = ({page}: PropsWithChildren<{page: number}>) => {
     }
     element.scrollIntoView();
   }, [sectionUrlHashId]);
-  useEffect(() => {
-    if(!highlightAnnotationId) return;
-    console.log('highlightAnnotationId', highlightAnnotationId);
-  }, [highlightAnnotationId]);
+ 
   const handleTagClick = (event: MouseEvent, annotation: EntityAnnotation) => {
     switch (action.value) {
       case 'select':

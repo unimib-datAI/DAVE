@@ -16,7 +16,6 @@ const ListContainer = styled.div({
 });
 
 const MetadataList = ({ features }: MetadataListProps) => {
-  console.log('features props', features);
   return (
     <ListContainer>
       {/* Checks if is a chat or not  */}

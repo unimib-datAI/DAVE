@@ -71,7 +71,6 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
   };
 
   const taxonomyNode = useMemo(() => {
-    console.log('opened annotation', annotation);
     const types_set = new Set(annotation.features.types || []);
     types_set.add(annotation.type);
     const types = Array.from(types_set);

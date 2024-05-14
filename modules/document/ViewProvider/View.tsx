@@ -21,7 +21,6 @@ const View = () => {
     setPage((prevPage) => {
       const { startIndex, endIndex, stopPagination } =
         getStartAndEndIndexForPagination(prevPage, text);
-      console.log('stop', stopPagination);
       if (stopPagination) return prevPage;
       else return prevPage + 1;
     });

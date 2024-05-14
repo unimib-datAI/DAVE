@@ -151,24 +151,7 @@ const Scroller = ({
     const bottom =
       target.scrollHeight - target.scrollTop === target.clientHeight;
     if (bottom && onScrollEnd) {
-      const prevScrollHeight = target.scrollHeight;
       onScrollEnd();
-      const newScrollHeight = target.scrollHeight;
-      const addedContentHeight = newScrollHeight - prevScrollHeight;
-      const newScrollTop = Math.max(
-        0,
-        scrollTop + addedContentHeight - offsetHeight
-      );
-      // target.scrollTo({ top: newScrollTop });
-    }
-
-    if (target.scrollTop === 0 && onScrollTop) {
-      console.log('scroll top', scrollTop, scrollHeight, offsetHeight);
-      const prevScrollHeight = target.scrollHeight;
-      onScrollTop();
-      const newScrollHeight = target.scrollHeight;
-      const addedContentHeight = newScrollHeight - prevScrollHeight;
-      // target.scrollTo({ top: scrollTop + addedContentHeight });
     }
   };
 
