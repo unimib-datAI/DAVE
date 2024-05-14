@@ -33,7 +33,10 @@ export const orderAnnotations = <T>(annotations: Annotation<T>[]) => {
  * @param {string} pyString The Python string containing Unicode characters.
  * @returns {number} The equivalent index in the JavaScript string.
  */
-export const pythonToJSIndex = <T>(pyIndex: number, pyString: string): number => {
+export const pythonToJSIndex = <T>(
+  pyIndex: number,
+  pyString: string
+): number => {
   let jsIndex = 0;
   for (let i = 0; i < pyIndex && jsIndex < pyString.length; i++) {
     let char = pyString.charAt(jsIndex);
@@ -63,7 +66,6 @@ export const pythonToJSIndex = <T>(pyIndex: number, pyString: string): number =>
 // python_index = js_to_python_index(js_index, js_string)
 // print("Python index:", python_index)  # Output: Python index: 11
 
-
 /**
  * Get a span of text: text, start and end
  */
@@ -84,12 +86,13 @@ export const createTextNode = <T>(
   text: string,
   annotation: Annotation<T>,
   textCursor: number,
-  key: number
+  key: number,
+  offset: number = 0
 ): TextNode => {
   return {
     type: 'text',
     key,
-    ...getSpan(text, textCursor, annotation.start),
+    ...getSpan(text, textCursor - offset, annotation.start - offset),
   };
 };
 
@@ -99,12 +102,13 @@ export const createTextNode = <T>(
 export const createEntityNode = <T>(
   text: string,
   annotation: Annotation<T>,
-  key: number
+  key: number,
+  offset: number = 0
 ): EntityNode<T> => {
   return {
     type: 'entity',
     key,
-    ...getSpan(text, annotation.start, annotation.end),
+    ...getSpan(text, annotation.start - offset, annotation.end - offset),
     annotation,
   };
 };
@@ -153,8 +157,10 @@ export const isOverlappingAnnotation = <T>(
 export const createNodes = <T>(
   text: string,
   annotations: Annotation<T>[],
+  offset = 0,
   textCursor = 0,
-  textEndCursor = -1
+  textEndCursor = -1,
+  
 ) => {
   let nodes = [] as ContentNode<T>[];
   let index = 0;
@@ -168,7 +174,7 @@ export const createNodes = <T>(
       index += 1;
       nodes.push(createEntityNode(text, ann, index));
       index += 1;
-      textCursor = ann.end;
+      textCursor = ann.end + offset;
     } else {
       const { annotation: prevAnn } = lastNode;
 
@@ -208,10 +214,14 @@ export const createNodes = <T>(
 export const createSectionNodes = <T, U>(
   text: string,
   sectionAnnotations: Annotation<U>[],
-  entityAnnotations: Annotation<T>[]
+  entityAnnotations: Annotation<T>[],
+  offset = 0
 ): SectionNode<T, U>[] => {
   return sectionAnnotations.map((section, index) => {
-    const sectionText = text.slice(section.start, section.end);
+    const sectionText = text.slice(
+      section.start - offset,
+      section.end - offset
+    );
 
     // look where to slice the array of entities
     const startIndex = entityAnnotations.findIndex(
@@ -230,8 +240,8 @@ export const createSectionNodes = <T, U>(
     const contentNodes = createNodes(
       text,
       sectionEntities,
-      section.start,
-      section.end
+      section.start - offset,
+      section.end - offset
     );
 
     return {

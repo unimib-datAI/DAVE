@@ -1,5 +1,7 @@
 import useResizeObserver from '@/hooks/use-resize-ovserver';
+import { documentPageAtom } from '@/utils/atoms';
 import styled from '@emotion/styled';
+import { useAtom } from 'jotai';
 import {
   MouseEvent,
   PropsWithChildren,
@@ -121,6 +123,7 @@ const Scroller = ({
   const [isDragging, setIsDragging] = useState(false);
   const scrollHostRef = useRef<HTMLDivElement | null>(null);
   const lastScrollPosition = useRef<number>(0);
+  const [page, setPage] = useAtom(documentPageAtom);
 
   useResizeObserver(scrollHostRef, () => {
     // adjust sizes with resize observer when content changes
@@ -148,10 +151,24 @@ const Scroller = ({
     const bottom =
       target.scrollHeight - target.scrollTop === target.clientHeight;
     if (bottom && onScrollEnd) {
+      const prevScrollHeight = target.scrollHeight;
       onScrollEnd();
+      const newScrollHeight = target.scrollHeight;
+      const addedContentHeight = newScrollHeight - prevScrollHeight;
+      const newScrollTop = Math.max(
+        0,
+        scrollTop + addedContentHeight - offsetHeight
+      );
+      // target.scrollTo({ top: newScrollTop });
     }
+
     if (target.scrollTop === 0 && onScrollTop) {
+      console.log('scroll top', scrollTop, scrollHeight, offsetHeight);
+      const prevScrollHeight = target.scrollHeight;
       onScrollTop();
+      const newScrollHeight = target.scrollHeight;
+      const addedContentHeight = newScrollHeight - prevScrollHeight;
+      // target.scrollTo({ top: scrollTop + addedContentHeight });
     }
   };
 

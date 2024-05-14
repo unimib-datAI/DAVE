@@ -41,7 +41,7 @@ const DocumentContainer = styled.div`
   content-visibility: auto;
 `;
 
-const DocumentViewer = ({}: PropsWithChildren<{}>) => {
+const DocumentViewer = ({page}: PropsWithChildren<{page: number}>) => {
   const viewIndex = useViewIndex();
   const action = useSelector(selectDocumentAction);
   const text = useSelector(selectDocumentText);
@@ -53,7 +53,7 @@ const DocumentViewer = ({}: PropsWithChildren<{}>) => {
   );
   const sectionUrlHashId = useHashUrlId();
   const highlightAnnotationId = useSelector(selectHighlightAnnotationId);
-  const [page, setPage] = useAtom(documentPageAtom);
+  // const [page, setPage] = useAtom(documentPageAtom);
   const dispatch = useDocumentDispatch();
 
   useEffect(() => {

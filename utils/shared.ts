@@ -232,9 +232,26 @@ export function maskWords(inputString: string) {
 }
 
 export function getStartAndEndIndexForPagination(page: number, text: string) {
-  let endIndex = page * 5000 < text.length ? page * 5000 : text.length;
-  if (page === 1) endIndex = 5000;
+  // console.log('received page', page);
+  const pageSize = 4000;
   let startIndex = 0;
-  if (page > 1 && endIndex !== text.length) startIndex = (page - 1) * 5000;
-  return { startIndex, endIndex };
+  let stopPagination = false;
+  let totalPages = Math.ceil(text.length / pageSize);
+  if (page === 1) {
+    return {
+      startIndex: 0,
+      endIndex: pageSize * 2 > text.length ? text.length : pageSize * 2,
+      stopPagination: false,
+    };
+  } else if (page < totalPages) {
+    startIndex = (page - 1) * pageSize;
+    let endIndex =
+      (page + 1) * pageSize < text.length ? (page + 1) * pageSize : text.length;
+    // console.log('startIndex', startIndex, 'endIndex', endIndex);
+    return { startIndex: 0, endIndex, stopPagination };
+  } else {
+    startIndex = (page - 2) * pageSize;
+    let endIndex = text.length;
+    return { startIndex: 0, endIndex, stopPagination: true };
+  }
 }

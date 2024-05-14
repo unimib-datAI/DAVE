@@ -92,10 +92,6 @@ const ClusterMentionsList = ({
   const [page, setPage] = useAtom(documentPageAtom);
   const handleOnClick = (id: number, mention: any) => (event: MouseEvent) => {
     event.stopPropagation();
-    const { startIndex, endIndex } = getStartAndEndIndexForPagination(
-      page,
-      text
-    );
 
     if (annotations[id]) {
       setPage(Math.floor(annotations[id].start / 5000) + 1);

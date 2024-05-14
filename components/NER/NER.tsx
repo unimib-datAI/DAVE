@@ -10,6 +10,7 @@ import {
   ReactNode,
   useRef,
   useEffect,
+  useState,
 } from 'react';
 import EntityNode from './EntityNode';
 import { NERContext } from './nerContext';
@@ -51,8 +52,11 @@ const NER = ({
   page,
   ...props
 }: NERProps) => {
+  const [startIndex, setStartIndex] = useState(0);
+  const [endIndex, setEndIndex] = useState(6000);
   const nodes = useNER({
-    text,
+    text: text,
+    page: page,
     entities: entityAnnotations,
     sections: sectionAnnotations,
   });
@@ -71,18 +75,24 @@ const NER = ({
     [props, getTaxonomyNode]
   );
   useEffect(() => {
-    console.log('highlighted', page);
+    console.log('new page', page);
+     const { startIndex, endIndex } = getStartAndEndIndexForPagination(
+       page,
+       text
+     );
+      setStartIndex(startIndex);
+      setEndIndex(endIndex);
   }, [page]);
 
   return (
     <NERContext.Provider value={contextValue}>
-      <NodesContainer>
+      <NodesContainer
+        onScroll={(event) => {
+          console.log('scroll', event);
+        }}
+      >
         {nodes.map((node) => {
-          const { startIndex, endIndex } = getStartAndEndIndexForPagination(
-            page,
-            text
-          );
-
+         
           if (node.start > startIndex && node.end < endIndex) {
             if (node.type === 'section') {
               return (
