@@ -25,6 +25,7 @@ const View = () => {
       else return prevPage + 1;
     });
   }
+  
   function loadPrevPage() {
     setPage((prevPage) => (prevPage > 1 ? prevPage - 1 : 1));
   }
