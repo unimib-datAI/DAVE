@@ -74,7 +74,7 @@ type ChatPanel = {
 const ChatPanel = ({ devMode }: ChatPanel) => {
   const { state, isStreaming, isLoading, appendMessage, restartChat } = useChat(
     {
-      endpoint: '/api/generate',
+      endpoint: '/generate',
       initialMessages: [
         { role: 'assistant', content: 'Ciao, come posso aiutarti?' },
       ],

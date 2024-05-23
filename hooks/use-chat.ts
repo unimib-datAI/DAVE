@@ -61,9 +61,14 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
     'system'
   >) => {
     setIsLoading(true);
-
+    console.log(
+      'streaming',
+      process.env.NEXT_PUBLIC_TEXT_GENERATION,
+      endpoint,
+      options
+    );
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_PATH}${endpoint}`,
+      `${process.env.NEXT_PUBLIC_TEXT_GENERATION}${endpoint}`,
       {
         method: 'POST',
         headers: {
