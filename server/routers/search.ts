@@ -104,8 +104,9 @@ export const search = createRouter()
       query: z.string(),
     }),
     resolve: async ({ input }) => {
+      let index = process.env.VARIANT ? 'indagini-documents' : 'dave-documents';
       const documents = (await fetch(
-        `${process.env.API_INDEXER}/chroma/collection/test/query`,
+        `${process.env.API_INDEXER}/chroma/collection/${index}/query`,
         {
           method: 'POST',
           headers: {
