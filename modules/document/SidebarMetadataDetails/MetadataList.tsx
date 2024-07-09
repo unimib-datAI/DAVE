@@ -19,7 +19,7 @@ const MetadataList = ({ features }: MetadataListProps) => {
   return (
     <ListContainer>
       {/* Checks if is a chat or not  */}
-      {!features.neo4j_id ? (
+      {!features.number_of_messages ? (
         <>
           <MetadataCard title={'name'} content={features.name} />
           <MetadataCard title={'nomegiudice'} content={features.nomegiudice} />
