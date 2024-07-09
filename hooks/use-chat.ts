@@ -1,5 +1,6 @@
 import { DocumentWithChunk } from '@/server/routers/search';
 import { chatHistoryAtom } from '@/utils/atoms';
+import { getPromptAndMessage } from '@/utils/textGeneration';
 import { useAtom } from 'jotai';
 import { useEffect, useRef, useState } from 'react';
 
@@ -61,23 +62,43 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
     'system'
   >) => {
     setIsLoading(true);
-    console.log(
-      'streaming',
-      process.env.NEXT_PUBLIC_TEXT_GENERATION,
-      endpoint,
-      options
+
+    if (Array.isArray(options.temperature)) {
+      options.temperature = options.temperature[0];
+    }
+    if (Array.isArray(options.token_repetition_penalty_max)) {
+      options.token_repetition_penalty_max =
+        options.token_repetition_penalty_max[0];
+    }
+    // options.temperature = 1.0;
+    // const response = await fetch(
+    //   `${process.env.NEXT_PUBLIC_BASE_PATH}/api/${endpoint}`,
+    //   {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: JSON.stringify(options),
+    //   }
+    // );
+    let messages = getPromptAndMessage(
+      false,
+      options.messages,
+      options.devMode || false
     );
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_TEXT_GENERATION}${endpoint}`,
+      `${process.env.NEXT_PUBLIC_TEXT_GENERATION}/generate`,
       {
-        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(options),
+        method: 'POST',
+        body: JSON.stringify({
+          ...options,
+          messages,
+        }),
       }
     );
-
     if (!response.ok) {
       throw new Error(response.statusText);
     }
@@ -89,7 +110,7 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
     }
 
     const reader = data.getReader();
-    const decoder = new TextDecoder();
+    const decoder = new TextDecoder('utf-8');
     let done = false;
 
     let initial = true;
@@ -98,8 +119,8 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
     while (!done) {
       const { value, done: doneReading } = await reader.read();
       done = doneReading;
-      const chunkValue = decoder.decode(value);
 
+      const chunkValue = decoder.decode(value);
       if (initial) {
         messagesRef.current.push({ role: 'assistant', content: chunkValue });
         setState((s) => ({
@@ -182,8 +203,17 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
 
   const restartChat = () => {
     messagesRef.current = initialMessages;
-    setChatHistory({ messages: initialMessages, contexts: [], statuses: [] });
-    setState((s) => ({ ...s, messages: initialMessages }));
+    setChatHistory({
+      messages: [...initialMessages],
+      contexts: [...new Array(initialMessages.length)],
+      statuses: [...new Array(initialMessages.length)],
+    });
+
+    setState({
+      messages: [...initialMessages],
+      contexts: [...new Array(initialMessages.length)],
+      statuses: [...new Array(initialMessages.length)],
+    });
   };
 
   return {

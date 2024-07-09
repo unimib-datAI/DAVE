@@ -106,6 +106,8 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
       return;
     }
 
+    // formValues.temperature = formValues.temperature[0];
+    // console.log('formValues', formValues);
     const useDocumentContext = !devMode || formValues.useDocumentContext;
     const context = useDocumentContext
       ? await mostSimilarDocumentsMutation.mutateAsync({
