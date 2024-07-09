@@ -202,6 +202,7 @@ const QueryText = ({ contentExample }: QueryTextProps) => {
           </Flex>
 
           <NER
+            page={1}
             taxonomy={taxonomy}
             text={binds.value}
             entityAnnotations={filteredAnnotations}

@@ -60,7 +60,7 @@ const Facets = ({ facets }: FacetsProps) => {
 
   return allFacets.length > 0 ? (
     <div className="sticky top-16 w-72 h-[calc(100vh-4rem)]">
-      <Scroller>
+      <Scroller onScrollEnd={() => {}} onScrollTop={() => {}}>
         <div className="flex flex-col pr-6 py-6 gap-8">
           <div className="flex flex-col">
             <div className="text-lg font-semibold">Filter</div>

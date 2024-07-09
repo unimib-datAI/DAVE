@@ -10,6 +10,7 @@ import {
   useEffect,
   useRef,
   useState,
+  UIEvent,
 } from 'react';
 import { CSSTransition } from 'react-transition-group';
 
@@ -138,7 +139,7 @@ const Scroller = ({
     setIsScrollbarVisible(false);
   };
 
-  const handleScroll = (e: Event) => {
+  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
     if (!scrollHostRef.current) {
       return;
@@ -227,10 +228,10 @@ const Scroller = ({
     if (!scrollHostRef.current) return;
     const scrollHostElement = scrollHostRef.current;
 
-    scrollHostElement.addEventListener('scroll', handleScroll, true);
-    return () => {
-      scrollHostElement.removeEventListener('scroll', handleScroll, true);
-    };
+    // scrollHostElement.addEventListener('scroll', handleScroll, true);
+    // return () => {
+    //   scrollHostElement.removeEventListener('scroll', handleScroll, true);
+    // };
   }, []);
 
   useEffect(() => {
