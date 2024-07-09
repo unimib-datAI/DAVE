@@ -137,7 +137,6 @@ export const selectDocumentClusters = createSelector(
     const { activeAnnotationSet } = views[0];
 
     const { text, annotation_sets, features } = doc;
-
     const annSet = annotation_sets[activeAnnotationSet];
 
     if (!features.clusters) {
@@ -148,7 +147,6 @@ export const selectDocumentClusters = createSelector(
     if (!annSetClusters) {
       return null;
     }
-
     const clusters = annSetClusters.map((cluster) => {
       const mentions = cluster.mentions.map((mention) => {
         const ann = annSet.annotations.find((ann) => ann.id === mention.id);
