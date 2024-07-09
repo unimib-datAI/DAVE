@@ -140,6 +140,7 @@ export const search = createRouter()
     }),
     resolve: async ({ input }) => {
       let index = process.env.VARIANT ? 'indagini-documents' : 'dave-documents';
+      console.log('index', index);
       const res = await fetch(
         `${process.env.API_INDEXER}/elastic/index/${index}/query`,
         {
@@ -149,7 +150,7 @@ export const search = createRouter()
           },
           body: JSON.stringify({
             ...input,
-            n_facets: 100,
+            n_facets: 20,
             page: input.cursor || 1,
           }),
         }
