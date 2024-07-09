@@ -1,7 +1,7 @@
 import { IconButton, useText } from '@/components';
 import styled from '@emotion/styled';
 import { Tooltip } from '@nextui-org/react';
-import { MouseEvent, ReactNode, useMemo, useState } from 'react';
+import { MouseEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { FiNavigation } from '@react-icons/all-files/fi/FiNavigation';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import { FiList } from '@react-icons/all-files/fi/FiList';
@@ -102,6 +102,15 @@ const ButtonGroup = () => {
       );
     });
   }, [action]);
+  //used to set default action when open
+  useEffect(() => {
+    dispatch({
+      type: 'changeAction',
+      payload: {
+        action: 'clusters',
+      },
+    });
+  }, []);
 
   const handleButtonClick = (
     e: MouseEvent<HTMLButtonElement>,
