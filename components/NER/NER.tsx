@@ -90,7 +90,7 @@ const NER = ({
       >
         {nodes.map((node) => {
          
-          if (node.start > startIndex && node.end < endIndex) {
+          if (node.start >= startIndex && node.end <= endIndex) {
             if (node.type === 'section') {
               return (
                 <Section {...node}>

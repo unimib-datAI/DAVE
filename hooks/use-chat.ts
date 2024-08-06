@@ -87,7 +87,7 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
       options.devMode || false
     );
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_TEXT_GENERATION}/generate`,
+      `https://vm.chronos.disco.unimib.it/llm2/generate`,
       {
         headers: {
           'Content-Type': 'application/json',

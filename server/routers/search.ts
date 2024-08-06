@@ -144,7 +144,7 @@ export const search = createRouter()
     }),
     resolve: async ({ input }) => {
       let index = process.env.VARIANT ? 'indagini-documents' : 'dave-documents';
-      console.log('index', index);
+      // console.log('index', index);
       const res = await fetch(
         `${process.env.API_INDEXER}/elastic/index/${index}/query`,
         {
