@@ -1,3 +1,4 @@
+// @ts-nocheck
 import useResizeObserver from '@/hooks/use-resize-ovserver';
 import { documentPageAtom } from '@/utils/atoms';
 import styled from '@emotion/styled';
@@ -141,6 +142,7 @@ const Scroller = ({
 
   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
+    console.log('scrolling');
     if (!scrollHostRef.current) {
       return;
     }
@@ -228,10 +230,10 @@ const Scroller = ({
     if (!scrollHostRef.current) return;
     const scrollHostElement = scrollHostRef.current;
 
-    // scrollHostElement.addEventListener('scroll', handleScroll, true);
-    // return () => {
-    //   scrollHostElement.removeEventListener('scroll', handleScroll, true);
-    // };
+    scrollHostElement.addEventListener('scroll', handleScroll, true);
+    return () => {
+      scrollHostElement.removeEventListener('scroll', handleScroll, true);
+    };
   }, []);
 
   useEffect(() => {

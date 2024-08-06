@@ -89,6 +89,7 @@ const processResponseMostSImilartDocuments = (
   docs: GetSimilarDocumentResponse
 ): DocumentWithChunk[] => {
   return docs.map((d) => {
+    console.log('most similar docs', d.chunks);
     return {
       id: d.doc.id,
       title: d.doc.name,

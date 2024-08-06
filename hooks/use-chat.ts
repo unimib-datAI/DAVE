@@ -62,7 +62,7 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
     'system'
   >) => {
     setIsLoading(true);
-
+    console.log('streaming', options);
     if (Array.isArray(options.temperature)) {
       options.temperature = options.temperature[0];
     }
@@ -87,7 +87,9 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
       options.devMode || false
     );
     const response = await fetch(
-      `https://vm.chronos.disco.unimib.it/llm2/generate`,
+      process.env.NODE_ENV === 'development'
+        ? `${process.env.NEXT_PUBLIC_TEXT_GENERATION}/generate`
+        : `https://vm.chronos.disco.unimib.it/llm2/generate`,
       {
         headers: {
           'Content-Type': 'application/json',

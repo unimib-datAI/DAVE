@@ -1,6 +1,6 @@
 import { Slider } from '@/components/Slider';
 import { useForm } from '@/hooks';
-import { Tooltip } from '@nextui-org/react';
+import { Switch, Tooltip } from '@nextui-org/react';
 import { Message, SkeletonMessage } from './Message';
 import { Button } from '@/components';
 import { GenerateOptions, useChat } from '@/hooks/use-chat';
@@ -22,6 +22,7 @@ import { current } from 'immer';
 type Form = GenerateOptions & {
   message: string;
   useDocumentContext: boolean;
+  useCurrentDocumentContext: boolean;
 };
 
 function urlToPathArray(url: string) {
@@ -82,6 +83,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     }
   );
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
+
   const mostSimilarDocumentsMutation = useMutation([
     'search.mostSimilarDocuments',
   ]);
@@ -94,6 +96,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     system: '',
     message: '',
     useDocumentContext: false,
+    useCurrentDocumentContext: false,
   });
 
   const fieldTemperature = register('temperature');
@@ -101,20 +104,24 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
   const fieldTopP = register('top_p');
   const fieldFrequencyPenalty = register('token_repetition_penalty_max');
   const fieldUseDocumentContext = register('useDocumentContext');
+  const useCurrentDocumentContext = register('useCurrentDocumentContext');
 
   const handleFormSubmit = async (formValues: Form) => {
     if (formValues.message === '') {
       return;
     }
-
+    console.log('formValues', formValues);
     // formValues.temperature = formValues.temperature[0];
     // console.log('formValues', formValues);
     const useDocumentContext = !devMode || formValues.useDocumentContext;
     const currentUrl = window.location.href;
     let filterIds: string[] = [];
-    if (currentUrl.includes('search')) {
+    if (currentUrl.includes('search') && formValues.useCurrentDocumentContext) {
       filterIds = facetedDocuemnts.map((doc) => doc.id.toString());
-    } else if (currentUrl.includes('documents')) {
+    } else if (
+      currentUrl.includes('documents') &&
+      formValues.useCurrentDocumentContext
+    ) {
       const urlObj = new URL(currentUrl);
       const documentId = urlObj.pathname.split('/').pop();
       if (documentId) filterIds = [documentId];
@@ -176,6 +183,28 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                 {...register('message')}
               />
             </div>
+            {(window.location.href.includes('documents') ||
+              window.location.href.includes('search')) && (
+              <Tooltip
+                content={`Use current ${
+                  window.location.href.includes('documents')
+                    ? 'document'
+                    : 'search results'
+                } context`}
+                placement="top"
+                color="invert"
+              >
+                <Switch
+                  id="context"
+                  onChange={(newstate) => {
+                    setValue({
+                      useCurrentDocumentContext: newstate.target.checked,
+                    });
+                  }}
+                />
+              </Tooltip>
+            )}
+
             <ButtonSend
               state={chatState}
               type="submit"
@@ -184,6 +213,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
             >
               Send
             </ButtonSend>
+
             <Tooltip content="Reset chat" color="invert">
               <Button
                 disabled={isStreaming}
