@@ -16,7 +16,8 @@ import { ButtonSend } from './ButtonSend';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAtom } from 'jotai';
-import { chatHistoryAtom } from '@/utils/atoms';
+import { chatHistoryAtom, facetsDocumentsAtom } from '@/utils/atoms';
+import { current } from 'immer';
 
 type Form = GenerateOptions & {
   message: string;
@@ -80,7 +81,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
       ],
     }
   );
-
+  const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const mostSimilarDocumentsMutation = useMutation([
     'search.mostSimilarDocuments',
   ]);
@@ -109,9 +110,21 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     // formValues.temperature = formValues.temperature[0];
     // console.log('formValues', formValues);
     const useDocumentContext = !devMode || formValues.useDocumentContext;
+    const currentUrl = window.location.href;
+    let filterIds: string[] = [];
+    if (currentUrl.includes('search')) {
+      filterIds = facetedDocuemnts.map((doc) => doc.id.toString());
+    } else if (currentUrl.includes('documents')) {
+      const urlObj = new URL(currentUrl);
+      const documentId = urlObj.pathname.split('/').pop();
+      if (documentId) filterIds = [documentId];
+    }
+    console.log('Current URL:', filterIds);
+
     const context = useDocumentContext
       ? await mostSimilarDocumentsMutation.mutateAsync({
           query: formValues.message,
+          filter_ids: filterIds,
         })
       : undefined;
 

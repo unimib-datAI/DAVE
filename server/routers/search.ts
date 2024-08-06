@@ -102,9 +102,11 @@ export const search = createRouter()
   .mutation('mostSimilarDocuments', {
     input: z.object({
       query: z.string(),
+      filter_ids: z.array(z.string()).optional(),
     }),
     resolve: async ({ input }) => {
       let index = process.env.VARIANT ? 'indagini-documents' : 'dave-documents';
+      console.log('filters', input.filter_ids);
       const documents = (await fetch(
         `${process.env.API_INDEXER}/chroma/collection/${index}/query`,
         {
@@ -114,6 +116,7 @@ export const search = createRouter()
           },
           body: JSON.stringify({
             query: input.query,
+            filter_ids: input.filter_ids,
           }),
         }
       ).then((r) => r.json())) as GetSimilarDocumentResponse;
