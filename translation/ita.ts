@@ -55,6 +55,7 @@ const t: Translation = {
         title: 'Cluster entità',
         description: 'Visualizza i cluster delle entità con le loro menzioni',
         mentions: '{n} menzioni',
+        edit: 'Modifica',
       },
       metadataContent: {
         title: 'Metadati del documento',

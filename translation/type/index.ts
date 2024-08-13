@@ -60,6 +60,7 @@ export type Translation = {
         title: string;
         description: string;
         mentions: string;
+        edit: string;
       };
       metadataContent: {
         title: string;
