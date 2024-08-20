@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 
 import { ProcessedCluster } from '../DocumentProvider/types';
 import { Button } from '@nextui-org/react';
 import { useText } from '@/components';
-import { Col, Modal, Row, Select, Tag } from 'antd';
+import { Checkbox, Col, message, Modal, Row, Select, Tag } from 'antd';
 import {
+  selectCurrentAnnotationSetName,
+  selectDocumentId,
   selectDocumentTaxonomy,
+  useDocumentDispatch,
   useSelector,
 } from '../DocumentProvider/selectors';
 import { getAllNodeData } from '@/components/Tree';
@@ -26,7 +29,12 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useMutation } from '@/utils/trpc';
+import { DocumentContext } from '../DocumentProvider/DocumentProvider';
+import { getClustersGroups, groupBy } from '@/utils/shared';
+import { CheckboxChangeEvent } from 'antd/es/checkbox';
 interface EditClustersProps {
+  onEdit: Function;
   clusterGroups: {
     [key: string]: ProcessedCluster[];
   };
@@ -48,42 +56,105 @@ interface State {
 interface SortableItemProps {
   id: UniqueIdentifier;
   name: string;
-  activeId?: UniqueIdentifier;
+  activeItems: Item[];
+  selectedItems: Set<string>;
+  onCheckboxChange: (id: string) => void;
 }
 
-const SortableItem: React.FC<SortableItemProps> = ({ id, name, activeId }) => {
+const SortableItem: React.FC<SortableItemProps> = ({
+  id,
+  name,
+  activeItems,
+  selectedItems,
+  onCheckboxChange,
+}) => {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({ id });
 
+  const isSelected = selectedItems.has(id.toString());
+  const handleCheckboxChange = (event: CheckboxChangeEvent) => {
+    event.stopPropagation();
+    onCheckboxChange(id.toString());
+  };
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition: transition ?? undefined,
     padding: '10px',
     border: '1px solid #ccc',
     borderRadius: 10,
+
     marginBottom: '4px',
-    backgroundColor: activeId === id ? '#d2d2d4' : 'white',
+    backgroundColor: isSelected ? '#d2d2d4' : 'white',
     cursor: 'grab',
     zIndex: transform ? 1 : 'auto',
   };
-
+  const customListeners = {
+    ...listeners,
+    onPointerDown: (event: React.PointerEvent) => {
+      // Prevent drag initiation if the target is the checkbox
+      if ((event.target as HTMLElement).tagName !== 'INPUT') {
+        if (listeners) listeners.onPointerDown?.(event);
+      }
+    },
+    onClick: (event: React.MouseEvent) => {
+      if ((event.target as HTMLElement).tagName !== 'INPUT') {
+        if (listeners) listeners.onClick?.(event);
+      }
+    },
+  };
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      {name}
+    <div ref={setNodeRef} style={style} {...attributes} {...customListeners}>
+      <Row gutter={15}>
+        <Col>
+          <Checkbox
+            style={{ zIndex: 10 }}
+            checked={isSelected}
+            onChange={handleCheckboxChange}
+          />
+        </Col>
+        <Col>{name}</Col>
+      </Row>
     </div>
   );
 };
-const EditClusters = ({ clusterGroups }: EditClustersProps) => {
+
+const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
+  console.log(clusterGroups);
+  const dragAndDropColStyle = {
+    backgroundColor: '#e8e8e8',
+    borderRadius: 20,
+    padding: 15,
+  };
   const [isOpen, setIsOpen] = useState(false);
   const [sourceCluster, setSourceCluster] = useState<ProcessedCluster | null>(
     null
   );
-  const [active, setActive] = useState<Item | null>(null);
+  const [active, setActive] = useState<Item[]>([]);
   const [dest, setDestCluster] = useState<ProcessedCluster | null>(null);
   const [sourceList, setSourceList] = useState<Item[]>([]);
   const [destList, setDestList] = useState<Item[]>([]);
-
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [movedEntities, setMovedEntities] = useState<Number[]>([]);
+  const [editedClusters, setEditedClusters] = useState<boolean>(false);
   const taxonomy = useSelector(selectDocumentTaxonomy);
+  const moveEntitiesToClusters = useMutation([
+    'document.moveEntitiesToCluster',
+  ]);
+  const docId = useSelector(selectDocumentId);
+  const annSetName = useSelector(selectCurrentAnnotationSetName);
+  const context = useContext(DocumentContext);
+
+  const handleCheckboxChange = (id: string) => {
+    setSelectedItems((prev) => {
+      const newSelectedItems = new Set(prev);
+      if (newSelectedItems.has(id)) {
+        newSelectedItems.delete(id);
+      } else {
+        newSelectedItems.add(id);
+      }
+      return newSelectedItems;
+    });
+  };
 
   useEffect(() => {
     if (sourceCluster && dest) {
@@ -110,7 +181,7 @@ const EditClusters = ({ clusterGroups }: EditClustersProps) => {
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
-    console.log(active, over);
+    console.log('dragend', active, over);
     if (!over) return;
 
     const activeList = sourceList.find((item) => item.id === active.id)
@@ -123,7 +194,7 @@ const EditClusters = ({ clusterGroups }: EditClustersProps) => {
       overList = 'sourceList';
     }
 
-    console.log(activeList, overList);
+    console.log(activeList, destList);
     if (activeList === overList) {
       // Moving within the same list
       if (active.id !== over.id) {
@@ -131,10 +202,23 @@ const EditClusters = ({ clusterGroups }: EditClustersProps) => {
         const setList =
           activeList === 'sourceList' ? setSourceList : setDestList;
 
-        const oldIndex = list.findIndex((item) => item.id === active.id);
-        const newIndex = list.findIndex((item) => item.id === over.id);
-
-        setList(arrayMove(list, oldIndex, newIndex));
+        // If multiple items are selected, move all selected items
+        console.log('selected size', selectedItems.size);
+        if (selectedItems.size > 0) {
+          const selectedItemsArray = Array.from(selectedItems);
+          const movedItems = selectedItemsArray.map((id) =>
+            list.find((item) => item.id === id)
+          );
+          const oldIndex = movedItems.findIndex(
+            (item) => item?.id === active.id
+          );
+          const newIndex = list.findIndex((item) => item.id === over.id);
+          setList(arrayMove(list, oldIndex, newIndex));
+        } else {
+          const oldIndex = list.findIndex((item) => item.id === active.id);
+          const newIndex = list.findIndex((item) => item.id === over.id);
+          setList(arrayMove(list, oldIndex, newIndex));
+        }
       }
     } else {
       // Moving item between lists
@@ -144,43 +228,123 @@ const EditClusters = ({ clusterGroups }: EditClustersProps) => {
       const destinationList = overList === 'sourceList' ? sourceList : destList;
       const setDestinationList =
         overList === 'sourceList' ? setSourceList : setDestList;
+      console.log('selected size', selectedItems.size, selectedItems);
+      // If multiple items are selected, move all selected items
+      if (selectedItems.size > 0) {
+        const selectedItemsArray = Array.from(selectedItems);
+        const moved = source.filter((item) =>
+          selectedItemsArray.includes(item.id)
+        );
 
-      const moved = source.find((item) => item.id === active.id);
-      if (moved) {
-        // Remove item from the source list
-        setSource(source.filter((item) => item.id !== active.id));
+        if (selectedItemsArray) {
+          setSource(
+            source.filter((item) => !selectedItemsArray.includes(item.id))
+          );
+          setDestinationList([...destinationList, ...moved]);
+          setMovedEntities((prev) => [
+            ...prev,
+            ...moved.map((item) => Number(item.id.valueOf())),
+          ]);
+        }
+      } else {
+        const moved = source.find((item) => item.id === active.id);
+        if (moved) {
+          // Remove item from the source list
+          setSource(source.filter((item) => item.id !== active.id));
 
-        // Add item to the destination list
-        setDestinationList([...destinationList, moved]);
+          // Add item to the destination list
+          setDestinationList([...destinationList, moved]);
+          setMovedEntities((prev) => [...prev, Number(active.id.valueOf())]);
+        }
       }
     }
-    setActive(null);
-  };
-  const handleDragStart = (event: DragStartEvent) => {
-    const activeList = sourceList.find((item) => item.id === event.active.id)
-      ? 'sourceList'
-      : 'destList';
-    const list = activeList === 'sourceList' ? sourceList : destList;
-    const item = list.find((item) => item.id === event.active.id);
-    if (item) setActive(item);
-    else setActive(null);
+
+    setActive([]);
+    setEditedClusters(true);
   };
 
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    const activeList = sourceList.find((item) => item.id === active.id)
+      ? 'sourceList'
+      : 'destList';
+
+    // If multiple items are selected, set them as active
+    if (selectedItems.size > 0) {
+      const list = activeList === 'sourceList' ? sourceList : destList;
+      const selectedItemsArray = Array.from(selectedItems);
+      const activeItems = selectedItemsArray
+        .map((id) => list.find((item) => item.id === id))
+        .filter((item) => item !== undefined);
+      setActive(activeItems);
+    } else {
+      const list = activeList === 'sourceList' ? sourceList : destList;
+      const item = list.find((item) => item.id === active.id);
+      if (item) setActive([item]);
+      else setActive([]);
+    }
+  };
+
+  async function handleSave() {
+    let success = false;
+    try {
+      console.log('entities to move', Array.from(new Set(movedEntities)));
+      let updatedDoc = moveEntitiesToClusters.mutate(
+        {
+          id: docId,
+          entities: Array.from(new Set(movedEntities)) as number[],
+          sourceCluster: sourceCluster?.id as number,
+          annotationSet: annSetName as string,
+          destinationCluster: dest?.id as number,
+        },
+        {
+          onSuccess: (data) => {
+            console.log('updatedDoc', data);
+            if (annSetName) {
+              let clusterGroups = getClustersGroups(data, annSetName);
+
+              onEdit(clusterGroups);
+              context?.updateData(data);
+              message.success('Clusters aggiornati con successo');
+              success = true;
+            }
+          },
+        }
+      );
+      // context?.updateData(updatedDoc);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      console.log('resetting');
+      setSourceCluster(null);
+      setDestCluster(null);
+      setSourceList([]);
+      setDestList([]);
+      setSelectedItems(new Set());
+      setMovedEntities([]);
+      setEditedClusters(false);
+      setActive([]);
+    }
+  }
   return (
     <>
-      <Button onPress={() => setIsOpen(true)}>Open Modal</Button>
+      <Button style={{ margin: 15 }} onPress={() => setIsOpen(true)}>
+        Edit clusters
+      </Button>
       <Modal
+        width={'70%'}
         title="Modifica cluster"
         open={isOpen}
         onOk={() => setIsOpen(false)}
         onCancel={() => setIsOpen(false)}
       >
-        <Row justify="space-between" align="middle">
-          <Col span={12}>
+        <Row justify="space-between" align="middle" gutter={0}>
+          <Col span={10}>
             <p>Cluster sorgente</p>
             <Select
               style={{ width: '90%' }}
               placeholder="Seleziona un cluster"
+              value={sourceCluster?.id}
               onChange={(value) => {
                 let source = null;
                 Object.keys(clusterGroups).forEach((groupKey) => {
@@ -216,11 +380,34 @@ const EditClusters = ({ clusterGroups }: EditClustersProps) => {
               }))}
             ></Select>
           </Col>
-          <Col span={12}>
+          <Col span={4}>
+            <Row justify={'center'}>
+              <button
+                onClick={() => {
+                  if (sourceCluster) {
+                    let temp: ProcessedCluster = { ...sourceCluster };
+                    setSourceCluster(dest);
+                    if (temp) setDestCluster(temp);
+                  }
+                }}
+                style={{
+                  marginLeft: -20,
+                  backgroundColor: 'white',
+                  border: '1px solid gray',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                }}
+              >
+                {'<->'}
+              </button>
+            </Row>
+          </Col>
+          <Col span={10}>
             <p>Cluster destinazione</p>
             <Select
               style={{ width: '90%' }}
               placeholder="Seleziona un cluster"
+              value={dest?.id}
               onChange={(value) => {
                 let dest = null;
                 Object.keys(clusterGroups).forEach((groupKey) => {
@@ -269,15 +456,7 @@ const EditClusters = ({ clusterGroups }: EditClustersProps) => {
                 style={{ width: '100%', padding: 10 }}
                 gutter={20}
               >
-                <Col
-                  span={11}
-                  style={{
-                    backgroundColor: '#e8e8e8',
-
-                    borderRadius: 20,
-                    padding: 15,
-                  }}
-                >
+                <Col span={11} style={dragAndDropColStyle}>
                   <SortableContext
                     items={sourceList}
                     strategy={rectSortingStrategy}
@@ -285,50 +464,57 @@ const EditClusters = ({ clusterGroups }: EditClustersProps) => {
                     {sourceList.map((item) => {
                       return (
                         <SortableItem
-                          key={`${item.id}`}
-                          id={`${item.id}`}
+                          key={item.id}
+                          id={item.id}
                           name={item.content}
+                          activeItems={active}
+                          selectedItems={selectedItems}
+                          onCheckboxChange={handleCheckboxChange}
                         />
                       );
                     })}
                   </SortableContext>
                 </Col>
-                <Col
-                  span={11}
-                  style={{
-                    backgroundColor: '#e8e8e8',
-
-                    borderRadius: 20,
-                    padding: 15,
-                  }}
-                >
+                <Col span={11} style={dragAndDropColStyle}>
                   <SortableContext
                     items={destList}
                     strategy={rectSortingStrategy}
                   >
                     {destList.map((item) => (
                       <SortableItem
-                        key={`${item.id}`}
-                        id={`${item.id}`}
+                        key={item.id}
+                        id={item.id}
                         name={item.content}
-                        activeId={active ? active.id : undefined}
+                        activeItems={active}
+                        selectedItems={selectedItems}
+                        onCheckboxChange={handleCheckboxChange}
                       />
                     ))}
                   </SortableContext>
                 </Col>
               </Row>
               <DragOverlay>
-                {active ? (
-                  <SortableItem
-                    key={`${active.id}`}
-                    id={`${active.id}`}
-                    name={active.content}
-                  />
-                ) : null}
+                {active &&
+                  active.length > 0 &&
+                  active.map((activeItem) => (
+                    <SortableItem
+                      key={activeItem.id}
+                      id={activeItem.id}
+                      name={activeItem.content}
+                      activeItems={active}
+                      selectedItems={selectedItems}
+                      onCheckboxChange={handleCheckboxChange}
+                    />
+                  ))}
               </DragOverlay>
             </DndContext>
           )}
         </Row>
+        {editedClusters && (
+          <Row justify={'center'}>
+            <Button onClick={handleSave}>Salva</Button>
+          </Row>
+        )}
       </Modal>
     </>
   );

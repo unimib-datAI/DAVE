@@ -34,6 +34,7 @@ const SidebarClusters = () => {
   const t = useText('document');
   const [isOpen, setIsOpen] = useState(false);
   const clusterGroups = useSelector(selectDocumentClusters);
+  const [clusterGroupsState, setClusterGroupsState] = useState(clusterGroups);
   console.log('groups', clusterGroups, typeof clusterGroups);
   return clusterGroups ? (
     <Container>
@@ -45,9 +46,19 @@ const SidebarClusters = () => {
           {t('leftSidebar.clustersContent.description')}
         </Text>
       </ContentTitle>
-      <ClusterList clusterGroups={clusterGroups} />
+      {clusterGroupsState && (
+        <>
+          <ClusterList clusterGroups={clusterGroupsState} />
 
-      <EditClusters clusterGroups={clusterGroups} />
+          <EditClusters
+            onEdit={(newGroups) => {
+              console.log('newGroups', newGroups);
+              setClusterGroupsState(newGroups);
+            }}
+            clusterGroups={clusterGroupsState}
+          />
+        </>
+      )}
     </Container>
   ) : null;
 };

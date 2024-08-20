@@ -58,7 +58,7 @@ export const documentReducer = createImmerReducer<State, Action>({
   },
   udpateAnnotationSets: (state, payload) => {
     const { annotationSets } = payload;
-
+  
     annotationSets.forEach((set) => {
       state.data.annotation_sets[set.name] = {
         ...set,

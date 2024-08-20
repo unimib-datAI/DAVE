@@ -124,7 +124,22 @@ export const selectCurrentEntity = createSelector(
     return annotations[entityIndex];
   }
 );
+export const selectCurrentAnnotationSetName = createSelector(
+  selectDocumentData,
+  selectViews,
+  // current annotation set
+  (doc, views) => {
+    if (views.length > 1) {
+      return null;
+    }
 
+    const { activeAnnotationSet } = views[0];
+
+    const { annotation_sets } = doc;
+    const annSet = annotation_sets[activeAnnotationSet];
+    return annSet.name;
+  }
+);
 export const selectDocumentClusters = createSelector(
   selectDocumentData,
   selectViews,

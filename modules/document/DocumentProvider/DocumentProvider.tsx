@@ -1,6 +1,12 @@
 import { useParam } from '@/hooks';
 import { useQuery } from '@/utils/trpc';
-import { PropsWithChildren, useReducer } from 'react';
+import {
+  createContext,
+  PropsWithChildren,
+  useEffect,
+  useReducer,
+  useState,
+} from 'react';
 import {
   DocumentStateContext,
   DocumentDispatchContext,
@@ -12,7 +18,15 @@ import { baseTaxonomy, initialUIState } from './state';
 import { SkeletonLayout } from '../SkeletonLayout';
 import { orderAnnotations } from '@/lib/ner/core';
 import { createTaxonomy } from './utils';
+import { useDocumentDispatch } from './selectors';
+interface DocumentContextType {
+  data: any; // Replace `any` with your actual data type
+  updateData: (newData: any) => void; // Define the type for newData
+}
 
+export const DocumentContext = createContext<DocumentContextType | undefined>(
+  undefined
+);
 /**
  * Fetches a document and provides it to the context consumer globally for the page.
  */
@@ -21,12 +35,29 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   const { data, isFetching } = useQuery(['document.getDocument', { id: id }], {
     staleTime: Infinity,
   });
-
+  // State to hold the document data
+  const [documentData, setDocumentData] = useState(data);
+  useEffect(() => {
+    setDocumentData(data);
+  }, [data]);
+  // Update data function
+  const updateData = (newData: any) => {
+    console.log('incoming data', newData);
+    setDocumentData(newData);
+  };
   if (isFetching || !data) {
     return <SkeletonLayout />;
   }
 
-  return <DocumentStateProvider data={data}>{children}</DocumentStateProvider>;
+  return documentData ? (
+    <DocumentContext.Provider value={{ data: documentData, updateData }}>
+      <DocumentStateProvider data={documentData}>
+        {children}
+      </DocumentStateProvider>
+    </DocumentContext.Provider>
+  ) : (
+    <></>
+  );
 };
 
 type DocumentStateProvider = {

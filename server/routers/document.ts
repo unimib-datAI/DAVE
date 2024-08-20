@@ -122,7 +122,6 @@ export type GetPaginatedDocuments = {
   nextPage: number | null;
 };
 
-//edited function to get documents from local directory
 const getDocuments = async (
   cursor: number,
   limit: number,
@@ -137,6 +136,46 @@ const getDocuments = async (
     }
   );
   return res;
+};
+/**
+ *
+ * @param id Document ID
+ * @param entities ids of entities to be moved
+ * @param sourceCluster previous cluster containing the entities
+ * @param destinationCluster new cluster containing the entities
+ * @returns
+ */
+const moveEntitiesToCluster = async (
+  id: number,
+  entities: number[],
+  annotationSet: string,
+  sourceCluster: number,
+  destinationCluster: number
+) => {
+  try {
+    let res = fetchJson<any, Document>(
+      `${baseURL}/document/${id}/move-entities`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: getAuthHeader(),
+        },
+        body: {
+          entities: entities,
+          annotationSet: annotationSet,
+          sourceCluster: sourceCluster,
+          destinationCluster: destinationCluster,
+        },
+      }
+    );
+    return res;
+  } catch (err) {
+    console.error(err);
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: `Document with id '${id}' not found.`,
+    });
+  }
 };
 
 export const documents = createRouter()
@@ -164,6 +203,29 @@ export const documents = createRouter()
       return getDocuments(cursor, limit, q);
     },
   })
+  .mutation('moveEntitiesToCluster', {
+    input: z.object({
+      id: z.number(),
+      annotationSet: z.string(),
+      entities: z.array(z.number()),
+      sourceCluster: z.number(),
+      destinationCluster: z.number(),
+    }),
+    resolve: async ({ input }) => {
+      const { id, annotationSet, entities, sourceCluster, destinationCluster } =
+        input;
+      let moveRes = await moveEntitiesToCluster(
+        id,
+        entities,
+        annotationSet,
+        sourceCluster,
+        destinationCluster
+      );
+      console.log('moveRes', moveRes);
+      return moveRes;
+    },
+  })
+
   .mutation('deleteAnnotationSet', {
     input: z.object({
       docId: z.number(),

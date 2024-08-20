@@ -1,3 +1,5 @@
+import { ProcessedCluster } from '@/modules/document/DocumentProvider/types';
+import { Document } from '@/server/routers/document';
 import { CSS } from '@nextui-org/react';
 
 /**
@@ -254,4 +256,37 @@ export function getStartAndEndIndexForPagination(page: number, text: string) {
     let endIndex = text.length;
     return { startIndex: 0, endIndex, stopPagination: true };
   }
+}
+
+export function getClustersGroups(data: Document, annSetName: string) {
+  const annSetClusters = data.features.clusters[annSetName];
+  if (!annSetClusters) {
+    return;
+  }
+  let text = data.text;
+  let annSet = data.annotation_sets[annSetName];
+  const clusters = annSetClusters.map((cluster) => {
+    const mentions = cluster.mentions.map((mention) => {
+      const ann = annSet.annotations.find((ann) => ann.id === mention.id);
+
+      if (!ann) {
+        return mention;
+      }
+
+      const startOffset = ann.start - 10 < 0 ? 0 : ann.start - 10;
+      const endOffset = ann.end + 50 > text.length ? text.length : ann.end + 50;
+
+      return {
+        ...mention,
+        mentionText: `...${text.slice(startOffset, endOffset)}...`,
+      };
+    });
+
+    return {
+      ...cluster,
+      mentions: mentions.filter((m) => (m as any).mentionText),
+    } as ProcessedCluster;
+  });
+
+  return groupBy(clusters, (cluster) => cluster.type);
 }
