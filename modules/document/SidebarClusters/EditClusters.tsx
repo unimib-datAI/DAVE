@@ -1,21 +1,16 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-
 import { ProcessedCluster } from '../DocumentProvider/types';
 import { Button } from '@nextui-org/react';
-import { useText } from '@/components';
 import { Checkbox, Col, message, Modal, Row, Select, Tag } from 'antd';
 import {
   selectCurrentAnnotationSetName,
   selectDocumentId,
   selectDocumentTaxonomy,
-  useDocumentDispatch,
   useSelector,
 } from '../DocumentProvider/selectors';
 import { getAllNodeData } from '@/components/Tree';
 import {
   DndContext,
-  closestCenter,
   DragEndEvent,
   UniqueIdentifier,
   closestCorners,
@@ -33,6 +28,7 @@ import { useMutation } from '@/utils/trpc';
 import { DocumentContext } from '../DocumentProvider/DocumentProvider';
 import { getClustersGroups, groupBy } from '@/utils/shared';
 import { CheckboxChangeEvent } from 'antd/es/checkbox';
+
 interface EditClustersProps {
   onEdit: Function;
   clusterGroups: {
@@ -67,7 +63,6 @@ const SortableItem: React.FC<SortableItemProps> = ({
   id,
   name,
   mentionText,
-  activeItems,
   selectedItems,
   onCheckboxChange,
 }) => {
@@ -160,25 +155,6 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
     'document.moveEntitiesToCluster',
   ]);
 
-  const handleCheckboxChange = (id: string) => {
-    setSelectedItems((prev) => {
-      const newSelectedItems = new Set(prev);
-      if (newSelectedItems.has(id)) {
-        newSelectedItems.delete(id);
-      } else {
-        newSelectedItems.add(id);
-      }
-      return newSelectedItems;
-    });
-  };
-  const handleSelectAll = () => {
-    if (selectedItems.size === sourceList.length) {
-      setSelectedItems(new Set());
-    } else {
-      const allIds = sourceList.map((item) => item.id);
-      setSelectedItems(new Set(allIds));
-    }
-  };
   useEffect(() => {
     if (sourceCluster && dest) {
       const sourceItems: Item[] = sourceCluster.mentions.map(
@@ -204,7 +180,28 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
     }
   }, [sourceCluster, dest]);
 
-  const handleDragEnd = (event: DragEndEvent) => {
+  function handleCheckboxChange(id: string) {
+    setSelectedItems((prev) => {
+      const newSelectedItems = new Set(prev);
+      if (newSelectedItems.has(id)) {
+        newSelectedItems.delete(id);
+      } else {
+        newSelectedItems.add(id);
+      }
+      return newSelectedItems;
+    });
+  }
+
+  function handleSelectAll() {
+    if (selectedItems.size === sourceList.length) {
+      setSelectedItems(new Set());
+    } else {
+      const allIds = sourceList.map((item) => item.id);
+      setSelectedItems(new Set(allIds));
+    }
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     console.log('dragend', active, over);
     if (!over) return;
@@ -219,7 +216,6 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
       overList = 'sourceList';
     }
 
-    console.log(activeList, destList);
     if (activeList === overList) {
       // Moving within the same list
       if (active.id !== over.id) {
@@ -284,9 +280,9 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
 
     setActive([]);
     setEditedClusters(true);
-  };
+  }
 
-  const handleDragStart = (event: DragStartEvent) => {
+  function handleDragStart(event: DragStartEvent) {
     const { active } = event;
     const activeList = sourceList.find((item) => item.id === active.id)
       ? 'sourceList'
@@ -307,7 +303,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
       if (item) setActive([item]);
       else setActive([]);
     }
-  };
+  }
 
   async function handleSave() {
     let success = false;
