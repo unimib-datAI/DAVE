@@ -295,7 +295,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
       const activeItems = selectedItemsArray
         .map((id) => list.find((item) => item.id === id))
         .filter((item) => item !== undefined);
-      //eslint-disable-next-line
+      // @ts-ignore
       setActive(activeItems);
     } else {
       const list = activeList === 'sourceList' ? sourceList : destList;
