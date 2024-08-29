@@ -161,7 +161,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
         (mention) =>
           ({
             content: mention.mention,
-            // eslint-disable-next-line
+            // @ts-ignore
             fullText: mention.mentionText,
             id: mention.id.toString(),
           } as Item)
@@ -170,7 +170,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
         (mention) =>
           ({
             content: mention.mention,
-            //eslint-disable-next-line
+            // @ts-ignore
             fullText: mention.mentionText,
             id: mention.id.toString(),
           } as Item)
