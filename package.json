@@ -29,7 +29,7 @@
     "@trpc/next": "^9.22.0",
     "@trpc/react": "^9.22.0",
     "@trpc/server": "^9.22.0",
-    "antd": "^5.20.1",
+    "antd": "^4.24.16",
     "clsx": "^1.2.1",
     "eventsource-parser": "^1.0.0",
     "framer-motion": "^8.5.4",

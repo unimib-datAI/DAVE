@@ -1,13 +1,32 @@
-import { useClickOutside, useInput, useWindowEventListener } from "@/hooks";
-import { removeStopScroll, stopScroll } from "@/utils/shared";
-import styled from "@emotion/styled";
-import { Card, Checkbox, FormElement, Input, InputProps } from "@nextui-org/react";
-import { FiChevronDown } from "@react-icons/all-files/fi/FiChevronDown";
-import { FiSearch } from "@react-icons/all-files/fi/FiSearch";
-import { ChangeEvent, Children, cloneElement, CSSProperties, isValidElement, MouseEvent, PropsWithChildren, ReactElement, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Portal } from "../Portal";
-import Option, { OptionProps } from "./Option";
-
+import { useClickOutside, useInput, useWindowEventListener } from '@/hooks';
+import { removeStopScroll, stopScroll } from '@/utils/shared';
+import styled from '@emotion/styled';
+import {
+  Card,
+  Checkbox,
+  FormElement,
+  Input,
+  InputProps,
+} from '@nextui-org/react';
+import { FiChevronDown } from '@react-icons/all-files/fi/FiChevronDown';
+import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
+import {
+  ChangeEvent,
+  Children,
+  cloneElement,
+  CSSProperties,
+  isValidElement,
+  MouseEvent,
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { Portal } from '../Portal';
+import Option, { OptionProps } from './Option';
 
 type BaseSelectProps = {
   value: string | string[];
@@ -17,31 +36,33 @@ type BaseSelectProps = {
   inputProps?: Partial<InputProps>;
   backdrop?: boolean;
   nonOptionNode?: ReactNode;
-  onTop?: boolean
-}
+  onTop?: boolean;
+};
 
 type Anchor = {
   top: number;
   left: number;
   width: number;
-}
+};
 
 const Container = styled.div({
   position: 'relative',
   display: 'flex',
-  flexDirection: 'column'
-})
-
-const PopoverContainer = styled(Card)<{ anchor: Anchor, onTop?: boolean }>(({ anchor, onTop }) => ({
-  position: 'fixed',
-  display: 'flex',
   flexDirection: 'column',
-  maxHeight: '300px',
-  overflow: 'hidden',
-  paddingBottom: '5px',
-  zIndex: onTop ? 999999 : 999,
-  ...anchor,
-}));
+});
+
+const PopoverContainer = styled(Card)<{ anchor: Anchor; onTop?: boolean }>(
+  ({ anchor, onTop }) => ({
+    position: 'fixed',
+    display: 'flex',
+    flexDirection: 'column',
+    maxHeight: '300px',
+    overflow: 'hidden',
+    paddingBottom: '5px',
+    zIndex: onTop ? 999999 : 999,
+    ...anchor,
+  })
+);
 
 const PopoverContent = styled.div({
   display: 'flex',
@@ -49,12 +70,12 @@ const PopoverContent = styled.div({
   overflowY: 'auto',
   '::-webkit-scrollbar': {
     height: '4px',
-    width: '4px'
+    width: '4px',
   },
   '::-webkit-scrollbar-thumb': {
-    background: 'rgba(0,0,0,0.1)'
-  }
-})
+    background: 'rgba(0,0,0,0.1)',
+  },
+});
 
 const ContainerSearch = styled.div({
   position: 'sticky',
@@ -62,17 +83,17 @@ const ContainerSearch = styled.div({
   padding: '8px',
   background: '#FFF',
   borderBottom: '1px solid rgba(0,0,0,0.1)',
-  zIndex: 101
-})
+  zIndex: 101,
+});
 
 const EmptyItem = styled.div({
   padding: '10px 18px',
-})
+});
 
 const Backdrop = styled.div<{ onTop?: boolean }>(({ onTop }) => ({
   position: 'fixed',
   inset: 0,
-  zIndex: onTop ? 999998 : 998
+  zIndex: onTop ? 999998 : 998,
 }));
 
 const BaseSelect = ({
@@ -84,7 +105,7 @@ const BaseSelect = ({
   renderValue,
   nonOptionNode,
   onTop = false,
-  children
+  children,
 }: PropsWithChildren<BaseSelectProps>) => {
   const { binds: searchBinds, setValue: setSearchValue } = useInput('');
   const [popoverAnchor, setPopoverAncho] = useState<Anchor | undefined>();
@@ -102,32 +123,31 @@ const BaseSelect = ({
       return {
         top: bbox.top + bbox.height,
         left: bbox.left,
-        width: bbox.width
-      }
-    }
+        width: bbox.width,
+      };
+    };
     setPopoverAncho(getAnchorCoords());
-  }
+  };
 
   useWindowEventListener('resize', () => {
     if (popoverAnchor) {
       setTimeout(() => {
-        updateAnchor()
+        updateAnchor();
       }, 0);
     }
-  })
+  });
 
   const popoverRef = useClickOutside(() => {
     if (!backdrop) {
-      updateAnchor(false)
+      updateAnchor(false);
     }
-  })
-
+  });
 
   const handleClick = () => {
     if (!inputProps?.disabled) {
       updateAnchor();
     }
-  }
+  };
 
   const handleAllClick = (event: MouseEvent) => {
     if (!Array.isArray(value)) {
@@ -140,50 +160,54 @@ const BaseSelect = ({
     let newValue: string[] = [];
 
     if (value.length !== items.length) {
+      // @ts-ignore
       newValue = items.map((item) => item.props.value);
     }
     if (onChange) {
       onChange(event, newValue);
     }
-  }
-
-  const handleItemClick = (child: ReactElement<OptionProps>) => (event: MouseEvent) => {
-    let newValue;
-
-    if (multiple) {
-      newValue = Array.isArray(value) ? value.slice() : [];
-      const itemIndex = value.indexOf(child.props.value);
-      if (itemIndex === -1) {
-        newValue.push(child.props.value);
-      } else {
-        newValue.splice(itemIndex, 1);
-      }
-    } else {
-      newValue = child.props.value;
-    }
-    if (value !== newValue) {
-      if (onChange) {
-        onChange(event, newValue);
-      }
-    }
-
-    if (!multiple) {
-      updateAnchor(false);
-    }
   };
+
+  const handleItemClick =
+    (child: ReactElement<OptionProps>) => (event: MouseEvent) => {
+      let newValue;
+
+      if (multiple) {
+        newValue = Array.isArray(value) ? value.slice() : [];
+        const itemIndex = value.indexOf(child.props.value);
+        if (itemIndex === -1) {
+          newValue.push(child.props.value);
+        } else {
+          newValue.splice(itemIndex, 1);
+        }
+      } else {
+        newValue = child.props.value;
+      }
+      if (value !== newValue) {
+        if (onChange) {
+          onChange(event, newValue);
+        }
+      }
+
+      if (!multiple) {
+        updateAnchor(false);
+      }
+    };
 
   const prerenderValue = () => {
     if (!children) {
       return '';
     }
-    const childrenItems = Children.toArray(children) as ReactElement<OptionProps>[];
+    const childrenItems = Children.toArray(
+      children
+    ) as ReactElement<OptionProps>[];
 
     if (multiple && Array.isArray(childrenItems)) {
       if (value.length === 0) {
-        return 'None'
+        return 'None';
       }
       if (value.length === childrenItems.length) {
-        return 'All'
+        return 'All';
       }
       let val = [];
       for (const item of childrenItems) {
@@ -201,27 +225,27 @@ const BaseSelect = ({
       return renderValue(item ? item.props.label : '');
     }
     return item ? item.props.label : '';
-  }
+  };
 
   const getAllCheckProps = () => {
     if (!items) {
       return {
         isSelected: false,
-        isIndeterminate: false
-      }
+        isIndeterminate: false,
+      };
     }
     return {
       isSelected: items.length === value.length,
-      isIndeterminate: value.length < items.length && value.length > 0
-    }
-  }
+      isIndeterminate: value.length < items.length && value.length > 0,
+    };
+  };
 
   const renderItems = () => {
     if (!filteredItems || filteredItems.length === 0) {
       return <EmptyItem>No items</EmptyItem>;
     }
     return filteredItems;
-  }
+  };
 
   const items = useMemo(() => {
     return Children.map(children, (child) => {
@@ -229,10 +253,11 @@ const BaseSelect = ({
         return null;
       }
       return cloneElement(child, {
+        // @ts-ignore
         onClick: handleItemClick(child),
-        selected: !multiple && value === child.props.value
-      })
-    })
+        selected: !multiple && value === child.props.value,
+      });
+    });
   }, [children]);
 
   const filteredItems = useMemo(() => {
@@ -240,8 +265,9 @@ const BaseSelect = ({
       return null;
     }
     const regex = new RegExp(searchBinds.value, 'i');
-    return items.filter((child) => child.props.label.match(regex))
-  }, [searchBinds.value, items])
+    // @ts-ignore
+    return items.filter((child) => child.props.label.match(regex));
+  }, [searchBinds.value, items]);
 
   return (
     <>
@@ -253,12 +279,17 @@ const BaseSelect = ({
           contentRight={<FiChevronDown />}
           value={prerenderValue()}
           css={{
-            caretColor: 'transparent'
-          }} />
+            caretColor: 'transparent',
+          }}
+        />
       </Container>
       {popoverAnchor && (
         <Portal elementSelector="select-popup">
-          <PopoverContainer anchor={popoverAnchor} onTop={!!onTop} ref={popoverRef}>
+          <PopoverContainer
+            anchor={popoverAnchor}
+            onTop={!!onTop}
+            ref={popoverRef}
+          >
             <PopoverContent>
               <ContainerSearch>
                 <Input
@@ -275,7 +306,10 @@ const BaseSelect = ({
               </ContainerSearch>
               {multiple && (
                 <Option label="All" value="all" onClick={handleAllClick}>
-                  <Checkbox aria-label="Select all items" {...getAllCheckProps()} />
+                  <Checkbox
+                    aria-label="Select all items"
+                    {...getAllCheckProps()}
+                  />
                   All
                 </Option>
               )}
@@ -283,11 +317,13 @@ const BaseSelect = ({
               {nonOptionNode && nonOptionNode}
             </PopoverContent>
           </PopoverContainer>
-          {backdrop && <Backdrop onClick={() => updateAnchor(false)} onTop={onTop} />}
+          {backdrop && (
+            <Backdrop onClick={() => updateAnchor(false)} onTop={onTop} />
+          )}
         </Portal>
       )}
     </>
-  )
+  );
 };
 
 export default BaseSelect;

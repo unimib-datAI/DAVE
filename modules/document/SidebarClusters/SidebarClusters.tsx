@@ -51,6 +51,7 @@ const SidebarClusters = () => {
           <ClusterList clusterGroups={clusterGroupsState} />
 
           <EditClusters
+            // @ts-ignore
             onEdit={(newGroups) => {
               console.log('newGroups', newGroups);
               setClusterGroupsState(newGroups);
