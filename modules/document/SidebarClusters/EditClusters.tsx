@@ -1,7 +1,7 @@
 import React, { useContext, useEffect, useState } from 'react';
 import { ProcessedCluster } from '../DocumentProvider/types';
 import { Button } from '@nextui-org/react';
-import { Checkbox, Col, message, Modal, Row, Select, Tag } from 'antd';
+import { Checkbox, Col, Drawer, message, Modal, Row, Select, Tag } from 'antd';
 import {
   selectCurrentAnnotationSetName,
   selectDocumentId,
@@ -345,15 +345,20 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
   }
   return (
     <>
-      <Button style={{ margin: 15 }} onPress={() => setIsOpen(true)}>
+      <Button
+        style={{ margin: 15 }}
+        onPress={() => {
+          console.log('setting is ope');
+          setIsOpen(true);
+        }}
+      >
         Edit clusters
       </Button>
-      <Modal
+      <Drawer
         width={'70%'}
         title="Modifica cluster"
         open={isOpen}
-        onOk={() => setIsOpen(false)}
-        onCancel={() => setIsOpen(false)}
+        onClose={() => setIsOpen(false)}
       >
         <Row justify="space-between" align="middle" gutter={0}>
           <Col span={10}>
@@ -543,7 +548,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
             <Button onClick={handleSave}>Salva</Button>
           </Row>
         )}
-      </Modal>
+      </Drawer>
     </>
   );
 };

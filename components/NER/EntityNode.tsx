@@ -1,5 +1,5 @@
 import { getSpan } from '@/lib/ner/core';
-import { Annotation, EntityNode } from '@/lib/ner/core/types';
+import { Annotation, EntityNode as EntityNodeType } from '@/lib/ner/core/types';
 import { ChildNodeWithColor, getAllNodeData } from '@/components/Tree';
 import {
   AdditionalAnnotationProps,
@@ -24,7 +24,7 @@ import { maskWords } from '@/utils/shared';
 import { useAtom } from 'jotai';
 import { anonimizedNamesAtom } from '@/utils/atoms';
 
-type EntityNodeProps = EntityNode<AdditionalAnnotationProps>;
+type EntityNodeProps = EntityNodeType<AdditionalAnnotationProps>;
 
 const pulse = keyframes`
 0% {

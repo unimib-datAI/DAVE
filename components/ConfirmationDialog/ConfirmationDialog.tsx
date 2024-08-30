@@ -1,28 +1,25 @@
-import useModal from "@/hooks/use-modal";
-import { Button, Grid, Modal, ModalProps, Text } from "@nextui-org/react";
-import { ReactNode, useCallback, useState } from "react";
+import useModal from '@/hooks/use-modal';
+import { Button, Grid, Modal, ModalProps, Text } from '@nextui-org/react';
+import { ReactNode, useCallback, useState } from 'react';
 
 type ConfirmationDialogProps = ModalProps & {
-  content: ReactNode,
+  content: ReactNode;
   onConfirm?: () => void;
 };
 
 type UseConfirmationDialogProps<T> = {
   // open: boolean;
-  props?: T
-}
+  props?: T;
+};
 
 type SetVisibleParams<T> = {
-  open: boolean,
-  props?: T
-}
+  open: boolean;
+  props?: T;
+};
 
 export function useConfirmationDialog<T>() {
   const {
-    bindings: {
-      open,
-      ...binds
-    },
+    bindings: { open, ...binds },
     setVisible: setVisibleProp,
     ...rest
   } = useModal();
@@ -32,32 +29,34 @@ export function useConfirmationDialog<T>() {
   const setVisible = useCallback((params: SetVisibleParams<T>) => {
     const { open, props } = params;
     setVisibleProp(open);
-    setProps(props);
+    if (props) setProps(props);
   }, []);
 
   return {
     bindings: {
       open,
-      ...binds
+      ...binds,
     },
     setVisible,
     props,
-    ...rest
-  }
+    ...rest,
+  };
 }
 
-const ConfirmationDialog = ({ content, onConfirm, ...props }: ConfirmationDialogProps) => {
+const ConfirmationDialog = ({
+  content,
+  onConfirm,
+  ...props
+}: ConfirmationDialogProps) => {
   return (
-    <Modal
-      {...props}
-    >
+    <Modal {...props}>
       <Modal.Header>
-        <Text b size={18}>Confirm</Text>
+        <Text b size={18}>
+          Confirm
+        </Text>
       </Modal.Header>
       <Modal.Body>
-        <Text>
-          {content}
-        </Text>
+        <Text>{content}</Text>
       </Modal.Body>
       <Modal.Footer>
         <Grid.Container justify="space-between" alignContent="center">
@@ -74,7 +73,7 @@ const ConfirmationDialog = ({ content, onConfirm, ...props }: ConfirmationDialog
         </Grid.Container>
       </Modal.Footer>
     </Modal>
-  )
+  );
 };
 
 export default ConfirmationDialog;

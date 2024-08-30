@@ -1,6 +1,9 @@
-import produce, { Draft, setAutoFreeze } from "immer"
+import produce, { Draft, setAutoFreeze } from 'immer';
 
-type ImmerReducerFunction<S, A extends RequiredActionFields> = (state: Draft<S>, action: A['payload']) => void;
+type ImmerReducerFunction<S, A extends RequiredActionFields> = (
+  state: Draft<S>,
+  action: A['payload']
+) => void;
 
 type RequiredActionFields<P = {}> = {
   type: string;
@@ -8,12 +11,14 @@ type RequiredActionFields<P = {}> = {
 };
 
 type Reducers<S, A extends RequiredActionFields> = {
-  [T in A['type']]: ImmerReducerFunction<S, A & { type: T }>
+  [T in A['type']]: ImmerReducerFunction<S, A & { type: T }>;
 };
 
 setAutoFreeze(false);
 
-export function createImmerReducer<S, A extends RequiredActionFields<A['payload']>>(reducers: Reducers<S, A>) {
+export function createImmerReducer<S, A extends RequiredActionFields>(
+  reducers: Reducers<S, A>
+) {
   return (state: S, action: A) => {
     const reducer = reducers[action.type as keyof typeof reducers];
 
@@ -21,10 +26,10 @@ export function createImmerReducer<S, A extends RequiredActionFields<A['payload'
       throw new Error(`Unhandled action type`);
     }
 
-    const nextState = produce(state, draft => {
+    const nextState = produce(state, (draft) => {
       reducer(draft, action.payload);
-    })
+    });
 
     return nextState;
-  }
+  };
 }
