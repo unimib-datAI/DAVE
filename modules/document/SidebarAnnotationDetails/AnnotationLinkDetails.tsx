@@ -105,7 +105,6 @@ const AnnotationLinkDetails = ({
 
   const isNil = () => {
     let isNil = false;
-
     if (annotationFeatures.is_nil === undefined) {
       if (
         annotationFeatures.linking &&
