@@ -70,6 +70,12 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
       options.token_repetition_penalty_max =
         options.token_repetition_penalty_max[0];
     }
+    if (Array.isArray(options.top_p)) {
+      options.top_p = options.top_p[0];
+    }
+    if (Array.isArray(options.max_new_tokens)) {
+      options.max_new_tokens = options.max_new_tokens[0];
+    }
     // options.temperature = 1.0;
     // const response = await fetch(
     //   `${process.env.NEXT_PUBLIC_BASE_PATH}/api/${endpoint}`,
