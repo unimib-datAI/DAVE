@@ -52,6 +52,8 @@ const t: Translation = {
         data: 'Mostra metadati',
       },
       clustersContent: {
+        alphabeticalOrder: 'Alfabetico',
+        mentionOrder: 'Numero di menzioni',
         title: 'Cluster entità',
         description: 'Visualizza i cluster delle entità con le loro menzioni',
         mentions: '{n} menzioni',

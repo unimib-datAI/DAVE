@@ -57,6 +57,8 @@ export type Translation = {
         tooltipNotRecognized: string;
       };
       clustersContent: {
+        alphabeticalOrder: string;
+        mentionOrder: string;
         title: string;
         description: string;
         mentions: string;
