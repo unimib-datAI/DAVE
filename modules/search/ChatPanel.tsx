@@ -90,7 +90,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
 
   const { register, value, onSubmit, setValue } = useForm<Form>({
     temperature: 0.7,
-    max_new_tokens: 512,
+    max_new_tokens: 1024,
     top_p: 0.65,
     token_repetition_penalty_max: 1.15,
     system: '',
@@ -110,14 +110,15 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     if (formValues.message === '') {
       return;
     }
-    console.log('formValues', formValues);
     // formValues.temperature = formValues.temperature[0];
     // console.log('formValues', formValues);
     const useDocumentContext = !devMode || formValues.useDocumentContext;
     const currentUrl = window.location.href;
     let filterIds: string[] = [];
     if (currentUrl.includes('search') && formValues.useCurrentDocumentContext) {
-      filterIds = facetedDocuemnts.map((doc) => doc.id.toString());
+      filterIds = facetedDocuemnts.map((doc) => {
+        return doc.id.toString()});
+       
     } else if (
       currentUrl.includes('documents') &&
       formValues.useCurrentDocumentContext

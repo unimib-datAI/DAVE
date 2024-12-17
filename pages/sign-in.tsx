@@ -34,19 +34,27 @@ const Box = styled.div`
 const Login: NextPage<{}> = () => {
   const { status } = useSession()
   const signInError = useQueryParam('error');
-
+  const router = useRouter();
   const { register, value } = useForm({
     username: '',
     password: ''
   });
 
-
-  const onFormSubmit = (event: FormEvent) => {
+console.log('value', process.env.NEXT_PUBLIC_FULL_PATH);
+  const onFormSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    signIn('credentials', {
+    console.log('value', process.env.NEXT_PUBLIC_FULL_PATH);
+    try{
+      let res = await signIn('credentials', {
       ...value,
-      callbackUrl: `${process.env.NEXT_PUBLIC_BASE_PATH}/`
+     
     });
+    console.log('res', res)
+    router.push(`${process.env.NEXT_PUBLIC_FULL_PATH}/`)
+    }catch(e){
+      console.log('error', e)
+    }
+    
   }
 
   return (

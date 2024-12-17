@@ -106,8 +106,7 @@ export const search = createRouter()
       filter_ids: z.array(z.string()).optional(),
     }),
     resolve: async ({ input }) => {
-      let index = process.env.VARIANT ? 'indagini-documents' : 'dave-documents';
-      console.log('filters', input.filter_ids);
+      let index = process.env.VARIANT ? 'bologna' : 'batini';
       const documents = (await fetch(
         `${process.env.API_INDEXER}/chroma/collection/${index}/query`,
         {
@@ -144,7 +143,7 @@ export const search = createRouter()
       cursor: z.number().nullish(),
     }),
     resolve: async ({ input }) => {
-      let index = process.env.VARIANT ? 'indagini-documents' : 'dave-documents';
+      let index = process.env.VARIANT ? 'bologna' : 'batini';
       // console.log('index', index);
       const res = await fetch(
         `${process.env.API_INDEXER}/elastic/index/${index}/query`,

@@ -127,6 +127,7 @@ const getDocuments = async (
   limit: number,
   q?: string
 ): Promise<GetPaginatedDocuments> => {
+  console.log('documents',`${baseURL}/document?q=${q}&page=${cursor}&limit=${limit}` )
   const res = await fetchJson<any, GetPaginatedDocuments>(
     `${baseURL}/document?q=${q}&page=${cursor}&limit=${limit}`,
     {
@@ -146,7 +147,7 @@ const getDocuments = async (
  * @returns
  */
 const moveEntitiesToCluster = async (
-  id: number,
+  id: string,
   entities: number[],
   annotationSet: string,
   sourceCluster: number,
@@ -205,7 +206,7 @@ export const documents = createRouter()
   })
   .mutation('moveEntitiesToCluster', {
     input: z.object({
-      id: z.number(),
+      id: z.string(),
       annotationSet: z.string(),
       entities: z.array(z.number()),
       sourceCluster: z.number(),

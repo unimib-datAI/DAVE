@@ -92,10 +92,13 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
       options.messages,
       options.devMode || false
     );
+    console.log('calling generation ', process.env.NODE_ENV === 'development'
+        ? `http://vm.chronos.disco.unimib.it:7862/generate`
+        : `https://vm.chronos.disco.unimib.it/llm2/generate`,)
     const response = await fetch(
       process.env.NODE_ENV === 'development'
-        ? `${process.env.NEXT_PUBLIC_TEXT_GENERATION}/generate`
-        : `https://vm.chronos.disco.unimib.it/llm2/generate`,
+        ? `http://vm.chronos.disco.unimib.it:7862/generate`
+        : `http://vm.chronos.disco.unimib.it:7862/generate`,
       {
         headers: {
           'Content-Type': 'application/json',

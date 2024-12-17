@@ -21,7 +21,7 @@ export default function handler(req: NextRequest) {
 
   if (authorized) {
     if (req.nextUrl.pathname === '/sign-in') {
-      const redirectUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_PATH}/infer`, req.url);
+      const redirectUrl = new URL(`${process.env.NEXT_PUBLIC_BASE_PATH}/`, req.url);
       return NextResponse.redirect(redirectUrl);
     }
   } else {

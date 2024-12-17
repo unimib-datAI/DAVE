@@ -24,7 +24,7 @@ export default NextAuth({
         const { username, password } = credentials;
         // Add logic here to look up the user from the credentials supplied
         const isLoggedIn = password === process.env.ACCESS_PASSWORD && username === process.env.ACCESS_USERNAME;
-
+        console.log('isLoggedIn', isLoggedIn)
         if (!isLoggedIn) {
           return null;
           // throw new TRPCError({

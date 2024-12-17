@@ -49,11 +49,13 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   console.log('messages', messages);
   try {
     //      `${process.env.NEXT_PUBLIC_TEXT_GENERATION}/generate`,
-
+    console.log('calling', process.env.NODE_ENV === 'development'
+        ? `${process.env.NEXT_PUBLIC_TEXT_GENERATION}/generate`
+        : `${process.env.NEXT_PUBLIC_TEXT_GENERATION}/generate`,)
     const response = await fetch(
       process.env.NODE_ENV === 'development'
         ? `${process.env.NEXT_PUBLIC_TEXT_GENERATION}/generate`
-        : `https://vm.chronos.disco.unimib.it/llm2/generate`,
+        : `${process.env.NEXT_PUBLIC_TEXT_GENERATION}/generate`,
       {
         headers: {
           'Content-Type': 'application/json',

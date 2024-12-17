@@ -41,6 +41,7 @@ const buildFacets = (facets: FacetedQueryOutput['facets']) => {
 };
 
 const Facets = ({ facets }: FacetsProps) => {
+  console.log('Boh facets', facets)
   const { register, value } = useForm({
     filter: '',
   });
@@ -57,10 +58,9 @@ const Facets = ({ facets }: FacetsProps) => {
     value.filter.trim() === ''
       ? allFacets
       : fuse.current.search(value.filter).map(({ item }) => item);
-
   return allFacets.length > 0 ? (
     <div className="sticky top-16 w-72 h-[calc(100vh-4rem)]">
-      <Scroller onScrollEnd={() => {}} onScrollTop={() => {}}>
+      <Scroller onScrollEnd={() => {console.log('scrolled to end of facets filters')}} onScrollTop={() => {}}>
         <div className="flex flex-col pr-6 py-6 gap-8">
           <div className="flex flex-col">
             <div className="text-lg font-semibold">Filter</div>
