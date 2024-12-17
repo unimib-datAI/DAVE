@@ -126,24 +126,26 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
           {selected ? <FiChevronUp /> : <FiChevronDown />}
         </IconButton>
       </GroupHeader>
-      <Select
-        defaultValue="ALPHABETICAL"
-        value={selectedSort}
-        onChange={(value) => {
-          if (value === 'ALPHABETICAL' || value === 'NUMBER_MENTIONS')
-            setSelectedSort(value);
-        }}
-        options={[
-          {
-            value: 'ALPHABETICAL',
-            label: t('leftSidebar.clustersContent.alphabeticalOrder'),
-          },
-          {
-            value: 'NUMBER_MENTIONS',
-            label: t('leftSidebar.clustersContent.mentionOrder'),
-          },
-        ]}
-      />
+      {selected && (
+        <Select
+          defaultValue="ALPHABETICAL"
+          value={selectedSort}
+          onChange={(value) => {
+            if (value === 'ALPHABETICAL' || value === 'NUMBER_MENTIONS')
+              setSelectedSort(value);
+          }}
+          options={[
+            {
+              value: 'ALPHABETICAL',
+              label: t('leftSidebar.clustersContent.alphabeticalOrder'),
+            },
+            {
+              value: 'NUMBER_MENTIONS',
+              label: t('leftSidebar.clustersContent.mentionOrder'),
+            },
+          ]}
+        />
+      )}
       {selected && <ClustersList clusters={clustersState} />}
     </GroupContainer>
   );
