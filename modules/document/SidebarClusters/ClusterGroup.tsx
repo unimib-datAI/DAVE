@@ -1,22 +1,27 @@
-import { getAllNodeData, getNodesPath } from "@/components/Tree";
-import { Cluster } from "@/server/routers/document";
-import styled from "@emotion/styled";
-import { type } from "os";
-import { darken } from "polished";
-import { useMemo } from "react";
-import { useSelector, selectDocumentTaxonomy } from "../DocumentProvider/selectors";
+import { getAllNodeData, getNodesPath } from '@/components/Tree';
+import { Cluster } from '@/server/routers/document';
+import styled from '@emotion/styled';
+import { type } from 'os';
+import { darken } from 'polished';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  useSelector,
+  selectDocumentTaxonomy,
+} from '../DocumentProvider/selectors';
 import { FiChevronDown } from '@react-icons/all-files/fi/FiChevronDown';
 import { FiChevronUp } from '@react-icons/all-files/fi/FiChevronUp';
-import ClusterCard from "./ClusterCard";
-import ClustersList from "./ClustersList";
-import { ProcessedCluster } from "../DocumentProvider/types";
+import ClusterCard from './ClusterCard';
+import ClustersList from './ClustersList';
+import { ProcessedCluster } from '../DocumentProvider/types';
+import { Select } from 'antd';
+import { useText } from '@/components';
 
 type ClusterGroup = {
   selected: boolean;
   type: string;
-  clusters: ProcessedCluster[],
+  clusters: ProcessedCluster[];
   onClick: () => void;
-}
+};
 
 const GroupContainer = styled.div({
   display: 'flex',
@@ -24,8 +29,8 @@ const GroupContainer = styled.div({
   borderBottom: '1px solid #F3F3F5',
   '&:first-of-type': {
     borderTop: '1px solid #F3F3F5',
-  }
-})
+  },
+});
 
 const GroupHeader = styled.div<{ selected: boolean }>(({ selected }) => ({
   position: 'sticky',
@@ -44,8 +49,8 @@ const GroupHeader = styled.div<{ selected: boolean }>(({ selected }) => ({
     borderBottom: '1px solid #F3F3F5',
   },
   ...(selected && {
-    background: '#f8f8f8'
-  })
+    background: '#f8f8f8',
+  }),
 }));
 
 const Tag = styled.span<{ color: string }>(({ color }) => ({
@@ -69,11 +74,14 @@ const IconButton = styled.button({
   padding: '0px 5px',
   margin: 0,
   marginLeft: 'auto',
-  fontSize: '12px'
-})
+  fontSize: '12px',
+});
 
 const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
-
+  const [selectedSort, setSelectedSort] = useState<
+    'ALPHABETICAL' | 'NUMBER_MENTIONS'
+  >('ALPHABETICAL');
+  const [clustersState, setClusters] = useState<ProcessedCluster[]>(clusters);
   const taxonomy = useSelector(selectDocumentTaxonomy);
 
   const taxonomyNode = useMemo(() => {
@@ -86,6 +94,28 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
     return nodes.map((n) => n.label).join(' / ');
   }, [type]);
 
+  useEffect(() => {
+    handleSort(selectedSort);
+  }, [selectedSort]);
+
+  async function handleSort(sort: 'ALPHABETICAL' | 'NUMBER_MENTIONS') {
+    switch (sort) {
+      case 'ALPHABETICAL':
+        let tempAlpha = clustersState.sort((a: Cluster, b: Cluster) =>
+          a.title.localeCompare(b.title)
+        );
+        setClusters(tempAlpha);
+        break;
+      case 'NUMBER_MENTIONS':
+        let tempNum = clustersState.sort(
+          (a: Cluster, b: Cluster) => a.mentions.length - b.mentions.length
+        );
+        setClusters(tempNum);
+        break;
+    }
+  }
+
+  const t = useText('document');
 
   return (
     <GroupContainer>
@@ -96,9 +126,27 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
           {selected ? <FiChevronUp /> : <FiChevronDown />}
         </IconButton>
       </GroupHeader>
-      {selected && <ClustersList clusters={clusters} />}
+      <Select
+        defaultValue="ALPHABETICAL"
+        value={selectedSort}
+        onChange={(value) => {
+          if (value === 'ALPHABETICAL' || value === 'NUMBER_MENTIONS')
+            setSelectedSort(value);
+        }}
+        options={[
+          {
+            value: 'ALPHABETICAL',
+            label: t('leftSidebar.clustersContent.alphabeticalOrder'),
+          },
+          {
+            value: 'NUMBER_MENTIONS',
+            label: t('leftSidebar.clustersContent.mentionOrder'),
+          },
+        ]}
+      />
+      {selected && <ClustersList clusters={clustersState} />}
     </GroupContainer>
-  )
+  );
 };
 
 export default ClusterGroup;

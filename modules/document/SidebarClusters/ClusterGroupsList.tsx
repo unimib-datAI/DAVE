@@ -19,24 +19,7 @@ const ListContainer = styled.div({
 
 const ClusterGroupsList = ({ clusterGroups }: ClusterListProps) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const [selectedSort, setSelectedSort] = useState<
-    'ALPHABETICAL' | 'NUMBER_MENTIONS'
-  >('ALPHABETICAL');
-  async function handleSort(sort: 'ALPHABETICAL' | 'NUMBER_MENTIONS') {
-    switch (sort) {
-      case 'ALPHABETICAL':
-        return clusterGroups.sort((a: Cluster, b: Cluster) =>
-          a.title.localeCompare(b.title)
-        );
-      case 'NUMBER_MENTIONS':
-        return clusterGroups.sort(
-          (a: Cluster, b: Cluster) => a.mentions.length - b.mentions.length
-        );
-    }
-  }
-  useEffect(() => {
-    handleSort(selectedSort);
-  }, [selectedSort]);
+
   useEffect(() => {
     setSelectedIndex(null);
   }, [clusterGroups]);
@@ -49,24 +32,9 @@ const ClusterGroupsList = ({ clusterGroups }: ClusterListProps) => {
       return index;
     });
   };
-  const t = useText('document');
+
   return (
     <ListContainer>
-      <Select
-        defaultValue="ALPHABETICAL"
-        value={selectedSort}
-        onChange={(value) => setSelectedSort(value)}
-        options={[
-          {
-            value: 'ALPHABETICAL',
-            label: t('leftSidebar.clustersContent.alphabeticalOrder'),
-          },
-          {
-            value: 'NUMBER_MENTIONS',
-            label: t('leftSidebar.clustersContent.mentionOrder'),
-          },
-        ]}
-      />
       {Object.keys(clusterGroups).map((type, index) => (
         <ClusterGroup
           key={type}
