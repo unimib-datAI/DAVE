@@ -57,12 +57,9 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
   const stream = async ({
     context,
     ...options
-  }: Omit<
-    GenerateOptions & { messages: Message[]; devMode?: boolean },
-    'system'
-  >) => {
+  }: GenerateOptions & { messages: Message[]; devMode?: boolean }) => {
     setIsLoading(true);
-    console.log('streaming', options);
+    console.log('streaming', options.system);
     if (Array.isArray(options.temperature)) {
       options.temperature = options.temperature[0];
     }
@@ -90,11 +87,15 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
     let messages = getPromptAndMessage(
       false,
       options.messages,
-      options.devMode || false
+      options.devMode || false,
+      options.system
     );
-    console.log('calling generation ', process.env.NODE_ENV === 'development'
+    console.log(
+      'calling generation ',
+      process.env.NODE_ENV === 'development'
         ? `http://vm.chronos.disco.unimib.it:7862/generate`
-        : `https://vm.chronos.disco.unimib.it/llm2/generate`,)
+        : `https://vm.chronos.disco.unimib.it/llm2/generate`
+    );
     const response = await fetch(
       process.env.NODE_ENV === 'development'
         ? `http://vm.chronos.disco.unimib.it:7862/generate`
@@ -180,7 +181,11 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
   const appendMessage = async ({
     message,
     ...generateOptions
-  }: GenerateOptions & { message: string; devMode?: boolean }) => {
+  }: GenerateOptions & {
+    message: string;
+    devMode?: boolean;
+    system?: string;
+  }) => {
     const generateContent = () => {
       if (generateOptions.context) {
         const contextChunks = generateOptions.context
@@ -208,6 +213,7 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
     // setChatHistory([...chatHistory, newMessage]);
 
     setIsStreaming(true);
+    console.log('appending message', generateOptions);
     await stream({ ...generateOptions, messages: messagesRef.current });
     setIsStreaming(false);
   };

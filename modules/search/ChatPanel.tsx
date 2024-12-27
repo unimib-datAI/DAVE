@@ -18,9 +18,11 @@ import { cn } from '@/lib/utils';
 import { useAtom } from 'jotai';
 import { chatHistoryAtom, facetsDocumentsAtom } from '@/utils/atoms';
 import { current } from 'immer';
+import { Radio } from 'antd';
 
 type Form = GenerateOptions & {
   message: string;
+  retrievalMethod: string;
   useDocumentContext: boolean;
   useCurrentDocumentContext: boolean;
 };
@@ -95,7 +97,8 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     token_repetition_penalty_max: 1.15,
     system: '',
     message: '',
-    useDocumentContext: false,
+    useDocumentContext: true,
+    retrievalMethod: 'full',
     useCurrentDocumentContext: false,
   });
 
@@ -104,6 +107,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
   const fieldTopP = register('top_p');
   const fieldFrequencyPenalty = register('token_repetition_penalty_max');
   const fieldUseDocumentContext = register('useDocumentContext');
+  const fieldRetrievalMethod = register('retrievalMethod');
   const useCurrentDocumentContext = register('useCurrentDocumentContext');
 
   const handleFormSubmit = async (formValues: Form) => {
@@ -117,8 +121,8 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     let filterIds: string[] = [];
     if (currentUrl.includes('search') && formValues.useCurrentDocumentContext) {
       filterIds = facetedDocuemnts.map((doc) => {
-        return doc.id.toString()});
-       
+        return doc.id.toString();
+      });
     } else if (
       currentUrl.includes('documents') &&
       formValues.useCurrentDocumentContext
@@ -133,6 +137,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
       ? await mostSimilarDocumentsMutation.mutateAsync({
           query: formValues.message,
           filter_ids: filterIds,
+          retrievalMethod: formValues.retrievalMethod,
         })
       : undefined;
 
@@ -348,6 +353,21 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                       </label>
                     </div>
                   </Tooltip>
+                  <span className="text-sm font-semibold">
+                    Retrieval method
+                  </span>
+                  <Radio.Group
+                    value={fieldRetrievalMethod.value}
+                    onChange={(value) => {
+                      fieldRetrievalMethod.onChange(value.target.value);
+                    }}
+                  >
+                    <Radio value="full">Hybrid Retrieval</Radio>
+                    <Radio value="hibrid_no_ner">Hibrid Retrieval No NER</Radio>
+                    <Radio value="dense">Dense</Radio>
+                    <Radio value="full-text">Full text</Radio>
+                    <Radio value="none">None</Radio>
+                  </Radio.Group>
                 </div>
                 <div className="flex flex-col gap-3 flex-grow">
                   <Tooltip

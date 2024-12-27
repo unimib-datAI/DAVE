@@ -104,6 +104,7 @@ export const search = createRouter()
     input: z.object({
       query: z.string(),
       filter_ids: z.array(z.string()).optional(),
+      retrievalMethod: z.string().optional(),
     }),
     resolve: async ({ input }) => {
       let index = process.env.VARIANT ? 'bologna' : 'batini';
@@ -117,6 +118,7 @@ export const search = createRouter()
           body: JSON.stringify({
             query: input.query,
             filter_ids: input.filter_ids,
+            retrievalMethod: input.retrievalMethod,
           }),
         }
       ).then((r) => r.json())) as GetSimilarDocumentResponse;
@@ -144,7 +146,17 @@ export const search = createRouter()
     }),
     resolve: async ({ input }) => {
       let index = process.env.VARIANT ? 'bologna' : 'batini';
-      // console.log('index', index);
+      console.log(
+        'index',
+        index,
+        `${process.env.API_INDEXER}/elastic/index/${index}/query`
+      );
+      let string = JSON.stringify({
+        ...input,
+        n_facets: 20,
+        page: input.cursor || 1,
+      });
+      console.log('string', string);
       const res = await fetch(
         `${process.env.API_INDEXER}/elastic/index/${index}/query`,
         {
