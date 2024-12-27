@@ -13,9 +13,9 @@ import { FiChevronUp } from '@react-icons/all-files/fi/FiChevronUp';
 import ClusterCard from './ClusterCard';
 import ClustersList from './ClustersList';
 import { ProcessedCluster } from '../DocumentProvider/types';
-import { Select } from 'antd';
+import { Col, Input, Row, Select } from 'antd';
 import { useText } from '@/components';
-
+import { AiFillCloseCircle } from '@react-icons/all-files/ai/AiFillCloseCircle';
 type ClusterGroup = {
   selected: boolean;
   type: string;
@@ -83,7 +83,7 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
   >('ALPHABETICAL');
   const [clustersState, setClusters] = useState<ProcessedCluster[]>(clusters);
   const taxonomy = useSelector(selectDocumentTaxonomy);
-
+  const [searchTerm, setSearchTerm] = useState('');
   const taxonomyNode = useMemo(() => {
     const node = getAllNodeData(taxonomy, type);
     return node;
@@ -97,6 +97,21 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
   useEffect(() => {
     handleSort(selectedSort);
   }, [selectedSort]);
+
+  useEffect(() => {
+    if (searchTerm !== '') {
+      handleSearch();
+    } else {
+      setClusters(clusters);
+    }
+  }, [searchTerm]);
+
+  async function handleSearch() {
+    let tempSearch = clustersState.filter((cluster: Cluster) =>
+      cluster.title.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setClusters(tempSearch);
+  }
 
   async function handleSort(sort: 'ALPHABETICAL' | 'NUMBER_MENTIONS') {
     switch (sort) {
@@ -127,24 +142,51 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
         </IconButton>
       </GroupHeader>
       {selected && (
-        <Select
-          defaultValue="ALPHABETICAL"
-          value={selectedSort}
-          onChange={(value) => {
-            if (value === 'ALPHABETICAL' || value === 'NUMBER_MENTIONS')
-              setSelectedSort(value);
-          }}
-          options={[
-            {
-              value: 'ALPHABETICAL',
-              label: t('leftSidebar.clustersContent.alphabeticalOrder'),
-            },
-            {
-              value: 'NUMBER_MENTIONS',
-              label: t('leftSidebar.clustersContent.mentionOrder'),
-            },
-          ]}
-        />
+        <Col>
+          <Row justify={'center'}>
+            <Input
+              suffix={
+                <AiFillCloseCircle
+                  style={{
+                    cursor: 'pointer',
+                    visibility: searchTerm ? 'visible' : 'hidden',
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setSearchTerm('');
+                  }}
+                />
+              }
+              style={{ margin: '10px', width: '100%', marginBottom: 0 }}
+              type="text"
+              placeholder="Search"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </Row>
+
+          <Row justify="center">
+            <Select
+              style={{ margin: '10px', width: '100%' }}
+              defaultValue="ALPHABETICAL"
+              value={selectedSort}
+              onChange={(value) => {
+                if (value === 'ALPHABETICAL' || value === 'NUMBER_MENTIONS')
+                  setSelectedSort(value);
+              }}
+              options={[
+                {
+                  value: 'ALPHABETICAL',
+                  label: t('leftSidebar.clustersContent.alphabeticalOrder'),
+                },
+                {
+                  value: 'NUMBER_MENTIONS',
+                  label: t('leftSidebar.clustersContent.mentionOrder'),
+                },
+              ]}
+            />
+          </Row>
+        </Col>
       )}
       {selected && <ClustersList clusters={clustersState} />}
     </GroupContainer>
