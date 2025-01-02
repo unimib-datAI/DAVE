@@ -117,7 +117,7 @@ const Search = () => {
   const handleSubmit = ({ text }: { text: string }) => {
     const url = {
       pathname: router.pathname,
-      query: { ...router.query, text },
+      query: { text },
     };
     router.push(url, undefined, { shallow: true });
   };
