@@ -41,7 +41,8 @@ const Homepage = () => {
           <Button
             style={{ backgroundColor: 'black' }}
             onPress={() => {
-              router.push('/documents');
+              // router.push('/documents');
+              handleSubmit({ text: '' });
             }}
           >
             See all documents
