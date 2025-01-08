@@ -39,7 +39,7 @@ const Homepage = () => {
         </form>
         <div>
           <Button
-            style={{ backgroundColor: 'black' }}
+            style={{ zIndex: 1, backgroundColor: 'black' }}
             onPress={() => {
               // router.push('/documents');
               handleSubmit({ text: '' });
