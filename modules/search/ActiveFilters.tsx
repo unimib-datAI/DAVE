@@ -10,6 +10,7 @@ const getActiveFilters = (facets: ActiveFiltersListProps['facets'], { text, ...f
     const group = category === 'annotation' ? 'annotations' : 'metadata';
 
     return value.map((v) => {
+      console.log('facets', facets.annotations.length, facets.annotations.slice(0, 5))
       const facetGroup = facets[group as keyof typeof facets].find((facetG) => facetG.key === type) as Facet;
 
       return {
@@ -26,7 +27,7 @@ type ActiveFiltersListProps = {
 
 const ActiveFiltersList = ({ facets }: ActiveFiltersListProps) => {
   const router = useRouter();
-
+  console.log('facets in activeFilters List ', facets)
   const activeFilters = getActiveFilters(facets, router.query)
 
   const removeFilter = (key: string, value: Facet['children'][number]) => {

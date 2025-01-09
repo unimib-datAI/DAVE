@@ -43,7 +43,7 @@ const FacetFilter = ({ facet, filterType }: FacetFilterProps) => {
   const STEP = 10
   const VISIBLE_ELEMENTS = page * STEP + MAX_VISIBLE_CHILDREN
 
-  const filteredChildren = value.filter.trim() === '' ? facet.children : fuse.current.search(value.filter).map(({ item }) => item)
+  const filteredChildren = value.filter.trim() === '' ? facet.children.sort((a,b) => a.display_name.localeCompare(b.display_name) ) : fuse.current.search(value.filter).map(({ item }) => item)
   const children = filteredChildren.slice(0, VISIBLE_ELEMENTS);
 
   const filters = getFilters(router.query, filterType, facet.key)
