@@ -95,10 +95,6 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
   }, [type]);
 
   useEffect(() => {
-    handleSort(selectedSort);
-  }, [selectedSort]);
-
-  useEffect(() => {
     if (searchTerm !== '') {
       handleSearch();
     } else {
@@ -123,7 +119,7 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
         break;
       case 'NUMBER_MENTIONS':
         let tempNum = clustersState.sort(
-          (a: Cluster, b: Cluster) => a.mentions.length - b.mentions.length
+          (a: Cluster, b: Cluster) => b.mentions.length - a.mentions.length
         );
         setClusters(tempNum);
         break;
@@ -171,8 +167,10 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
               defaultValue="ALPHABETICAL"
               value={selectedSort}
               onChange={(value) => {
-                if (value === 'ALPHABETICAL' || value === 'NUMBER_MENTIONS')
+                if (value === 'ALPHABETICAL' || value === 'NUMBER_MENTIONS') {
                   setSelectedSort(value);
+                  handleSort(value);
+                }
               }}
               options={[
                 {
