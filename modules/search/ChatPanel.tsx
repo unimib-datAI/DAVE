@@ -95,7 +95,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     max_new_tokens: 1024,
     top_p: 0.65,
     token_repetition_penalty_max: 1.15,
-    system: '',
+    system: `Sei un assistente che parla esclusivamente italiano. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio. Se non conosci la risposta, limitati a dire che non lo sai.`,
     message: '',
     useDocumentContext: true,
     retrievalMethod: 'full',
@@ -387,6 +387,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                       disabled={isStreaming}
                       className="text-slate-800 resize-none bg-transparent w-full border-none text-sm h-full"
                       spellCheck="false"
+                      rows={5}
                       placeholder="Here you can add your system prompt which determins the behaviour of the AI model."
                       {...register('system')}
                     />
