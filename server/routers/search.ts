@@ -49,6 +49,7 @@ export type Facet = {
   doc_count: number;
   children: {
     key: string;
+    ids_ER: string[];
     display_name: string;
     is_linked?: boolean;
     doc_count: number;

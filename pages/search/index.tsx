@@ -153,7 +153,7 @@ const Search = () => {
           <div className="flex-grow flex flex-col gap-4 p-6">
             <div className="flex flex-col sticky top-16 bg-white py-6">
               <h4>{`${data.pages[0].pagination.total_hits} results for "${text}"`}</h4>
-              {data && <ActiveFiltersList facets={data.pages[0].facets} />}
+              {data && data && <ActiveFiltersList facets={data.pages[0].facets} />}
             </div>
             <div
               className="grid gap-x-8 gap-y-8"

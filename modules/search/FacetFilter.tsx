@@ -48,13 +48,16 @@ const FacetFilter = ({ facet, filterType }: FacetFilterProps) => {
 
   const filters = getFilters(router.query, filterType, facet.key)
 
-  const handleChecked = (checked: boolean, key: string) => {
+  const handleChecked = (checked: boolean, key: string, keys: string[]) => {
+    console.log('checked', checked, key, keys)
     let newFilters = []
 
     if (checked) {
-      newFilters = [...filters, key];
+      newFilters = [...filters, ...keys];
     } else {
       newFilters = filters.filter((f) => f !== key);
+      let multipleFilters  = filters.filter((f) => !keys.includes(f));
+      
     }
     const url = {
       pathname: router.pathname,
@@ -63,7 +66,7 @@ const FacetFilter = ({ facet, filterType }: FacetFilterProps) => {
         [`${filterType}_${facet.key}`]: newFilters
       }
     }
-
+    console.log('final url', url )
     router.push(url, undefined, { shallow: true })
   }
 
@@ -88,7 +91,7 @@ const FacetFilter = ({ facet, filterType }: FacetFilterProps) => {
       <div className="flex flex-col">
         {children.map((option) => {
           return (
-            <Checkbox key={option.key} isSelected={filters.includes(option.key)} value={filterType === 'annotation' ? option.display_name : option.key} onChange={(checked) => handleChecked(checked, option.key)}>
+            <Checkbox key={option.key} isSelected={filters.includes(option.key)} value={filterType === 'annotation' ? option.display_name : option.key} onChange={(checked) => handleChecked(checked, option.key, option.ids_ER)}>
               <div className="flex flex-row items-center gap-1">
                 {option.is_linked && (
                   <span className="flex items-center justify-center rounded-md uppercase text-xs bg-blue-100 px-1 font-semibold p-[1px]"><Link className="h-3 w-3 text-black" /></span>
