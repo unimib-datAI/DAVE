@@ -21,7 +21,7 @@ WORKDIR /app
 
 # Copy package.json and package-lock.json
 # to the /app working directory
-COPY package.json pnpm-lock.yaml /app/
+COPY package.json /app/
 
 # Install dependencies in /app
 RUN pnpm install
@@ -36,4 +36,6 @@ EXPOSE 3000
 #  RUN pnpm build
 
 # Run yarn dev, as we would via the command line
+
+
 CMD ["pnpm", "dev"]
