@@ -19,6 +19,7 @@ export type GenerateOptions = {
   temperature?: number;
   max_new_tokens?: number;
   top_p?: number;
+  top_k?: number;
   token_repetition_penalty_max?: number;
   system?: string;
   context?: DocumentWithChunk[];
@@ -70,6 +71,9 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
     if (Array.isArray(options.top_p)) {
       options.top_p = options.top_p[0];
     }
+    if (Array.isArray(options.top_k)) {
+      options.top_k = options.top_k[0];
+    }
     if (Array.isArray(options.max_new_tokens)) {
       options.max_new_tokens = options.max_new_tokens[0];
     }
@@ -84,6 +88,7 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
     //     body: JSON.stringify(options),
     //   }
     // );
+    console.log('streaming opts', options);
     let messages = getPromptAndMessage(
       false,
       options.messages,

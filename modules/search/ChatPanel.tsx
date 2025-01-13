@@ -100,11 +100,13 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     useDocumentContext: true,
     retrievalMethod: 'full',
     useCurrentDocumentContext: false,
+    top_k: 40,
   });
 
   const fieldTemperature = register('temperature');
   const fieldMaxNewTokens = register('max_new_tokens');
   const fieldTopP = register('top_p');
+  const fieldTopk = register('top_k');
   const fieldFrequencyPenalty = register('token_repetition_penalty_max');
   const fieldUseDocumentContext = register('useDocumentContext');
   const fieldRetrievalMethod = register('retrievalMethod');
@@ -313,6 +315,26 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                     className="w-full"
                     color="invert"
                     placement="left"
+                    content="Sets the top_k value to use for sampling. It limits the number of tokens that the model can choose from. A higher value will make the model consider more tokens, while a lower value will make it consider fewer tokens."
+                  >
+                    <div className="flex flex-row justify-between w-full">
+                      <span className="text-sm font-semibold">Top k</span>
+                      <span className="text-sm">{value.top_k}</span>
+                    </div>
+                  </Tooltip>
+                  <Slider
+                    onValueChange={fieldTopk.onChange}
+                    value={[fieldTopk.value]}
+                    max={60}
+                    min={0}
+                    step={1}
+                  />
+                </div>
+                <div className="flex flex-col gap-3">
+                  <Tooltip
+                    className="w-full"
+                    color="invert"
+                    placement="left"
                     content="This can be used to penalize more frequent tokens, changing how much the model uses common phrases or responses. Positive values will make the model avoid frequent tokens, while negative values will make it prefer frequent tokens."
                   >
                     <div className="flex flex-row justify-between w-full">
@@ -387,7 +409,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                       disabled={isStreaming}
                       className="text-slate-800 resize-none bg-transparent w-full border-none text-sm h-full"
                       spellCheck="false"
-                      rows={5}
+                      rows={10}
                       placeholder="Here you can add your system prompt which determins the behaviour of the AI model."
                       {...register('system')}
                     />
