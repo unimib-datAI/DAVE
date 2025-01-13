@@ -346,7 +346,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
   return (
     <>
       <Button
-        style={{ margin: 15 }}
+        style={{ margin: 15, zIndex: 1 }}
         onPress={() => {
           console.log('setting is ope');
           setIsOpen(true);

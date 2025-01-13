@@ -81,7 +81,10 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
   const [selectedSort, setSelectedSort] = useState<
     'ALPHABETICAL' | 'NUMBER_MENTIONS'
   >('ALPHABETICAL');
-  const [clustersState, setClusters] = useState<ProcessedCluster[]>(clusters);
+
+  const [clustersState, setClusters] = useState<ProcessedCluster[]>(
+    clusters.sort((a: Cluster, b: Cluster) => a.title.localeCompare(b.title))
+  );
   const taxonomy = useSelector(selectDocumentTaxonomy);
   const [searchTerm, setSearchTerm] = useState('');
   const taxonomyNode = useMemo(() => {
