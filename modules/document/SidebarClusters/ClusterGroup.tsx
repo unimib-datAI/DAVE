@@ -112,19 +112,22 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
     setClusters(tempSearch);
   }
 
-  async function handleSort(sort: 'ALPHABETICAL' | 'NUMBER_MENTIONS') {
+  function handleSort(
+    clusters: ProcessedCluster[],
+    sort: 'ALPHABETICAL' | 'NUMBER_MENTIONS'
+  ) {
     switch (sort) {
       case 'ALPHABETICAL':
-        let tempAlpha = clustersState.sort((a: Cluster, b: Cluster) =>
+        let tempAlpha = clusters.sort((a: Cluster, b: Cluster) =>
           a.title.localeCompare(b.title)
         );
-        setClusters(tempAlpha);
+        return tempAlpha;
         break;
       case 'NUMBER_MENTIONS':
         let tempNum = clustersState.sort(
           (a: Cluster, b: Cluster) => b.mentions.length - a.mentions.length
         );
-        setClusters(tempNum);
+        return tempNum;
         break;
     }
   }
@@ -172,7 +175,6 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
               onChange={(value) => {
                 if (value === 'ALPHABETICAL' || value === 'NUMBER_MENTIONS') {
                   setSelectedSort(value);
-                  handleSort(value);
                 }
               }}
               options={[
@@ -189,7 +191,9 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
           </Row>
         </Col>
       )}
-      {selected && <ClustersList clusters={clustersState} />}
+      {selected && (
+        <ClustersList clusters={handleSort(clustersState, selectedSort)} />
+      )}
     </GroupContainer>
   );
 };
