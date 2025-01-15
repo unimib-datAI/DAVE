@@ -16,9 +16,14 @@ import { ButtonSend } from './ButtonSend';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAtom } from 'jotai';
-import { chatHistoryAtom, facetsDocumentsAtom } from '@/utils/atoms';
+import {
+  chatHistoryAtom,
+  conversationRatedAtom,
+  facetsDocumentsAtom,
+} from '@/utils/atoms';
 import { current } from 'immer';
 import { Radio } from 'antd';
+import RateConversation from '@/components/RateConversation/RateConversation';
 
 type Form = GenerateOptions & {
   message: string;
@@ -85,7 +90,9 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     }
   );
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
-
+  const [conversationRated, setConversationRated] = useAtom(
+    conversationRatedAtom
+  );
   const mostSimilarDocumentsMutation = useMutation([
     'search.mostSimilarDocuments',
   ]);
@@ -116,8 +123,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     if (formValues.message === '') {
       return;
     }
-    // formValues.temperature = formValues.temperature[0];
-    // console.log('formValues', formValues);
+
     const useDocumentContext = !devMode || formValues.useDocumentContext;
     const currentUrl = window.location.href;
     let filterIds: string[] = [];
@@ -133,7 +139,6 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
       const documentId = urlObj.pathname.split('/').pop();
       if (documentId) filterIds = [documentId];
     }
-    console.log('Current URL:', filterIds);
 
     const context = useDocumentContext
       ? await mostSimilarDocumentsMutation.mutateAsync({
@@ -175,6 +180,10 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
               ) : null
             )}
             {isLoading && <SkeletonMessage />}
+            {/* Display rating component only when there are more than 1 messages, and when  streaming the message */}
+            {!isLoading && !isStreaming && state.messages.length > 1 && (
+              <RateConversation state={state} />
+            )}
           </div>
         </ScrollArea>
         <div className="flex flex-col  p-6">

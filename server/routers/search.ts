@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { createRouter } from '../context';
 import { Document } from './document';
+import { TRPCError } from '@trpc/server';
 
 export type MostSimilarDocument = {
   id: number;
@@ -100,6 +101,32 @@ const processResponseMostSImilartDocuments = (
   });
 };
 
+async function rateTheConversation(conversation: any, rating: number) {
+  try {
+    const res = await fetch(
+      `${process.env.API_BASE_URI}/save/rate-conversation`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chatState: conversation,
+          rateValue: rating,
+        }),
+      }
+    );
+    let result = await res.json();
+    return result;
+  } catch (error) {
+    const typedError = error as Error;
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Error rating the conversation ' + typedError.message,
+    });
+  }
+}
+
 export const search = createRouter()
   .mutation('mostSimilarDocuments', {
     input: z.object({
@@ -174,5 +201,14 @@ export const search = createRouter()
       ).then((r) => r.json());
 
       return res as FacetedQueryOutput;
+    },
+  })
+  .mutation('rateTheConversation', {
+    input: z.object({
+      conversation: z.unknown(),
+      rating: z.number(),
+    }),
+    resolve: async ({ input }) => {
+      return rateTheConversation(input.conversation, input.rating);
     },
   });

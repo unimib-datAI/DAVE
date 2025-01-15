@@ -1,5 +1,5 @@
 import { DocumentWithChunk } from '@/server/routers/search';
-import { chatHistoryAtom } from '@/utils/atoms';
+import { chatHistoryAtom, conversationRatedAtom } from '@/utils/atoms';
 import { getPromptAndMessage } from '@/utils/textGeneration';
 import { useAtom } from 'jotai';
 import { useEffect, useRef, useState } from 'react';
@@ -33,7 +33,9 @@ type MessagesState = {
 
 function useChat({ endpoint, initialMessages }: UseChatOptions) {
   const [chatHistory, setChatHistory] = useAtom(chatHistoryAtom);
-
+  const [conversationRated, setConversationRated] = useAtom(
+    conversationRatedAtom
+  );
   const [state, setState] = useState<MessagesState>({
     messages:
       chatHistory.messages.length === 0
@@ -225,6 +227,7 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
 
   const restartChat = () => {
     messagesRef.current = initialMessages;
+
     setChatHistory({
       messages: [...initialMessages],
       contexts: [...new Array(initialMessages.length)],
@@ -236,6 +239,7 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
       contexts: [...new Array(initialMessages.length)],
       statuses: [...new Array(initialMessages.length)],
     });
+    setConversationRated(false);
   };
 
   return {
