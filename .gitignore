@@ -28,10 +28,10 @@ yarn-error.log*
 
 # local env files
 .env*.local
-
+_collections
 # vercel
 .vercel
-
+__pycache__
 # typescript
 *.tsbuildinfo
 
