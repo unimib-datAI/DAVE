@@ -135,7 +135,11 @@ export const search = createRouter()
       retrievalMethod: z.string().optional(),
     }),
     resolve: async ({ input }) => {
-      let index = process.env.VARIANT ? 'bologna' : 'batini';
+      let index = process.env.ELASTIC_INDEX;
+      console.log(
+        'calling ',
+        `${process.env.API_INDEXER}/chroma/collection/${index}/query`
+      );
       const documents = (await fetch(
         `${process.env.API_INDEXER}/chroma/collection/${index}/query`,
         {
@@ -173,7 +177,7 @@ export const search = createRouter()
       cursor: z.number().nullish(),
     }),
     resolve: async ({ input }) => {
-      let index = process.env.VARIANT ? 'bologna' : 'batini';
+      let index = process.env.ELASTIC_INDEX;
       console.log(
         'index',
         index,

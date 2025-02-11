@@ -36,6 +36,7 @@ export default function RateConversation({ state }: RateConversationProps) {
         conversation: state,
         rating: value,
       });
+      setRatedConversation(true);
       message.success('Conversation rated successfully');
     } catch (error) {
       message.error('Error rating the conversation');
