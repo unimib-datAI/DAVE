@@ -139,7 +139,11 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
       const documentId = urlObj.pathname.split('/').pop();
       if (documentId) filterIds = [documentId];
     }
-
+    // filterIds = [
+    //   '4cc9b4d17a4e1da6320148b6aa4a55b8dd22af1d2cee4a5b8a70abff4c100c91',
+    //   'aaf5b3db91bbee9b924bb43b5155b8d83ea351cf680219871cc163b4efec16b8',
+    //   '6256c9c52e31f2e5967d457aa9e3dda502cb6cd7b8bb9df6015862ef9f9cd97f',
+    // ];
     const context = useDocumentContext
       ? await mostSimilarDocumentsMutation.mutateAsync({
           query: formValues.message,
