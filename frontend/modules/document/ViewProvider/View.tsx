@@ -32,7 +32,7 @@ const View = () => {
   return (
     <>
       <Toolsbar />
-      <Scroller onScrollEnd={loadNextPage} onScrollTop={loadPrevPage}>
+      <Scroller onScrollEnd={loadNextPage} onScrollTop={loadPrevPage} page={page}>
         <DocumentContainer>
           <DocumentViewer page={page} />
         </DocumentContainer>
