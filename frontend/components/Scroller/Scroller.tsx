@@ -118,14 +118,14 @@ const Scroller = ({
   children,
   onScrollEnd,
   onScrollTop,
-}: PropsWithChildren<{ onScrollEnd: () => void; onScrollTop: () => void }>) => {
+  page,
+}: PropsWithChildren<{ onScrollEnd: () => void; onScrollTop: () => void; page: number }>) => {
   const [scrollBoxSizes, setScrollBoxSizes] =
     useState<ScrollBoxSizes>(scrollbarBoxSizes);
   const [isScrollbarVisible, setIsScrollbarVisible] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const scrollHostRef = useRef<HTMLDivElement | null>(null);
   const lastScrollPosition = useRef<number>(0);
-  const [page, setPage] = useAtom(documentPageAtom);
 
   useResizeObserver(scrollHostRef, () => {
     // adjust sizes with resize observer when content changes
@@ -142,7 +142,6 @@ const Scroller = ({
 
   const handleScroll = (e: UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLElement;
-    console.log('scrolling');
     if (!scrollHostRef.current) {
       return;
     }
@@ -151,10 +150,15 @@ const Scroller = ({
     let newTop = (scrollTop / scrollHeight) * offsetHeight;
     newTop = Math.min(newTop, offsetHeight - scrollBoxSizes.boxHeight);
     setScrollBoxSizes((s) => ({ ...s, thumbTop: newTop }));
-    const bottom =
-      target.scrollHeight - target.scrollTop === target.clientHeight;
-    if (bottom && onScrollEnd) {
+
+    // Use a threshold for bottom/top detection
+    const atBottom = Math.abs(scrollHeight - scrollTop - offsetHeight) < 2;
+    const atTop = scrollTop < 2;
+    if (atBottom && onScrollEnd) {
       onScrollEnd();
+    }
+    if (atTop && onScrollTop) {
+      onScrollTop();
     }
   };
 
@@ -239,6 +243,8 @@ const Scroller = ({
   useEffect(() => {
     update();
   }, [children]);
+
+  // ...existing code...
 
   useEffect(() => {
     //this is handle the dragging on scroll-thumb
