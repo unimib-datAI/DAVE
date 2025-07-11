@@ -152,8 +152,22 @@ export const selectDocumentClusters = createSelector(
     const { activeAnnotationSet } = views[0];
 
     const { text, annotation_sets, features } = doc;
-    const annSet = annotation_sets[activeAnnotationSet];
-
+    console.log(
+      'current annotations sets',
+      annotation_sets,
+      activeAnnotationSet
+    );
+    let annSet = annotation_sets[activeAnnotationSet];
+    if (!annSet) {
+      // Handle the case where annotation_sets might be a Record/object - convert to array first
+      const setsArray = Object.values(annotation_sets);
+      const foundSet = setsArray.find(
+        (set) => set.name === activeAnnotationSet
+      );
+      if (foundSet) {
+        annSet = foundSet;
+      }
+    }
     if (!features.clusters) {
       return null;
     }

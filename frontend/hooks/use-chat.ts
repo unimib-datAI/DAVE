@@ -208,9 +208,24 @@ function useChat({ endpoint, initialMessages }: UseChatOptions) {
       content: generateContent(),
       usrMessage: message,
     };
-
+    let mappedFiltered = messagesRef.current.map((message) => {
+      if (message.role === 'user') {
+        return { ...message, content: '' };
+      } else {
+        return message;
+      }
+    });
+    console.log('mapped message', mappedFiltered);
+    messagesRef.current = messagesRef.current.map((message) => {
+      if (message.role === 'user') {
+        return { ...message, content: '' };
+      } else {
+        return message;
+      }
+    });
     messagesRef.current.push(newMessage);
 
+    console.log('appending message', messagesRef.current);
     setState((s) => ({
       ...s,
       messages: [...messagesRef.current],
