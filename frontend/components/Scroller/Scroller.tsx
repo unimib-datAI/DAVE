@@ -16,6 +16,8 @@ import {
 import { CSSTransition } from 'react-transition-group';
 
 const SCROLL_BOX_MIN_HEIGHT = 20;
+const SCROLL_THRESHOLD = 100; // Increased threshold for better detection
+const SCROLL_DEBOUNCE_DELAY = 150; // Debounce delay for scroll events
 
 const scrollbarBoxSizes = {
   boxHeight: SCROLL_BOX_MIN_HEIGHT,
@@ -120,57 +122,96 @@ const Scroller = ({
   onScrollTop,
   page,
 }: PropsWithChildren<{ onScrollEnd: () => void; onScrollTop: () => void; page: number }>) => {
-  const [scrollBoxSizes, setScrollBoxSizes] =
-    useState<ScrollBoxSizes>(scrollbarBoxSizes);
+  const [scrollBoxSizes, setScrollBoxSizes] = useState<ScrollBoxSizes>(scrollbarBoxSizes);
   const [isScrollbarVisible, setIsScrollbarVisible] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isLoadingNext, setIsLoadingNext] = useState(false);
+  const [isLoadingPrev, setIsLoadingPrev] = useState(false);
   const scrollHostRef = useRef<HTMLDivElement | null>(null);
   const lastScrollPosition = useRef<number>(0);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout>();
+  const loadingTimeoutRef = useRef<NodeJS.Timeout>();
 
-  useResizeObserver(scrollHostRef, () => {
-    // adjust sizes with resize observer when content changes
-    update();
-  });
+  // Memoized update function
+  const update = useCallback(() => {
+    if (!scrollHostRef.current) return;
+
+    const scrollHostElement = scrollHostRef.current;
+    const { clientHeight, scrollHeight } = scrollHostElement;
+    const scrollThumbPercentage = clientHeight / scrollHeight;
+    const scrollThumbHeight = Math.max(SCROLL_BOX_MIN_HEIGHT, scrollThumbPercentage * clientHeight);
+
+    setScrollBoxSizes(prev => {
+      if (Math.abs(prev.boxHeight - scrollThumbHeight) < 1) return prev;
+      return { ...prev, boxHeight: scrollThumbHeight };
+    });
+  }, []);
+
+  useResizeObserver(scrollHostRef, update);
 
   const handleMouseEnter = () => {
     setIsScrollbarVisible(true);
   };
 
   const handleMouseLeave = () => {
-    setIsScrollbarVisible(false);
-  };
-
-  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    if (!scrollHostRef.current) {
-      return;
-    }
-    const scrollHostElement = scrollHostRef.current;
-    const { scrollTop, scrollHeight, offsetHeight } = scrollHostElement;
-    let newTop = (scrollTop / scrollHeight) * offsetHeight;
-    newTop = Math.min(newTop, offsetHeight - scrollBoxSizes.boxHeight);
-    setScrollBoxSizes((s) => ({ ...s, thumbTop: newTop }));
-
-    // Use a threshold for bottom/top detection
-    const atBottom = Math.abs(scrollHeight - scrollTop - offsetHeight) < 2;
-    const atTop = scrollTop < 2;
-    if (atBottom && onScrollEnd) {
-      onScrollEnd();
-    }
-    if (atTop && onScrollTop) {
-      onScrollTop();
+    if (!isDragging) {
+      setIsScrollbarVisible(false);
     }
   };
 
-  const update = () => {
+  // Debounced scroll handler
+  const handleScroll = useCallback((e: UIEvent<HTMLDivElement>) => {
     if (!scrollHostRef.current) return;
 
     const scrollHostElement = scrollHostRef.current;
-    const { clientHeight, scrollHeight } = scrollHostElement;
-    const scrollThumbPercentage = clientHeight / scrollHeight;
-    const scrollThumbHeight = scrollThumbPercentage * clientHeight;
-    setScrollBoxSizes((s) => ({ ...s, boxHeight: scrollThumbHeight }));
-  };
+    const { scrollTop, scrollHeight, offsetHeight } = scrollHostElement;
+
+    // Update scrollbar thumb position
+    const newTop = (scrollTop / scrollHeight) * offsetHeight;
+    const clampedTop = Math.min(newTop, offsetHeight - scrollBoxSizes.boxHeight);
+
+    setScrollBoxSizes(prev => {
+      if (Math.abs(prev.thumbTop - clampedTop) < 1) return prev;
+      return { ...prev, thumbTop: clampedTop };
+    });
+
+    // Clear any pending scroll timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    // Set a new timeout for scroll position detection
+    scrollTimeoutRef.current = setTimeout(() => {
+      const atBottom = scrollHeight - scrollTop - offsetHeight <= SCROLL_THRESHOLD;
+      const atTop = scrollTop <= SCROLL_THRESHOLD;
+
+      if (atBottom && !isLoadingNext && onScrollEnd) {
+        setIsLoadingNext(true);
+        onScrollEnd();
+        
+        // Reset loading state after delay
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+        }
+        loadingTimeoutRef.current = setTimeout(() => {
+          setIsLoadingNext(false);
+        }, 1000);
+      }
+
+      if (atTop && !isLoadingPrev && onScrollTop) {
+        setIsLoadingPrev(true);
+        onScrollTop();
+        
+        // Reset loading state after delay
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+        }
+        loadingTimeoutRef.current = setTimeout(() => {
+          setIsLoadingPrev(false);
+        }, 1000);
+      }
+    }, SCROLL_DEBOUNCE_DELAY);
+  }, [scrollBoxSizes.boxHeight, isLoadingNext, isLoadingPrev, onScrollEnd, onScrollTop]);
 
   const handleScrollThumbMouseDown = (event: MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -179,50 +220,41 @@ const Scroller = ({
     setIsDragging(true);
   };
 
-  const handleDocumentMouseUp = useCallback(
-    (e: DocumentEventMap['mouseup']) => {
-      if (isDragging) {
-        e.preventDefault();
-        setIsDragging(false);
-      }
-    },
-    [isDragging]
-  );
+  const handleDocumentMouseUp = useCallback((e: DocumentEventMap['mouseup']) => {
+    if (isDragging) {
+      e.preventDefault();
+      setIsDragging(false);
+      setIsScrollbarVisible(false);
+    }
+  }, [isDragging]);
 
   const handleDocumentMouseMove = useCallback(
     (e: DocumentEventMap['mousemove']) => {
-      if (isDragging) {
-        if (!scrollHostRef.current) return;
+      if (isDragging && scrollHostRef.current) {
         e.preventDefault();
         e.stopPropagation();
+
         const scrollHostElement = scrollHostRef.current;
         const { scrollHeight, offsetHeight } = scrollHostElement;
         const { boxHeight, thumbTop } = scrollBoxSizes;
 
-        let deltaY = e.clientY - lastScrollPosition.current;
-        let percentage = deltaY * (scrollHeight / offsetHeight);
+        const deltaY = e.clientY - lastScrollPosition.current;
+        const percentage = deltaY * (scrollHeight / offsetHeight);
 
-        // setScrollThumbPosition(e.clientY);
-        setScrollBoxSizes((s) => ({
-          ...s,
-          thumbTop: Math.min(
-            Math.max(0, thumbTop + deltaY),
-            offsetHeight - boxHeight
-          ),
+        const newThumbTop = Math.min(
+          Math.max(0, thumbTop + deltaY),
+          offsetHeight - boxHeight
+        );
+
+        setScrollBoxSizes(prev => ({
+          ...prev,
+          thumbTop: newThumbTop,
         }));
 
         lastScrollPosition.current = e.clientY;
 
-        setScrollBoxSizes((s) => ({
-          ...s,
-          thumbTop: Math.min(
-            Math.max(0, thumbTop + deltaY),
-            offsetHeight - boxHeight
-          ),
-        }));
-
         scrollHostElement.scrollTop = Math.min(
-          scrollHostElement.scrollTop + percentage,
+          Math.max(0, scrollHostElement.scrollTop + percentage),
           scrollHeight - offsetHeight
         );
       }
@@ -230,28 +262,38 @@ const Scroller = ({
     [isDragging, scrollBoxSizes]
   );
 
+  // Clean up event listeners and timers
   useEffect(() => {
-    if (!scrollHostRef.current) return;
     const scrollHostElement = scrollHostRef.current;
+    if (!scrollHostElement) return;
 
-    scrollHostElement.addEventListener('scroll', handleScroll, true);
+    scrollHostElement.addEventListener('scroll', handleScroll as any, { passive: true });
     return () => {
-      scrollHostElement.removeEventListener('scroll', handleScroll, true);
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      scrollHostElement.removeEventListener('scroll', handleScroll as any);
     };
-  }, []);
+  }, [handleScroll]);
 
   useEffect(() => {
     update();
-  }, [children]);
+  }, [children, update]);
 
-  // ...existing code...
+  // Reset loading states when page changes
+  useEffect(() => {
+    setIsLoadingNext(false);
+    setIsLoadingPrev(false);
+  }, [page]);
 
   useEffect(() => {
-    //this is handle the dragging on scroll-thumb
     document.addEventListener('mousemove', handleDocumentMouseMove);
     document.addEventListener('mouseup', handleDocumentMouseUp);
     document.addEventListener('mouseleave', handleDocumentMouseUp);
-    return function cleanup() {
+    return () => {
       document.removeEventListener('mousemove', handleDocumentMouseMove);
       document.removeEventListener('mouseup', handleDocumentMouseUp);
       document.removeEventListener('mouseleave', handleDocumentMouseUp);
@@ -262,7 +304,6 @@ const Scroller = ({
     <ScrollHostContainer
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onScroll={handleScroll}
     >
       <ScrollHost ref={scrollHostRef}>{children}</ScrollHost>
       <Scrollbar

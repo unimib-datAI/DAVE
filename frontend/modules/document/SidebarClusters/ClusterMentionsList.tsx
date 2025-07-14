@@ -96,9 +96,7 @@ const ClusterMentionsList = ({
     if (annotations[id]) {
       setPage(Math.floor(annotations[id].start / 4000) + 1);
     }
-    router.push(`/documents/${router.query.id}?annotationId=${id}`, undefined, {
-      shallow: true,
-    });
+    // Remove router.push: do not update URL with annotationId
   };
 
   return (

@@ -2,7 +2,7 @@ import { Scroller } from '@/components/Scroller';
 import styled from '@emotion/styled';
 import DocumentViewer from '../DocumentViewer/DocumentViewer';
 import { Toolsbar } from '../Toolsbar';
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import { documentPageAtom } from '@/utils/atoms';
 import { selectDocumentText, useSelector } from '../DocumentProvider/selectors';
@@ -16,19 +16,47 @@ const DocumentContainer = styled.div({
 
 const View = () => {
   const [page, setPage] = useAtom(documentPageAtom);
+  const [isLoading, setIsLoading] = useState(false);
   const text = useSelector(selectDocumentText);
-  function loadNextPage() {
+
+  // Calculate total pages for reference
+  const totalPages = Math.ceil(text.length / 4000);
+
+  const loadNextPage = useCallback(() => {
+    if (isLoading) return;
+    
+    setIsLoading(true);
     setPage((prevPage) => {
-      const { startIndex, endIndex, stopPagination } =
-        getStartAndEndIndexForPagination(prevPage, text);
-      if (stopPagination) return prevPage;
-      else return prevPage + 1;
+      const { stopPagination } = getStartAndEndIndexForPagination(prevPage, text);
+      if (stopPagination || prevPage >= totalPages) {
+        setIsLoading(false);
+        return prevPage;
+      }
+      
+      const nextPage = prevPage + 1;
+      // Reset loading state after a short delay to prevent rapid loading
+      setTimeout(() => setIsLoading(false), 300);
+      return nextPage;
     });
-  }
-  
-  function loadPrevPage() {
-    setPage((prevPage) => (prevPage > 1 ? prevPage - 1 : 1));
-  }
+  }, [isLoading, text, totalPages]);
+
+  const loadPrevPage = useCallback(() => {
+    if (isLoading) return;
+    
+    setIsLoading(true);
+    setPage((prevPage) => {
+      const newPage = prevPage > 1 ? prevPage - 1 : 1;
+      // Reset loading state after a short delay to prevent rapid loading
+      setTimeout(() => setIsLoading(false), 300);
+      return newPage;
+    });
+  }, [isLoading]);
+
+  // Reset page to 1 when text changes (new document)
+  useEffect(() => {
+    setPage(1);
+  }, [text, setPage]);
+
   return (
     <>
       <Toolsbar />
