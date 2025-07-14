@@ -16,8 +16,8 @@ import {
 import { CSSTransition } from 'react-transition-group';
 
 const SCROLL_BOX_MIN_HEIGHT = 20;
-const SCROLL_THRESHOLD = 100; // Increased threshold for better detection
-const SCROLL_DEBOUNCE_DELAY = 150; // Debounce delay for scroll events
+const SCROLL_THRESHOLD = 50; // Reduced threshold for better responsiveness
+const SCROLL_DEBOUNCE_DELAY = 100; // Reduced delay for more responsive scrolling
 
 const scrollbarBoxSizes = {
   boxHeight: SCROLL_BOX_MIN_HEIGHT,
@@ -159,20 +159,23 @@ const Scroller = ({
     }
   };
 
-  // Debounced scroll handler
+  // Optimized scroll handler with better throttling
   const handleScroll = useCallback((e: UIEvent<HTMLDivElement>) => {
     if (!scrollHostRef.current) return;
 
     const scrollHostElement = scrollHostRef.current;
     const { scrollTop, scrollHeight, offsetHeight } = scrollHostElement;
 
-    // Update scrollbar thumb position
+    // Update scrollbar thumb position only if significant change
     const newTop = (scrollTop / scrollHeight) * offsetHeight;
     const clampedTop = Math.min(newTop, offsetHeight - scrollBoxSizes.boxHeight);
 
-    setScrollBoxSizes(prev => {
-      if (Math.abs(prev.thumbTop - clampedTop) < 1) return prev;
-      return { ...prev, thumbTop: clampedTop };
+    // Use requestAnimationFrame for smoother updates
+    requestAnimationFrame(() => {
+      setScrollBoxSizes(prev => {
+        if (Math.abs(prev.thumbTop - clampedTop) < 2) return prev;
+        return { ...prev, thumbTop: clampedTop };
+      });
     });
 
     // Clear any pending scroll timeout
@@ -180,7 +183,7 @@ const Scroller = ({
       clearTimeout(scrollTimeoutRef.current);
     }
 
-    // Set a new timeout for scroll position detection
+    // Reduced timeout for more responsive detection
     scrollTimeoutRef.current = setTimeout(() => {
       const atBottom = scrollHeight - scrollTop - offsetHeight <= SCROLL_THRESHOLD;
       const atTop = scrollTop <= SCROLL_THRESHOLD;
@@ -195,7 +198,7 @@ const Scroller = ({
         }
         loadingTimeoutRef.current = setTimeout(() => {
           setIsLoadingNext(false);
-        }, 1000);
+        }, 500); // Reduced timeout
       }
 
       if (atTop && !isLoadingPrev && onScrollTop) {
@@ -208,7 +211,7 @@ const Scroller = ({
         }
         loadingTimeoutRef.current = setTimeout(() => {
           setIsLoadingPrev(false);
-        }, 1000);
+        }, 500); // Reduced timeout
       }
     }, SCROLL_DEBOUNCE_DELAY);
   }, [scrollBoxSizes.boxHeight, isLoadingNext, isLoadingPrev, onScrollEnd, onScrollTop]);
@@ -228,11 +231,17 @@ const Scroller = ({
     }
   }, [isDragging]);
 
+  // Optimized mouse move handler with throttling
   const handleDocumentMouseMove = useCallback(
     (e: DocumentEventMap['mousemove']) => {
-      if (isDragging && scrollHostRef.current) {
-        e.preventDefault();
-        e.stopPropagation();
+      if (!isDragging || !scrollHostRef.current) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Use requestAnimationFrame for smoother dragging
+      requestAnimationFrame(() => {
+        if (!scrollHostRef.current) return;
 
         const scrollHostElement = scrollHostRef.current;
         const { scrollHeight, offsetHeight } = scrollHostElement;
@@ -257,17 +266,24 @@ const Scroller = ({
           Math.max(0, scrollHostElement.scrollTop + percentage),
           scrollHeight - offsetHeight
         );
-      }
+      });
     },
     [isDragging, scrollBoxSizes]
   );
 
-  // Clean up event listeners and timers
+  // Optimized event listener setup
   useEffect(() => {
     const scrollHostElement = scrollHostRef.current;
     if (!scrollHostElement) return;
 
-    scrollHostElement.addEventListener('scroll', handleScroll as any, { passive: true });
+    // Use passive listeners for better performance
+    const handleScrollEvent = (e: Event) => handleScroll(e as any);
+    
+    scrollHostElement.addEventListener('scroll', handleScrollEvent, { 
+      passive: true,
+      capture: false
+    });
+    
     return () => {
       if (scrollTimeoutRef.current) {
         clearTimeout(scrollTimeoutRef.current);
@@ -275,12 +291,16 @@ const Scroller = ({
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
       }
-      scrollHostElement.removeEventListener('scroll', handleScroll as any);
+      scrollHostElement.removeEventListener('scroll', handleScrollEvent);
     };
   }, [handleScroll]);
 
+  // Optimized children change handler
   useEffect(() => {
-    update();
+    // Use requestAnimationFrame to avoid blocking the main thread
+    requestAnimationFrame(() => {
+      update();
+    });
   }, [children, update]);
 
   // Reset loading states when page changes
@@ -289,16 +309,23 @@ const Scroller = ({
     setIsLoadingPrev(false);
   }, [page]);
 
+  // Optimized document event listeners
   useEffect(() => {
-    document.addEventListener('mousemove', handleDocumentMouseMove);
-    document.addEventListener('mouseup', handleDocumentMouseUp);
-    document.addEventListener('mouseleave', handleDocumentMouseUp);
+    if (!isDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => handleDocumentMouseMove(e);
+    const handleMouseUp = (e: MouseEvent) => handleDocumentMouseUp(e);
+
+    document.addEventListener('mousemove', handleMouseMove, { passive: false });
+    document.addEventListener('mouseup', handleMouseUp, { passive: true });
+    document.addEventListener('mouseleave', handleMouseUp, { passive: true });
+    
     return () => {
-      document.removeEventListener('mousemove', handleDocumentMouseMove);
-      document.removeEventListener('mouseup', handleDocumentMouseUp);
-      document.removeEventListener('mouseleave', handleDocumentMouseUp);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mouseleave', handleMouseUp);
     };
-  }, [handleDocumentMouseMove, handleDocumentMouseUp]);
+  }, [isDragging, handleDocumentMouseMove, handleDocumentMouseUp]);
 
   return (
     <ScrollHostContainer
