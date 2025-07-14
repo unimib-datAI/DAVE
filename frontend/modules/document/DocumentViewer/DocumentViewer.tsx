@@ -8,8 +8,7 @@ import {
   MouseEvent,
   PropsWithChildren,
   useEffect,
-  useRef,
-  useState,
+  useMemo,
 } from 'react';
 import {
   selectAddSelectionColor,
@@ -24,8 +23,8 @@ import {
   useSelector,
 } from '../DocumentProvider/selectors';
 import { useViewIndex } from '../ViewProvider/ViewProvider';
-import { useAtom } from 'jotai';
 import { documentPageAtom } from '@/utils/atoms';
+import { getStartAndEndIndexForPagination } from '@/utils/shared';
 
 const Container = styled.div({
   padding: '0 20px',
@@ -41,7 +40,7 @@ const DocumentContainer = styled.div`
   content-visibility: auto;
 `;
 
-const DocumentViewer = ({page}: PropsWithChildren<{page: number}>) => {
+const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
   const viewIndex = useViewIndex();
   const action = useSelector(selectDocumentAction);
   const text = useSelector(selectDocumentText);
@@ -53,8 +52,26 @@ const DocumentViewer = ({page}: PropsWithChildren<{page: number}>) => {
   );
   const sectionUrlHashId = useHashUrlId();
   const highlightAnnotationId = useSelector(selectHighlightAnnotationId);
-  // const [page, setPage] = useAtom(documentPageAtom);
   const dispatch = useDocumentDispatch();
+
+  // Get current page range for filtering annotations
+  const { startIndex, endIndex } = useMemo(() => {
+    return getStartAndEndIndexForPagination(page, text);
+  }, [page, text]);
+
+  // Filter annotations to only include those in the current page range
+  const pageFilteredAnnotations = useMemo(() => {
+    return filteredAnnotations.filter(
+      (annotation) => annotation.start < endIndex && annotation.end > startIndex
+    );
+  }, [filteredAnnotations, startIndex, endIndex]);
+
+  // Filter section annotations for the current page
+  const pageFilteredSectionAnnotations = useMemo(() => {
+    return sectionAnnotations?.filter(
+      (section) => section.start < endIndex && section.end > startIndex
+    ) || [];
+  }, [sectionAnnotations, startIndex, endIndex]);
 
   useEffect(() => {
     const element = document.querySelector(`#${sectionUrlHashId}`);
@@ -63,7 +80,7 @@ const DocumentViewer = ({page}: PropsWithChildren<{page: number}>) => {
     }
     element.scrollIntoView();
   }, [sectionUrlHashId]);
- 
+
   const handleTagClick = (event: MouseEvent, annotation: EntityAnnotation) => {
     switch (action.value) {
       case 'select':
@@ -133,8 +150,8 @@ const DocumentViewer = ({page}: PropsWithChildren<{page: number}>) => {
         <NER
           taxonomy={taxonomy}
           text={text}
-          entityAnnotations={filteredAnnotations}
-          sectionAnnotations={sectionAnnotations}
+          entityAnnotations={pageFilteredAnnotations}
+          sectionAnnotations={pageFilteredSectionAnnotations}
           highlightAnnotation={highlightAnnotationId}
           showAnnotationDelete
           isAddMode={action.value === 'add'}

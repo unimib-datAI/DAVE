@@ -4,7 +4,7 @@ import * as trpcNext from '@trpc/server/adapters/next';
 export const config = {
   api: {
     bodyParser: {
-      sizeLimit: '10mb',
+      sizeLimit: '100mb',
     },
   },
 }

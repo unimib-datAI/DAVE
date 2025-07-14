@@ -98,7 +98,9 @@ const DeleteButton = styled.button({
   cursor: 'pointer',
 });
 
-function EntityNode(props: EntityNodeProps) {
+import React from 'react';
+
+const EntityNode = React.forwardRef<HTMLSpanElement, EntityNodeProps>(function EntityNode(props, ref) {
   const { text, start, annotation } = props;
   const [highlight, setHighlight] = useState(false);
   const {
@@ -208,6 +210,7 @@ function EntityNode(props: EntityNodeProps) {
       >
         {children}
         <TagLabel color={color}>{getTypesText(annotation)}</TagLabel>
+        {/* Removed url icon/link display */}
         {annotation.features.url &&
           annotation.features.url.startsWith('https://') && <FiLink />}
         {showAnnotationDelete && (
@@ -277,6 +280,6 @@ function EntityNode(props: EntityNodeProps) {
   // const tagContent = useMemo(() => recurseTag(), [recurseTag]);
 
   return <>{text ? getTag({ color, annotation, children: text }) : null}</>;
-}
+});
 
 export default EntityNode;

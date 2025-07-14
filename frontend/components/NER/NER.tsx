@@ -16,7 +16,6 @@ import EntityNode from './EntityNode';
 import { NERContext } from './nerContext';
 import Section from './Section';
 import TextNode, { SelectionNode } from './TextNode';
-import { SectionsList } from '../SectionsList';
 import { getStartAndEndIndexForPagination } from '@/utils/shared';
 
 type NERProps = {
@@ -42,7 +41,11 @@ const NodesContainer = styled.div({
   overflowWrap: 'break-word',
   wordBreak: 'break-word',
   lineHeight: 1.7,
+  position: 'relative',
+  minHeight: 'auto',
 });
+
+const BUFFER_SIZE = 1000; // Smaller buffer for better performance
 
 const NER = ({
   text,
@@ -50,23 +53,38 @@ const NER = ({
   sectionAnnotations,
   taxonomy,
   page,
+  highlightAnnotation,
   ...props
 }: NERProps) => {
-  const [startIndex, setStartIndex] = useState(0);
-  const [endIndex, setEndIndex] = useState(6000);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
+
+  // Get pagination range based on current page
+  const { startIndex, endIndex } = useMemo(() => {
+    return getStartAndEndIndexForPagination(page, text);
+  }, [page, text]);
+
+  // Create a visible range with buffer for smoother scrolling
+  const visibleRange = useMemo(() => {
+    const start = Math.max(0, startIndex - BUFFER_SIZE);
+    const end = Math.min(text.length, endIndex + BUFFER_SIZE);
+    return { start, end };
+  }, [startIndex, endIndex, text.length]);
+
+  // Process only the visible nodes
   const nodes = useNER({
-    text: text,
-    page: page,
+    text,
+    page,
     entities: entityAnnotations,
     sections: sectionAnnotations,
+    visibleRange,
   });
+
   const getTaxonomyNode = useCallback(
-    (key: string) => {
-      const node = getAllNodeData(taxonomy, key);
-      return node;
-    },
+    (key: string) => getAllNodeData(taxonomy, key),
     [taxonomy]
   );
+
   const contextValue = useMemo(
     () => ({
       getTaxonomyNode,
@@ -74,42 +92,72 @@ const NER = ({
     }),
     [props, getTaxonomyNode]
   );
+
+  // Handle scrolling to highlighted annotation
   useEffect(() => {
-     const { startIndex, endIndex } = getStartAndEndIndexForPagination(
-       page,
-       text
-     );
-      setStartIndex(startIndex);
-      setEndIndex(endIndex);
-  }, [page]);
+    if (highlightAnnotation === null || !containerRef.current) return;
+
+    const highlightedNode = containerRef.current.querySelector(
+      `[data-annotation-id="${highlightAnnotation}"]`
+    );
+    
+    if (highlightedNode) {
+      setIsScrolling(true);
+      
+      // Check if the highlighted annotation is within the current visible range
+      const annotation = entityAnnotations.find(a => a.id === highlightAnnotation);
+      if (annotation && (annotation.start < visibleRange.start || annotation.end > visibleRange.end)) {
+        // Annotation is outside visible range, we need to scroll to it
+        // The parent Scroller component should handle this
+        return;
+      }
+      
+      highlightedNode.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+
+      const timeout = setTimeout(() => setIsScrolling(false), 1000);
+      return () => clearTimeout(timeout);
+    }
+  }, [highlightAnnotation, entityAnnotations, visibleRange]);
+
+  // Filter nodes that are actually within the visible range
+  const visibleNodes = useMemo(() => {
+    return nodes.filter(node => {
+      // Only render nodes that overlap with the visible range
+      return node.start < visibleRange.end && node.end > visibleRange.start;
+    });
+  }, [nodes, visibleRange]);
 
   return (
     <NERContext.Provider value={contextValue}>
-      <NodesContainer
-        
-      >
-        {nodes.map((node) => {
-         
-          if (node.start >= startIndex && node.end <= endIndex) {
-            if (node.type === 'section') {
-              return (
-                <Section {...node}>
-                  {node.contentNodes.map(({ key, ...nodeProps }) => {
-                    if (nodeProps.type === 'text') {
-                      return <TextNode key={key} {...nodeProps} />;
-                    }
-                    return <EntityNode key={key} {...nodeProps} />;
-                  })}
-                </Section>
-              );
-            }
-            if (node.type === 'text') {
-              return <TextNode {...node} />;
-              return null;
-            }
-            const { key, ...props } = node;
-            return <EntityNode key={key} {...props} />;
+      <NodesContainer ref={containerRef}>
+        {visibleNodes.map((node) => {
+          if (node.type === 'section') {
+            const { key, ...sectionProps } = node;
+            return (
+              <Section
+                key={key}
+                {...sectionProps}
+                data-start={node.start}
+                data-end={node.end}
+              >
+                {node.contentNodes.map(({ key, ...nodeProps }) => {
+                  if (nodeProps.type === 'text') {
+                    return <TextNode key={key} {...nodeProps} />;
+                  }
+                  return <EntityNode key={key} {...nodeProps} />;
+                })}
+              </Section>
+            );
           }
+          if (node.type === 'text') {
+            const { key, ...textProps } = node;
+            return <TextNode key={key} {...textProps} />;
+          }
+          const { key, ...entityProps } = node;
+          return <EntityNode key={key} {...entityProps} />;
         })}
       </NodesContainer>
     </NERContext.Provider>

@@ -229,7 +229,7 @@ export const documents = createRouter()
 
   .mutation('deleteAnnotationSet', {
     input: z.object({
-      docId: z.number(),
+      docId: z.string(),
       annotationSetId: z.string(),
     }),
     resolve: async ({ input }) => {
@@ -247,7 +247,7 @@ export const documents = createRouter()
   })
   .mutation('save', {
     input: z.object({
-      docId: z.number(),
+      docId: z.string(),
       annotationSets: z.any().optional(),
     }),
     resolve: async ({ input }) => {

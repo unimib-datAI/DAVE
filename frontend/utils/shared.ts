@@ -234,27 +234,35 @@ export function maskWords(inputString: string) {
 }
 
 export function getStartAndEndIndexForPagination(page: number, text: string) {
-  // console.log('received page', page);
   const pageSize = 4000;
-  let startIndex = 0;
-  let stopPagination = false;
-  let totalPages = Math.ceil(text.length / pageSize);
+  const totalPages = Math.ceil(text.length / pageSize);
+
+  // First page: show first two pages worth of content
   if (page === 1) {
     return {
       startIndex: 0,
-      endIndex: pageSize * 2 > text.length ? text.length : pageSize * 2,
+      endIndex: Math.min(pageSize * 2, text.length),
       stopPagination: false,
     };
-  } else if (page < totalPages) {
-    startIndex = (page - 1) * pageSize;
-    let endIndex =
-      (page + 1) * pageSize < text.length ? (page + 1) * pageSize : text.length;
-    // console.log('startIndex', startIndex, 'endIndex', endIndex);
-    return { startIndex: 0, endIndex, stopPagination };
-  } else {
-    startIndex = (page - 2) * pageSize;
-    let endIndex = text.length;
-    return { startIndex: 0, endIndex, stopPagination: true };
+  }
+  // Middle pages: show current page plus one page buffer on each side
+  else if (page < totalPages) {
+    const startIndex = Math.max(0, (page - 2) * pageSize);
+    const endIndex = Math.min(text.length, (page + 1) * pageSize);
+    return {
+      startIndex,
+      endIndex,
+      stopPagination: false
+    };
+  }
+  // Last page: show last two pages worth of content
+  else {
+    const startIndex = Math.max(0, text.length - pageSize * 2);
+    return {
+      startIndex,
+      endIndex: text.length,
+      stopPagination: true
+    };
   }
 }
 
