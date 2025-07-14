@@ -1,4 +1,3 @@
-import { Scroller } from '@/components/Scroller';
 import { useForm } from '@/hooks';
 import { FacetedQueryOutput } from '@/server/routers/search';
 import Fuse from 'fuse.js';
@@ -59,12 +58,7 @@ const Facets = ({ facets }: FacetsProps) => {
       : fuse.current.search(value.filter).map(({ item }) => item);
   return allFacets.length > 0 ? (
     <div className="sticky top-16 w-72 h-[calc(100vh-4rem)]">
-      <Scroller
-        onScrollEnd={() => {
-          console.log('scrolled to end of facets filters');
-        }}
-        onScrollTop={() => {}}
-      >
+      <div className="overflow-y-auto h-full">
         <div className="flex flex-col pr-6 py-6 gap-8">
           <div className="flex flex-col">
             <div className="text-lg font-semibold">Filter</div>
@@ -87,7 +81,7 @@ const Facets = ({ facets }: FacetsProps) => {
             />
           ))}
         </div>
-      </Scroller>
+      </div>
     </div>
   ) : null;
 };
