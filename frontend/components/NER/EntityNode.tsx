@@ -120,8 +120,6 @@ const EntityNode = React.forwardRef<HTMLSpanElement, EntityNodeProps>(function E
 
   useEffect(() => {
     if (highlightAnnotation === annotation.id) {
-      console.log('Triggering highlight animation for annotation:', annotation.id);
-      
       // Force highlight state update for windowed rendering
       setHighlight(false); // Reset first
       

@@ -16,7 +16,7 @@ import {
 import { CSSTransition } from 'react-transition-group';
 
 const SCROLL_BOX_MIN_HEIGHT = 20;
-const SCROLL_THRESHOLD = 50; // Reduced threshold for better responsiveness
+const SCROLL_THRESHOLD = 120; // More forgiving threshold for better detection
 const SCROLL_DEBOUNCE_DELAY = 100; // Reduced delay for more responsive scrolling
 
 const scrollbarBoxSizes = {
@@ -131,6 +131,12 @@ const Scroller = ({
   const lastScrollPosition = useRef<number>(0);
   const scrollTimeoutRef = useRef<NodeJS.Timeout>();
   const loadingTimeoutRef = useRef<NodeJS.Timeout>();
+  const prevPageRef = useRef<number>(page);
+  const savedScrollPositionRef = useRef<number>(0);
+  const savedScrollHeightRef = useRef<number>(0);
+  const isRestoringScrollRef = useRef<boolean>(false);
+  const contentAnchorRef = useRef<{ element: Element | null; offsetFromTop: number } | null>(null);
+  const pageLoadTriggerScrollRef = useRef<number>(0); // Track scroll position when page load was triggered
 
   // Memoized update function
   const update = useCallback(() => {
@@ -149,6 +155,109 @@ const Scroller = ({
 
   useResizeObserver(scrollHostRef, update);
 
+  // Scroll position restoration for windowed pagination
+  const prevWindowStartPageRef = useRef(1);
+  
+  useEffect(() => {
+    if (!scrollHostRef.current) return;
+
+    const currentPage = page;
+    const prevPage = prevPageRef.current;
+    
+    // Handle page changes for windowed pagination
+    if (prevPage !== currentPage && prevPage !== 0) {
+      const scrollElement = scrollHostRef.current;
+      const previousScrollTop = scrollElement.scrollTop;
+      const previousScrollHeight = scrollElement.scrollHeight;
+      
+      // Mark that we're restoring scroll position
+      isRestoringScrollRef.current = true;
+      
+      // Allow React to render the new content
+      setTimeout(() => {
+        if (!scrollElement) return;
+        
+        const newScrollHeight = scrollElement.scrollHeight;
+        const heightDifference = newScrollHeight - previousScrollHeight;
+        
+        // Calculate window information for both current and previous pages
+        const pageSize = 4000;
+        const windowSize = 5;
+        const halfWindow = Math.floor(windowSize / 2);
+        
+        // Current window info
+        let currentWindowStartPage = Math.max(1, currentPage - halfWindow);
+        let currentWindowEndPage = Math.min(Math.ceil(100000 / pageSize), currentPage + halfWindow); // Approximate total pages
+        
+        // Previous window info
+        let prevWindowStartPage = Math.max(1, prevPage - halfWindow);
+        
+        // Adjust for window boundaries
+        if (currentWindowEndPage - currentWindowStartPage + 1 < windowSize) {
+          if (currentWindowStartPage === 1) {
+            currentWindowEndPage = Math.min(Math.ceil(100000 / pageSize), currentWindowStartPage + windowSize - 1);
+          } else {
+            currentWindowStartPage = Math.max(1, currentWindowEndPage - windowSize + 1);
+          }
+        }
+        
+        if (prevWindowStartPage === 1) {
+          // Previous window adjustment logic would be similar but we have the ref
+          prevWindowStartPage = prevWindowStartPageRef.current;
+        }
+        
+        // Calculate how much content was removed from the top
+        const pagesRemovedFromTop = currentWindowStartPage - prevWindowStartPage;
+        const contentRemovedFromTop = pagesRemovedFromTop * pageSize;
+        
+        console.log('Window transition:', {
+          prevPage,
+          currentPage,
+          prevWindowStartPage,
+          currentWindowStartPage,
+          pagesRemovedFromTop,
+          contentRemovedFromTop,
+          previousScrollTop,
+          heightDifference
+        });
+        
+        // Adjust scroll position based on content removed from top
+        if (contentRemovedFromTop > 0) {
+          // Content was removed from top, adjust scroll position
+          const newScrollTop = previousScrollTop - contentRemovedFromTop;
+          scrollElement.scrollTop = Math.max(0, newScrollTop);
+          console.log('Adjusted scroll position:', {
+            previousScrollTop,
+            newScrollTop,
+            actualScrollTop: scrollElement.scrollTop
+          });
+        } else if (contentRemovedFromTop < 0) {
+          // Content was added at top (going backwards)
+          const newScrollTop = previousScrollTop + Math.abs(contentRemovedFromTop);
+          scrollElement.scrollTop = newScrollTop;
+          console.log('Adjusted scroll position (backwards):', {
+            previousScrollTop,
+            newScrollTop,
+            actualScrollTop: scrollElement.scrollTop
+          });
+        } else {
+          // No change in window start, maintain scroll position
+          scrollElement.scrollTop = previousScrollTop;
+        }
+        
+        // Store current window start page for next transition
+        prevWindowStartPageRef.current = currentWindowStartPage;
+        
+        // Unlock scroll detection
+        setTimeout(() => {
+          isRestoringScrollRef.current = false;
+        }, 150);
+      }, 50);
+    }
+    
+    prevPageRef.current = currentPage;
+  }, [page]);
+
   const handleMouseEnter = () => {
     setIsScrollbarVisible(true);
   };
@@ -166,7 +275,7 @@ const Scroller = ({
     const scrollHostElement = scrollHostRef.current;
     const { scrollTop, scrollHeight, offsetHeight } = scrollHostElement;
 
-    // Update scrollbar thumb position only if significant change
+    // Update scrollbar thumb position even during restoration
     const newTop = (scrollTop / scrollHeight) * offsetHeight;
     const clampedTop = Math.min(newTop, offsetHeight - scrollBoxSizes.boxHeight);
 
@@ -178,42 +287,82 @@ const Scroller = ({
       });
     });
 
+    // Only skip scroll end/top detection during active restoration
+    if (isRestoringScrollRef.current) {
+      console.log('Skipping scroll detection - restoration in progress');
+      return;
+    }
+
     // Clear any pending scroll timeout
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
     }
 
-    // Reduced timeout for more responsive detection
+    // More precise scroll detection to prevent unwanted page loads
     scrollTimeoutRef.current = setTimeout(() => {
-      const atBottom = scrollHeight - scrollTop - offsetHeight <= SCROLL_THRESHOLD;
-      const atTop = scrollTop <= SCROLL_THRESHOLD;
+      // More conservative scroll detection
+      const scrollPosition = scrollTop + offsetHeight;
+      const scrollHeightBuffer = 150; // Reasonable buffer for stability
+      
+      // Check both top and bottom for windowed approach
+      const distanceFromBottom = scrollHeight - scrollPosition;
+      const distanceFromTop = scrollTop;
+      
+      // More strict thresholds to prevent accidental triggers
+      const isVeryNearBottom = distanceFromBottom <= 50; // Stricter threshold
+      const isVeryNearTop = distanceFromTop <= 50; // Stricter threshold
+      
+      const atBottom = isVeryNearBottom && distanceFromBottom <= scrollHeightBuffer;
+      const atTop = isVeryNearTop && distanceFromTop <= scrollHeightBuffer;
 
-      if (atBottom && !isLoadingNext && onScrollEnd) {
+      // Enhanced logging with more detail
+      console.log('Scroll position check:', {
+        scrollTop: Math.round(scrollTop),
+        scrollHeight: Math.round(scrollHeight),
+        offsetHeight: Math.round(offsetHeight),
+        distanceFromBottom: Math.round(distanceFromBottom),
+        distanceFromTop: Math.round(distanceFromTop),
+        atBottom,
+        atTop,
+        isLoadingNext,
+        isLoadingPrev,
+        isRestoring: isRestoringScrollRef.current,
+        page,
+        scrollPosition: Math.round(scrollPosition)
+      });
+
+      // Load next page only when truly at bottom
+      if (atBottom && !isLoadingNext && onScrollEnd && !isRestoringScrollRef.current) {
+        console.log('Loading next page (at bottom)');
+        pageLoadTriggerScrollRef.current = scrollTop; // Store scroll position when page load was triggered
         setIsLoadingNext(true);
         onScrollEnd();
         
-        // Reset loading state after delay
+        // Reset loading state with longer timeout for stability
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current);
         }
         loadingTimeoutRef.current = setTimeout(() => {
           setIsLoadingNext(false);
-        }, 500); // Reduced timeout
+        }, 1500); // Reasonable timeout
       }
 
-      if (atTop && !isLoadingPrev && onScrollTop) {
+      // Load previous page only when truly at top
+      if (atTop && !isLoadingPrev && onScrollTop && !isRestoringScrollRef.current) {
+        console.log('Loading previous page (at top)');
+        pageLoadTriggerScrollRef.current = scrollTop; // Store scroll position when page load was triggered
         setIsLoadingPrev(true);
         onScrollTop();
         
-        // Reset loading state after delay
+        // Reset loading state
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current);
         }
         loadingTimeoutRef.current = setTimeout(() => {
           setIsLoadingPrev(false);
-        }, 500); // Reduced timeout
+        }, 1500);
       }
-    }, SCROLL_DEBOUNCE_DELAY);
+    }, SCROLL_DEBOUNCE_DELAY * 1.5); // Slightly longer debounce for stability
   }, [scrollBoxSizes.boxHeight, isLoadingNext, isLoadingPrev, onScrollEnd, onScrollTop]);
 
   const handleScrollThumbMouseDown = (event: MouseEvent<HTMLDivElement>) => {
@@ -332,7 +481,7 @@ const Scroller = ({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <ScrollHost ref={scrollHostRef}>{children}</ScrollHost>
+      <ScrollHost ref={scrollHostRef} data-scroll-host>{children}</ScrollHost>
       <Scrollbar
         {...scrollBoxSizes}
         isVisible={isScrollbarVisible}

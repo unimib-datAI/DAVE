@@ -92,55 +92,50 @@ const ClusterMentionsList = ({
   const text = useSelector(selectDocumentText);
   const [page, setPage] = useAtom(documentPageAtom);
   
-  // Optimized mention click handler for windowed rendering
+  // Smart infinite loading mention click handler
   const handleOnClick = useCallback((id: number, mention: any) => (event: MouseEvent) => {
     event.stopPropagation();
-    
-    console.log('Clicking mention:', id, 'current page:', page);
 
-    // Find the annotation more efficiently
+    // Find the annotation
     const annotation = annotations.find(ann => ann.id === id);
     if (!annotation) return;
 
-    // Calculate optimal page for windowed rendering
-    // This will position the annotation with some context before it
+    // Calculate which page contains the annotation
     const targetPage = calculateOptimalPageForAnnotation(annotation.start);
     
-    console.log('Target page:', targetPage, 'annotation start:', annotation.start);
-    
-    // Use requestAnimationFrame for smoother page updates
-    requestAnimationFrame(() => {
+    // Use the global goToPage function for smooth navigation
+    const goToPage = (window as any).goToDocumentPage;
+    if (goToPage) {
+      goToPage(targetPage);
+    } else {
+      // Fallback to direct page setting
       setPage(targetPage);
+    }
+    
+    // Wait for content to load then highlight and scroll
+    const timeout = setTimeout(() => {
+      dispatch({
+        type: 'highlightAnnotation',
+        payload: {
+          annotationId: id,
+        },
+      });
       
-      // Wait for page to load, then dispatch highlight and scroll
+      // Scroll to the annotation after highlighting
       setTimeout(() => {
-        console.log('Dispatching highlight for annotation:', id);
-        
-        // Dispatch highlight action to make the annotation visible with animation
-        dispatch({
-          type: 'highlightAnnotation',
-          payload: {
-            annotationId: id,
-          },
-        });
-        
-        // Additional delay to ensure the highlighting animation triggers
-        setTimeout(() => {
-          const element = document.getElementById(`entity-tag-${id}`);
-          if (element) {
-            console.log('Scrolling to element:', element);
-            element.scrollIntoView({ 
-              behavior: 'smooth', 
-              block: 'center',
-              inline: 'nearest'
-            });
-          } else {
-            console.log('Element not found:', `entity-tag-${id}`);
-          }
-        }, 150); // Reduced delay since we improved the animation triggering
-      }, 500); // Increased delay to ensure windowed content is fully rendered
-    });
-  }, [annotations, setPage, dispatch, page]);
+        const element = document.getElementById(`entity-tag-${id}`);
+        if (element) {
+          element.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center',
+            inline: 'nearest'
+          });
+        }
+      }, 100);
+    }, 300); // Increased delay for better content loading
+    
+    return () => clearTimeout(timeout);
+  }, [annotations, setPage, dispatch]);
 
   return (
     <ListContainer>

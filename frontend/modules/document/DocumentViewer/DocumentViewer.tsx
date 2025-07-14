@@ -1,7 +1,6 @@
 import NER from '@/components/NER/NER';
 import { SelectionNode } from '@/components/NER/TextNode';
 import { useHashUrlId } from '@/hooks';
-import useNER from '@/lib/ner/core/use-ner';
 import { EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
 import {
@@ -23,108 +22,63 @@ import {
   useSelector,
 } from '../DocumentProvider/selectors';
 import { useViewIndex } from '../ViewProvider/ViewProvider';
-import { documentPageAtom } from '@/utils/atoms';
-import { getStartAndEndIndexForPagination } from '@/utils/shared';
 
 const Container = styled.div({
   padding: '0 20px',
 });
 
-const DocumentContainer = styled.div`
-  min-height: 100vh;
-  background: #fff;
-  max-width: 900px;
-  padding: 24px 36px;
-  border-radius: 6px;
-  margin: 0 auto;
-  content-visibility: auto;
-  contain: layout style paint;
-`;
+const DocumentContainer = styled.div({
+  minHeight: '100vh',
+  background: '#fff',
+  maxWidth: '900px',
+  padding: '24px 36px',
+  borderRadius: '6px',
+  margin: '0 auto',
+  contentVisibility: 'auto',
+});
 
-const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
+const DocumentViewer = () => {
+  const dispatch = useDocumentDispatch();
   const viewIndex = useViewIndex();
-  const action = useSelector(selectDocumentAction);
   const text = useSelector(selectDocumentText);
-  const sectionAnnotations = useSelector(selectDocumentSectionAnnotations);
-  const sections = useSelector(selectSectionsSidebar);
   const taxonomy = useSelector(selectDocumentTaxonomy);
-  const filteredAnnotations = useSelector((state) =>
+  const action = useSelector(selectDocumentAction);
+  const addSelectionColor = useSelector(selectAddSelectionColor);
+  const highlightAnnotationId = useSelector(selectHighlightAnnotationId);
+  const sectionsSidebar = useSelector(selectSectionsSidebar);
+  const entityAnnotations = useSelector((state) => 
     selectFilteredEntityAnnotations(state, viewIndex)
   );
-  const sectionUrlHashId = useHashUrlId();
-  const highlightAnnotationId = useSelector(selectHighlightAnnotationId);
-  const dispatch = useDocumentDispatch();
+  const sectionAnnotations = useSelector(selectDocumentSectionAnnotations);
+  const hashUrlId = useHashUrlId();
 
-  // Get current page range for filtering annotations
-  const { startIndex, endIndex } = useMemo(() => {
-    return getStartAndEndIndexForPagination(page, text);
-  }, [page, text]);
+  // Use all annotations - no pagination filtering
+  const allAnnotations = useMemo(() => {
+    return entityAnnotations || [];
+  }, [entityAnnotations]);
 
-  // Filter annotations to only include those in the current page range
-  const pageFilteredAnnotations = useMemo(() => {
-    return filteredAnnotations.filter(
-      (annotation) => annotation.start < endIndex && annotation.end > startIndex
-    );
-  }, [filteredAnnotations, startIndex, endIndex]);
+  const allSectionAnnotations = useMemo(() => {
+    return sectionAnnotations || [];
+  }, [sectionAnnotations]);
 
-  // Filter section annotations for the current page
-  const pageFilteredSectionAnnotations = useMemo(() => {
-    return sectionAnnotations?.filter(
-      (section) => section.start < endIndex && section.end > startIndex
-    ) || [];
-  }, [sectionAnnotations, startIndex, endIndex]);
-
+  // Handle annotation highlight from URL
   useEffect(() => {
-    const element = document.querySelector(`#${sectionUrlHashId}`);
-    if (!element) {
-      return;
+    if (hashUrlId) {
+      dispatch({
+        type: 'highlightAnnotation',
+        payload: { annotationId: parseInt(hashUrlId) },
+      });
     }
-    element.scrollIntoView();
-  }, [sectionUrlHashId]);
+  }, [hashUrlId, dispatch]);
 
-  const handleTagClick = (event: MouseEvent, annotation: EntityAnnotation) => {
-    switch (action.value) {
-      case 'select':
-        {
-          dispatch({
-            type: 'setCurrentEntityId',
-            payload: {
-              viewIndex,
-              annotationId: annotation.id,
-            },
-          });
-        }
-        break;
-      //replicated case for clusters to allow easier navigation when selecting a cluster
-      case 'clusters':
-        {
-          dispatch({
-            type: 'setCurrentEntityId',
-            payload: {
-              viewIndex,
-              annotationId: annotation.id,
-            },
-          });
-        }
-        break;
-      case 'delete':
-        {
-          dispatch({
-            type: 'deleteAnnotation',
-            payload: {
-              viewIndex,
-              id: annotation.id,
-            },
-          });
-        }
-        break;
-      default: {
-        return;
-      }
-    }
+  const handleTagClick = (event: MouseEvent<Element>, annotation: EntityAnnotation) => {
+    dispatch({
+      type: 'highlightAnnotation',
+      payload: { annotationId: annotation.id },
+    });
   };
 
-  const handleTagDelete = (event: MouseEvent, annotation: EntityAnnotation) => {
+  const handleTagDelete = (event: MouseEvent<Element>, annotation: EntityAnnotation) => {
     dispatch({
       type: 'deleteAnnotation',
       payload: {
@@ -134,7 +88,14 @@ const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
     });
   };
 
-  const onTextSelection = (event: MouseEvent, selectionNode: SelectionNode) => {
+  const onTextSelection = (
+    event: MouseEvent<Element>,
+    selectionNode: SelectionNode
+  ) => {
+    if (action.value !== 'add') {
+      return;
+    }
+
     dispatch({
       type: 'addAnnotation',
       payload: {
@@ -151,15 +112,15 @@ const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {
         <NER
           taxonomy={taxonomy}
           text={text}
-          entityAnnotations={pageFilteredAnnotations}
-          sectionAnnotations={pageFilteredSectionAnnotations}
+          entityAnnotations={allAnnotations}
+          sectionAnnotations={allSectionAnnotations}
           highlightAnnotation={highlightAnnotationId}
           showAnnotationDelete
           isAddMode={action.value === 'add'}
+          addSelectionColor={addSelectionColor}
           onTagClick={handleTagClick}
           onTextSelection={onTextSelection}
           onTagDelete={handleTagDelete}
-          page={page}
         />
       </DocumentContainer>
     </Container>
