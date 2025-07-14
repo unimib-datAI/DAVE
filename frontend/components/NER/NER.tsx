@@ -45,7 +45,7 @@ const NodesContainer = styled.div({
   minHeight: 'auto',
 });
 
-const BUFFER_SIZE = 1000; // Smaller buffer for better performance
+const BUFFER_SIZE = 200; // Reduced buffer for windowed rendering
 
 const NER = ({
   text,
@@ -59,19 +59,19 @@ const NER = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
 
-  // Get pagination range based on current page
-  const { startIndex, endIndex } = useMemo(() => {
+  // Get pagination range based on current page (windowed approach)
+  const { startIndex, endIndex, windowStartPage, windowEndPage } = useMemo(() => {
     return getStartAndEndIndexForPagination(page, text);
   }, [page, text]);
 
-  // Create a visible range with buffer for smoother scrolling
+  // Create a visible range with minimal buffer for windowed rendering
   const visibleRange = useMemo(() => {
     const start = Math.max(0, startIndex - BUFFER_SIZE);
     const end = Math.min(text.length, endIndex + BUFFER_SIZE);
     return { start, end };
   }, [startIndex, endIndex, text.length]);
 
-  // Process only the visible nodes
+  // Process only the visible nodes with windowed approach
   const nodes = useNER({
     text,
     page,
@@ -88,38 +88,76 @@ const NER = ({
   const contextValue = useMemo(
     () => ({
       getTaxonomyNode,
+      highlightAnnotation,
       ...props,
     }),
-    [props, getTaxonomyNode]
+    [props, getTaxonomyNode, highlightAnnotation]
   );
 
-  // Handle scrolling to highlighted annotation
+  // Optimized scroll to annotation with windowed rendering support
   useEffect(() => {
     if (highlightAnnotation === null || !containerRef.current) return;
 
-    const highlightedNode = containerRef.current.querySelector(
-      `[data-annotation-id="${highlightAnnotation}"]`
-    );
-    
-    if (highlightedNode) {
-      setIsScrolling(true);
-      
-      // Check if the highlighted annotation is within the current visible range
-      const annotation = entityAnnotations.find(a => a.id === highlightAnnotation);
-      if (annotation && (annotation.start < visibleRange.start || annotation.end > visibleRange.end)) {
-        // Annotation is outside visible range, we need to scroll to it
-        // The parent Scroller component should handle this
-        return;
-      }
-      
-      highlightedNode.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',
-      });
+    // Small delay to ensure the windowed content is rendered
+    const handleHighlight = () => {
+      requestAnimationFrame(() => {
+        const highlightedNode = containerRef.current?.querySelector(
+          `#entity-tag-${highlightAnnotation}`
+        );
+        
+        if (highlightedNode) {
+          setIsScrolling(true);
+          
+          // Check if the highlighted annotation is within the current visible range
+          const annotation = entityAnnotations.find(a => a.id === highlightAnnotation);
+          if (annotation) {
+            // For windowed rendering, check if annotation is within the visible range
+            const isInVisibleRange = annotation.start >= visibleRange.start && 
+                                    annotation.end <= visibleRange.end;
+            
+            if (!isInVisibleRange) {
+              // Annotation is outside visible range, scrolling should be handled by parent
+              setIsScrolling(false);
+              return;
+            }
+          }
+          
+          // Use intersection observer for better performance
+          const observer = new IntersectionObserver((entries) => {
+            if (entries[0].isIntersecting) {
+              observer.disconnect();
+              setIsScrolling(false);
+            }
+          }, {
+            rootMargin: '0px',
+            threshold: 0.3
+          });
+          
+          observer.observe(highlightedNode);
+          
+          highlightedNode.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+          });
 
-      const timeout = setTimeout(() => setIsScrolling(false), 1000);
-      return () => clearTimeout(timeout);
-    }
+          // Cleanup after timeout
+          const timeout = setTimeout(() => {
+            observer.disconnect();
+            setIsScrolling(false);
+          }, 1500);
+          
+          return () => {
+            clearTimeout(timeout);
+            observer.disconnect();
+          };
+        }
+      });
+    };
+
+    // Add a small delay to ensure windowed content is loaded
+    const timeoutId = setTimeout(handleHighlight, 100);
+    
+    return () => clearTimeout(timeoutId);
   }, [highlightAnnotation, entityAnnotations, visibleRange]);
 
   // Filter nodes that are actually within the visible range

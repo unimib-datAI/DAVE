@@ -22,35 +22,46 @@ const View = () => {
   // Calculate total pages for reference
   const totalPages = Math.ceil(text.length / 4000);
 
+  // Optimized page loading with windowed approach
   const loadNextPage = useCallback(() => {
     if (isLoading) return;
     
     setIsLoading(true);
-    setPage((prevPage) => {
-      const { stopPagination } = getStartAndEndIndexForPagination(prevPage, text);
-      if (stopPagination || prevPage >= totalPages) {
-        setIsLoading(false);
-        return prevPage;
-      }
-      
-      const nextPage = prevPage + 1;
-      // Reset loading state after a short delay to prevent rapid loading
-      setTimeout(() => setIsLoading(false), 300);
-      return nextPage;
+    
+    // Use requestAnimationFrame for smoother updates
+    requestAnimationFrame(() => {
+      setPage((prevPage) => {
+        const { stopPagination } = getStartAndEndIndexForPagination(prevPage, text);
+        if (stopPagination || prevPage >= totalPages) {
+          setIsLoading(false);
+          return prevPage;
+        }
+        
+        const nextPage = prevPage + 1;
+        
+        // Use shorter timeout for better responsiveness
+        setTimeout(() => setIsLoading(false), 50);
+        return nextPage;
+      });
     });
-  }, [isLoading, text, totalPages]);
+  }, [isLoading, text, totalPages, setPage]);
 
   const loadPrevPage = useCallback(() => {
     if (isLoading) return;
     
     setIsLoading(true);
-    setPage((prevPage) => {
-      const newPage = prevPage > 1 ? prevPage - 1 : 1;
-      // Reset loading state after a short delay to prevent rapid loading
-      setTimeout(() => setIsLoading(false), 300);
-      return newPage;
+    
+    // Use requestAnimationFrame for smoother updates
+    requestAnimationFrame(() => {
+      setPage((prevPage) => {
+        const newPage = prevPage > 1 ? prevPage - 1 : 1;
+        
+        // Use shorter timeout for better responsiveness
+        setTimeout(() => setIsLoading(false), 50);
+        return newPage;
+      });
     });
-  }, [isLoading]);
+  }, [isLoading, setPage]);
 
   // Reset page to 1 when text changes (new document)
   useEffect(() => {

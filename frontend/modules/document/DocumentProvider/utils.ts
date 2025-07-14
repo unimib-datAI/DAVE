@@ -60,17 +60,27 @@ export const getAnnotations = (
 };
 
 /**
- * Scroll to an enitity position in the document
+ * Scroll to an enitity position in the document (with throttling)
  */
+let scrollThrottle: NodeJS.Timeout | null = null;
+
 export const scrollEntityIntoView = (id: number) => {
-  const element = document.getElementById(`entity-tag-${id}`);
-  if (!element) return;
+  if (scrollThrottle) {
+    clearTimeout(scrollThrottle);
+  }
+  
+  scrollThrottle = setTimeout(() => {
+    const element = document.getElementById(`entity-tag-${id}`);
+    if (!element) return;
 
-  element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  // const y = element.getBoundingClientRect().top + window.pageYOffset - 100;
-  // console.log(y);
-
-  // window.scrollTo({ top: y, behavior: 'smooth' });
+    element.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'center',
+      inline: 'nearest'
+    });
+    
+    scrollThrottle = null;
+  }, 100);
 };
 
 /**

@@ -236,34 +236,68 @@ export function maskWords(inputString: string) {
 export function getStartAndEndIndexForPagination(page: number, text: string) {
   const pageSize = 4000;
   const totalPages = Math.ceil(text.length / pageSize);
+  const bufferPages = 2; // Number of pages to show before current page
 
-  // First page: show first two pages worth of content
-  if (page === 1) {
-    return {
-      startIndex: 0,
-      endIndex: Math.min(pageSize * 2, text.length),
-      stopPagination: false,
-    };
-  }
-  // Middle pages: show current page plus one page buffer on each side
-  else if (page < totalPages) {
-    const startIndex = Math.max(0, (page - 2) * pageSize);
-    const endIndex = Math.min(text.length, (page + 1) * pageSize);
-    return {
-      startIndex,
-      endIndex,
-      stopPagination: false
-    };
-  }
-  // Last page: show last two pages worth of content
-  else {
-    const startIndex = Math.max(0, text.length - pageSize * 2);
-    return {
-      startIndex,
-      endIndex: text.length,
-      stopPagination: true
-    };
-  }
+  // Calculate windowed range: show current page + buffer pages before it
+  const startPage = Math.max(1, page - bufferPages);
+  const endPage = Math.min(totalPages, page);
+
+  // True windowed rendering: only render the window of pages, not cumulative
+  const startIndex = (startPage - 1) * pageSize;
+  const endIndex = Math.min(text.length, endPage * pageSize);
+
+  return {
+    startIndex,
+    endIndex,
+    stopPagination: page >= totalPages,
+    totalPages,
+    currentPage: page,
+    startPage,
+    endPage,
+    pageSize,
+    windowStartPage: startPage,
+    windowEndPage: endPage
+  };
+}
+
+/**
+ * Calculate the optimal page to display an annotation in a windowed view
+ * @param annotationStart - Start position of the annotation in the document
+ * @param pageSize - Size of each page (default: 4000)
+ * @param bufferPages - Number of pages to show before the target page for context
+ * @returns The page number to navigate to
+ */
+export function calculateOptimalPageForAnnotation(
+  annotationStart: number,
+  pageSize: number = 4000,
+  bufferPages: number = 2
+): number {
+  // Calculate which page contains the annotation
+  const annotationPage = Math.floor(annotationStart / pageSize) + 1;
+  
+  // Return the page that will place the annotation in a good position within the window
+  // We want some buffer pages before the annotation for context
+  return Math.max(1, annotationPage + bufferPages);
+}
+
+/**
+ * Get the text offset within the windowed view
+ * @param globalOffset - Global position in the document
+ * @param windowStartIndex - Start index of the current window
+ * @returns The offset within the windowed view
+ */
+export function getWindowedOffset(globalOffset: number, windowStartIndex: number): number {
+  return Math.max(0, globalOffset - windowStartIndex);
+}
+
+/**
+ * Convert a windowed offset back to global document position
+ * @param windowedOffset - Offset within the windowed view
+ * @param windowStartIndex - Start index of the current window
+ * @returns The global position in the document
+ */
+export function getGlobalOffset(windowedOffset: number, windowStartIndex: number): number {
+  return windowedOffset + windowStartIndex;
 }
 
 export function getClustersGroups(data: Document, annSetName: string) {

@@ -38,6 +38,7 @@ const DocumentContainer = styled.div`
   border-radius: 6px;
   margin: 0 auto;
   content-visibility: auto;
+  contain: layout style paint;
 `;
 
 const DocumentViewer = ({ page }: PropsWithChildren<{ page: number }>) => {

@@ -29,20 +29,20 @@ type EntityNodeProps = EntityNodeType<AdditionalAnnotationProps>;
 const pulse = keyframes`
 0% {
   transform: scale(1);
+  box-shadow: 0 0 0 0 rgba(66, 153, 225, 0.5);
 }
-25% {
+30% {
+  transform: scale(1.05);
+  box-shadow: 0 0 0 8px rgba(66, 153, 225, 0.2);
+}
+60% {
   transform: scale(1.1);
-}
-50% {
-  transform: scale(1);
-}
-75% {
-  transform: scale(1.1);
+  box-shadow: 0 0 0 12px rgba(66, 153, 225, 0.1);
 }
 100% {
   transform: scale(1);
+  box-shadow: 0 0 0 0 rgba(66, 153, 225, 0);
 }
-
 `;
 
 const Tag = styled.span<{ color: string; highlight: boolean }>(
@@ -61,8 +61,10 @@ const Tag = styled.span<{ color: string; highlight: boolean }>(
     border: `1px solid ${darken(0.05, color)}`,
     ...(highlight && {
       background: darken(0.1, color),
-      animation: `${pulse} 1000ms ease-out`,
+      animation: `${pulse} 1200ms ease-out`,
       zIndex: 9999,
+      position: 'relative',
+      border: `2px solid ${darken(0.3, color)}`,
     }),
     '& > button': {
       background: darken(0.1, color),
@@ -70,7 +72,7 @@ const Tag = styled.span<{ color: string; highlight: boolean }>(
         background: darken(0.2, color),
       },
     },
-    transition: 'background 500ms ease-out',
+    transition: 'all 200ms ease-out',
   })
 );
 
@@ -118,20 +120,30 @@ const EntityNode = React.forwardRef<HTMLSpanElement, EntityNodeProps>(function E
 
   useEffect(() => {
     if (highlightAnnotation === annotation.id) {
-      setHighlight(true);
-      setTimeout(() => {
-        setHighlight(false);
-      }, 1000);
+      console.log('Triggering highlight animation for annotation:', annotation.id);
+      
+      // Force highlight state update for windowed rendering
+      setHighlight(false); // Reset first
+      
+      // Use two animation frames to ensure the component is fully rendered
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setHighlight(true);
+          
+          // Reset highlight after animation duration
+          const resetTimeout = setTimeout(() => {
+            setHighlight(false);
+          }, 1200); // Match the animation duration
+          
+          return () => clearTimeout(resetTimeout);
+        });
+      });
+    } else {
+      // Reset highlight if it's a different annotation
+      setHighlight(false);
     }
-  }, [highlightAnnotation]);
-  useEffect(() => {
-    if (highlightAnnotation === annotation.id) {
-      setHighlight(true);
-      setTimeout(() => {
-        setHighlight(false);
-      }, 1000);
-    }
-  }, []);
+  }, [highlightAnnotation, annotation.id]);
+
   const handleTagClick =
     (ann: Annotation<AdditionalAnnotationProps>) => (event: MouseEvent) => {
       event.stopPropagation();

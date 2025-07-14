@@ -1,7 +1,7 @@
 import { Cluster, EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
 import { Text } from '@nextui-org/react';
-import { Fragment, MouseEvent, useState } from 'react';
+import { Fragment, MouseEvent, useState, useCallback } from 'react';
 import { scrollEntityIntoView } from '../DocumentProvider/utils';
 import { FiArrowRight } from '@react-icons/all-files/fi/FiArrowRight';
 import {
@@ -12,7 +12,8 @@ import {
 import { useRouter } from 'next/router';
 import { useAtom } from 'jotai';
 import { documentPageAtom } from '@/utils/atoms';
-import { getStartAndEndIndexForPagination } from '@/utils/shared';
+import { calculateOptimalPageForAnnotation } from '@/utils/shared';
+
 
 type ClusterMentionsListProps = {
   mentions: (Cluster['mentions'][number] & { mentionText: string })[];
@@ -86,18 +87,60 @@ const ClusterMentionsList = ({
   mentions,
   annotations,
 }: ClusterMentionsListProps) => {
-  // const dispatch = useDocumentDispatch();
+  const dispatch = useDocumentDispatch();
   const router = useRouter();
   const text = useSelector(selectDocumentText);
   const [page, setPage] = useAtom(documentPageAtom);
-  const handleOnClick = (id: number, mention: any) => (event: MouseEvent) => {
+  
+  // Optimized mention click handler for windowed rendering
+  const handleOnClick = useCallback((id: number, mention: any) => (event: MouseEvent) => {
     event.stopPropagation();
+    
+    console.log('Clicking mention:', id, 'current page:', page);
 
-    if (annotations[id]) {
-      setPage(Math.floor(annotations[id].start / 4000) + 1);
-    }
-    // Remove router.push: do not update URL with annotationId
-  };
+    // Find the annotation more efficiently
+    const annotation = annotations.find(ann => ann.id === id);
+    if (!annotation) return;
+
+    // Calculate optimal page for windowed rendering
+    // This will position the annotation with some context before it
+    const targetPage = calculateOptimalPageForAnnotation(annotation.start);
+    
+    console.log('Target page:', targetPage, 'annotation start:', annotation.start);
+    
+    // Use requestAnimationFrame for smoother page updates
+    requestAnimationFrame(() => {
+      setPage(targetPage);
+      
+      // Wait for page to load, then dispatch highlight and scroll
+      setTimeout(() => {
+        console.log('Dispatching highlight for annotation:', id);
+        
+        // Dispatch highlight action to make the annotation visible with animation
+        dispatch({
+          type: 'highlightAnnotation',
+          payload: {
+            annotationId: id,
+          },
+        });
+        
+        // Additional delay to ensure the highlighting animation triggers
+        setTimeout(() => {
+          const element = document.getElementById(`entity-tag-${id}`);
+          if (element) {
+            console.log('Scrolling to element:', element);
+            element.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center',
+              inline: 'nearest'
+            });
+          } else {
+            console.log('Element not found:', `entity-tag-${id}`);
+          }
+        }, 150); // Reduced delay since we improved the animation triggering
+      }, 500); // Increased delay to ensure windowed content is fully rendered
+    });
+  }, [annotations, setPage, dispatch, page]);
 
   return (
     <ListContainer>
