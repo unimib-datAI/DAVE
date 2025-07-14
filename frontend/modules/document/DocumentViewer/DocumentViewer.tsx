@@ -1,4 +1,4 @@
-import NER from '@/components/NER/NER';
+import VirtualizedNER from '@/components/NER/VirtualizedNER';
 import { SelectionNode } from '@/components/NER/TextNode';
 import { useHashUrlId } from '@/hooks';
 import { EntityAnnotation } from '@/server/routers/document';
@@ -28,13 +28,14 @@ const Container = styled.div({
 });
 
 const DocumentContainer = styled.div({
-  minHeight: '100vh',
+  height: 'calc(100vh - 100px)', // Fixed height for virtualization
   background: '#fff',
   maxWidth: '900px',
   padding: '24px 36px',
   borderRadius: '6px',
   margin: '0 auto',
   contentVisibility: 'auto',
+  overflow: 'hidden', // Let VirtualizedNER handle scrolling
 });
 
 const DocumentViewer = () => {
@@ -71,14 +72,14 @@ const DocumentViewer = () => {
     }
   }, [hashUrlId, dispatch]);
 
-  const handleTagClick = (event: MouseEvent<Element>, annotation: EntityAnnotation) => {
+  const handleTagClick = (annotation: EntityAnnotation) => {
     dispatch({
       type: 'highlightAnnotation',
       payload: { annotationId: annotation.id },
     });
   };
 
-  const handleTagDelete = (event: MouseEvent<Element>, annotation: EntityAnnotation) => {
+  const handleTagDelete = (annotation: EntityAnnotation) => {
     dispatch({
       type: 'deleteAnnotation',
       payload: {
@@ -89,8 +90,8 @@ const DocumentViewer = () => {
   };
 
   const onTextSelection = (
-    event: MouseEvent<Element>,
-    selectionNode: SelectionNode
+    selectionNode: SelectionNode,
+    event: MouseEvent<HTMLDivElement>
   ) => {
     if (action.value !== 'add') {
       return;
@@ -109,7 +110,7 @@ const DocumentViewer = () => {
   return (
     <Container>
       <DocumentContainer>
-        <NER
+        <VirtualizedNER
           taxonomy={taxonomy}
           text={text}
           entityAnnotations={allAnnotations}

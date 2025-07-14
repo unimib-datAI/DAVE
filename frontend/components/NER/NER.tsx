@@ -16,9 +16,11 @@ import EntityNode from './EntityNode';
 import { NERContext } from './nerContext';
 import Section from './Section';
 import TextNode, { SelectionNode } from './TextNode';
+import { getStartAndEndIndexForPagination } from '@/utils/shared';
 
 type NERProps = {
   text: string;
+  page: number;
   entityAnnotations: EntityAnnotation[];
   sectionAnnotations?: SectionAnnotation[];
   taxonomy: FlattenedTaxonomy;
@@ -48,17 +50,30 @@ const NER = ({
   entityAnnotations,
   sectionAnnotations,
   taxonomy,
+  page,
   highlightAnnotation,
   ...props
 }: NERProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isScrolling, setIsScrolling] = useState(false);
 
-  // Render the full document - no pagination
+  // FIXED: Always use infinite loading - no windowing
+  const { startIndex, endIndex } = useMemo(() => {
+    return getStartAndEndIndexForPagination(page, text);
+  }, [page, text]);
+
+  // Create visible range for infinite loading
+  const visibleRange = useMemo(() => {
+    return { start: startIndex, end: endIndex };
+  }, [startIndex, endIndex]);
+
+  // Process only the visible nodes with windowed approach
   const nodes = useNER({
     text,
+    page,
     entities: entityAnnotations,
     sections: sectionAnnotations,
+    visibleRange,
   });
 
   const getTaxonomyNode = useCallback(
@@ -75,10 +90,11 @@ const NER = ({
     [props, getTaxonomyNode, highlightAnnotation]
   );
 
-  // Scroll to annotation when highlighted
+  // Improved scroll to annotation with better infinite loading support
   useEffect(() => {
     if (highlightAnnotation === null || !containerRef.current) return;
 
+    // Smoother delay for content rendering
     const handleHighlight = () => {
       const highlightedNode = containerRef.current?.querySelector(
         `#entity-tag-${highlightAnnotation}`
@@ -86,6 +102,20 @@ const NER = ({
       
       if (highlightedNode) {
         setIsScrolling(true);
+        
+        // For infinite loading, all content is rendered from start to current page
+        // So we only need to check if the annotation is within the loaded range
+        const annotation = entityAnnotations.find(a => a.id === highlightAnnotation);
+        if (annotation) {
+          const isInLoadedRange = annotation.start >= visibleRange.start && 
+                                 annotation.end <= visibleRange.end;
+          
+          if (!isInLoadedRange) {
+            // Annotation is outside loaded range, no need to scroll
+            setIsScrolling(false);
+            return;
+          }
+        }
         
         // Use intersection observer for smoother scrolling
         const observer = new IntersectionObserver((entries) => {
@@ -123,12 +153,20 @@ const NER = ({
     const timeoutId = setTimeout(handleHighlight, 50);
     
     return () => clearTimeout(timeoutId);
-  }, [highlightAnnotation, entityAnnotations]);
+  }, [highlightAnnotation, entityAnnotations, visibleRange]);
+
+  // Filter nodes that are actually within the visible range
+  const visibleNodes = useMemo(() => {
+    return nodes.filter(node => {
+      // Only render nodes that overlap with the visible range
+      return node.start < visibleRange.end && node.end > visibleRange.start;
+    });
+  }, [nodes, visibleRange]);
 
   return (
     <NERContext.Provider value={contextValue}>
       <NodesContainer ref={containerRef}>
-        {nodes.map((node) => {
+        {visibleNodes.map((node) => {
           if (node.type === 'section') {
             const { key, ...sectionProps } = node;
             return (

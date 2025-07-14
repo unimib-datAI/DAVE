@@ -46,11 +46,13 @@ const VirtualContainer = styled.div({
   width: '100%',
   height: '100%',
   overflow: 'auto',
+  scrollBehavior: 'smooth',
 });
 
 const VirtualContent = styled.div({
   position: 'relative',
   width: '100%',
+  minHeight: '100%',
 });
 
 const VirtualItem = styled.div({
@@ -62,6 +64,9 @@ const VirtualItem = styled.div({
   overflowWrap: 'break-word',
   wordBreak: 'break-word',
   lineHeight: 1.7,
+  display: 'block',
+  boxSizing: 'border-box',
+  // Allow natural content sizing - no height restrictions
 });
 
 const VirtualizedNER = ({
@@ -87,12 +92,73 @@ const VirtualizedNER = ({
     sections: sectionAnnotations,
   });
 
-  // Create virtualizer for the nodes
+  // Group nodes into logical chunks (by paragraphs/sections)
+  const virtualizedChunks = useMemo(() => {
+    const chunks: any[] = [];
+    let currentChunk: any[] = [];
+    
+    allNodes.forEach((node: any, index: number) => {
+      if (node.type === 'section') {
+        // Sections are their own chunks
+        if (currentChunk.length > 0) {
+          chunks.push(currentChunk);
+          currentChunk = [];
+        }
+        chunks.push([node]);
+      } else {
+        // Group text and entity nodes together until we hit a natural break
+        currentChunk.push(node);
+        
+        // Check if this node ends with a paragraph break or significant whitespace
+        const nodeText = node.type === 'text' ? node.text : '';
+        
+        // Break on paragraph boundaries or line breaks
+        if (nodeText.includes('\n\n') || nodeText.endsWith('\n')) {
+          chunks.push(currentChunk);
+          currentChunk = [];
+        }
+        
+        // Also break chunks if they get too large (prevent oversized chunks)
+        if (currentChunk.length > 30) { // Reduced from 50 to 30
+          chunks.push(currentChunk);
+          currentChunk = [];
+        }
+        
+        // Break on very long text content
+        const totalTextLength = currentChunk.reduce((sum, chunkNode) => {
+          if (chunkNode.type === 'text') {
+            return sum + (chunkNode.text?.length || 0);
+          }
+          return sum + 10; // Approximate entity length
+        }, 0);
+        
+        if (totalTextLength > 800) { // Break if chunk gets too text-heavy
+          chunks.push(currentChunk);
+          currentChunk = [];
+        }
+      }
+    });
+    
+    // Add any remaining nodes
+    if (currentChunk.length > 0) {
+      chunks.push(currentChunk);
+    }
+    
+    return chunks;
+  }, [allNodes]);
+
+  // Create virtualizer for the chunks
   const virtualizer = useVirtualizer({
-    count: allNodes.length,
+    count: virtualizedChunks.length,
     getScrollElement: () => containerRef.current,
-    estimateSize: () => 50, // Estimate height per node
-    overscan: 10, // Render extra items for smoother scrolling
+    estimateSize: () => 80, // Simple base estimate, will be measured dynamically
+    overscan: 3,
+    // Enable dynamic sizing - each item will be measured after rendering
+    measureElement: (element) => {
+      if (!element) return 80;
+      const height = element.getBoundingClientRect().height;
+      return height || 80;
+    },
   });
 
   const getTaxonomyNode = useCallback(
@@ -158,28 +224,30 @@ const VirtualizedNER = ({
     if (highlightAnnotation === null || !containerRef.current) return;
 
     const handleHighlight = () => {
-      // Find the node index that contains this annotation
-      const nodeIndex = allNodes.findIndex((node: any) => {
-        if (node.type === 'entity') {
-          return node.annotation?.id === highlightAnnotation;
-        }
-        if (node.type === 'section') {
-          return node.contentNodes?.some((contentNode: any) => 
-            contentNode.type === 'entity' && contentNode.annotation?.id === highlightAnnotation
-          );
-        }
-        return false;
+      // Find the chunk index that contains this annotation
+      const chunkIndex = virtualizedChunks.findIndex((chunk: any[]) => {
+        return chunk.some((node: any) => {
+          if (node.type === 'entity') {
+            return node.annotation?.id === highlightAnnotation;
+          }
+          if (node.type === 'section') {
+            return node.contentNodes?.some((contentNode: any) => 
+              contentNode.type === 'entity' && contentNode.annotation?.id === highlightAnnotation
+            );
+          }
+          return false;
+        });
       });
 
-      if (nodeIndex >= 0) {
-        virtualizer.scrollToIndex(nodeIndex, { align: 'center' });
+      if (chunkIndex >= 0) {
+        virtualizer.scrollToIndex(chunkIndex, { align: 'center' });
       }
     };
 
     // Small delay to ensure content is rendered
     const timeoutId = setTimeout(handleHighlight, 100);
     return () => clearTimeout(timeoutId);
-  }, [highlightAnnotation, allNodes, virtualizer]);
+  }, [highlightAnnotation, virtualizedChunks, virtualizer]);
 
   // Render a single node
   const renderNode = useCallback(
@@ -240,6 +308,18 @@ const VirtualizedNER = ({
     []
   );
 
+  // Render a chunk of nodes (maintains inline flow)
+  const renderChunk = useCallback(
+    (chunk: any[]) => {
+      return (
+        <span style={{ display: 'inline' }}>
+          {chunk.map((node: any) => renderNode(node))}
+        </span>
+      );
+    },
+    [renderNode]
+  );
+
   const virtualItems = virtualizer.getVirtualItems();
 
   return (
@@ -253,20 +333,23 @@ const VirtualizedNER = ({
             }}
           >
             {virtualItems.map((virtualItem) => {
-              const node = allNodes[virtualItem.index];
+              const chunk = virtualizedChunks[virtualItem.index];
               return (
                 <VirtualItem
                   key={virtualItem.key}
+                  ref={virtualizer.measureElement} // This enables dynamic measurement
                   style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
                     width: '100%',
                     transform: `translateY(${virtualItem.start}px)`,
+                    paddingBottom: '8px', // Consistent padding
+                    boxSizing: 'border-box',
                   }}
                   data-index={virtualItem.index}
                 >
-                  {renderNode(node)}
+                  {renderChunk(chunk)}
                 </VirtualItem>
               );
             })}
