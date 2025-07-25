@@ -9,10 +9,7 @@ import {
   useDocumentDispatch,
   useSelector,
 } from '../DocumentProvider/selectors';
-import { useRouter } from 'next/router';
-import { useAtom } from 'jotai';
-import { documentPageAtom } from '@/utils/atoms';
-import { calculateOptimalPageForAnnotation } from '@/utils/shared';
+
 
 
 type ClusterMentionsListProps = {
@@ -88,54 +85,42 @@ const ClusterMentionsList = ({
   annotations,
 }: ClusterMentionsListProps) => {
   const dispatch = useDocumentDispatch();
-  const router = useRouter();
   const text = useSelector(selectDocumentText);
-  const [page, setPage] = useAtom(documentPageAtom);
   
-  // Smart infinite loading mention click handler
+  console.log('📋 ClusterMentionsList received mentions:', mentions);
+  console.log('📋 ClusterMentionsList received annotations:', annotations);
+  
+  // Smart mention click handler for virtualized NER
   const handleOnClick = useCallback((id: number, mention: any) => (event: MouseEvent) => {
     event.stopPropagation();
 
     // Find the annotation
     const annotation = annotations.find(ann => ann.id === id);
-    if (!annotation) return;
-
-    // Calculate which page contains the annotation
-    const targetPage = calculateOptimalPageForAnnotation(annotation.start);
-    
-    // Use the global goToPage function for smooth navigation
-    const goToPage = (window as any).goToDocumentPage;
-    if (goToPage) {
-      goToPage(targetPage);
-    } else {
-      // Fallback to direct page setting
-      setPage(targetPage);
+    if (!annotation) {
+      console.warn(`Annotation with id ${id} not found in annotations array. This might be a deleted annotation that's still in the cluster mentions.`);
+      return;
     }
+
+    // Directly highlight the annotation - the VirtualizedNER component will handle scrolling
+    dispatch({
+      type: 'highlightAnnotation',
+      payload: {
+        annotationId: id,
+      },
+    });
     
-    // Wait for content to load then highlight and scroll
-    const timeout = setTimeout(() => {
-      dispatch({
-        type: 'highlightAnnotation',
-        payload: {
-          annotationId: id,
-        },
-      });
-      
-      // Scroll to the annotation after highlighting
-      setTimeout(() => {
-        const element = document.getElementById(`entity-tag-${id}`);
-        if (element) {
-          element.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center',
-            inline: 'nearest'
-          });
-        }
-      }, 100);
-    }, 300); // Increased delay for better content loading
-    
-    return () => clearTimeout(timeout);
-  }, [annotations, setPage, dispatch]);
+    // Wait for the VirtualizedNER to scroll to the annotation, then scroll to the specific element
+    setTimeout(() => {
+      const element = document.getElementById(`entity-tag-${id}`);
+      if (element) {
+        element.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'center',
+          inline: 'nearest'
+        });
+      }
+    }, 200); // Reduced delay since we don't need to wait for page loading
+  }, [annotations, dispatch]);
 
   return (
     <ListContainer>

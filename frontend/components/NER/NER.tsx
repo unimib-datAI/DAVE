@@ -1,6 +1,6 @@
 import useNER from '@/lib/ner/core/use-ner';
 import { FlattenedTaxonomy } from '@/modules/document/DocumentProvider/types';
-import { getAllNodeData } from '@/components/Tree';
+import { getAllNodeData, mapEntityType } from '@/components/Tree';
 import { EntityAnnotation, SectionAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
 import {
@@ -77,7 +77,11 @@ const NER = ({
   });
 
   const getTaxonomyNode = useCallback(
-    (key: string) => getAllNodeData(taxonomy, key),
+    (key: string) => {
+      // First try to map the entity type to handle English variants
+      const mappedKey = mapEntityType(key);
+      return getAllNodeData(taxonomy, mappedKey);
+    },
     [taxonomy]
   );
 

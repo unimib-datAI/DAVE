@@ -10,12 +10,49 @@ type FacetsProps = {
 };
 
 const facetsAnnotationsOrder = [
+  // Italian entity types (primary)
   'persona',
   'luogo',
   'organizzazione',
   'data',
   'denaro',
+  'money',
+  'norma',
+  'id',
+  'parte',
+  'controparte',
   'altro',
+  
+  // English entity types - lowercase
+  'person', 'people', 'individual',
+  'location', 'place', 'gpe',
+  'organization', 'org', 'company', 'institution',
+  'date', 'time', 'temporal',
+  'currency', 'financial',
+  'law', 'legal', 'statute', 'regulation',
+  'identifier', 'number', 'code',
+  'misc', 'miscellaneous', 'other', 'unknown',
+  
+  // English entity types - capitalized
+  'Person', 'People', 'Individual',
+  'Location', 'Place', 'Gpe',
+  'Organization', 'Org', 'Company', 'Institution',
+  'Date', 'Time', 'Temporal',
+  'Money', 'Currency', 'Financial', 'Denaro',
+  'Law', 'Legal', 'Statute', 'Regulation',
+  'Id', 'Identifier', 'Number', 'Code',
+  'Misc', 'Miscellaneous', 'Other', 'Unknown',
+  
+  // English entity types - uppercase
+  'PER', 'PERSON',
+  'LOC', 'LOCATION', 'GPE',
+  'ORG', 'ORGANIZATION',
+  'DATE', 'TIME',
+  'MONEY', 'MONETARY',
+  'LAW',
+  'ID',
+  'MISC', 'MISCELLANEOUS', 'OTHER',
+  'UNK', 'UNKNOWN',
 ];
 const facetsMetadataOrder = ['anno sentenza', 'anno ruolo'];
 

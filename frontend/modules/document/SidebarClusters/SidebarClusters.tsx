@@ -7,7 +7,7 @@ import {
 } from '../DocumentProvider/selectors';
 import ClusterList from './ClusterGroupsList';
 import EditClusters from './EditClusters';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 const Container = styled.div({
   display: 'flex',
@@ -35,6 +35,12 @@ const SidebarClusters = () => {
   const [isOpen, setIsOpen] = useState(false);
   const clusterGroups = useSelector(selectDocumentClusters);
   const [clusterGroupsState, setClusterGroupsState] = useState(clusterGroups);
+  
+  // Update local state when selector value changes
+  useEffect(() => {
+    setClusterGroupsState(clusterGroups);
+  }, [clusterGroups]);
+  
   console.log('groups', clusterGroups, typeof clusterGroups);
   return clusterGroups ? (
     <Container>

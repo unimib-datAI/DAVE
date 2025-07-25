@@ -11,7 +11,7 @@ import {
   selectDocumentTaxonomy,
   useSelector,
 } from '../DocumentProvider/selectors';
-import { getAllNodeData } from '../../../components/Tree';
+import { getAllNodeData, isPersonType } from '../../../components/Tree';
 import { useAtom } from 'jotai';
 import { anonimizedNamesAtom } from '@/utils/atoms';
 import { maskWords } from '@/utils/shared';
@@ -85,7 +85,7 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
           : `"...${context.contextLeft}`}
       </span>
       <Tag color={taxonomyNode.color} level={0}>
-        {anonimized && annotation.type === 'persona'
+        {anonimized && isPersonType(annotation.type)
           ? maskWords(text.substring(annotation.start, annotation.end))
           : text.substring(annotation.start, annotation.end)}
         <TagLabel color={taxonomyNode.color}>

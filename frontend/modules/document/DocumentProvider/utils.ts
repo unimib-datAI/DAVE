@@ -10,6 +10,7 @@ import {
   flattenTree,
   FlatTreeNode,
   getNode,
+  mapEntityType,
 } from '../../../components/Tree';
 import { Action, FlattenedTaxonomy, State, Taxonomy } from './types';
 
@@ -145,7 +146,12 @@ export const getAnnotationTypes = (
 export const getTypeFilter = (annotations: EntityAnnotation[]) => {
   let typeFilter = new Set<string>();
   annotations.forEach((ann) => {
+    // Add both the original type and the mapped type to ensure filtering works
     typeFilter.add(ann.type);
+    const mappedType = mapEntityType(ann.type);
+    if (mappedType !== ann.type) {
+      typeFilter.add(mappedType);
+    }
   });
   return Array.from(typeFilter);
 };

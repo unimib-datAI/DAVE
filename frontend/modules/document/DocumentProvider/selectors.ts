@@ -145,6 +145,8 @@ export const selectDocumentClusters = createSelector(
   selectViews,
   // current annotation set
   (doc, views) => {
+    console.log('🔍 selectDocumentClusters called with doc:', doc, 'views:', views);
+    
     if (views.length > 1) {
       return null;
     }
@@ -152,11 +154,10 @@ export const selectDocumentClusters = createSelector(
     const { activeAnnotationSet } = views[0];
 
     const { text, annotation_sets, features } = doc;
-    console.log(
-      'current annotations sets',
-      annotation_sets,
-      activeAnnotationSet
-    );
+    console.log('🔍 activeAnnotationSet:', activeAnnotationSet);
+    console.log('🔍 annotation_sets:', annotation_sets);
+    console.log('🔍 features.clusters:', features.clusters);
+    
     let annSet = annotation_sets[activeAnnotationSet];
     if (!annSet) {
       // Handle the case where annotation_sets might be a Record/object - convert to array first
@@ -176,12 +177,18 @@ export const selectDocumentClusters = createSelector(
     if (!annSetClusters) {
       return null;
     }
+    
+    console.log('🔍 annSetClusters before processing:', annSetClusters);
+    console.log('🔍 annSet.annotations:', annSet.annotations);
+    
     const clusters = annSetClusters.map((cluster) => {
       const mentions = cluster.mentions.map((mention) => {
         const ann = annSet.annotations.find((ann) => ann.id === mention.id);
 
         if (!ann) {
-          return mention;
+          // If annotation is not found, return null to filter it out later
+          console.log('🔍 Annotation not found for mention:', mention);
+          return null;
         }
 
         const startOffset = ann.start - 10 < 0 ? 0 : ann.start - 10;
@@ -192,16 +199,19 @@ export const selectDocumentClusters = createSelector(
           ...mention,
           mentionText: `...${text.slice(startOffset, endOffset)}...`,
         };
-      });
+      }).filter(mention => mention !== null); // Filter out null mentions
 
       return {
         ...cluster,
-        mentions: mentions.filter((m) => (m as any).mentionText),
+        mentions,
       } as ProcessedCluster;
-    });
+    }).filter(cluster => cluster.mentions.length > 0); // Filter out empty clusters
+
+    console.log('🔍 clusters after processing:', clusters);
 
     const clusterGroups = groupBy(clusters, (cluster) => cluster.type);
-
+    
+    console.log('🔍 final clusterGroups:', clusterGroups);
     return clusterGroups;
   }
 );

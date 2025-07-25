@@ -180,11 +180,16 @@ export const documentReducer = createImmerReducer<State, Action>({
     const { viewIndex, id } = payload;
     const { activeAnnotationSet } = views[viewIndex];
     const { annotations } = state.data.annotation_sets[activeAnnotationSet];
+    
+    console.log('🗑️ deleteAnnotation called with id:', id, 'activeAnnotationSet:', activeAnnotationSet);
+    
     // delete annotation
     const indexToDelete = annotations.findIndex((ann) => ann.id === id);
 
     if (indexToDelete !== -1) {
       const annToDelete = annotations[indexToDelete];
+      console.log('🗑️ Found annotation to delete:', annToDelete);
+      
       const newAnnotations = [
         ...annotations.slice(0, indexToDelete),
         ...annotations.slice(indexToDelete + 1, annotations.length),
@@ -194,24 +199,34 @@ export const documentReducer = createImmerReducer<State, Action>({
       state.ui.views[viewIndex].typeFilter = getTypeFilter(newAnnotations);
 
       if (state.data.features.clusters && state.data.features.clusters[activeAnnotationSet]) {
+        console.log('🗑️ Updating clusters, looking for cluster id:', annToDelete.features.cluster);
+        
         const newClusters = state.data.features.clusters[
           activeAnnotationSet
         ].map((cluster) => {
           if (cluster.id === annToDelete.features.cluster) {
-            return {
+            console.log('🗑️ Found cluster to update:', cluster);
+            const updatedCluster = {
               ...cluster,
               mentions: cluster.mentions.filter(
                 (mention) => mention.id !== annToDelete.id
               ),
             };
+            console.log('🗑️ Updated cluster:', updatedCluster);
+            return updatedCluster;
           }
           return cluster;
         });
 
-        state.data.features.clusters[activeAnnotationSet] = newClusters.filter(
+        const filteredClusters = newClusters.filter(
           (cluster) => cluster.mentions.length > 0
         );
+        
+        console.log('🗑️ Final clusters after filtering:', filteredClusters);
+        state.data.features.clusters[activeAnnotationSet] = filteredClusters;
       }
+    } else {
+      console.log('🗑️ Annotation not found in annotations array');
     }
   },
   addTaxonomyType: (state, payload) => {
