@@ -14,7 +14,7 @@ import ClusterMentionsList from './ClusterMentionsList';
 
 type ClusterCardProps = ProcessedCluster & {
   selected: boolean;
-  annotations: EntityAnnotation[]
+  annotations: EntityAnnotation[];
   onClick: () => void;
 };
 
@@ -75,29 +75,36 @@ const ClusterCard = ({
   const t = useText('document');
 
   useEffect(() => {
-    console.log('Changed mentions', mentions.length)
-  },[mentions])
+    console.log('Changed mentions', mentions.length);
+  }, [mentions]);
   return (
     <>
-      <ClusterContainer selected={selected} onClick={onClick}>
-        <Text
-          title={title}
-          b
-          css={{
-            textAlign: 'start',
-            width: '100%',
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-          }}
-        >
-          {title}
-        </Text>
-        <Text size="12px">
-          {t('leftSidebar.clustersContent.mentions', { n: mentions.length })}
-        </Text>
-        {selected && <ClusterMentionsList mentions={mentions} annotations={annotations} />}
-      </ClusterContainer>
+      {mentions.length > 0 && (
+        <ClusterContainer selected={selected} onClick={onClick}>
+          <Text
+            title={title}
+            b
+            css={{
+              textAlign: 'start',
+              width: '100%',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
+            {title}
+          </Text>
+          <Text size="12px">
+            {t('leftSidebar.clustersContent.mentions', { n: mentions.length })}
+          </Text>
+          {selected && (
+            <ClusterMentionsList
+              mentions={mentions}
+              annotations={annotations}
+            />
+          )}
+        </ClusterContainer>
+      )}
     </>
   );
 };
