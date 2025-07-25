@@ -77,6 +77,15 @@ const DocumentViewer = () => {
       type: 'highlightAnnotation',
       payload: { annotationId: annotation.id },
     });
+    
+    // Set the current entity to open the sidebar annotation details
+    dispatch({
+      type: 'setCurrentEntityId',
+      payload: {
+        viewIndex,
+        annotationId: annotation.id,
+      },
+    });
   };
 
   const handleTagDelete = (annotation: EntityAnnotation) => {

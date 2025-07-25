@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { getAllNodeData } from '@/components/Tree';
+import { getAllNodeData, mapEntityType } from '@/components/Tree';
 import { EntityAnnotation, SectionAnnotation } from '@/server/routers/document';
 import { FlattenedTaxonomy } from '@/modules/document/DocumentProvider/types';
 import useNER from '@/lib/ner/core/use-ner';
@@ -162,7 +162,11 @@ const VirtualizedNER = ({
   });
 
   const getTaxonomyNode = useCallback(
-    (key: string) => getAllNodeData(taxonomy, key),
+    (key: string) => {
+      // First try to map the entity type to handle English variants
+      const mappedKey = mapEntityType(key);
+      return getAllNodeData(taxonomy, mappedKey);
+    },
     [taxonomy]
   );
 

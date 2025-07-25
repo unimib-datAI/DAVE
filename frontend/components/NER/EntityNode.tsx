@@ -1,6 +1,6 @@
 import { getSpan } from '@/lib/ner/core';
 import { Annotation, EntityNode as EntityNodeType } from '@/lib/ner/core/types';
-import { ChildNodeWithColor, getAllNodeData } from '@/components/Tree';
+import { ChildNodeWithColor, getAllNodeData, isPersonType } from '@/components/Tree';
 import {
   AdditionalAnnotationProps,
   EntityAnnotation,
@@ -206,7 +206,7 @@ const EntityNode = React.forwardRef<HTMLSpanElement, EntityNodeProps>(function E
     annotation: Annotation<AdditionalAnnotationProps>;
   }) => {
     //this code is used to anonimize the person's name
-    if (annotation.type === 'persona' && anonimized) {
+    if (isPersonType(annotation.type) && anonimized) {
       children = maskWords(children as string);
     }
     const tagElement = (
