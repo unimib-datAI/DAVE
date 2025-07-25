@@ -181,15 +181,17 @@ export const documentReducer = createImmerReducer<State, Action>({
     const { activeAnnotationSet } = views[viewIndex];
     const { annotations } = state.data.annotation_sets[activeAnnotationSet];
     
-    console.log('🗑️ deleteAnnotation called with id:', id, 'activeAnnotationSet:', activeAnnotationSet);
+   
     
     // delete annotation
     const indexToDelete = annotations.findIndex((ann) => ann.id === id);
 
     if (indexToDelete !== -1) {
       const annToDelete = annotations[indexToDelete];
-      console.log('🗑️ Found annotation to delete:', annToDelete);
-      
+      console.log(
+        'deleting annotation',
+        JSON.parse(JSON.stringify(annToDelete))
+      );
       const newAnnotations = [
         ...annotations.slice(0, indexToDelete),
         ...annotations.slice(indexToDelete + 1, annotations.length),
@@ -199,10 +201,10 @@ export const documentReducer = createImmerReducer<State, Action>({
       state.ui.views[viewIndex].typeFilter = getTypeFilter(newAnnotations);
 
       if (state.data.features.clusters && state.data.features.clusters[activeAnnotationSet]) {
-        console.log('🗑️ Updating clusters, looking for cluster id:', annToDelete.features.cluster);
         
         const newClusters = state.data.features.clusters[
           activeAnnotationSet
+
         ].map((cluster) => {
           if (cluster.id === annToDelete.features.cluster) {
             console.log('🗑️ Found cluster to update:', cluster);

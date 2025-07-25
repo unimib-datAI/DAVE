@@ -20,10 +20,6 @@ const ListContainer = styled.div({
 const ClusterGroupsList = ({ clusterGroups }: ClusterListProps) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
-  useEffect(() => {
-    setSelectedIndex(null);
-  }, [clusterGroups]);
-
   const handleClusterCardClick = (index: number) => {
     setSelectedIndex((oldIndex) => {
       if (oldIndex === index) {

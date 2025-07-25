@@ -121,13 +121,13 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
         let tempAlpha = clusters.sort((a: Cluster, b: Cluster) =>
           a.title.localeCompare(b.title)
         );
-        return tempAlpha;
+        setClusters(tempAlpha);
         break;
       case 'NUMBER_MENTIONS':
         let tempNum = clustersState.sort(
           (a: Cluster, b: Cluster) => b.mentions.length - a.mentions.length
         );
-        return tempNum;
+        setClusters(tempNum);
         break;
     }
   }
@@ -174,7 +174,7 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
               value={selectedSort}
               onChange={(value) => {
                 if (value === 'ALPHABETICAL' || value === 'NUMBER_MENTIONS') {
-                  setSelectedSort(value);
+                  handleSort(clustersState, value)
                 }
               }}
               options={[
@@ -192,7 +192,7 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
         </Col>
       )}
       {selected && (
-        <ClustersList clusters={handleSort(clustersState, selectedSort)} />
+        <ClustersList clusters={clustersState} />
       )}
     </GroupContainer>
   );
