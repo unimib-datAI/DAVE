@@ -224,7 +224,7 @@ const EntityNode = React.forwardRef<HTMLSpanElement, EntityNodeProps>(function E
         {annotation.features.url &&
           annotation.features.url.startsWith('https://') && <FiLink />}
         {showAnnotationDelete && (
-          <DeleteButton onClick={handleOnTagDelete(annotation)}>
+          <DeleteButton onClick={e => handleOnTagDelete(annotation)(e)}>
             <FiX />
           </DeleteButton>
         )}

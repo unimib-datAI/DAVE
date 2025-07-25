@@ -88,7 +88,12 @@ const DocumentViewer = () => {
     });
   };
 
-  const handleTagDelete = (annotation: EntityAnnotation) => {
+  const handleTagDelete = (annotation: EntityAnnotation, event?: MouseEvent) => {
+    /* if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    } */
+   console.log('Deleting annotation:', annotation.id);
     dispatch({
       type: 'deleteAnnotation',
       payload: {
