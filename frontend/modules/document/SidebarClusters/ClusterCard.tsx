@@ -4,7 +4,7 @@ import { Cluster, EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
 import { Text } from '@nextui-org/react';
 import { darken } from 'polished';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   useSelector,
   selectDocumentTaxonomy,
@@ -74,7 +74,9 @@ const ClusterCard = ({
 }: ClusterCardProps) => {
   const t = useText('document');
 
-
+  useEffect(() => {
+    console.log('Changed mentions', mentions.length)
+  },[mentions])
   return (
     <>
       <ClusterContainer selected={selected} onClick={onClick}>
