@@ -133,7 +133,11 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
   }
 
   const t = useText('document');
-
+  
+  //use effect used to recompute cluster lists when they change after like a mention deletion 
+  useEffect(() => {
+    handleSort(clusters, selectedSort);
+  }, [clusters])
   return (
     <GroupContainer>
       <GroupHeader selected={selected} onClick={onClick}>
