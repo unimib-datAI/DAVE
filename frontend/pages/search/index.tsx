@@ -52,6 +52,7 @@ const getFacetsFromUrl = (
 const Search = () => {
   const router = useRouter();
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
+  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
   const { text, ...facetsFilters } = router.query;
   const facets = useMemo(
     () => getFacetsFromUrl(facetsFilters),
@@ -114,6 +115,40 @@ const Search = () => {
     }
   }, [data]);
 
+  // Build id_ER to display_name map from facets
+  const filterIdToDisplayName = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (data && data.pages[0].facets && data.pages[0].facets.annotations) {
+      data.pages[0].facets.annotations.forEach((facet) => {
+        facet.children.forEach((child) => {
+          child.ids_ER.forEach((id) => {
+            map[id] = child.display_name;
+          });
+        });
+      });
+    }
+    return map;
+  }, [data]);
+
+  // Reorder documents based on selectedFilters
+  const reorderedDocuments = useMemo(() => {
+    if (!data) return [];
+    const allHits = data.pages.flatMap((page) => page.hits);
+    if (selectedFilters.length === 0) return allHits;
+
+    const matches = allHits.filter(
+      (hit) =>
+        Array.isArray(hit.annotations) &&
+        hit.annotations.some((ann) => selectedFilters.includes(ann.id_ER))
+    );
+    const nonMatches = allHits.filter(
+      (hit) =>
+        !Array.isArray(hit.annotations) ||
+        !hit.annotations.some((ann) => selectedFilters.includes(ann.id_ER))
+    );
+    return [...matches, ...nonMatches];
+  }, [data, selectedFilters]);
+
   const handleSubmit = ({ text }: { text: string }) => {
     const url = {
       pathname: router.pathname,
@@ -149,11 +184,17 @@ const Search = () => {
           animate={isFetching ? 'isFetching' : 'isNotFetching'}
           transition={{ duration: 0.5 }}
         >
-          {data && <Facets facets={data.pages[0].facets} />}
+          {data && (
+            <Facets
+              facets={data.pages[0].facets}
+              selectedFilters={selectedFilters}
+              setSelectedFilters={setSelectedFilters}
+            />
+          )}
           <div className="flex-grow flex flex-col gap-4 p-6">
             <div className="flex flex-col sticky top-16 bg-white py-6">
               <h4>{`${data.pages[0].pagination.total_hits} results for "${text}"`}</h4>
-              {data && data && <ActiveFiltersList facets={data.pages[0].facets} />}
+              {data && <ActiveFiltersList facets={data.pages[0].facets} />}
             </div>
             <div
               className="grid gap-x-8 gap-y-8"
@@ -161,14 +202,20 @@ const Search = () => {
                 gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))',
               }}
             >
-              {data &&
-                data.pages.map((page) => (
-                  <Fragment key={page.pagination.current_page}>
-                    {page.hits.map((hit) => (
-                      <DocumentHit key={hit._id} hit={hit} />
-                    ))}
-                  </Fragment>
-                ))}
+              {reorderedDocuments.map((hit) => (
+                <DocumentHit
+                  key={hit._id}
+                  hit={hit}
+                  highlight={
+                    Array.isArray(hit.annotations) &&
+                    hit.annotations.some((ann) =>
+                      selectedFilters.includes(ann.id_ER)
+                    )
+                  }
+                  selectedFilters={selectedFilters}
+                  filterIdToDisplayName={filterIdToDisplayName}
+                />
+              ))}
             </div>
             {hasNextPage && (
               <div ref={ref} className="w-full">
