@@ -2,11 +2,13 @@ import { useForm } from '@/hooks';
 import { FacetedQueryOutput } from '@/server/routers/search';
 import Fuse from 'fuse.js';
 import { SearchIcon } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { FacetFilter } from './FacetFilter';
 
 type FacetsProps = {
   facets: FacetedQueryOutput['facets'];
+  selectedFilters: string[];
+  setSelectedFilters: (filters: string[]) => void;
 };
 
 const facetsAnnotationsOrder = [
@@ -22,37 +24,85 @@ const facetsAnnotationsOrder = [
   'parte',
   'controparte',
   'altro',
-  
+
   // English entity types - lowercase
-  'person', 'people', 'individual',
-  'location', 'place', 'gpe',
-  'organization', 'org', 'company', 'institution',
-  'date', 'time', 'temporal',
-  'currency', 'financial',
-  'law', 'legal', 'statute', 'regulation',
-  'identifier', 'number', 'code',
-  'misc', 'miscellaneous', 'other', 'unknown',
-  
+  'person',
+  'people',
+  'individual',
+  'location',
+  'place',
+  'gpe',
+  'organization',
+  'org',
+  'company',
+  'institution',
+  'date',
+  'time',
+  'temporal',
+  'currency',
+  'financial',
+  'law',
+  'legal',
+  'statute',
+  'regulation',
+  'identifier',
+  'number',
+  'code',
+  'misc',
+  'miscellaneous',
+  'other',
+  'unknown',
+
   // English entity types - capitalized
-  'Person', 'People', 'Individual',
-  'Location', 'Place', 'Gpe',
-  'Organization', 'Org', 'Company', 'Institution',
-  'Date', 'Time', 'Temporal',
-  'Money', 'Currency', 'Financial', 'Denaro',
-  'Law', 'Legal', 'Statute', 'Regulation',
-  'Id', 'Identifier', 'Number', 'Code',
-  'Misc', 'Miscellaneous', 'Other', 'Unknown',
-  
+  'Person',
+  'People',
+  'Individual',
+  'Location',
+  'Place',
+  'Gpe',
+  'Organization',
+  'Org',
+  'Company',
+  'Institution',
+  'Date',
+  'Time',
+  'Temporal',
+  'Money',
+  'Currency',
+  'Financial',
+  'Denaro',
+  'Law',
+  'Legal',
+  'Statute',
+  'Regulation',
+  'Id',
+  'Identifier',
+  'Number',
+  'Code',
+  'Misc',
+  'Miscellaneous',
+  'Other',
+  'Unknown',
+
   // English entity types - uppercase
-  'PER', 'PERSON',
-  'LOC', 'LOCATION', 'GPE',
-  'ORG', 'ORGANIZATION',
-  'DATE', 'TIME',
-  'MONEY', 'MONETARY',
+  'PER',
+  'PERSON',
+  'LOC',
+  'LOCATION',
+  'GPE',
+  'ORG',
+  'ORGANIZATION',
+  'DATE',
+  'TIME',
+  'MONEY',
+  'MONETARY',
   'LAW',
   'ID',
-  'MISC', 'MISCELLANEOUS', 'OTHER',
-  'UNK', 'UNKNOWN',
+  'MISC',
+  'MISCELLANEOUS',
+  'OTHER',
+  'UNK',
+  'UNKNOWN',
 ];
 const facetsMetadataOrder = ['anno sentenza', 'anno ruolo'];
 
@@ -76,7 +126,11 @@ const buildFacets = (facets: FacetedQueryOutput['facets']) => {
   return [...metadata, ...annotations];
 };
 
-const Facets = ({ facets }: FacetsProps) => {
+const Facets = ({
+  facets,
+  selectedFilters,
+  setSelectedFilters,
+}: FacetsProps) => {
   const { register, value } = useForm({
     filter: '',
   });
@@ -93,6 +147,24 @@ const Facets = ({ facets }: FacetsProps) => {
     value.filter.trim() === ''
       ? allFacets
       : fuse.current.search(value.filter).map(({ item }) => item);
+
+  useEffect(() => {
+    // Reorder facets based on selected filters
+    console.log('selected filters ', selectedFilters);
+    console.log('fist facet', filteredFacets[0]);
+    filteredFacets.sort((a, b) => {
+      const aSelected = selectedFilters.includes(a.key);
+      const bSelected = selectedFilters.includes(b.key);
+      return bSelected - aSelected; // Prioritize selected facets
+    });
+  }, [selectedFilters, filteredFacets]);
+
+  // Reorder filtered facets to prioritize matches
+  filteredFacets.sort((a, b) => {
+    const aMatches = a.key.includes(value.filter);
+    const bMatches = b.key.includes(value.filter);
+    return bMatches - aMatches; // Prioritize facets that match the filter
+  });
   return allFacets.length > 0 ? (
     <div className="sticky top-16 w-72 h-[calc(100vh-4rem)]">
       <div className="overflow-y-auto h-full">
@@ -115,6 +187,13 @@ const Facets = ({ facets }: FacetsProps) => {
               key={facet.key}
               facet={facet}
               filterType={filterType}
+              highlight={
+                value.filter.trim() !== '' && facet.key.includes(value.filter)
+              }
+              selectedFilters={selectedFilters}
+              onFilterChange={(filterType, updatedFilters) =>
+                setSelectedFilters(updatedFilters)
+              }
             />
           ))}
         </div>

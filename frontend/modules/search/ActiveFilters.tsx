@@ -21,16 +21,23 @@ const getActiveFilters = (
           (facetG) => facetG.key === type
         ) as Facet;
 
-        return {
-          filterType,
-          value: facetGroup.children.find((facet) =>
-            facet.ids_ER.includes(v)
-          ) as Facet['children'][number],
-        };
+        if (!facetGroup) {
+          console.warn(`Facet group not found for type: ${type}`);
+          return null;
+        }
+
+        return facetGroup
+          ? {
+              filterType,
+              value: facetGroup.children.find((facet) =>
+                facet.ids_ER.includes(v)
+              ) as Facet['children'][number],
+            }
+          : null;
       });
     })
     .flat();
-  return removeDuplicateFilters(mappedActiveFilters);
+  return removeDuplicateFilters(mappedActiveFilters.filter(Boolean));
 };
 
 interface MappedFilters {
