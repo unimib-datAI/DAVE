@@ -1,6 +1,10 @@
 import { getSpan } from '@/lib/ner/core';
 import { Annotation, EntityNode as EntityNodeType } from '@/lib/ner/core/types';
-import { ChildNodeWithColor, getAllNodeData, isPersonType } from '@/components/Tree';
+import {
+  ChildNodeWithColor,
+  getAllNodeData,
+  isPersonType,
+} from '@/components/Tree';
 import {
   AdditionalAnnotationProps,
   EntityAnnotation,
@@ -102,194 +106,232 @@ const DeleteButton = styled.button({
 
 import React from 'react';
 
-const EntityNode = React.forwardRef<HTMLSpanElement, EntityNodeProps>(function EntityNode(props, ref) {
-  const { text, start, annotation } = props;
-  const [highlight, setHighlight] = useState(false);
-  const {
-    onTagClick,
-    onTagEnter,
-    onTagLeave,
-    onTagDelete,
-    getTaxonomyNode,
-    renderContentHover,
-    highlightAnnotation,
-    showAnnotationDelete,
-  } = useNERContext();
-  //get anonimization status
-  const [anonimized, setAnonimized] = useAtom(anonimizedNamesAtom);
+const EntityNode = React.memo(
+  React.forwardRef<HTMLSpanElement, EntityNodeProps>(function EntityNode(
+    props,
+    ref
+  ) {
+    const { text, start, annotation } = props;
+    const [highlight, setHighlight] = useState(false);
+    const {
+      onTagClick,
+      onTagEnter,
+      onTagLeave,
+      onTagDelete,
+      getTaxonomyNode,
+      renderContentHover,
+      highlightAnnotation,
+      showAnnotationDelete,
+    } = useNERContext();
+    //get anonimization status
+    const [anonimized, setAnonimized] = useAtom(anonimizedNamesAtom);
 
-  useEffect(() => {
-    if (highlightAnnotation === annotation.id) {
-      // Force highlight state update for windowed rendering
-      setHighlight(false); // Reset first
-      
-      // Use two animation frames to ensure the component is fully rendered
-      requestAnimationFrame(() => {
+    useEffect(() => {
+      if (highlightAnnotation === annotation.id) {
+        // Force highlight state update for windowed rendering
+        setHighlight(false); // Reset first
+
+        // Use a single animation frame to reduce overhead
         requestAnimationFrame(() => {
           setHighlight(true);
-          
+
           // Reset highlight after animation duration
           const resetTimeout = setTimeout(() => {
             setHighlight(false);
           }, 1200); // Match the animation duration
-          
+
           return () => clearTimeout(resetTimeout);
         });
-      });
-    } else {
-      // Reset highlight if it's a different annotation
-      setHighlight(false);
-    }
-  }, [highlightAnnotation, annotation.id]);
-
-  const handleTagClick =
-    (ann: Annotation<AdditionalAnnotationProps>) => (event: MouseEvent) => {
-      event.stopPropagation();
-
-      if (onTagClick) {
-        onTagClick(event, ann);
+      } else {
+        // Reset highlight if it's a different annotation
+        setHighlight(false);
       }
-    };
+    }, [highlightAnnotation, annotation.id]);
 
-  const handleOnTagEnter =
-    (ann: Annotation<AdditionalAnnotationProps>) => (event: MouseEvent) => {
-      event.stopPropagation();
+    const handleTagClick = useCallback(
+      (ann: Annotation<AdditionalAnnotationProps>) => (event: MouseEvent) => {
+        event.stopPropagation();
 
-      if (onTagEnter) {
-        onTagEnter(event, ann);
-      }
-    };
-
-  const handleOnTagLeave =
-    (ann: Annotation<AdditionalAnnotationProps>) => (event: MouseEvent) => {
-      // event.stopPropagation();
-
-      if (onTagLeave) {
-        onTagLeave(event, ann);
-      }
-    };
-
-  const handleOnTagDelete =
-    (ann: Annotation<AdditionalAnnotationProps>) => (event: MouseEvent) => {
-      event.stopPropagation();
-
-      if (onTagDelete) {
-        onTagDelete(event, ann);
-      }
-    };
-
-  const { color } = useMemo(
-    () => getTaxonomyNode(annotation.type),
-    [annotation]
-  );
-
-  const getTypesText = (ann: Annotation<AdditionalAnnotationProps>) => {
-    const types_set = new Set(ann.features.types || []);
-    types_set.add(ann.type);
-    const types = Array.from(types_set).map((t) => getTaxonomyNode(t).label);
-    const nMoreTypes = types.length - 1;
-    if (nMoreTypes === 0) {
-      return types[0];
-    }
-    return `${types[0]} +${nMoreTypes}`;
-  };
-  /**
-   * Get a tag element
-   */
-  const getTag = ({
-    color,
-    children,
-    annotation,
-  }: {
-    color: string;
-    children: ReactNode;
-    annotation: Annotation<AdditionalAnnotationProps>;
-  }) => {
-    //this code is used to anonimize the person's name
-    if (isPersonType(annotation.type) && anonimized) {
-      children = maskWords(children as string);
-    }
-    const tagElement = (
-      <Tag
-        id={`entity-tag-${annotation.id}`}
-        highlight={highlight}
-        color={color}
-        onClick={handleTagClick(annotation)}
-        onMouseEnter={handleOnTagEnter(annotation)}
-        onMouseLeave={handleOnTagLeave(annotation)}
-      >
-        {children}
-        <TagLabel color={color}>{getTypesText(annotation)}</TagLabel>
-        {/* Removed url icon/link display */}
-        {annotation.features.url &&
-          annotation.features.url.startsWith('https://') && <FiLink />}
-        {showAnnotationDelete && (
-          <DeleteButton onClick={e => handleOnTagDelete(annotation)(e)}>
-            <FiX />
-          </DeleteButton>
-        )}
-      </Tag>
+        if (onTagClick) {
+          onTagClick(event, ann);
+        }
+      },
+      [onTagClick]
     );
 
-    if (renderContentHover) {
-      return (
-        <Tooltip
-          css={{ display: 'inline-block' }}
-          placement="top"
-          content={renderContentHover(annotation)}
-        >
-          {tagElement}
-        </Tooltip>
-      );
-    }
+    const handleOnTagEnter = useCallback(
+      (ann: Annotation<AdditionalAnnotationProps>) => (event: MouseEvent) => {
+        event.stopPropagation();
 
-    return tagElement;
-  };
+        if (onTagEnter) {
+          onTagEnter(event, ann);
+        }
+      },
+      [onTagEnter]
+    );
 
-  /**
-   * Build an entity tag by constructing its nested entities
-   */
-  // const recurseTag = useCallback((): ReactNode => {
-  //   let children: ReactNode = null;
+    const handleOnTagLeave = useCallback(
+      (ann: Annotation<AdditionalAnnotationProps>) => (event: MouseEvent) => {
+        // event.stopPropagation();
 
-  //   nesting.forEach((entityId, index) => {
-  //     const curr = annotations[entityId];
-  //     const { color } = getTaxonomyNode(curr.type);
+        if (onTagLeave) {
+          onTagLeave(event, ann);
+        }
+      },
+      [onTagLeave]
+    );
 
-  //     if (index === 0) {
-  //       const textStart = curr.start - start;
-  //       const textEnd = textStart + (curr.end - curr.start);
-  //       const { text: span } = getSpan(text, textStart, textEnd);
-  //       children = getTag({
-  //         index,
-  //         color,
-  //         children: span,
-  //         annotation: curr
-  //       })
-  //     } else {
-  //       const prev = getPreviousNestedAnnotation(annotations, nesting, index);
-  //       const leftSpan = getLeftText(text, prev, curr, start);
-  //       const rightSpan = getRightText(text, prev, curr, start);
-  //       children = getTag({
-  //         index,
-  //         color,
-  //         annotation: curr,
-  //         children: (
-  //           <>
-  //             {leftSpan}{children}{rightSpan}
-  //           </>
-  //         )
-  //       })
-  //     }
-  //   });
+    const handleOnTagDelete = useCallback(
+      (ann: Annotation<AdditionalAnnotationProps>) => (event: MouseEvent) => {
+        event.stopPropagation();
 
-  //   return children;
-  // }, [props])
+        if (onTagDelete) {
+          onTagDelete(event, ann);
+        }
+      },
+      [onTagDelete]
+    );
 
-  // memoized the tag recursion so that it runs only when the tag prop changes
-  // const tagContent = useMemo(() => recurseTag(), [recurseTag]);
+    const { color } = useMemo(
+      () => getTaxonomyNode(annotation.type),
+      [getTaxonomyNode, annotation.type]
+    );
 
-  return <>{text ? getTag({ color, annotation, children: text }) : null}</>;
-});
+    const getTypesText = useCallback(
+      (ann: Annotation<AdditionalAnnotationProps>) => {
+        const types_set = new Set(ann.features.types || []);
+        types_set.add(ann.type);
+        const types = Array.from(types_set).map(
+          (t) => getTaxonomyNode(t).label
+        );
+        const nMoreTypes = types.length - 1;
+        if (nMoreTypes === 0) {
+          return types[0];
+        }
+        return `${types[0]} +${nMoreTypes}`;
+      },
+      [getTaxonomyNode]
+    );
+    /**
+     * Get a tag element
+     */
+    const getTag = useCallback(
+      ({
+        color,
+        children,
+        annotation,
+      }: {
+        color: string;
+        children: ReactNode;
+        annotation: Annotation<AdditionalAnnotationProps>;
+      }) => {
+        //this code is used to anonimize the person's name
+        if (isPersonType(annotation.type) && anonimized) {
+          children = maskWords(children as string);
+        }
+        const tagElement = (
+          <Tag
+            id={`entity-tag-${annotation.id}`}
+            highlight={highlight}
+            color={color}
+            onClick={handleTagClick(annotation)}
+            onMouseEnter={handleOnTagEnter(annotation)}
+            onMouseLeave={handleOnTagLeave(annotation)}
+          >
+            {children}
+            <TagLabel color={color}>{getTypesText(annotation)}</TagLabel>
+            {/* Removed url icon/link display */}
+            {annotation.features.url &&
+              annotation.features.url.startsWith('https://') && <FiLink />}
+            {showAnnotationDelete && (
+              <DeleteButton onClick={(e) => handleOnTagDelete(annotation)(e)}>
+                <FiX />
+              </DeleteButton>
+            )}
+          </Tag>
+        );
+
+        if (renderContentHover) {
+          return (
+            <Tooltip
+              css={{ display: 'inline-block' }}
+              placement="top"
+              content={renderContentHover(annotation)}
+            >
+              {tagElement}
+            </Tooltip>
+          );
+        }
+
+        return tagElement;
+      },
+      [
+        highlight,
+        anonimized,
+        handleTagClick,
+        handleOnTagEnter,
+        handleOnTagLeave,
+        handleOnTagDelete,
+        getTypesText,
+        showAnnotationDelete,
+        renderContentHover,
+      ]
+    );
+
+    /**
+     * Build an entity tag by constructing its nested entities
+     */
+    // const recurseTag = useCallback((): ReactNode => {
+    //   let children: ReactNode = null;
+
+    //   nesting.forEach((entityId, index) => {
+    //     const curr = annotations[entityId];
+    //     const { color } = getTaxonomyNode(curr.type);
+
+    //     if (index === 0) {
+    //       const textStart = curr.start - start;
+    //       const textEnd = textStart + (curr.end - curr.start);
+    //       const { text: span } = getSpan(text, textStart, textEnd);
+    //       children = getTag({
+    //         index,
+    //         color,
+    //         children: span,
+    //         annotation: curr
+    //       })
+    //     } else {
+    //       const prev = getPreviousNestedAnnotation(annotations, nesting, index);
+    //       const leftSpan = getLeftText(text, prev, curr, start);
+    //       const rightSpan = getRightText(text, prev, curr, start);
+    //       children = getTag({
+    //         index,
+    //         color,
+    //         annotation: curr,
+    //         children: (
+    //           <>
+    //             {leftSpan}{children}{rightSpan}
+    //           </>
+    //         )
+    //       })
+    //     }
+    //   });
+
+    //   return children;
+    // }, [props])
+
+    // memoized the tag recursion so that it runs only when the tag prop changes
+    // const tagContent = useMemo(() => recurseTag(), [recurseTag]);
+
+    return <>{text ? getTag({ color, annotation, children: text }) : null}</>;
+  }),
+  (prevProps, nextProps) => {
+    // Custom equality check to prevent unnecessary re-renders
+    return (
+      prevProps.text === nextProps.text &&
+      prevProps.start === nextProps.start &&
+      prevProps.annotation.id === nextProps.annotation.id &&
+      prevProps.annotation.type === nextProps.annotation.type
+    );
+  }
+);
 
 export default EntityNode;
