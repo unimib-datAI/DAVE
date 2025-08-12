@@ -15,7 +15,7 @@ import LoadingOverlay from '@/modules/review/LoadingOverlay';
 import Link from 'next/link';
 import { LLMButton } from '@/modules/search/LLMButton';
 import { useAtom } from 'jotai';
-import { facetsDocumentsAtom } from '@/utils/atoms';
+import { facetsDocumentsAtom, selectedFiltersAtom } from '@/utils/atoms';
 
 const variants = {
   isFetching: { opacity: 0.5 },
@@ -52,7 +52,7 @@ const getFacetsFromUrl = (
 const Search = () => {
   const router = useRouter();
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
-  const [selectedFilters, setSelectedFilters] = useState<string[]>([]);
+  const [selectedFilters, setSelectedFilters] = useAtom(selectedFiltersAtom);
   const { text, ...facetsFilters } = router.query;
   const facets = useMemo(
     () => getFacetsFromUrl(facetsFilters),
@@ -139,12 +139,22 @@ const Search = () => {
     const matches = allHits.filter(
       (hit) =>
         Array.isArray(hit.annotations) &&
-        hit.annotations.some((ann) => selectedFilters.includes(ann.id_ER))
+        hit.annotations.some(
+          (ann: any) =>
+            selectedFilters.includes(ann.id_ER) ||
+            selectedFilters.includes(ann.display_name?.toLowerCase()) ||
+            selectedFilters.includes(ann.display_name)
+        )
     );
     const nonMatches = allHits.filter(
       (hit) =>
         !Array.isArray(hit.annotations) ||
-        !hit.annotations.some((ann) => selectedFilters.includes(ann.id_ER))
+        !hit.annotations.some(
+          (ann: any) =>
+            selectedFilters.includes(ann.id_ER) ||
+            selectedFilters.includes(ann.display_name?.toLowerCase()) ||
+            selectedFilters.includes(ann.display_name)
+        )
     );
     return [...matches, ...nonMatches];
   }, [data, selectedFilters]);
@@ -208,7 +218,7 @@ const Search = () => {
                   hit={hit}
                   highlight={
                     Array.isArray(hit.annotations) &&
-                    hit.annotations.some((ann) =>
+                    hit.annotations.some((ann: any) =>
                       selectedFilters.includes(ann.id_ER)
                     )
                   }

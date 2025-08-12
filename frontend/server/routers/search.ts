@@ -42,6 +42,8 @@ export type HitAnnotation = {
   end: number;
   mention: string;
   type: string;
+  id_ER: string;
+  display_name?: string;
 };
 
 export type Facet = {

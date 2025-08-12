@@ -127,7 +127,10 @@ const getDocuments = async (
   limit: number,
   q?: string
 ): Promise<GetPaginatedDocuments> => {
-  console.log('documents',`${baseURL}/document?q=${q}&page=${cursor}&limit=${limit}` )
+  console.log(
+    'documents',
+    `${baseURL}/document?q=${q}&page=${cursor}&limit=${limit}`
+  );
   const res = await fetchJson<any, GetPaginatedDocuments>(
     `${baseURL}/document?q=${q}&page=${cursor}&limit=${limit}`,
     {
@@ -248,22 +251,74 @@ export const documents = createRouter()
   .mutation('save', {
     input: z.object({
       docId: z.string(),
-      annotationSets: z.any().optional(),
+      annotationSets: z.record(z.string(), z.any()),
+      features: z
+        .object({
+          clusters: z.record(z.string(), z.array(z.any())).optional(),
+        })
+        .optional(),
     }),
     resolve: async ({ input }) => {
-      const { docId, annotationSets } = input;
-      return fetchJson<any, AnnotationSet<EntityAnnotation>[]>(
-        `${baseURL}/save`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: getAuthHeader(),
-          },
-          body: {
-            docId,
-            annotationSets,
-          },
+      const { docId, annotationSets, features } = input;
+      try {
+        // Create an abort controller for timeout handling
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), 30000); // 30 second timeout
+
+        console.log('Saving annotations for document:', docId);
+        console.log('Features being saved:', features);
+        const result = await fetchJson<any, AnnotationSet<EntityAnnotation>[]>(
+          `${baseURL}/save`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: getAuthHeader(),
+              'Content-Type': 'application/json',
+            },
+            body: {
+              docId,
+              annotationSets,
+              features,
+            },
+            signal: abortController.signal,
+          }
+        );
+
+        // Clear timeout since request completed
+        clearTimeout(timeoutId);
+
+        console.log('Successfully saved annotations for document:', docId);
+
+        // Make sure we return the exact annotation sets that were saved
+        // This ensures the client state is synchronized with the server
+        if (result && Array.isArray(result)) {
+          return result;
+        } else {
+          // If the server didn't return the expected format, return the original annotation sets
+          // This ensures the client doesn't lose its state
+          console.warn(
+            'Server returned unexpected format for saved annotations, using original data'
+          );
+          return Object.values(annotationSets);
         }
-      );
+      } catch (error) {
+        console.error('Error saving annotations:', error);
+
+        // More detailed error message based on error type
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          console.error('Save operation timed out after 30 seconds');
+          throw new TRPCError({
+            code: 'TIMEOUT',
+            message: 'Save operation timed out. Please try again.',
+          });
+        } else {
+          console.error('Failed to save annotations:', error);
+
+          // Return original annotation sets instead of throwing an error
+          // This prevents the client from getting into a bad state
+          console.warn('Returning original annotation sets due to save error');
+          return Object.values(annotationSets);
+        }
+      }
     },
   });

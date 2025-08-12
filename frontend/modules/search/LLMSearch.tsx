@@ -50,8 +50,9 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
               content={
                 <div>
                   <p>
-                    The LLM search module uses the cerbero-7b model with 8-bit
-                    quantization and a context size of 32k tokens.
+                    The LLM search module uses the Phi4-mini model with 8-bit
+                    quantization and a context size of ~20k tokens due to
+                    harware limitations.
                   </p>
                 </div>
               }

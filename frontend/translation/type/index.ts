@@ -27,6 +27,23 @@ export type Translation = {
   document: {
     toolbar: {
       save: string;
+      saving: string;
+      saved: string;
+      retry: string;
+      saveError: string;
+      lastSaved: string;
+      justNow: string;
+      minuteAgo: string;
+      minutesAgo: string;
+      hourAgo: string;
+      hoursAgo: string;
+      dayAgo: string;
+      daysAgo: string;
+      lastSavedAt: string;
+      savingTooltip: string;
+      savedTooltip: string;
+      errorTooltip: string;
+      unsavedChanges: string;
       logout: string;
     };
     subToolbar: {
