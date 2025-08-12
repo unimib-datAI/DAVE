@@ -33,10 +33,32 @@ export const orderAnnotations = <T>(annotations: Annotation<T>[]) => {
  * @param {string} pyString The Python string containing Unicode characters.
  * @returns {number} The equivalent index in the JavaScript string.
  */
+
+// Create a cache for pythonToJSIndex calculations
+const indexConversionCache = new Map<string, Map<number, number>>();
+
 export const pythonToJSIndex = <T>(
   pyIndex: number,
   pyString: string
 ): number => {
+  // Quick return for edge cases
+  if (pyIndex === 0 || pyString.length === 0) return 0;
+
+  // Use text length as cache key to avoid storing the full text
+  const cacheKey = pyString.length.toString();
+
+  // Check if we have a cache for this text
+  if (!indexConversionCache.has(cacheKey)) {
+    indexConversionCache.set(cacheKey, new Map<number, number>());
+  }
+
+  const textCache = indexConversionCache.get(cacheKey)!;
+
+  // Return cached value if available
+  if (textCache.has(pyIndex)) {
+    return textCache.get(pyIndex)!;
+  }
+
   let jsIndex = 0;
   for (let i = 0; i < pyIndex && jsIndex < pyString.length; i++) {
     let char = pyString.charAt(jsIndex);
@@ -46,6 +68,9 @@ export const pythonToJSIndex = <T>(
       jsIndex += 1;
     }
   }
+
+  // Cache the result for future use
+  textCache.set(pyIndex, jsIndex);
   return jsIndex;
 };
 
@@ -154,14 +179,21 @@ export const isOverlappingAnnotation = <T>(
  * Create content nodes (entity and next nodes)
  * It currently supports disjointed, nested and multi type annotations
  */
+// Cache for createNodes results to avoid recalculating when possible
+const nodesCache = new WeakMap<Annotation<any>[], ContentNode<any>[]>();
+
 export const createNodes = <T>(
   text: string,
   annotations: Annotation<T>[],
   offset = 0,
   textCursor = 0,
-  textEndCursor = -1,
-  
+  textEndCursor = -1
 ) => {
+  // Check cache first - if we have these exact annotations, return cached nodes
+  if (nodesCache.has(annotations)) {
+    return nodesCache.get(annotations) as ContentNode<T>[];
+  }
+
   let nodes = [] as ContentNode<T>[];
   let index = 0;
 
@@ -180,22 +212,16 @@ export const createNodes = <T>(
 
       if (isNestedAnnotation(prevAnn, ann)) {
         console.warn(
-          `Encountered a nested annotation (currently not supported and discarded)`,
-          prevAnn,
-          ann
+          `Encountered a nested annotation at position ${ann.start}-${ann.end} (currently not supported and discarded)`
         );
       } else if (hasSameOffset(prevAnn, ann)) {
         console.warn(
-          `Encountered multiple annotations with the same offset. One of them is discarded`,
-          prevAnn,
-          ann
+          `Encountered multiple annotations with the same offset at position ${ann.start}-${ann.end}. One of them is discarded`
         );
       } else {
         // overlapping annotations
         console.warn(
-          `Encountered an overlapping annotation. Overlapping annotations are not supported and they are discarded`,
-          prevAnn,
-          ann
+          `Encountered an overlapping annotation at position ${ann.start}-${ann.end}. Overlapping annotations are not supported and they are discarded`
         );
       }
     }
@@ -207,6 +233,9 @@ export const createNodes = <T>(
     key: index,
     ...getSpan(text, textCursor, end),
   });
+
+  // Cache the result for future use with these annotations
+  nodesCache.set(annotations, nodes);
 
   return nodes;
 };
