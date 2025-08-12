@@ -10,8 +10,6 @@ import {
   useSelector,
 } from '../DocumentProvider/selectors';
 
-
-
 type ClusterMentionsListProps = {
   mentions: (Cluster['mentions'][number] & { mentionText: string })[];
   annotations: EntityAnnotation[];
@@ -86,41 +84,55 @@ const ClusterMentionsList = ({
 }: ClusterMentionsListProps) => {
   const dispatch = useDocumentDispatch();
   const text = useSelector(selectDocumentText);
-  
+
   console.log('📋 ClusterMentionsList received mentions:', mentions);
   console.log('📋 ClusterMentionsList received annotations:', annotations);
-  
+
   // Smart mention click handler for virtualized NER
-  const handleOnClick = useCallback((id: number, mention: any) => (event: MouseEvent) => {
-    event.stopPropagation();
+  const handleOnClick = useCallback(
+    (id: number, mention: any) => (event: MouseEvent) => {
+      event.stopPropagation();
 
-    // Find the annotation
-    const annotation = annotations.find(ann => ann.id === id);
-    if (!annotation) {
-      console.warn(`Annotation with id ${id} not found in annotations array. This might be a deleted annotation that's still in the cluster mentions.`);
-      return;
-    }
-
-    // Directly highlight the annotation - the VirtualizedNER component will handle scrolling
-    dispatch({
-      type: 'highlightAnnotation',
-      payload: {
-        annotationId: id,
-      },
-    });
-    
-    // Wait for the VirtualizedNER to scroll to the annotation, then scroll to the specific element
-    setTimeout(() => {
-      const element = document.getElementById(`entity-tag-${id}`);
-      if (element) {
-        element.scrollIntoView({ 
-          behavior: 'smooth', 
-          block: 'center',
-          inline: 'nearest'
-        });
+      // Find the annotation
+      const annotation = annotations.find((ann) => ann.id === id);
+      if (!annotation) {
+        console.warn(
+          `Annotation with id ${id} not found in annotations array. This might be a deleted annotation that's still in the cluster mentions.`
+        );
+        return;
       }
-    }, 200); // Reduced delay since we don't need to wait for page loading
-  }, [annotations, dispatch]);
+
+      // Check if we're in add mode - don't highlight if we are
+      const currentAction = document.querySelector('[data-action="add"]');
+      const isAddMode =
+        currentAction && currentAction.classList.contains('active');
+      if (isAddMode) {
+        console.log('In add annotation mode - skipping highlight');
+        return;
+      }
+
+      // Directly highlight the annotation - the VirtualizedNER component will handle scrolling
+      dispatch({
+        type: 'highlightAnnotation',
+        payload: {
+          annotationId: id,
+        },
+      });
+
+      // Wait for the VirtualizedNER to scroll to the annotation, then scroll to the specific element
+      setTimeout(() => {
+        const element = document.getElementById(`entity-tag-${id}`);
+        if (element) {
+          element.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest',
+          });
+        }
+      }, 200); // Reduced delay since we don't need to wait for page loading
+    },
+    [annotations, dispatch]
+  );
 
   return (
     <ListContainer>
