@@ -18,6 +18,7 @@ import { baseTaxonomy, initialUIState } from './state';
 import { SkeletonLayout } from '../SkeletonLayout';
 import { orderAnnotations } from '@/lib/ner/core';
 import { createTaxonomy } from './utils';
+import { mapEntityType } from '../../../components/Tree/utils';
 import { useDocumentDispatch } from './selectors';
 interface DocumentContextType {
   data: any; // Replace `any` with your actual data type
@@ -106,6 +107,36 @@ const initializeState = (data: Document): State => {
   Object.values(data.annotation_sets).forEach((annSet) => {
     annSet.annotations = orderAnnotations(annSet.annotations);
   });
+
+  // Normalize cluster types to use taxonomy mapping (e.g., Person -> persona)
+  if (data.features?.clusters) {
+    Object.keys(data.features.clusters).forEach((annotationSetName) => {
+      if (data.features.clusters[annotationSetName]) {
+        console.log(
+          '🔧 Normalizing cluster types for annotation set:',
+          annotationSetName
+        );
+
+        data.features.clusters[annotationSetName] = data.features.clusters[
+          annotationSetName
+        ].map((cluster) => {
+          const originalType = cluster.type;
+          const mappedType = mapEntityType(cluster.type);
+
+          if (originalType !== mappedType) {
+            console.log(
+              `🔧 Mapped cluster type: "${originalType}" -> "${mappedType}"`
+            );
+          }
+
+          return {
+            ...cluster,
+            type: mappedType,
+          };
+        });
+      }
+    });
+  }
 
   return {
     data,

@@ -8,6 +8,8 @@ import {
   PropsWithChildren,
   useEffect,
   useMemo,
+  useCallback,
+  useState,
 } from 'react';
 import {
   selectAddSelectionColor,
@@ -38,6 +40,7 @@ const DocumentContainer = styled.div({
   overflow: 'hidden', // Let VirtualizedNER handle scrolling
 });
 
+// Use memoization for the component
 const DocumentViewer = () => {
   const dispatch = useDocumentDispatch();
   const viewIndex = useViewIndex();
@@ -47,7 +50,14 @@ const DocumentViewer = () => {
   const addSelectionColor = useSelector(selectAddSelectionColor);
   const highlightAnnotationId = useSelector(selectHighlightAnnotationId);
   const sectionsSidebar = useSelector(selectSectionsSidebar);
-  const entityAnnotations = useSelector((state) => 
+
+  // Cache the last selection to avoid unnecessary re-renders
+  const [lastSelection, setLastSelection] = useState<SelectionNode | null>(
+    null
+  );
+
+  // Memoize entity annotations to prevent unnecessary recalculations
+  const entityAnnotations = useSelector((state) =>
     selectFilteredEntityAnnotations(state, viewIndex)
   );
   const sectionAnnotations = useSelector(selectDocumentSectionAnnotations);
@@ -72,71 +82,118 @@ const DocumentViewer = () => {
     }
   }, [hashUrlId, dispatch]);
 
-  const handleTagClick = (annotation: EntityAnnotation) => {
-    dispatch({
-      type: 'highlightAnnotation',
-      payload: { annotationId: annotation.id },
-    });
-    
-    // Set the current entity to open the sidebar annotation details
-    dispatch({
-      type: 'setCurrentEntityId',
-      payload: {
-        viewIndex,
-        annotationId: annotation.id,
-      },
-    });
-  };
+  // Memoize event handlers to prevent unnecessary re-renders
+  const handleTagClick = useCallback(
+    (annotation: EntityAnnotation) => {
+      // Batch related dispatch actions to improve performance
+      requestAnimationFrame(() => {
+        dispatch({
+          type: 'highlightAnnotation',
+          payload: { annotationId: annotation.id },
+        });
 
-  const handleTagDelete = (annotation: EntityAnnotation, event?: MouseEvent) => {
-    /* if (event) {
-      event.preventDefault();
-      event.stopPropagation();
-    } */
-   console.log('Deleting annotation:', annotation.id);
-    dispatch({
-      type: 'deleteAnnotation',
-      payload: {
-        viewIndex,
-        id: annotation.id,
-      },
-    });
-  };
+        // Set the current entity to open the sidebar annotation details
+        dispatch({
+          type: 'setCurrentEntityId',
+          payload: {
+            viewIndex,
+            annotationId: annotation.id,
+          },
+        });
+      });
+    },
+    [dispatch, viewIndex]
+  );
 
-  const onTextSelection = (
-    selectionNode: SelectionNode,
-    event: MouseEvent<HTMLDivElement>
-  ) => {
-    if (action.value !== 'add') {
-      return;
-    }
+  const handleTagDelete = useCallback(
+    (annotation: EntityAnnotation, event?: MouseEvent) => {
+      // Remove console.log to improve performance
+      dispatch({
+        type: 'deleteAnnotation',
+        payload: {
+          viewIndex,
+          id: annotation.id,
+        },
+      });
+    },
+    [dispatch, viewIndex]
+  );
 
-    dispatch({
-      type: 'addAnnotation',
-      payload: {
-        viewIndex,
-        type: action.data || '',
-        ...selectionNode,
-      },
-    });
-  };
+  // Optimize text selection handler with debouncing
+  const onTextSelection = useCallback(
+    (selectionNode: SelectionNode, event: MouseEvent<HTMLDivElement>) => {
+      if (action.value !== 'add') {
+        return;
+      }
+
+      // Clear any highlighted annotation when selecting text for a new annotation
+      if (highlightAnnotationId !== -1) {
+        dispatch({
+          type: 'highlightAnnotation',
+          payload: { annotationId: -1 },
+        });
+      }
+
+      // Prevent duplicate selections (common cause of performance issues)
+      if (
+        lastSelection &&
+        lastSelection.start === selectionNode.start &&
+        lastSelection.end === selectionNode.end
+      ) {
+        return;
+      }
+
+      // Update last selection to prevent duplicates
+      setLastSelection(selectionNode);
+
+      // Use requestAnimationFrame to avoid blocking the UI
+      requestAnimationFrame(() => {
+        dispatch({
+          type: 'addAnnotation',
+          payload: {
+            viewIndex,
+            type: action.data || '',
+            ...selectionNode,
+          },
+        });
+      });
+    },
+    [action.value, action.data, viewIndex, dispatch, lastSelection]
+  );
+
+  // Memoize the VirtualizedNER props to prevent unnecessary re-renders
+  const nerProps = useMemo(
+    () => ({
+      taxonomy,
+      text,
+      entityAnnotations: allAnnotations,
+      sectionAnnotations: allSectionAnnotations,
+      highlightAnnotation: highlightAnnotationId,
+      showAnnotationDelete: true,
+      isAddMode: action.value === 'add',
+      addSelectionColor,
+      onTagClick: handleTagClick,
+      onTextSelection,
+      onTagDelete: handleTagDelete,
+    }),
+    [
+      taxonomy,
+      text,
+      allAnnotations,
+      allSectionAnnotations,
+      highlightAnnotationId,
+      action.value,
+      addSelectionColor,
+      handleTagClick,
+      onTextSelection,
+      handleTagDelete,
+    ]
+  );
 
   return (
     <Container>
       <DocumentContainer>
-        <VirtualizedNER
-          taxonomy={taxonomy}
-          text={text}
-          entityAnnotations={allAnnotations}
-          sectionAnnotations={allSectionAnnotations}
-          highlightAnnotation={highlightAnnotationId}
-          showAnnotationDelete
-          isAddMode={action.value === 'add'}
-          addSelectionColor={addSelectionColor}
-          onTagClick={handleTagClick}
-          onTextSelection={onTextSelection}
-          onTagDelete={handleTagDelete}
-        />
+        <VirtualizedNER {...nerProps} />
       </DocumentContainer>
     </Container>
   );

@@ -15,7 +15,7 @@ import {
 import { Action, FlattenedTaxonomy, State, Taxonomy } from './types';
 
 /**
- * Add a new annotation
+ * Add a new annotation - optimized for performance
  */
 export const addAnnotation = (
   annotation: EntityAnnotation[],
@@ -25,18 +25,43 @@ export const addAnnotation = (
     return [newAnnotation];
   }
 
-  const insIndex = annotation.findIndex(
-    (annotation) => newAnnotation.start < annotation.start
-  );
+  // Use binary search for faster insertion point - O(log n) instead of O(n)
+  let start = 0;
+  let end = annotation.length - 1;
+  let insIndex = -1;
+
+  while (start <= end) {
+    const mid = Math.floor((start + end) / 2);
+    if (newAnnotation.start < annotation[mid].start) {
+      insIndex = mid;
+      end = mid - 1;
+    } else {
+      start = mid + 1;
+    }
+  }
+
   if (insIndex === -1) {
+    // Add to the end if we didn't find an insertion point
     return [...annotation, newAnnotation];
   }
 
-  return [
-    ...annotation.slice(0, insIndex),
-    newAnnotation,
-    ...annotation.slice(insIndex, annotation.length),
-  ];
+  // Create a new array with minimal copying
+  const result = new Array(annotation.length + 1);
+
+  // Copy elements before insertion point
+  for (let i = 0; i < insIndex; i++) {
+    result[i] = annotation[i];
+  }
+
+  // Insert the new annotation
+  result[insIndex] = newAnnotation;
+
+  // Copy elements after insertion point
+  for (let i = insIndex; i < annotation.length; i++) {
+    result[i + 1] = annotation[i];
+  }
+
+  return result;
 };
 
 export const getAnnotations = (
@@ -61,26 +86,51 @@ export const getAnnotations = (
 };
 
 /**
- * Scroll to an enitity position in the document (with throttling)
- */
+ // Scroll to an entity position in the document (with improved throttling)
+*/
 let scrollThrottle: NodeJS.Timeout | null = null;
+let lastScrolledId: number | null = null;
 
 export const scrollEntityIntoView = (id: number) => {
+  // Skip if we're already scrolling to this entity
+  if (lastScrolledId === id) return;
+
   if (scrollThrottle) {
     clearTimeout(scrollThrottle);
   }
-  
+
+  lastScrolledId = id;
+
   scrollThrottle = setTimeout(() => {
     const element = document.getElementById(`entity-tag-${id}`);
-    if (!element) return;
+    if (!element) {
+      lastScrolledId = null;
+      return;
+    }
 
-    element.scrollIntoView({ 
-      behavior: 'smooth', 
-      block: 'center',
-      inline: 'nearest'
-    });
-    
+    // Check if element is already visible in viewport before scrolling
+    const rect = element.getBoundingClientRect();
+    const isVisible =
+      rect.top >= 0 &&
+      rect.left >= 0 &&
+      rect.bottom <=
+        (window.innerHeight || document.documentElement.clientHeight) &&
+      rect.right <= (window.innerWidth || document.documentElement.clientWidth);
+
+    // Only scroll if not already visible
+    if (!isVisible) {
+      element.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest',
+      });
+    }
+
     scrollThrottle = null;
+    // Reset last scrolled ID after a delay
+    setTimeout(() => {
+      lastScrolledId = null;
+    }, 500);
   }, 100);
 };
 
@@ -143,8 +193,16 @@ export const getAnnotationTypes = (
   return Object.values(map).sort((a, b) => b.n - a.n);
 };
 
+// Cache for getTypeFilter to avoid recreating the array on every call
+const typeFilterCache = new WeakMap<EntityAnnotation[], string[]>();
+
 export const getTypeFilter = (annotations: EntityAnnotation[]) => {
-  let typeFilter = new Set<string>();
+  // Return cached result if available
+  if (typeFilterCache.has(annotations)) {
+    return typeFilterCache.get(annotations)!;
+  }
+
+  const typeFilter = new Set<string>();
   annotations.forEach((ann) => {
     // Add both the original type and the mapped type to ensure filtering works
     typeFilter.add(ann.type);
@@ -153,7 +211,11 @@ export const getTypeFilter = (annotations: EntityAnnotation[]) => {
       typeFilter.add(mappedType);
     }
   });
-  return Array.from(typeFilter);
+
+  const result = Array.from(typeFilter);
+  // Cache the result
+  typeFilterCache.set(annotations, result);
+  return result;
 };
 
 export const getEntityIndex = (id: string) => {
