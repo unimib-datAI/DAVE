@@ -46,6 +46,7 @@ export type Action =
               title: string;
             }
           | undefined;
+        additional_candidates?: Candidate[];
       };
     }
   | { type: 'deleteAnnotation'; payload: { viewIndex: number; id: number } }

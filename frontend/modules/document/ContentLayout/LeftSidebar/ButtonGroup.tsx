@@ -120,7 +120,7 @@ const ButtonGroup = () => {
     console.log('ButtonGroup - handleButtonClick called');
     console.log('Action to dispatch:', groups[group][item].action);
     console.log('Current action:', action.value);
-    
+
     dispatch({
       type: 'changeAction',
       payload: {
@@ -153,6 +153,7 @@ const ButtonGroup = () => {
                 onMouseLeave={() => setTooltipOpen(null)}
                 onClick={(e) => handleButtonClick(e, i, j)}
                 active={item.active}
+                data-action={item.action}
               >
                 {item.Icon}
               </IconButton>
