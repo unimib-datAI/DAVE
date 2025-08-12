@@ -97,47 +97,45 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
     return nodes.map((n) => n.label).join(' / ');
   }, [type]);
 
+  // Filter and sort clusters based on searchTerm and selectedSort
   useEffect(() => {
+    let filtered = clusters;
     if (searchTerm !== '') {
-      handleSearch();
-    } else {
-      setClusters(clusters);
+      filtered = clusters.filter((cluster: Cluster) =>
+        cluster.title.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
-  }, [searchTerm]);
-
-  async function handleSearch() {
-    let tempSearch = clustersState.filter((cluster: Cluster) =>
-      cluster.title.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    setClusters(tempSearch);
-  }
+    handleSort(filtered, selectedSort);
+  }, [searchTerm, clusters, selectedSort]);
 
   function handleSort(
-    clusters: ProcessedCluster[],
+    clustersToSort: ProcessedCluster[],
     sort: 'ALPHABETICAL' | 'NUMBER_MENTIONS'
   ) {
+    let sortedClusters: ProcessedCluster[];
     switch (sort) {
       case 'ALPHABETICAL':
-        let tempAlpha = clusters.sort((a: Cluster, b: Cluster) =>
+        sortedClusters = [...clustersToSort].sort((a: Cluster, b: Cluster) =>
           a.title.localeCompare(b.title)
         );
-        setClusters(tempAlpha);
         break;
       case 'NUMBER_MENTIONS':
-        let tempNum = clustersState.sort(
+        sortedClusters = [...clustersToSort].sort(
           (a: Cluster, b: Cluster) => b.mentions.length - a.mentions.length
         );
-        setClusters(tempNum);
         break;
+      default:
+        sortedClusters = [...clustersToSort];
     }
+    setClusters(sortedClusters);
   }
 
   const t = useText('document');
-  
-  //use effect used to recompute cluster lists when they change after like a mention deletion 
+
+  //use effect used to recompute cluster lists when they change after like a mention deletion
   useEffect(() => {
     handleSort(clusters, selectedSort);
-  }, [clusters])
+  }, [clusters]);
   return (
     <GroupContainer>
       <GroupHeader selected={selected} onClick={onClick}>
@@ -178,7 +176,7 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
               value={selectedSort}
               onChange={(value) => {
                 if (value === 'ALPHABETICAL' || value === 'NUMBER_MENTIONS') {
-                  handleSort(clustersState, value)
+                  setSelectedSort(value);
                 }
               }}
               options={[
@@ -195,9 +193,7 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
           </Row>
         </Col>
       )}
-      {selected && (
-        <ClustersList clusters={clustersState} />
-      )}
+      {selected && <ClustersList clusters={clustersState} />}
     </GroupContainer>
   );
 };

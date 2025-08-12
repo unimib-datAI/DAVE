@@ -133,7 +133,11 @@ const EditAnnotationForm = ({
             {...searchBinds}
             contentLeft={<FiSearch />}
           />
-          <AddLinkItem setAnnotation={setAnnotation} />
+          <AddLinkItem
+            annotation={annotation}
+            setAnnotation={setAnnotation}
+            setVisible={setVisible}
+          />
           <LinkList
             candidates={filteredCandidates}
             {...register('linkCandidate')}
