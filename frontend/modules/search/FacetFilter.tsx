@@ -2,6 +2,7 @@ import { useForm } from '@/hooks';
 import { Facet } from '@/server/routers/search';
 import { Checkbox } from '@nextui-org/react';
 import Fuse from 'fuse.js';
+import { Option } from 'lucide-react';
 import { Link, Link2, SearchIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useRef, useState } from 'react';
@@ -45,7 +46,9 @@ const FacetFilter = ({
   });
   const fuse = useRef(
     new Fuse(facet.children, {
-      keys: filterType.startsWith('annotation') ? ['display_name'] : ['key'],
+      keys: filterType.startsWith('annotation')
+        ? ['display_name', 'ids_ER']
+        : ['key', 'ids_ER'],
     })
   );
 
@@ -63,11 +66,25 @@ const FacetFilter = ({
       : fuse.current.search(value.filter).map(({ item }) => item);
   const children = filteredChildren.slice(0, VISIBLE_ELEMENTS);
 
-  const handleChecked = (checked: boolean, key: string, keys: string[]) => {
+  const handleChecked = (
+    checked: boolean,
+    key: string,
+    keys: string[],
+    option: any
+  ) => {
+    console.log('checked filter', checked, key, keys, option);
     const updatedFilters = checked
-      ? [...new Set([...selectedFilters, ...keys])]
-      : selectedFilters.filter((f) => !keys.includes(f));
-    onFilterChange(filterType, updatedFilters);
+      ? Array.from(
+          new Set([
+            ...selectedFilters,
+            ...keys,
+            option.display_name.toLowerCase(),
+          ])
+        )
+      : selectedFilters.filter(
+          (f) => !keys.includes(f) && f !== option.display_name.toLowerCase()
+        );
+    onFilterChange(filterType, Array.from(new Set(updatedFilters)));
   };
 
   return (
@@ -98,13 +115,15 @@ const FacetFilter = ({
               key={option.key}
               isSelected={
                 selectedFilters.includes(option.key) ||
-                selectedFilters.includes(option.display_name)
+                selectedFilters.includes(option.display_name) ||
+                selectedFilters.includes(option.display_name.toLowerCase()) ||
+                option.ids_ER.some((id: string) => selectedFilters.includes(id))
               }
               value={
                 filterType === 'annotation' ? option.display_name : option.key
               }
               onChange={(checked) =>
-                handleChecked(checked, option.key, option.ids_ER)
+                handleChecked(checked, option.key, option.ids_ER, option)
               }
             >
               <div className="flex flex-row items-center gap-1">

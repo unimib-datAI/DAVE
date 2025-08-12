@@ -1,6 +1,7 @@
 import { Slider } from '@/components/Slider';
 import { useForm } from '@/hooks';
 import { Switch, Tooltip } from '@nextui-org/react';
+import { Select } from 'antd';
 import { Message, SkeletonMessage } from './Message';
 import { Button } from '@/components';
 import { GenerateOptions, useChat } from '@/hooks/use-chat';
@@ -20,6 +21,7 @@ import {
   chatHistoryAtom,
   conversationRatedAtom,
   facetsDocumentsAtom,
+  selectedFiltersAtom,
 } from '@/utils/atoms';
 import { current } from 'immer';
 import { Radio } from 'antd';
@@ -90,6 +92,15 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     }
   );
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
+  const [selectedFilters] = useAtom(selectedFiltersAtom);
+
+  // Parse predefined questions from environment variable
+  const predefinedQuestions =
+    typeof process.env.NEXT_PUBLIC_QUESTIONS === 'string'
+      ? process.env.NEXT_PUBLIC_QUESTIONS.split('-|').filter(
+          (q) => q.trim() !== ''
+        )
+      : [];
   const [conversationRated, setConversationRated] = useAtom(
     conversationRatedAtom
   );
@@ -128,9 +139,24 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     const currentUrl = window.location.href;
     let filterIds: string[] = [];
     if (currentUrl.includes('search') && formValues.useCurrentDocumentContext) {
-      filterIds = facetedDocuemnts.map((doc) => {
-        return doc.id.toString();
-      });
+      // Filter documents that have annotations matching the selected filters
+      if (selectedFilters.length > 0) {
+        filterIds = facetedDocuemnts
+          .filter(
+            (doc) =>
+              Array.isArray(doc.annotations) &&
+              doc.annotations.some(
+                (ann: any) =>
+                  selectedFilters.includes(ann.id_ER) ||
+                  selectedFilters.includes(ann.display_name?.toLowerCase()) ||
+                  selectedFilters.includes(ann.display_name)
+              )
+          )
+          .map((doc) => doc.id.toString());
+      } else {
+        // If no filters are selected, use all faceted documents
+        filterIds = facetedDocuemnts.map((doc) => doc.id.toString());
+      }
     } else if (
       currentUrl.includes('documents') &&
       formValues.useCurrentDocumentContext
@@ -144,6 +170,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     //   'aaf5b3db91bbee9b924bb43b5155b8d83ea351cf680219871cc163b4efec16b8',
     //   '6256c9c52e31f2e5967d457aa9e3dda502cb6cd7b8bb9df6015862ef9f9cd97f',
     // ];
+    console.log('filterIds', filterIds);
     const context = useDocumentContext
       ? await mostSimilarDocumentsMutation.mutateAsync({
           query: formValues.message,
@@ -194,6 +221,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
           <form
             className="flex flex-row gap-2"
             onSubmit={onSubmit(handleFormSubmit)}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="flex flex-row items-center border-[1px] border-solid border-slate-200 rounded-md p-2 w-full gap-2">
               <input
@@ -260,6 +288,54 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
           >
             <ScrollArea className="h-full p-6">
               <div className="flex flex-col gap-8">
+                {/* Predefined Questions Select */}
+                {predefinedQuestions.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    <Tooltip
+                      className="w-full"
+                      color="invert"
+                      placement="left"
+                      content="Select a predefined question to fill in the chat input"
+                    >
+                      <div className="flex flex-row justify-between w-full">
+                        <span className="text-sm font-semibold">
+                          Predefined Questions
+                        </span>
+                      </div>
+                    </Tooltip>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <Select
+                        id="predefined-questions-select"
+                        style={{ width: '100%' }}
+                        placeholder="Select a question"
+                        disabled={isStreaming}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                        }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                        }}
+                        onChange={(value) => {
+                          if (value) {
+                            setValue({ message: value });
+                            // Focus on the input field after selecting a question
+                            const inputField = document.querySelector(
+                              'input[name="message"]'
+                            );
+                            if (inputField) {
+                              (inputField as HTMLInputElement).focus();
+                            }
+                          }
+                        }}
+                        options={predefinedQuestions.map((question) => ({
+                          value: question,
+                          label: question,
+                        }))}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="flex flex-col gap-3">
                   <Tooltip
                     className="w-full"

@@ -15,15 +15,21 @@ const DocumentHit = ({
   selectedFilters = [],
   filterIdToDisplayName = {},
 }: DocumentHitProps) => {
-  // Find matching annotation ids
-  const matchedIds = Array.isArray(hit.annotations)
-    ? hit.annotations
-        .map((ann) => ann.id_ER)
-        .filter((id) => selectedFilters.includes(id))
+  // Find matching annotation ids and display names
+  const matchedItems = Array.isArray(hit.annotations)
+    ? hit.annotations.filter(
+        (ann: any) =>
+          selectedFilters.includes(ann.id_ER) ||
+          selectedFilters.includes(ann.display_name?.toLowerCase()) ||
+          selectedFilters.includes(ann.display_name)
+      )
     : [];
 
-  // Remove duplicates
-  const uniqueMatchedIds = Array.from(new Set(matchedIds));
+  // Remove duplicates by id_ER
+  const uniqueMatchedItems = matchedItems.filter(
+    (item: any, index: number, self: any[]) =>
+      index === self.findIndex((t: any) => t.id_ER === item.id_ER)
+  );
 
   return (
     <motion.div
@@ -52,14 +58,16 @@ const DocumentHit = ({
             {hit.name}
           </div>
           {/* Chips for matched filters */}
-          {uniqueMatchedIds.length > 0 && (
+          {uniqueMatchedItems.length > 0 && (
             <div className="flex flex-row flex-wrap gap-2 mt-4">
-              {uniqueMatchedIds.map((id) => (
+              {uniqueMatchedItems.map((item: any) => (
                 <span
-                  key={id}
+                  key={item.id_ER}
                   className="px-2 py-1 rounded-full bg-blue-200 text-blue-900 text-xs font-semibold"
                 >
-                  {filterIdToDisplayName[id] || id}
+                  {item.display_name ||
+                    filterIdToDisplayName[item.id_ER] ||
+                    item.id_ER}
                 </span>
               ))}
             </div>
