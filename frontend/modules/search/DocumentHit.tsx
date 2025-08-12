@@ -25,11 +25,18 @@ const DocumentHit = ({
       )
     : [];
 
-  // Remove duplicates by id_ER
-  const uniqueMatchedItems = matchedItems.filter(
-    (item: any, index: number, self: any[]) =>
-      index === self.findIndex((t: any) => t.id_ER === item.id_ER)
-  );
+  // Remove duplicates using Set for cleaner deduplication
+  const uniqueMatchedItems = (() => {
+    const seen = new Set<string>();
+    return matchedItems.filter((item: any) => {
+      const displayName = item.display_name || item.id_ER;
+      if (seen.has(displayName)) {
+        return false;
+      }
+      seen.add(displayName);
+      return true;
+    });
+  })();
 
   return (
     <motion.div
