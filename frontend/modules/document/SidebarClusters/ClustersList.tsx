@@ -6,7 +6,7 @@ import ClusterCard from './ClusterCard';
 import ClusterGroup from './ClusterGroup';
 import useNER from '@/lib/ner/core/use-ner';
 import {
-  selectFilteredEntityAnnotations,
+  selectFilteredEntityAnnotationsWithSearch,
   useSelector,
 } from '../DocumentProvider/selectors';
 import { useViewIndex } from '../ViewProvider/ViewProvider';
@@ -27,7 +27,7 @@ const ClustersList = ({ clusters }: ClustersListProps) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   //  const viewIndex = useViewIndex();
   const filteredAnnotations = useSelector((state) =>
-    selectFilteredEntityAnnotations(state, 0)
+    selectFilteredEntityAnnotationsWithSearch(state, 0)
   );
   const handleClusterCardClick = (index: number) => {
     setSelectedIndex((oldIndex) => {

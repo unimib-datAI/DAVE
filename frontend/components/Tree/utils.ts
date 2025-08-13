@@ -1,16 +1,16 @@
-import { isTopLevelItem } from "./Node";
-import { TreeItem, ChildTreeItem } from "./Tree";
+import { isTopLevelItem } from './Node';
+import { TreeItem, ChildTreeItem } from './Tree';
 
-export type ParentNode = Omit<TreeItem, "children"> & { parent: string | null };
-export type ChildNode = Omit<ChildTreeItem, "children"> & { parent: string };
+export type ParentNode = Omit<TreeItem, 'children'> & { parent: string | null };
+export type ChildNode = Omit<ChildTreeItem, 'children'> & { parent: string };
 export type ChildNodeWithColor = Omit<ChildNode, 'parent'> & { color: string };
 export type FlatTreeNode = ParentNode | ChildNode;
 export type FlatTreeObj = Record<string, FlatTreeNode>;
 
 export function isParentNode(
-  value: TreeItem | ChildTreeItem,
+  value: TreeItem | ChildTreeItem
 ): value is TreeItem {
-  return Object.hasOwn(value, 'color')
+  return Object.hasOwn(value, 'color');
 }
 
 export const getParents = (obj: FlatTreeObj) => {
@@ -29,7 +29,7 @@ export const getChildren = (obj: FlatTreeObj, key: string) => {
     if (parent === key) {
       const child = {
         ...childProps,
-        children: getChildren(obj, childProps.key)
+        children: getChildren(obj, childProps.key),
       } as ChildTreeItem;
 
       acc.push(child);
@@ -42,7 +42,7 @@ export const buildTreeFromFlattenedObject = (obj: FlatTreeObj) => {
   const tree = getParents(obj).map((parent) => {
     return {
       ...parent,
-      children: getChildren(obj, parent.key)
+      children: getChildren(obj, parent.key),
     };
   });
   return tree;
@@ -60,7 +60,7 @@ export const transformChildrenToFlatObject = (
     const { children, ...childProps } = child;
     acc[childProps.key] = {
       ...childProps,
-      parent
+      parent,
     };
     return transformChildrenToFlatObject(acc, childProps.key, children);
   }, objAccumulator);
@@ -71,7 +71,7 @@ export const flattenTree = (items: TreeItem[]): FlatTreeObj => {
     const { children, ...itemProps } = item;
     acc[itemProps.key] = {
       ...itemProps,
-      parent: null
+      parent: null,
     };
     return transformChildrenToFlatObject(acc, itemProps.key, children);
   }, {} as FlatTreeObj);
@@ -80,110 +80,173 @@ export const flattenTree = (items: TreeItem[]): FlatTreeObj => {
 export const insertNodeFlat = (obj: FlatTreeObj, node: FlatTreeNode) => {
   return {
     ...obj,
-    [node.key]: node
-  }
-}
+    [node.key]: node,
+  };
+};
 
-// Entity type mapping from English to Italian
+// Entity type mapping from English to Italian and grouping similar types
 const entityTypeMapping: Record<string, string> = {
   // Person types
-  'person': 'persona',
-  'Person': 'persona',
-  'PER': 'persona',
-  'PERSON': 'persona',
-  'people': 'persona',
-  'People': 'persona',
-  'individual': 'persona',
-  'Individual': 'persona',
-  
+  person: 'persona',
+  Person: 'persona',
+  PER: 'persona',
+  PERSON: 'persona',
+  people: 'persona',
+  People: 'persona',
+  individual: 'persona',
+  Individual: 'persona',
+
   // Location types
-  'location': 'luogo',
-  'Location': 'luogo',
-  'LOC': 'luogo',
-  'LOCATION': 'luogo',
-  'place': 'luogo',
-  'Place': 'luogo',
-  'gpe': 'luogo', // Geo-political entity
-  'GPE': 'luogo',
-  'Gpe': 'luogo',
-  
+  location: 'luogo',
+  Location: 'luogo',
+  LOC: 'luogo',
+  LOCATION: 'luogo',
+  place: 'luogo',
+  Place: 'luogo',
+  gpe: 'luogo', // Geo-political entity
+  GPE: 'luogo',
+  Gpe: 'luogo',
+
   // Organization types
-  'organization': 'organizzazione',
-  'Organization': 'organizzazione',
-  'ORG': 'organizzazione',
-  'ORGANIZATION': 'organizzazione',
-  'org': 'organizzazione',
-  'Org': 'organizzazione',
-  'company': 'organizzazione',
-  'Company': 'organizzazione',
-  'institution': 'organizzazione',
-  'Institution': 'organizzazione',
-  
+  organization: 'organizzazione',
+  Organization: 'organizzazione',
+  ORG: 'organizzazione',
+  ORGANIZATION: 'organizzazione',
+  org: 'organizzazione',
+  Org: 'organizzazione',
+  company: 'organizzazione',
+  Company: 'organizzazione',
+  institution: 'organizzazione',
+  Institution: 'organizzazione',
+
   // Date types
-  'date': 'data',
-  'Date': 'data',
-  'DATE': 'data',
-  'time': 'data',
-  'Time': 'data',
-  'TIME': 'data',
-  'temporal': 'data',
-  'Temporal': 'data',
-  
+  date: 'data',
+  Date: 'data',
+  DATE: 'data',
+  time: 'data',
+  Time: 'data',
+  TIME: 'data',
+  temporal: 'data',
+  Temporal: 'data',
+
   // Money types
-  'money': 'money',
-  'Money': 'money',
-  'MONEY': 'money',
-  'MONETARY': 'money',
-  'Monetary': 'money',
-  'currency': 'money',
-  'Currency': 'money',
-  'financial': 'money',
-  'Financial': 'money',
-  'denaro': 'money',
-  'Denaro': 'money',
-  
+  money: 'money',
+  Money: 'money',
+  MONEY: 'money',
+  MONETARY: 'money',
+  Monetary: 'money',
+  currency: 'money',
+  Currency: 'money',
+  financial: 'money',
+  Financial: 'money',
+  denaro: 'money',
+  Denaro: 'money',
+
   // Legal/Document specific types
-  'law': 'norma',
-  'Law': 'norma',
-  'LAW': 'norma',
-  'legal': 'norma',
-  'Legal': 'norma',
-  'statute': 'norma',
-  'Statute': 'norma',
-  'regulation': 'norma',
-  'Regulation': 'norma',
-  
+  law: 'norma',
+  Law: 'norma',
+  LAW: 'norma',
+  legal: 'norma',
+  Legal: 'norma',
+  statute: 'norma',
+  Statute: 'norma',
+  regulation: 'norma',
+  Regulation: 'norma',
+
   // Identifier types
-  'id': 'id',
-  'Id': 'id',
-  'ID': 'id',
-  'identifier': 'id',
-  'Identifier': 'id',
-  'number': 'id',
-  'Number': 'id',
-  'code': 'id',
-  'Code': 'id',
-  
+  id: 'id',
+  Id: 'id',
+  ID: 'id',
+  identifier: 'id',
+  Identifier: 'id',
+  number: 'id',
+  Number: 'id',
+  code: 'id',
+  Code: 'id',
+
+  // Facility types
+  FAC: 'facility',
+  fac: 'facility',
+  Fac: 'facility',
+  facility: 'facility',
+  Facility: 'facility',
+  building: 'facility',
+  Building: 'facility',
+  structure: 'facility',
+  Structure: 'facility',
+
+  // Nationality/Religion/Political types
+  NORP: 'norp',
+  norp: 'norp',
+  Norp: 'norp',
+  nationality: 'norp',
+  Nationality: 'norp',
+  religion: 'norp',
+  Religion: 'norp',
+  political: 'norp',
+  Political: 'norp',
+
+  // Numeric types
+  CARDINAL: 'numeric',
+  cardinal: 'numeric',
+  Cardinal: 'numeric',
+  ORDINAL: 'numeric',
+  ordinal: 'numeric',
+  Ordinal: 'numeric',
+  QUANTITY: 'numeric',
+  quantity: 'numeric',
+  Quantity: 'numeric',
+  PERCENT: 'numeric',
+  percent: 'numeric',
+  Percent: 'numeric',
+  number: 'numeric',
+  Number: 'numeric',
+
+  // Creative work types
+  WORK_OF_ART: 'creative_work',
+  work_of_art: 'creative_work',
+  Work_of_art: 'creative_work',
+  artwork: 'creative_work',
+  Artwork: 'creative_work',
+  creative: 'creative_work',
+  Creative: 'creative_work',
+
+  // Event types
+  EVENT: 'event',
+  event: 'event',
+  Event: 'event',
+
+  // Product types
+  PRODUCT: 'product',
+  product: 'product',
+  Product: 'product',
+
+  // Language types
+  LANGUAGE: 'language',
+  language: 'language',
+  Language: 'language',
+
   // Miscellaneous types
-  'misc': 'UNKNOWN',
-  'Misc': 'UNKNOWN',
-  'MISC': 'UNKNOWN',
-  'miscellaneous': 'UNKNOWN',
-  'Miscellaneous': 'UNKNOWN',
-  'MISCELLANEOUS': 'UNKNOWN',
-  'other': 'UNKNOWN',
-  'Other': 'UNKNOWN',
-  'OTHER': 'UNKNOWN',
-  
+  misc: 'UNKNOWN',
+  Misc: 'UNKNOWN',
+  MISC: 'UNKNOWN',
+  miscellaneous: 'UNKNOWN',
+  Miscellaneous: 'UNKNOWN',
+  MISCELLANEOUS: 'UNKNOWN',
+  other: 'UNKNOWN',
+  Other: 'UNKNOWN',
+  OTHER: 'UNKNOWN',
+
   // Default mapping for other unknown types
-  'unknown': 'UNKNOWN',
-  'Unknown': 'UNKNOWN',
-  'UNK': 'UNKNOWN',
-  'UNKNOWN': 'UNKNOWN'
+  unknown: 'UNKNOWN',
+  Unknown: 'UNKNOWN',
+  UNK: 'UNKNOWN',
+  UNKNOWN: 'UNKNOWN',
 };
 
 /**
  * Maps entity types from English to Italian equivalents
+ * and groups similar entity types together
  */
 export const mapEntityType = (type: string): string => {
   return entityTypeMapping[type] || type;
@@ -193,23 +256,29 @@ export const mapEntityType = (type: string): string => {
  * Checks if an entity type represents a person
  */
 export const isPersonType = (type: string): boolean => {
-  return type === 'persona' || 
-         type === 'person' || type === 'Person' || 
-         type === 'PER' || type === 'PERSON' || 
-         type === 'people' || type === 'People' ||
-         type === 'individual' || type === 'Individual';
+  return (
+    type === 'persona' ||
+    type === 'person' ||
+    type === 'Person' ||
+    type === 'PER' ||
+    type === 'PERSON' ||
+    type === 'people' ||
+    type === 'People' ||
+    type === 'individual' ||
+    type === 'Individual'
+  );
 };
 
 export const getNode = (obj: FlatTreeObj, key: string): FlatTreeNode => {
   // First try the original key
   let node = obj[key];
-  
+
   // If not found, try the mapped key
   if (!node && entityTypeMapping[key]) {
     const mappedKey = entityTypeMapping[key];
     node = obj[mappedKey];
   }
-  
+
   // If still not found, fall back to UNKNOWN
   if (!node) {
     // Avoid infinite recursion by checking if we're already looking for UNKNOWN
@@ -230,14 +299,17 @@ export const ascend = (obj: FlatTreeObj, key: string): FlatTreeNode => {
   return ascend(obj, node.parent);
 };
 
-export const getAllNodeData = (obj: FlatTreeObj, key: string): ChildNodeWithColor => {
+export const getAllNodeData = (
+  obj: FlatTreeObj,
+  key: string
+): ChildNodeWithColor => {
   const node = getNode(obj, key);
   const parentNode = ascend(obj, key) as ParentNode;
   const { parent, ...nodeProps } = node;
 
   return {
     color: parentNode.color,
-    ...nodeProps
+    ...nodeProps,
   };
 };
 
@@ -276,9 +348,9 @@ export const getChildrenFromFlatTaxonomy = <T = FlatTreeNode>(
         );
       }
       return acc;
-    }, [] as T[])
-  ]
-}
+    }, [] as T[]),
+  ];
+};
 
 export const getNodeAndChildren = <T = FlatTreeNode>(
   obj: FlatTreeObj,
@@ -287,10 +359,16 @@ export const getNodeAndChildren = <T = FlatTreeNode>(
 ): T[] => {
   const node = getNode(obj, key);
   const value = (transformFn ? transformFn(node) : node) as T;
-  return [value, ...getChildrenFromFlatTaxonomy<T>(obj, node.key, [], transformFn)]
+  return [
+    value,
+    ...getChildrenFromFlatTaxonomy<T>(obj, node.key, [], transformFn),
+  ];
 };
 
-export const countChildren = (item: TreeItem | ChildTreeItem, accumulator: number = 0) => {
+export const countChildren = (
+  item: TreeItem | ChildTreeItem,
+  accumulator: number = 0
+) => {
   if (!item.children || item.children.length === 0) {
     return accumulator;
   }
@@ -298,4 +376,4 @@ export const countChildren = (item: TreeItem | ChildTreeItem, accumulator: numbe
     acc = 1 + countChildren(child, acc);
     return acc;
   }, accumulator);
-}
+};

@@ -14,6 +14,85 @@ import {
 } from '../../../components/Tree';
 import { Action, FlattenedTaxonomy, State, Taxonomy } from './types';
 
+// Get normalized entity type with robust case-insensitive handling
+export const getNormalizedEntityType = (type: string): string => {
+  const lowerType = type.toLowerCase();
+
+  // Person types
+  if (/^(person|per|people|individual)s?$/i.test(lowerType)) {
+    return 'persona';
+  }
+
+  // Location types
+  if (/^(location|loc|place|gpe)s?$/i.test(lowerType)) {
+    return 'luogo';
+  }
+
+  // Organization types
+  if (/^(organization|org|company|institution)s?$/i.test(lowerType)) {
+    return 'organizzazione';
+  }
+
+  // Date/Time types
+  if (/^(date|time|temporal)$/i.test(lowerType)) {
+    return 'data';
+  }
+
+  // Money types
+  if (/^(money|monetary|currency|financial|denaro)$/i.test(lowerType)) {
+    return 'money';
+  }
+
+  // Legal types
+  if (/^(law|legal|statute|regulation)s?$/i.test(lowerType)) {
+    return 'norma';
+  }
+
+  // ID types
+  if (/^(id|identifier|number|code)s?$/i.test(lowerType)) {
+    return 'id';
+  }
+
+  // Facility types
+  if (/^fac$/i.test(lowerType)) {
+    return 'facility';
+  }
+
+  // Nationality/Religion/Political (NORP) types
+  if (/^norp$/i.test(lowerType)) {
+    return 'norp';
+  }
+
+  // Numeric types
+  if (/^(cardinal|ordinal|quantity|percent)$/i.test(lowerType)) {
+    return 'numeric';
+  }
+
+  // Creative work types
+  if (/^(work_of_art)$/i.test(lowerType)) {
+    return 'creative_work';
+  }
+
+  // Event types
+  if (/^event$/i.test(lowerType)) {
+    return 'event';
+  }
+
+  // Product types
+  if (/^product$/i.test(lowerType)) {
+    return 'product';
+  }
+
+  // Language types
+  if (/^language$/i.test(lowerType)) {
+    return 'language';
+  }
+
+  // Fallback to mapEntityType for any other mappings
+  const mappedType = mapEntityType(type);
+  return mappedType === type ? type : mappedType;
+};
+
 /**
  * Add a new annotation - optimized for performance
  */
@@ -164,6 +243,39 @@ export const getAnnotationTypes = (
   taxonomy: FlattenedTaxonomy,
   annotations: EntityAnnotation[]
 ) => {
+  // First group annotations by their normalized types to consolidate similar entity types
+  let groupedMap = {} as Record<
+    string,
+    {
+      key: string;
+      label: string;
+      n: number;
+      originalTypes: Set<string>; // Keep track of original types
+    }
+  >;
+
+  for (const ann of annotations) {
+    // Get the original type and its normalized equivalent
+    const originalType = ann.type;
+    const normalizedType = getNormalizedEntityType(originalType);
+
+    // Use the node from taxonomy for the normalized type to get the proper label
+    const node = getNode(taxonomy, normalizedType);
+
+    if (!groupedMap[normalizedType]) {
+      groupedMap[normalizedType] = {
+        key: normalizedType,
+        label: node.label,
+        n: 1,
+        originalTypes: new Set([originalType]),
+      };
+    } else {
+      groupedMap[normalizedType].n += 1;
+      groupedMap[normalizedType].originalTypes.add(originalType);
+    }
+  }
+
+  // Convert to the expected format
   let map = {} as Record<
     string,
     {
@@ -173,21 +285,12 @@ export const getAnnotationTypes = (
     }
   >;
 
-  for (const ann of annotations) {
-    const node = getNode(taxonomy, ann.type);
-
-    if (!map[node.key]) {
-      map[node.key] = {
-        key: node.key,
-        label: node.label,
-        n: 1,
-      };
-    } else {
-      map[node.key] = {
-        ...map[node.key],
-        n: map[node.key].n + 1,
-      };
-    }
+  for (const [normalizedType, group] of Object.entries(groupedMap)) {
+    map[normalizedType] = {
+      key: normalizedType,
+      label: group.label,
+      n: group.n,
+    };
   }
 
   return Object.values(map).sort((a, b) => b.n - a.n);
@@ -202,17 +305,22 @@ export const getTypeFilter = (annotations: EntityAnnotation[]) => {
     return typeFilterCache.get(annotations)!;
   }
 
-  const typeFilter = new Set<string>();
+  // Use a Map to track both normalized types and their original values
+  const typeMap = new Map<string, string>();
+
   annotations.forEach((ann) => {
-    // Add both the original type and the mapped type to ensure filtering works
-    typeFilter.add(ann.type);
-    const mappedType = mapEntityType(ann.type);
-    if (mappedType !== ann.type) {
-      typeFilter.add(mappedType);
+    // Always normalize the entity type for consistent grouping
+    const normalizedType = getNormalizedEntityType(ann.type);
+
+    // Store with the original casing from the first occurrence
+    if (!typeMap.has(normalizedType.toLowerCase())) {
+      typeMap.set(normalizedType.toLowerCase(), normalizedType);
     }
   });
 
-  const result = Array.from(typeFilter);
+  // Convert to array of normalized types with consistent casing
+  const result = Array.from(typeMap.values());
+
   // Cache the result
   typeFilterCache.set(annotations, result);
   return result;

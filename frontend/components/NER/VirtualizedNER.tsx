@@ -29,8 +29,8 @@ type VirtualizedNERProps = {
   addSelectionColor?: string;
   showAnnotationDelete?: boolean;
   renderContentHover?: (annotation: EntityAnnotation) => ReactNode;
-  onTagClick?: (annotation: EntityAnnotation) => void;
-  onTagDelete?: (annotation: EntityAnnotation) => void;
+  onTagClick?: (event: MouseEvent, annotation: EntityAnnotation) => void;
+  onTagDelete?: (event: MouseEvent, annotation: EntityAnnotation) => void;
   onTextSelection?: (
     selection: SelectionNode,
     event: MouseEvent<HTMLDivElement>
@@ -200,7 +200,7 @@ const VirtualizedNER = memo(
     const handleTagClick = useCallback(
       (event: MouseEvent, annotation: EntityAnnotation) => {
         if (onTagClick) {
-          onTagClick(annotation);
+          onTagClick(event, annotation);
         }
       },
       [onTagClick]
@@ -209,7 +209,7 @@ const VirtualizedNER = memo(
     const handleTagDelete = useCallback(
       (event: MouseEvent, annotation: EntityAnnotation) => {
         if (onTagDelete) {
-          onTagDelete(annotation);
+          onTagDelete(event, annotation);
         }
       },
       [onTagDelete]

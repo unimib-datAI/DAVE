@@ -9,6 +9,7 @@ import {
   getAllNodeData,
   mapEntityType,
 } from '../../../components/Tree';
+import { getNormalizedEntityType } from './utils';
 import SelectAnnotationSet from '../Toolsbar/SelectAnnotationSet';
 import {
   DocumentStateContext,
@@ -211,8 +212,9 @@ export const selectDocumentClusters = createSelector(
           })
           .filter((mention) => mention !== null); // Filter out null mentions
 
-        // Normalize cluster type to use taxonomy mapping (e.g., Person -> persona)
-        const normalizedType = mapEntityType(cluster.type);
+        // Normalize cluster type using robust case-insensitive mapping
+        // Ensure the normalized type is consistently cased
+        const normalizedType = getNormalizedEntityType(cluster.type);
 
         return {
           ...cluster,
@@ -272,9 +274,108 @@ export const selectFilteredEntityAnnotations = createSelector(
   selectActiveEntityAnnotations,
   selectDocumentTagTypeFilter,
   (annotations, typeFilter) => {
+    // Create a set of lowercase filter types for faster lookup
+    const lowerFilterTypes = new Set(typeFilter.map((t) => t.toLowerCase()));
+
     return annotations.filter((ann) => {
-      return typeFilter.indexOf(ann.type) !== -1;
+      // Use case-insensitive mapping for better matching
+      const normalizedType = getNormalizedEntityType(ann.type);
+
+      // Check both the original type and the normalized type (case insensitive)
+      return (
+        lowerFilterTypes.has(normalizedType.toLowerCase()) ||
+        lowerFilterTypes.has(ann.type.toLowerCase())
+      );
     });
+  }
+);
+
+/**
+ * Filter entity annotations by type and search term (if provided).
+ * Search matches against type, features.mention, and features.title fields.
+ * All comparisons are case-insensitive.
+ */
+export const selectFilteredEntityAnnotationsWithSearch = createSelector(
+  selectFilteredEntityAnnotations,
+  selectDocumentId,
+  (state: State, viewIndex: number, searchTerm?: string) =>
+    searchTerm?.toLowerCase() || '',
+  (annotations, documentId, searchTerm) => {
+    // Debug logging for specific document
+    const targetDocId =
+      '841ff7342f6ebf228b6e9eb1c5616441b7e36dc971cd78a480c5a461be3b937a';
+
+    if (!searchTerm) {
+      return annotations;
+    }
+
+    // Log only when actively filtering with search term on our target document
+    if (searchTerm && documentId === targetDocId) {
+      console.log(
+        'DEBUG - APPLYING SEARCH FILTER for document:',
+        documentId,
+        'with search term:',
+        searchTerm
+      );
+    }
+
+    // Apply the filter
+    const filteredResults = annotations.filter((ann) => {
+      // Also check the normalized type for matching
+      const normalizedType = getNormalizedEntityType(ann.type);
+      if (normalizedType.toLowerCase().includes(searchTerm)) {
+        return true;
+      }
+
+      // Original type matching
+      if (ann.type.toLowerCase().includes(searchTerm)) {
+        return true;
+      }
+
+      // features.mention matching
+      if (
+        ann.features.mention &&
+        ann.features.mention.toLowerCase().includes(searchTerm)
+      ) {
+        return true;
+      }
+
+      // features.title matching
+      if (
+        ann.features.title &&
+        ann.features.title.toLowerCase().includes(searchTerm)
+      ) {
+        return true;
+      }
+
+      return false;
+    });
+
+    // Log filtered results for our target document
+    if (searchTerm && documentId === targetDocId) {
+      const debugFilteredResults = filteredResults.map((ann) => ({
+        id: ann.id,
+        type: ann.type,
+        start: ann.start,
+        end: ann.end,
+        features: {
+          mention: ann.features.mention,
+          title: ann.features.title,
+          type: ann.type,
+        },
+      }));
+
+      console.log(
+        'DEBUG - FILTERED RESULTS for document:',
+        documentId,
+        'filtered count:',
+        filteredResults.length,
+        'filtered annotations:',
+        debugFilteredResults
+      );
+    }
+
+    return filteredResults;
   }
 );
 
