@@ -2,12 +2,14 @@ import { DocumentWithChunk } from '@/server/routers/search';
 import { chatHistoryAtom, conversationRatedAtom } from '@/utils/atoms';
 import { getPromptAndMessage } from '@/utils/textGeneration';
 import { useAtom } from 'jotai';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export type Message = {
   role: 'system' | 'assistant' | 'user';
   content: string;
-  usrMessage?: string;
+  usrMessage?: string; // Original user message without system prompt
+  context?: DocumentWithChunk[];
+  isDoneStreaming?: boolean;
 };
 
 export type UseChatOptions = {
@@ -24,243 +26,223 @@ export type GenerateOptions = {
   system?: string;
   context?: DocumentWithChunk[];
 };
-
-type MessagesState = {
-  messages: Message[];
-  contexts: (DocumentWithChunk[] | undefined)[];
-  statuses: (boolean | undefined)[];
-};
-
-function useChat({ endpoint, initialMessages }: UseChatOptions) {
+const defaultSystemPropmt =
+  "Sei un assistente che parla esclusivamente italiano. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Se non conosci la risposta, limitati a dire che non lo sai. Non dare mai risposte vuote. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio.";
+function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
   const [chatHistory, setChatHistory] = useAtom(chatHistoryAtom);
   const [conversationRated, setConversationRated] = useAtom(
     conversationRatedAtom
   );
-  const [state, setState] = useState<MessagesState>({
-    messages:
-      chatHistory.messages.length === 0
-        ? [...initialMessages]
-        : [...chatHistory.messages] || [],
-    contexts:
-      chatHistory.contexts.length === 0
-        ? [...new Array(initialMessages.length)]
-        : [...chatHistory.contexts],
-    statuses:
-      chatHistory.contexts.length === 0
-        ? [...new Array(initialMessages.length)]
-        : [...chatHistory.statuses],
+
+  // Initialize messages from chat history or initial messages
+  const [messages, setMessages] = useState<Message[]>(() => {
+    return chatHistory.messages && chatHistory.messages.length > 0
+      ? chatHistory.messages
+      : initialMessages || [];
   });
+
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+
+  // Update chat history when messages change
   useEffect(() => {
-    setChatHistory(state);
-  }, [state]);
-  const messagesRef = useRef(state.messages);
-
-  const stream = async ({
-    context,
-    ...options
-  }: GenerateOptions & { messages: Message[]; devMode?: boolean }) => {
-    setIsLoading(true);
-    console.log('streaming', options.system);
-    if (Array.isArray(options.temperature)) {
-      options.temperature = options.temperature[0];
-    }
-    if (Array.isArray(options.token_repetition_penalty_max)) {
-      options.token_repetition_penalty_max =
-        options.token_repetition_penalty_max[0];
-    }
-    if (Array.isArray(options.top_p)) {
-      options.top_p = options.top_p[0];
-    }
-    if (Array.isArray(options.top_k)) {
-      options.top_k = options.top_k[0];
-    }
-    if (Array.isArray(options.max_new_tokens)) {
-      options.max_new_tokens = options.max_new_tokens[0];
-    }
-    // options.temperature = 1.0;
-    // const response = await fetch(
-    //   `${process.env.NEXT_PUBLIC_BASE_PATH}/api/${endpoint}`,
-    //   {
-    //     method: 'POST',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify(options),
-    //   }
-    // );
-    console.log('streaming opts', options);
-    let messages = getPromptAndMessage(
-      false,
-      options.messages,
-      options.devMode || false,
-      options.system
-    );
-    console.log(
-      'calling generation ',
-      process.env.NODE_ENV === 'development'
-        ? `http://vm.chronos.disco.unimib.it:7862/generate`
-        : `https://vm.chronos.disco.unimib.it/llm2/generate`
-    );
-    const response = await fetch(
-      process.env.NODE_ENV === 'development'
-        ? `http://vm.chronos.disco.unimib.it:7862/generate`
-        : `http://vm.chronos.disco.unimib.it:7862/generate`,
-      {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        method: 'POST',
-        body: JSON.stringify({
-          ...options,
-          messages,
-        }),
-      }
-    );
-    if (!response.ok) {
-      throw new Error(response.statusText);
-    }
-
-    // This data is a ReadableStream
-    const data = response.body;
-    if (!data) {
-      return;
-    }
-
-    const reader = data.getReader();
-    const decoder = new TextDecoder('utf-8');
-    let done = false;
-
-    let initial = true;
-
-    setIsLoading(false);
-    while (!done) {
-      const { value, done: doneReading } = await reader.read();
-      done = doneReading;
-
-      const chunkValue = decoder.decode(value);
-      if (initial) {
-        messagesRef.current.push({ role: 'assistant', content: chunkValue });
-        setState((s) => ({
-          messages: [...s.messages, { role: 'assistant', content: chunkValue }],
-          contexts: [...s.contexts, context],
-          statuses: [...s.statuses, false],
-        }));
-
-        initial = false;
-      } else {
-        setState((s) => {
-          const lastMessage = s.messages.at(-1);
-          const lastMessageRef = messagesRef.current.at(-1);
-
-          if (!lastMessage || !lastMessageRef) {
-            return s;
-          }
-          lastMessageRef.content = lastMessageRef.content + chunkValue;
-
-          return {
-            ...s,
-            messages: [
-              ...s.messages.slice(0, -1),
-              { ...lastMessage, content: lastMessage.content + chunkValue },
-            ],
-          };
-        });
-      }
-    }
-
-    setState((s) => {
-      const lastMessage = s.messages.at(-1);
-
-      if (!lastMessage) {
-        return s;
-      }
-
-      return {
-        ...s,
-        messages: [...s.messages.slice(0, -1), { ...lastMessage }],
-        statuses: [...s.statuses.slice(0, -1), true],
-      };
+    setChatHistory({
+      messages,
+      contexts: [], // Legacy - not used anymore
+      statuses: [], // Legacy - not used anymore
     });
-  };
+  }, [messages, setChatHistory]);
 
   const appendMessage = async ({
     message,
-    ...generateOptions
+    context,
+    ...options
   }: GenerateOptions & {
     message: string;
     devMode?: boolean;
     system?: string;
   }) => {
-    const generateContent = () => {
-      if (generateOptions.context) {
-        const contextChunks = generateOptions.context
-          .flatMap((doc) => doc.chunks.map((chunk) => `"${chunk.text}"`))
-          .join('\n\n');
-        return `CONTESTO:\n${contextChunks}\nDOMANDA:\n${message}`;
-      }
-      return message;
-    };
-
-    const newMessage: Message = {
+    if (!message || message.trim() === '') {
+      return;
+    }
+    console.log('received context', context);
+    const contextValue = context
+      ? context.map(
+          (item) =>
+            `Nome Documento ${item.title} - Contenuto: ${item.chunks
+              .map((chunk) => chunk.text)
+              .join(' ')}`
+        )
+      : '';
+    let content =
+      defaultSystemPropmt + `CONTESTO: ${contextValue} - DOMANDA: ${message}`;
+    // Create a new user message
+    const userMessage: Message = {
       role: 'user',
-      content: generateContent(),
-      usrMessage: message,
+      content: content,
+      context: context,
+      usrMessage: message, // Preserve original user message
+      isDoneStreaming: true, // Mark user messages as done streaming immediately
     };
-    let mappedFiltered = messagesRef.current.map((message) => {
-      if (message.role === 'user') {
-        return { ...message, content: '' };
-      } else {
-        return message;
-      }
-    });
-    console.log('mapped message', mappedFiltered);
-    messagesRef.current = messagesRef.current.map((message) => {
-      if (message.role === 'user') {
-        return { ...message, content: '' };
-      } else {
-        return message;
-      }
-    });
-    messagesRef.current.push(newMessage);
 
-    console.log('appending message', messagesRef.current);
-    setState((s) => ({
-      ...s,
-      messages: [...messagesRef.current],
-      contexts: [...s.contexts, undefined],
-      statuses: [...s.statuses, undefined],
-    }));
-    // setChatHistory([...chatHistory, newMessage]);
-
+    // Add user message to the conversation - create a new array
+    let tempMessages = [...messages, userMessage];
+    setMessages((prev) => [...prev, userMessage]);
     setIsStreaming(true);
-    console.log('appending message', generateOptions);
-    await stream({ ...generateOptions, messages: messagesRef.current });
-    setIsStreaming(false);
+    setIsLoading(true);
+
+    try {
+      // Prepare messages for API - create a new array
+      const messagesForAPI = [...messages, userMessage];
+
+      // Normalize options to handle array values
+      const normalizedOptions = {
+        ...options,
+        temperature: Array.isArray(options.temperature)
+          ? options.temperature[0]
+          : options.temperature,
+        max_new_tokens: Array.isArray(options.max_new_tokens)
+          ? options.max_new_tokens[0]
+          : options.max_new_tokens,
+        top_p: Array.isArray(options.top_p) ? options.top_p[0] : options.top_p,
+        top_k: Array.isArray(options.top_k) ? options.top_k[0] : options.top_k,
+        token_repetition_penalty_max: Array.isArray(
+          options.token_repetition_penalty_max
+        )
+          ? options.token_repetition_penalty_max[0]
+          : options.token_repetition_penalty_max,
+      };
+
+      // Get formatted messages with system prompt
+      const apiMessages = tempMessages.map((message, index) => {
+        //check if is last user message
+        if (message.role === 'user' && index === tempMessages.length - 1)
+          return message;
+        else {
+          return {
+            role: message.role,
+            content: message.usrMessage,
+          };
+        }
+      });
+      console.log(
+        'messages that will be sent, formatted and stripped',
+        apiMessages
+      );
+
+      // Call API
+      const response = await fetch(
+        process.env.NODE_ENV === 'development'
+          ? `http://vm.chronos.disco.unimib.it:7862/generate`
+          : `http://vm.chronos.disco.unimib.it:7862/generate`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...normalizedOptions,
+            messages: apiMessages,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`API Error: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      const decoder = new TextDecoder();
+      let assistantContent = '';
+      let isFirstChunk = true;
+
+      // Not loading anymore since we're streaming
+      setIsLoading(false);
+
+      // Start reading the stream
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        assistantContent += chunk;
+
+        if (isFirstChunk) {
+          // Add initial assistant message (create a new message)
+          setMessages((prev) => [
+            ...prev,
+            {
+              role: 'assistant',
+              content: chunk,
+              isDoneStreaming: false,
+            },
+          ]);
+          isFirstChunk = false;
+        } else {
+          // Update the assistant message with the new content (create a new message)
+          setMessages((prev) => {
+            const newMessages = [...prev]; // Create a new array
+            const lastIndex = newMessages.length - 1;
+
+            if (lastIndex >= 0 && newMessages[lastIndex].role === 'assistant') {
+              // Create a new assistant message with updated content
+              newMessages[lastIndex] = {
+                ...newMessages[lastIndex],
+                content: assistantContent,
+                isDoneStreaming: false,
+              };
+            }
+
+            return newMessages;
+          });
+        }
+      }
+
+      // Final update: mark assistant message as done streaming (create a new message)
+      setMessages((prev) => {
+        const newMessages = [...prev]; // Create a new array
+        const lastIndex = newMessages.length - 1;
+
+        if (lastIndex >= 0 && newMessages[lastIndex].role === 'assistant') {
+          // Create a new assistant message marked as done streaming
+          newMessages[lastIndex] = {
+            ...newMessages[lastIndex],
+            isDoneStreaming: true,
+          };
+        }
+
+        return newMessages;
+      });
+    } catch (error) {
+      console.error('Chat error:', error);
+      // Add error message (create a new message)
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: 'Sorry, there was an error generating the response.',
+          isDoneStreaming: true,
+        },
+      ]);
+    } finally {
+      setIsStreaming(false);
+      setIsLoading(false);
+    }
   };
 
   const restartChat = () => {
-    messagesRef.current = initialMessages;
-
-    setChatHistory({
-      messages: [...initialMessages],
-      contexts: [...new Array(initialMessages.length)],
-      statuses: [...new Array(initialMessages.length)],
-    });
-
-    setState({
-      messages: [...initialMessages],
-      contexts: [...new Array(initialMessages.length)],
-      statuses: [...new Array(initialMessages.length)],
-    });
+    // Reset to initial messages (create a new array)
+    setMessages([...initialMessages]);
     setConversationRated(false);
   };
 
   return {
+    messages,
     appendMessage,
     restartChat,
-    state,
+    state: { messages: messages || [] }, // Ensure messages is never undefined
     isStreaming,
     isLoading,
   };

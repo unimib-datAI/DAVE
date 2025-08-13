@@ -87,7 +87,11 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     {
       endpoint: '/generate',
       initialMessages: [
-        { role: 'assistant', content: 'Ciao, come posso aiutarti?' },
+        {
+          role: 'assistant',
+          content: 'Ciao, come posso aiutarti?',
+          isDoneStreaming: true,
+        },
       ],
     }
   );
@@ -178,8 +182,11 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
           retrievalMethod: formValues.retrievalMethod,
         })
       : undefined;
-
-    void appendMessage({ ...formValues, context, devMode });
+    console.log(
+      'context that will be sent',
+      context.map((doc) => doc.chunks)
+    );
+    appendMessage({ ...formValues, context, devMode });
     setValue({
       message: '',
     });
@@ -200,16 +207,28 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
               'max-w-6xl': !devMode,
             })}
           >
-            {state.messages.map((message, index) =>
-              message.role !== 'system' && message.content !== '' ? (
-                <Message
-                  key={index}
-                  {...message}
-                  context={state.contexts[index]}
-                  isDoneStreaming={state.statuses[index]}
-                />
-              ) : null
-            )}
+            {state.messages.map((message, index) => {
+              if (
+                message.role !== 'system' &&
+                (message.content !== '' || message.role === 'user')
+              ) {
+                if (message.role === 'user')
+                  console.log(`Message ${index}: `, message);
+                return (
+                  <Message
+                    key={index}
+                    {...message}
+                    context={message.context ? message.context : []}
+                    isDoneStreaming={
+                      state.statuses ? state.statuses[index] : true
+                    }
+                  />
+                );
+              } else {
+                return null;
+              }
+              // Include all non-system messages, even if content is empty for user messages
+            })}
             {isLoading && <SkeletonMessage />}
             {/* Display rating component only when there are more than 1 messages, and when  streaming the message */}
             {!isLoading && !isStreaming && state.messages.length > 1 && (
@@ -246,8 +265,11 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                 <Switch
                   id="context"
                   onChange={(newstate) => {
+                    // Create a new object for setting value
                     setValue({
-                      useCurrentDocumentContext: newstate.target.checked,
+                      useCurrentDocumentContext: Boolean(
+                        newstate.target.checked
+                      ),
                     });
                   }}
                 />
@@ -349,7 +371,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                     </div>
                   </Tooltip>
                   <Slider
-                    onValueChange={fieldTemperature.onChange}
+                    onValueChange={(value) => fieldTemperature.onChange(value)}
                     value={[fieldTemperature.value]}
                     max={1}
                     min={0}
@@ -372,7 +394,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                   </Tooltip>
 
                   <Slider
-                    onValueChange={fieldMaxNewTokens.onChange}
+                    onValueChange={(value) => fieldMaxNewTokens.onChange(value)}
                     value={[fieldMaxNewTokens.value]}
                     max={4096}
                     min={100}
@@ -392,7 +414,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                     </div>
                   </Tooltip>
                   <Slider
-                    onValueChange={fieldTopP.onChange}
+                    onValueChange={(value) => fieldTopP.onChange(value)}
                     value={[fieldTopP.value]}
                     max={1}
                     min={0}
@@ -412,7 +434,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                     </div>
                   </Tooltip>
                   <Slider
-                    onValueChange={fieldTopk.onChange}
+                    onValueChange={(value) => fieldTopk.onChange(value)}
                     value={[fieldTopk.value]}
                     max={60}
                     min={0}
@@ -436,7 +458,9 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                     </div>
                   </Tooltip>
                   <Slider
-                    onValueChange={fieldFrequencyPenalty.onChange}
+                    onValueChange={(value) =>
+                      fieldFrequencyPenalty.onChange(value)
+                    }
                     value={[fieldFrequencyPenalty.value]}
                     max={2}
                     min={-2}
@@ -470,7 +494,9 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                   <Radio.Group
                     value={fieldRetrievalMethod.value}
                     onChange={(value) => {
-                      fieldRetrievalMethod.onChange(value.target.value);
+                      // Create a new event to avoid reference issues
+                      const newValue = value.target.value;
+                      fieldRetrievalMethod.onChange(newValue);
                     }}
                   >
                     <Radio value="full">Hybrid Retrieval</Radio>

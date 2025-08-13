@@ -11,6 +11,15 @@ export function getPromptAndMessage(
   const defaultSystemPrompt = "Rispondi alle domande dell'utente.";
   let systemContent = '';
 
+  console.log(
+    '📝 getPromptAndMessage INPUT - messages:',
+    messages.map((m) => ({
+      role: m.role,
+      content: m.content.slice(0, 100) + '...',
+      usrMessage: m.usrMessage,
+    }))
+  );
+
   if (system) {
     systemContent = defaultSystemPrompt;
   } else if (devMode) {
@@ -22,6 +31,19 @@ export function getPromptAndMessage(
     console.log('setting search system prompt');
     systemContent = defaultSystemPromptSearch;
   }
-  messages.unshift({ role: 'system', content: systemContent });
-  return messages;
+  const messagesWithSystem = [
+    { role: 'system', content: systemContent },
+    ...messages,
+  ];
+
+  console.log(
+    '📝 getPromptAndMessage OUTPUT - messages:',
+    messagesWithSystem.map((m) => ({
+      role: m.role,
+      content: m.content.slice(0, 100) + '...',
+      usrMessage: 'usrMessage' in m ? m.usrMessage : undefined,
+    }))
+  );
+
+  return messagesWithSystem;
 }
