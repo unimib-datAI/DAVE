@@ -21,6 +21,7 @@ import {
   isSameAction,
   toggleLeftSidebar,
 } from './utils';
+import { Annotation as GlobalAnnotation } from '@/atoms/annotations';
 
 export const documentReducer = createImmerReducer<State, Action>({
   setData: (state, payload) => {
@@ -290,6 +291,32 @@ export const documentReducer = createImmerReducer<State, Action>({
       typeFilter.push(type);
       console.log(`Added type "${type}" to type filter`);
     }
+
+    // Add this annotation to the global Jotai state by dispatching a custom event
+    // This allows us to track it without visibly changing the UI
+    try {
+      const globalAnnotation: GlobalAnnotation = {
+        id: Date.now() + Math.floor(Math.random() * 1000), // Generate numerical ID
+        start,
+        end,
+        type: mappedType,
+        mention: text,
+        is_linked: false,
+        display_name:
+          type === 'persona' || type === 'parte' || type === 'controparte'
+            ? `[ANONYMOUS ${mappedType.toUpperCase()}]`
+            : text,
+        anonymize:
+          type === 'persona' || type === 'parte' || type === 'controparte',
+      };
+
+      // Dispatch a custom event to be caught by the ToolbarContent
+      window.dispatchEvent(
+        new CustomEvent('annotation:add', { detail: globalAnnotation })
+      );
+    } catch (error) {
+      console.error('Failed to track annotation:', error);
+    }
   },
   editAnnotation: (state, payload) => {
     const { views, selectedEntity } = state.ui;
@@ -381,6 +408,20 @@ export const documentReducer = createImmerReducer<State, Action>({
 
         console.log('🗑️ Final clusters after filtering:', filteredClusters);
         state.data.features.clusters[activeAnnotationSet] = filteredClusters;
+
+        // Notify the global state about the deletion
+        try {
+          window.dispatchEvent(
+            new CustomEvent('annotation:delete', {
+              detail: {
+                id: annToDelete.id,
+                mention: annToDelete.features.mention,
+              },
+            })
+          );
+        } catch (error) {
+          console.error('Failed to notify about annotation deletion:', error);
+        }
       }
     } else {
       console.log('🗑️ Annotation not found in annotations array');
