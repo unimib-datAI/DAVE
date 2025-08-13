@@ -17,7 +17,7 @@ import {
   selectDocumentSectionAnnotations,
   selectDocumentTaxonomy,
   selectDocumentText,
-  selectFilteredEntityAnnotations,
+  selectFilteredEntityAnnotationsWithSearch,
   selectHighlightAnnotationId,
   selectSectionsSidebar,
   useDocumentDispatch,
@@ -58,7 +58,7 @@ const DocumentViewer = () => {
 
   // Memoize entity annotations to prevent unnecessary recalculations
   const entityAnnotations = useSelector((state) =>
-    selectFilteredEntityAnnotations(state, viewIndex)
+    selectFilteredEntityAnnotationsWithSearch(state, viewIndex)
   );
   const sectionAnnotations = useSelector(selectDocumentSectionAnnotations);
   const hashUrlId = useHashUrlId();
@@ -84,7 +84,10 @@ const DocumentViewer = () => {
 
   // Memoize event handlers to prevent unnecessary re-renders
   const handleTagClick = useCallback(
-    (annotation: EntityAnnotation) => {
+    (event: MouseEvent, annotation: EntityAnnotation) => {
+      // Log the full annotation to the console
+      console.log('Entity annotation clicked:', annotation);
+
       // Batch related dispatch actions to improve performance
       requestAnimationFrame(() => {
         dispatch({
@@ -106,7 +109,7 @@ const DocumentViewer = () => {
   );
 
   const handleTagDelete = useCallback(
-    (annotation: EntityAnnotation, event?: MouseEvent) => {
+    (event: MouseEvent, annotation: EntityAnnotation) => {
       // Remove console.log to improve performance
       dispatch({
         type: 'deleteAnnotation',

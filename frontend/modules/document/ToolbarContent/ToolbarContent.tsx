@@ -42,7 +42,7 @@ const ToolbarContent = () => {
   // Track save status separately from the mutation loading state
   const [saveStatus, setSaveStatus] = useState<
     'idle' | 'saving' | 'saved' | 'error'
-  >('idle');
+  >('saved');
   // Track the last successful save time
   const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
   // Ref to track the last save timestamp
@@ -232,7 +232,12 @@ const ToolbarContent = () => {
       const activeAnnotations = docAnnotations.filter((ann) => !ann.to_delete);
 
       // Only update if we're not in the process of saving or just saved
-      if (saveStatus !== 'saving' && saveStatus !== 'saved') {
+      // Skip setting unsaved state on initial mount - existing annotations are already saved
+      if (
+        saveStatus !== 'saving' &&
+        saveStatus !== 'saved' &&
+        !isInitialMount.current
+      ) {
         setHasUnsavedAnnotations(activeAnnotations.length > 0);
         setHasUnsavedChanges(
           (prevState) => activeAnnotations.length > 0 || prevState
@@ -599,6 +604,10 @@ const ToolbarContent = () => {
           features: document.features,
         })
       );
+      // Ensure save status is set to 'saved' on page load
+      setSaveStatus('saved');
+      // Mark that we've saved successfully to keep the saved status
+      savedStatus.current = true;
       return;
     }
 
