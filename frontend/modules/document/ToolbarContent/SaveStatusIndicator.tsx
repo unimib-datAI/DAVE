@@ -21,12 +21,13 @@ const StatusContainer = styled.div({
 });
 
 const SuccessStatusContainer = styled(StatusContainer)({
-  animation: 'fadeInOut 2s ease',
+  animation: 'fadeInOut 5s ease',
+  backgroundSize: 'cover',
   '@keyframes fadeInOut': {
     '0%': { opacity: 0, transform: 'translateY(5px)' },
-    '20%': { opacity: 1, transform: 'translateY(0)' },
-    '80%': { opacity: 1 },
-    '100%': { opacity: 0.8 },
+    '10%': { opacity: 1, transform: 'translateY(0)' },
+    '90%': { opacity: 1 },
+    '100%': { opacity: 1 },
   },
 });
 
@@ -34,6 +35,9 @@ const IconWrapper = styled.div({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
+  height: '1em',
+  fontSize: '16px',
+  lineHeight: 1,
 });
 
 type SaveStatusType = 'idle' | 'saving' | 'saved' | 'error';
@@ -56,6 +60,7 @@ const SaveStatusIndicator = ({
   const t = useText('document');
   const [timeAgo, setTimeAgo] = useState<string>('');
   const prevStatusRef = useRef<SaveStatusType>(status);
+  const hasSavedRef = useRef<boolean>(false);
 
   // Update time ago string every minute
   useEffect(() => {
@@ -102,8 +107,29 @@ const SaveStatusIndicator = ({
     if (prevStatusRef.current !== status) {
       console.log(`Status changed: ${prevStatusRef.current} -> ${status}`);
       prevStatusRef.current = status;
+
+      // When status changes to 'saved', mark that we've saved
+      if (status === 'saved') {
+        hasSavedRef.current = true;
+
+        // Also reset hasUnsavedChanges in parent component
+        if (hasUnsavedChanges && onRetry) {
+          // Use onRetry callback as a general update function with a longer delay
+          setTimeout(() => onRetry(), 500);
+        }
+      }
+
+      // If the status changes from saved to something else, respect that change
+      if (prevStatusRef.current === 'saved' && status !== 'saved') {
+        hasSavedRef.current = false;
+      }
     }
-  }, [status]);
+
+    // If we have unsaved changes, we're no longer in a saved state
+    if (hasUnsavedChanges && hasSavedRef.current) {
+      hasSavedRef.current = false;
+    }
+  }, [status, hasUnsavedChanges, onRetry]);
 
   // Always show when we have a last save time
   // Only hide when idle with no save history
@@ -111,17 +137,30 @@ const SaveStatusIndicator = ({
     return null;
   }
 
+  // Force clean unsaved changes flag when in saved state or if we've saved and nothing has changed
+  const effectiveHasUnsavedChanges =
+    status === 'saved' || hasSavedRef.current ? false : hasUnsavedChanges;
+
+  // Determine if we should show the saved status
+  // Don't show saved status if we have unsaved changes, regardless of hasSavedRef
+  const showSavedStatus =
+    status === 'saved' || (hasSavedRef.current && !hasUnsavedChanges);
+
+  // Force check for unsaved changes to ensure we don't show saved when there are changes
+  const forceCheckChanges = documentVersion !== undefined && hasUnsavedChanges;
+  const finalShowSavedStatus = forceCheckChanges ? false : showSavedStatus;
+
   // Determine status color and icon
   let backgroundColor = 'transparent';
   let textColor = 'inherit';
   let icon = null;
   let tooltipText = '';
 
-  // Show unsaved changes indicator if there are changes and we're not currently saving
-  if (hasUnsavedChanges && status !== 'saving' && status !== 'saved') {
+  // Show unsaved changes indicator if there are changes and we're not currently saving or saved
+  if (effectiveHasUnsavedChanges && status !== 'saving' && status !== 'saved') {
     backgroundColor = '#fff8e6';
     textColor = '#d97706';
-    icon = <FiClock />;
+    icon = <FiClock size="1em" style={{ verticalAlign: 'middle' }} />;
     tooltipText = t('toolbar.unsavedChanges');
 
     return (
@@ -138,20 +177,35 @@ const SaveStatusIndicator = ({
     case 'saving':
       backgroundColor = '#f0f0f0';
       textColor = '#666';
-      icon = <FiClock />;
+      icon = <FiClock size="1em" style={{ verticalAlign: 'middle' }} />;
       tooltipText = t('toolbar.savingTooltip');
       break;
     case 'saved':
       backgroundColor = '#ebf7f0';
       textColor = '#10b981';
-      icon = <FiCheck />;
+      icon = <FiCheck size="1em" style={{ verticalAlign: 'middle' }} />;
       tooltipText = lastSaveTime
         ? `${t(
             'toolbar.lastSavedAt'
           )} ${lastSaveTime.toLocaleTimeString()} (${lastSaveTime.toLocaleDateString()})`
         : t('toolbar.savedTooltip');
 
-      // Use special container for saved status
+      // If we're technically in idle but should show saved status, override it
+      // But only if we don't have unsaved changes
+      if (
+        status !== 'saved' &&
+        hasSavedRef.current &&
+        !hasUnsavedChanges &&
+        !forceCheckChanges
+      ) {
+        status = 'saved' as SaveStatusType;
+      }
+
+      // We've already handled this with effectiveHasUnsavedChanges
+      // Just keep this for extra safety
+      const cleanedHasUnsavedChanges = false;
+
+      // Use special container for saved status - stays until new changes
       return (
         <Tooltip content={tooltipText} placement="bottom">
           <SuccessStatusContainer style={{ backgroundColor, color: textColor }}>
@@ -165,13 +219,17 @@ const SaveStatusIndicator = ({
     case 'error':
       backgroundColor = '#fef2f2';
       textColor = '#ef4444';
-      icon = <FiAlertTriangle />;
+      icon = <FiAlertTriangle size="1em" style={{ verticalAlign: 'middle' }} />;
       tooltipText = t('toolbar.errorTooltip');
       break;
     case 'idle':
       backgroundColor = '#f8f8f8';
       textColor = '#666';
-      icon = lastSaveTime ? <FiCheck /> : <FiSave />;
+      icon = lastSaveTime ? (
+        <FiCheck size="1em" style={{ verticalAlign: 'middle' }} />
+      ) : (
+        <FiSave size="1em" style={{ verticalAlign: 'middle' }} />
+      );
       tooltipText = lastSaveTime
         ? `${t(
             'toolbar.lastSavedAt'
@@ -188,9 +246,9 @@ const SaveStatusIndicator = ({
       >
         <IconWrapper>{icon}</IconWrapper>
         {status === 'saving' && <Text size={12}>{t('toolbar.saving')}</Text>}
-        {status === 'saved' && <Text size={12}>{t('toolbar.saved')}</Text>}
+        {finalShowSavedStatus && <Text size={12}>{t('toolbar.saved')}</Text>}
         {status === 'error' && <Text size={12}>{t('toolbar.saveError')}</Text>}
-        {status === 'idle' && lastSaveTime && (
+        {status === 'idle' && !finalShowSavedStatus && lastSaveTime && (
           <Text size={12}>{`${t('toolbar.lastSaved')} ${timeAgo}`}</Text>
         )}
       </StatusContainer>
