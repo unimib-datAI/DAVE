@@ -52,7 +52,12 @@ const getFacetsFromUrl = (
 const Search = () => {
   const router = useRouter();
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
-  const [selectedFilters, setSelectedFilters] = useAtom(selectedFiltersAtom);
+  const [selectedFilters, setSelectedFiltersRaw] = useAtom(selectedFiltersAtom);
+  // Wrapper to ensure we never set empty filters
+  const setSelectedFilters = (filters: string[]) => {
+    const validFilters = filters.filter((f) => f && f.trim() !== '');
+    setSelectedFiltersRaw(validFilters);
+  };
   const { text, ...facetsFilters } = router.query;
   const facets = useMemo(
     () => getFacetsFromUrl(facetsFilters),
@@ -134,16 +139,22 @@ const Search = () => {
   const reorderedDocuments = useMemo(() => {
     if (!data) return [];
     const allHits = data.pages.flatMap((page) => page.hits);
-    if (selectedFilters.length === 0) return allHits;
+
+    // Clean up selectedFilters to remove empty or whitespace-only strings
+    const validFilters = selectedFilters.filter(
+      (filter) => filter && filter.trim() !== ''
+    );
+    if (validFilters.length === 0) return allHits;
 
     const matches = allHits.filter(
       (hit) =>
         Array.isArray(hit.annotations) &&
         hit.annotations.some(
           (ann: any) =>
-            selectedFilters.includes(ann.id_ER) ||
-            selectedFilters.includes(ann.display_name?.toLowerCase()) ||
-            selectedFilters.includes(ann.display_name)
+            (ann.id_ER && validFilters.includes(ann.id_ER)) ||
+            (ann.display_name?.toLowerCase() &&
+              validFilters.includes(ann.display_name?.toLowerCase())) ||
+            (ann.display_name && validFilters.includes(ann.display_name))
         )
     );
     const nonMatches = allHits.filter(
@@ -151,9 +162,10 @@ const Search = () => {
         !Array.isArray(hit.annotations) ||
         !hit.annotations.some(
           (ann: any) =>
-            selectedFilters.includes(ann.id_ER) ||
-            selectedFilters.includes(ann.display_name?.toLowerCase()) ||
-            selectedFilters.includes(ann.display_name)
+            (ann.id_ER && validFilters.includes(ann.id_ER)) ||
+            (ann.display_name?.toLowerCase() &&
+              validFilters.includes(ann.display_name?.toLowerCase())) ||
+            (ann.display_name && validFilters.includes(ann.display_name))
         )
     );
     return [...matches, ...nonMatches];
@@ -197,13 +209,24 @@ const Search = () => {
           {data && (
             <Facets
               facets={data.pages[0].facets}
-              selectedFilters={selectedFilters}
-              setSelectedFilters={setSelectedFilters}
+              selectedFilters={selectedFilters.filter(
+                (f) => f && f.trim() !== ''
+              )}
+              setSelectedFilters={(filters) => {
+                // Filter out empty strings or whitespace-only strings
+                const validFilters = filters.filter(
+                  (f) => f && f.trim() !== ''
+                );
+                setSelectedFilters(validFilters);
+              }}
             />
           )}
           <div className="flex-grow flex flex-col gap-4 p-6">
             <div className="flex flex-col sticky top-16 bg-white py-6">
-              <h4>{`${data.pages[0].pagination.total_hits} results for "${text}"`}</h4>
+              <h4>
+                {`${data.pages[0].pagination.total_hits} results`}
+                {text && text.trim() !== '' && ` for "${text}"`}
+              </h4>
               {data && <ActiveFiltersList facets={data.pages[0].facets} />}
             </div>
             <div

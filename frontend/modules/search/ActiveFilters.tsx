@@ -8,11 +8,11 @@ const getActiveFilters = (
 ) => {
   let mappedActiveFilters = Object.keys(filters)
     .map((filterType) => {
-      const value = (
-        Array.isArray(filters[filterType])
-          ? filters[filterType]
-          : [filters[filterType]]
-      ) as string[];
+      // Get the values and filter out empty or whitespace-only strings
+      const rawValues = Array.isArray(filters[filterType])
+        ? filters[filterType]
+        : [filters[filterType]];
+      const value = (rawValues as string[]).filter((v) => v && v.trim() !== '');
       const [category, type] = filterType.split('_');
 
       const group = category === 'annotation' ? 'annotations' : 'metadata';
@@ -26,11 +26,16 @@ const getActiveFilters = (
           return null;
         }
 
+        // Skip empty values
+        if (!v || v.trim() === '') {
+          return null;
+        }
+
         return facetGroup
           ? {
               filterType,
               value: facetGroup.children.find((facet) =>
-                facet.ids_ER.includes(v)
+                facet.ids_ER.some((id) => id && id.trim() !== '' && id === v)
               ) as Facet['children'][number],
             }
           : null;
@@ -47,6 +52,15 @@ interface MappedFilters {
 function removeDuplicateFilters(filters: MappedFilters[]) {
   const seen = new Set();
   return filters.filter((filter) => {
+    // Skip filters with null/undefined values or empty display names
+    if (
+      !filter ||
+      !filter.value ||
+      !filter.value.display_name ||
+      filter.value.display_name.trim() === ''
+    ) {
+      return false;
+    }
     const duplicate = seen.has(filter.value.display_name);
     seen.add(filter.value.display_name);
     return !duplicate;
@@ -68,7 +82,13 @@ const ActiveFiltersList = ({ facets }: ActiveFiltersListProps) => {
     const v = Array.isArray(filterValue)
       ? filterValue
       : ([filterValue] as string[]);
-    const newFilters = v.filter((f) => !value.ids_ER.includes(f));
+    // Filter out empty values and check against non-empty IDs
+    const newFilters = v.filter(
+      (f) =>
+        f &&
+        f.trim() !== '' &&
+        !value.ids_ER.some((id) => id && id.trim() !== '' && id === f)
+    );
 
     const url = {
       pathname: router.pathname,

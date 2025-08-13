@@ -73,18 +73,28 @@ const FacetFilter = ({
     option: any
   ) => {
     console.log('checked filter', checked, key, keys, option);
+
+    // Filter out empty or whitespace-only strings
+    const validKeys = keys.filter((k) => k && k.trim() !== '');
+    const displayName = option.display_name
+      ? option.display_name.toLowerCase().trim()
+      : '';
+
     const updatedFilters = checked
       ? Array.from(
           new Set([
             ...selectedFilters,
-            ...keys,
-            option.display_name.toLowerCase(),
+            ...validKeys,
+            ...(displayName ? [displayName] : []),
           ])
         )
       : selectedFilters.filter(
-          (f) => !keys.includes(f) && f !== option.display_name.toLowerCase()
+          (f) => !validKeys.includes(f) && f !== displayName
         );
-    onFilterChange(filterType, Array.from(new Set(updatedFilters)));
+
+    // Filter out any empty strings that might have been in selectedFilters
+    const cleanedFilters = updatedFilters.filter((f) => f && f.trim() !== '');
+    onFilterChange(filterType, Array.from(new Set(cleanedFilters)));
   };
 
   return (
@@ -114,10 +124,17 @@ const FacetFilter = ({
             <Checkbox
               key={option.key}
               isSelected={
-                selectedFilters.includes(option.key) ||
-                selectedFilters.includes(option.display_name) ||
-                selectedFilters.includes(option.display_name.toLowerCase()) ||
-                option.ids_ER.some((id: string) => selectedFilters.includes(id))
+                (option.key && selectedFilters.includes(option.key)) ||
+                (option.display_name &&
+                  selectedFilters.includes(option.display_name)) ||
+                (option.display_name &&
+                  selectedFilters.includes(
+                    option.display_name.toLowerCase()
+                  )) ||
+                option.ids_ER.some(
+                  (id: string) =>
+                    id && id.trim() !== '' && selectedFilters.includes(id)
+                )
               }
               value={
                 filterType === 'annotation' ? option.display_name : option.key

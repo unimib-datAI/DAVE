@@ -34,43 +34,14 @@ const PageTitle = styled.h1`
 /**
  * Homepage component
  */
+import { useRouter } from 'next/router';
+
 const Documents: NextPageWithLayout = () => {
-  // const { data: documents } = useQuery(['document.getAllDocuments']);
-  const { ref, inView } = useInView({
-    threshold: 0,
-  });
-  const { data, hasNextPage, fetchNextPage, isFetching } = useInfiniteQuery(
-    ['document.inifniteDocuments', { limit: 30 }],
-    {
-      staleTime: Infinity,
-      getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
-      getPreviousPageParam: (firstPage) => firstPage.prevPage ?? undefined,
-    }
-  );
-
+  const router = useRouter();
   useEffect(() => {
-    if (inView) {
-      fetchNextPage();
-    }
-  }, [inView]);
-
-  if (!data) {
-    return null;
-  }
-
-  return (
-    <Container>
-      <ActionBar />
-      <DocumentsList data={data} />
-      {hasNextPage && (
-        <LoadMoreContainer ref={ref}>
-          <Button loading={isFetching} onClick={() => fetchNextPage()}>
-            Load More
-          </Button>
-        </LoadMoreContainer>
-      )}
-    </Container>
-  );
+    router.replace('/search?text=');
+  }, [router]);
+  return null;
 };
 
 Documents.getLayout = function getLayout(page: ReactElement) {

@@ -152,20 +152,32 @@ const Facets = ({
     // Reorder facets based on selected filters
     console.log('selected filters ', selectedFilters);
     console.log('fist facet', filteredFacets[0]);
+
+    // Clean up selected filters to remove empty or whitespace-only strings
+    const cleanedFilters = selectedFilters.filter(
+      (filter) => filter && filter.trim() !== ''
+    );
+
     filteredFacets.sort((a, b) => {
       const aSelected =
-        selectedFilters.includes(a.key) ||
+        (a.key && cleanedFilters.includes(a.key)) ||
         a.children.some(
           (child) =>
-            selectedFilters.includes(child.display_name.toLowerCase()) ||
-            child.ids_ER.some((id) => selectedFilters.includes(id))
+            (child.display_name &&
+              cleanedFilters.includes(child.display_name.toLowerCase())) ||
+            child.ids_ER.some(
+              (id) => id && id.trim() !== '' && cleanedFilters.includes(id)
+            )
         );
       const bSelected =
-        selectedFilters.includes(b.key) ||
+        (b.key && cleanedFilters.includes(b.key)) ||
         b.children.some(
           (child) =>
-            selectedFilters.includes(child.display_name.toLowerCase()) ||
-            child.ids_ER.some((id) => selectedFilters.includes(id))
+            (child.display_name &&
+              cleanedFilters.includes(child.display_name.toLowerCase())) ||
+            child.ids_ER.some(
+              (id) => id && id.trim() !== '' && cleanedFilters.includes(id)
+            )
         );
       return (bSelected ? 1 : 0) - (aSelected ? 1 : 0); // Prioritize selected facets
     });
@@ -175,18 +187,26 @@ const Facets = ({
   filteredFacets.sort((a, b) => {
     const filterLower = value.filter.toLowerCase();
     const aMatches =
-      a.key.toLowerCase().includes(filterLower) ||
+      (a.key && a.key.toLowerCase().includes(filterLower)) ||
       a.children.some(
         (child) =>
-          child.display_name.toLowerCase().includes(filterLower) ||
-          child.ids_ER.some((id) => id.toLowerCase().includes(filterLower))
+          (child.display_name &&
+            child.display_name.toLowerCase().includes(filterLower)) ||
+          child.ids_ER.some(
+            (id) =>
+              id && id.trim() !== '' && id.toLowerCase().includes(filterLower)
+          )
       );
     const bMatches =
-      b.key.toLowerCase().includes(filterLower) ||
+      (b.key && b.key.toLowerCase().includes(filterLower)) ||
       b.children.some(
         (child) =>
-          child.display_name.toLowerCase().includes(filterLower) ||
-          child.ids_ER.some((id) => id.toLowerCase().includes(filterLower))
+          (child.display_name &&
+            child.display_name.toLowerCase().includes(filterLower)) ||
+          child.ids_ER.some(
+            (id) =>
+              id && id.trim() !== '' && id.toLowerCase().includes(filterLower)
+          )
       );
     return (bMatches ? 1 : 0) - (aMatches ? 1 : 0); // Prioritize facets that match the filter
   });
@@ -214,21 +234,32 @@ const Facets = ({
               filterType={filterType}
               highlight={
                 value.filter.trim() !== '' &&
-                (facet.key.toLowerCase().includes(value.filter.toLowerCase()) ||
+                ((facet.key &&
+                  facet.key
+                    .toLowerCase()
+                    .includes(value.filter.toLowerCase())) ||
                   facet.children.some(
                     (child) =>
-                      child.display_name
-                        .toLowerCase()
-                        .includes(value.filter.toLowerCase()) ||
-                      child.ids_ER.some((id) =>
-                        id.toLowerCase().includes(value.filter.toLowerCase())
+                      (child.display_name &&
+                        child.display_name
+                          .toLowerCase()
+                          .includes(value.filter.toLowerCase())) ||
+                      child.ids_ER.some(
+                        (id) =>
+                          id &&
+                          id.trim() !== '' &&
+                          id.toLowerCase().includes(value.filter.toLowerCase())
                       )
                   ))
               }
               selectedFilters={selectedFilters}
-              onFilterChange={(filterType, updatedFilters) =>
-                setSelectedFilters(Array.from(new Set(updatedFilters)))
-              }
+              onFilterChange={(filterType, updatedFilters) => {
+                // Filter out empty or whitespace-only strings before setting
+                const cleanedFilters = updatedFilters.filter(
+                  (filter) => filter && filter.trim() !== ''
+                );
+                setSelectedFilters(Array.from(new Set(cleanedFilters)));
+              }}
             />
           ))}
         </div>
