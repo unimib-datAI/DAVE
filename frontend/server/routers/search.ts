@@ -12,6 +12,7 @@ export type MostSimilarDocument = {
 
 type GetSimilarDocument = {
   doc: Document;
+  full_docs: boolean;
   chunks: {
     id: string;
     distance: number;
@@ -101,6 +102,7 @@ const processResponseMostSImilartDocuments = (
   return docs.map((d) => {
     console.log('most similar docs', d.chunks);
     return {
+      full_docs: d.full_docs,
       id: d.doc.id,
       title: d.doc.name,
       preview: `${d.doc.preview.split(' ').slice(0, 20).join(' ')}...`,
@@ -196,6 +198,7 @@ export const search = createRouter()
       query: z.string(),
       filter_ids: z.array(z.string()).optional(),
       retrievalMethod: z.string().optional(),
+      force_rag: z.boolean().optional(),
     }),
     resolve: async ({ input }) => {
       let index = process.env.ELASTIC_INDEX;
@@ -214,6 +217,7 @@ export const search = createRouter()
             query: input.query,
             filter_ids: input.filter_ids,
             retrievalMethod: input.retrievalMethod,
+            force_rag: input.force_rag,
           }),
         }
       ).then((r) => r.json())) as GetSimilarDocumentResponse;

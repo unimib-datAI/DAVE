@@ -5,6 +5,89 @@ import { SearchIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FacetFilter } from './FacetFilter';
 
+// Entity type grouping map - keys are lowercase
+const entityTypeGroupMap: Record<string, string> = {
+  // Person group
+  person: 'persona',
+  per: 'persona',
+  people: 'persona',
+  individual: 'persona',
+  persona: 'persona',
+
+  // Location group
+  location: 'luogo',
+  loc: 'luogo',
+  place: 'luogo',
+  gpe: 'luogo',
+  luogo: 'luogo',
+
+  // Organization group
+  organization: 'organizzazione',
+  org: 'organizzazione',
+  company: 'organizzazione',
+  institution: 'organizzazione',
+  organizzazione: 'organizzazione',
+
+  // Date/Time group
+  date: 'data',
+  time: 'data',
+  temporal: 'data',
+  data: 'data',
+
+  // Money/Currency group
+  money: 'money',
+  monetary: 'money',
+  currency: 'money',
+  financial: 'money',
+  denaro: 'money',
+
+  // Law/Legal group
+  law: 'norma',
+  legal: 'norma',
+  statute: 'norma',
+  regulation: 'norma',
+  norma: 'norma',
+
+  // Facility types
+  fac: 'facility',
+  facility: 'facility',
+  building: 'facility',
+  structure: 'facility',
+
+  // Nationality/Religion/Political types
+  norp: 'norp',
+  nationality: 'norp',
+  religion: 'norp',
+  political: 'norp',
+
+  // Numeric types
+  cardinal: 'numeric',
+  ordinal: 'numeric',
+  quantity: 'numeric',
+  percent: 'numeric',
+  number: 'numeric',
+
+  // Creative work types
+  work_of_art: 'creative_work',
+  artwork: 'creative_work',
+  creative: 'creative_work',
+
+  // Event types
+  event: 'event',
+
+  // Product types
+  product: 'product',
+
+  // Language types
+  language: 'language',
+};
+
+// Function to get normalized entity type group
+const getNormalizedEntityGroup = (key: string): string => {
+  const lowerKey = key.toLowerCase();
+  return entityTypeGroupMap[lowerKey] || key;
+};
+
 type FacetsProps = {
   facets: FacetedQueryOutput['facets'];
   selectedFilters: string[];
@@ -107,7 +190,31 @@ const facetsAnnotationsOrder = [
 const facetsMetadataOrder = ['anno sentenza', 'anno ruolo'];
 
 const buildFacets = (facets: FacetedQueryOutput['facets']) => {
-  const annotations = facets.annotations
+  // Group annotation facets by normalized entity type
+  const groupedAnnotations = new Map<string, (typeof facets.annotations)[0]>();
+
+  // Process all annotations to group them
+  facets.annotations.forEach((facet) => {
+    const normalizedGroup = getNormalizedEntityGroup(facet.key);
+
+    if (!groupedAnnotations.has(normalizedGroup)) {
+      // Use first occurrence as the base for the group
+      groupedAnnotations.set(normalizedGroup, {
+        ...facet,
+        key: normalizedGroup, // Use normalized key for the group
+        n_children: facet.n_children,
+        children: [...facet.children],
+      });
+    } else {
+      // Merge children into existing group
+      const existingGroup = groupedAnnotations.get(normalizedGroup)!;
+      existingGroup.n_children += facet.n_children;
+      existingGroup.children.push(...facet.children);
+    }
+  });
+
+  // Convert grouped annotations back to array
+  const annotations = Array.from(groupedAnnotations.values())
     .map((facet) => ({ filterType: 'annotation', ...facet }))
     .sort((a, b) => {
       return (
@@ -115,6 +222,7 @@ const buildFacets = (facets: FacetedQueryOutput['facets']) => {
         facetsAnnotationsOrder.indexOf(b.key)
       );
     });
+
   const metadata = facets.metadata
     .map((facet) => ({ filterType: 'metadata', ...facet }))
     .sort((a, b) => {
@@ -150,8 +258,8 @@ const Facets = ({
 
   useEffect(() => {
     // Reorder facets based on selected filters
-    console.log('selected filters ', selectedFilters);
-    console.log('fist facet', filteredFacets[0]);
+    // console.log('selected filters ', selectedFilters);
+    // console.log('fist facet', filteredFacets[0]);
 
     // Clean up selected filters to remove empty or whitespace-only strings
     const cleanedFilters = selectedFilters.filter(
@@ -229,7 +337,7 @@ const Facets = ({
 
           {filteredFacets.map(({ filterType, ...facet }) => (
             <FacetFilter
-              key={facet.key}
+              key={`${facet.key}-${filterType}`}
               facet={facet}
               filterType={filterType}
               highlight={
