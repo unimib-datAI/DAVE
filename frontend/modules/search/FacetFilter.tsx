@@ -58,12 +58,24 @@ const FacetFilter = ({
   const STEP = 10;
   const VISIBLE_ELEMENTS = page * STEP + MAX_VISIBLE_CHILDREN;
 
-  const filteredChildren =
+  // Deduplicate children by their display_name to avoid duplicates in grouped filters
+  const deduplicatedChildren =
     value.filter.trim() === ''
-      ? facet.children.sort((a, b) =>
-          a.display_name.localeCompare(b.display_name)
+      ? Array.from(
+          new Map(
+            facet.children.map((child) => [
+              child.display_name?.toLowerCase() || child.key?.toLowerCase(),
+              child,
+            ])
+          ).values()
         )
       : fuse.current.search(value.filter).map(({ item }) => item);
+
+  // Sort the filtered children
+  const filteredChildren = deduplicatedChildren.sort((a, b) =>
+    (a.display_name || a.key).localeCompare(b.display_name || b.key)
+  );
+
   const children = filteredChildren.slice(0, VISIBLE_ELEMENTS);
 
   const handleChecked = (
@@ -72,24 +84,23 @@ const FacetFilter = ({
     keys: string[],
     option: any
   ) => {
-    console.log('checked filter', checked, key, keys, option);
-
     // Filter out empty or whitespace-only strings
     const validKeys = keys.filter((k) => k && k.trim() !== '');
     const displayName = option.display_name
       ? option.display_name.toLowerCase().trim()
       : '';
 
+    // For grouped entities, we want to ensure we're handling all related keys
+    const allRelatedKeys = [
+      ...validKeys,
+      ...(displayName ? [displayName] : []),
+      key.toLowerCase().trim(),
+    ].filter((k) => k && k.trim() !== '');
+
     const updatedFilters = checked
-      ? Array.from(
-          new Set([
-            ...selectedFilters,
-            ...validKeys,
-            ...(displayName ? [displayName] : []),
-          ])
-        )
+      ? Array.from(new Set([...selectedFilters, ...allRelatedKeys]))
       : selectedFilters.filter(
-          (f) => !validKeys.includes(f) && f !== displayName
+          (f) => !allRelatedKeys.some((k) => k === f.toLowerCase())
         );
 
     // Filter out any empty strings that might have been in selectedFilters
@@ -122,14 +133,15 @@ const FacetFilter = ({
         {children.map((option) => {
           return (
             <Checkbox
-              key={option.key}
+              key={option.key || option.display_name}
               isSelected={
-                (option.key && selectedFilters.includes(option.key)) ||
+                (option.key &&
+                  selectedFilters.some(
+                    (f) => f.toLowerCase() === option.key.toLowerCase()
+                  )) ||
                 (option.display_name &&
-                  selectedFilters.includes(option.display_name)) ||
-                (option.display_name &&
-                  selectedFilters.includes(
-                    option.display_name.toLowerCase()
+                  selectedFilters.some(
+                    (f) => f.toLowerCase() === option.display_name.toLowerCase()
                   )) ||
                 option.ids_ER.some(
                   (id: string) =>
@@ -151,7 +163,7 @@ const FacetFilter = ({
                 )}
                 <span className="text-base whitespace-nowrap text-ellipsis overflow-hidden w-48">
                   {filterType === 'annotation'
-                    ? option.display_name
+                    ? option.display_name || option.key
                     : option.key}
                 </span>
               </div>

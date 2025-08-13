@@ -167,23 +167,36 @@ const Message = ({
                           Relevant passages:
                         </span>
                         <div className="flex flex-row items-center flex-wrap gap-2">
-                          {doc.chunks.map((chunk, chunkIndex) => (
+                          {!doc.full_docs ? (
+                            doc.chunks.map((chunk, chunkIndex) => (
+                              <Tooltip
+                                content={
+                                  <div className="max-w-xs">
+                                    {chunk.text || ''}
+                                  </div>
+                                }
+                                key={`${chunk.id || ''}-${chunkIndex}`}
+                              >
+                                <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
+                                  {chunk.text ? chunk.text.slice(0, 50) : ''}
+                                  {chunk.text && chunk.text.length > 50
+                                    ? '...'
+                                    : ''}
+                                </div>
+                              </Tooltip>
+                            ))
+                          ) : (
                             <Tooltip
                               content={
-                                <div className="max-w-xs">
-                                  {chunk.text || ''}
-                                </div>
+                                <div className="max-w-xs">Full document</div>
                               }
-                              key={`${chunk.id || ''}-${chunkIndex}`}
+                              key={`${doc.id || ''}`}
                             >
                               <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
-                                {chunk.text ? chunk.text.slice(0, 50) : ''}
-                                {chunk.text && chunk.text.length > 50
-                                  ? '...'
-                                  : ''}
+                                Full document
                               </div>
                             </Tooltip>
-                          ))}
+                          )}
                         </div>
                       </div>
                     )}

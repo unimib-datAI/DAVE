@@ -27,7 +27,7 @@ export type GenerateOptions = {
   context?: DocumentWithChunk[];
 };
 const defaultSystemPropmt =
-  "Sei un assistente che parla esclusivamente italiano. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Se non conosci la risposta, limitati a dire che non lo sai. Non dare mai risposte vuote. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio.";
+  "Sei un assistente che parla ITALIANO o INGLESE, scegli in base alla lingua della DOMANDA e del CONTESTO: se la domanda è formulata in INGLESE rispondi in INGLESE, se è formulata in ITALIANO rispondi in ITALIANO. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio. Se non conosci la risposta, limitati a dire che non lo sai.";
 function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
   const [chatHistory, setChatHistory] = useAtom(chatHistoryAtom);
   const [conversationRated, setConversationRated] = useAtom(
@@ -74,8 +74,16 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
               .join(' ')}`
         )
       : '';
-    let content =
-      defaultSystemPropmt + `CONTESTO: ${contextValue} - DOMANDA: ${message}`;
+    let content = '';
+    if (options.system && options.system !== defaultSystemPropmt) {
+      console.log('received system', options.system);
+      content =
+        options.system + `CONTESTO: ${contextValue} - DOMANDA: ${message}`;
+    } else {
+      content =
+        defaultSystemPropmt + `CONTESTO: ${contextValue} - DOMANDA: ${message}`;
+    }
+    console.log('received content', content);
     // Create a new user message
     const userMessage: Message = {
       role: 'user',

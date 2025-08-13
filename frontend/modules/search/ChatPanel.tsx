@@ -32,6 +32,7 @@ type Form = GenerateOptions & {
   retrievalMethod: string;
   useDocumentContext: boolean;
   useCurrentDocumentContext: boolean;
+  force_rag: boolean;
 };
 
 function urlToPathArray(url: string) {
@@ -117,12 +118,13 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     max_new_tokens: 1024,
     top_p: 0.65,
     token_repetition_penalty_max: 1.15,
-    system: `Sei un assistente che parla esclusivamente italiano. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio. Se non conosci la risposta, limitati a dire che non lo sai.`,
+    system: `Sei un assistente che parla ITALIANO o INGLESE, scegli in base alla lingua della DOMANDA e del CONTESTO: se la domanda è formulata in INGLESE rispondi in INGLESE, se è formulata in ITALIANO rispondi in ITALIANO. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio. Se non conosci la risposta, limitati a dire che non lo sai.`,
     message: '',
     useDocumentContext: true,
     retrievalMethod: 'full',
     useCurrentDocumentContext: false,
     top_k: 40,
+    force_rag: false,
   });
 
   const fieldTemperature = register('temperature');
@@ -133,6 +135,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
   const fieldUseDocumentContext = register('useDocumentContext');
   const fieldRetrievalMethod = register('retrievalMethod');
   const useCurrentDocumentContext = register('useCurrentDocumentContext');
+  const fieldForceRag = register('force_rag');
 
   const handleFormSubmit = async (formValues: Form) => {
     if (formValues.message === '') {
@@ -180,11 +183,13 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
           query: formValues.message,
           filter_ids: filterIds,
           retrievalMethod: formValues.retrievalMethod,
+          force_rag: formValues.force_rag,
         })
       : undefined;
+    console.log('context', context[0]);
     console.log(
       'context that will be sent',
-      context.map((doc) => doc.chunks)
+      context.map((doc) => ({ ...doc.chunks, full_docs: doc.full_docs }))
     );
     appendMessage({ ...formValues, context, devMode });
     setValue({
@@ -212,8 +217,6 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                 message.role !== 'system' &&
                 (message.content !== '' || message.role === 'user')
               ) {
-                if (message.role === 'user')
-                  console.log(`Message ${index}: `, message);
                 return (
                   <Message
                     key={index}
@@ -505,6 +508,28 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                     <Radio value="full-text">Full text</Radio>
                     <Radio value="none">None</Radio>
                   </Radio.Group>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <Tooltip
+                    className="w-full"
+                    color="invert"
+                    placement="left"
+                    content="Forces RAG to be used even if regular retrieval would be sufficient."
+                  >
+                    <div className="flex flex-row items-center gap-2 w-full">
+                      <Checkbox
+                        id="force-rag"
+                        checked={fieldForceRag.value}
+                        onCheckedChange={fieldForceRag.onChange}
+                      />
+                      <label
+                        htmlFor="force-rag"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Force RAG
+                      </label>
+                    </div>
+                  </Tooltip>
                 </div>
                 <div className="flex flex-col gap-3 flex-grow">
                   <Tooltip
