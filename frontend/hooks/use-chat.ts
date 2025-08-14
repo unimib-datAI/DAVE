@@ -138,20 +138,15 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
         apiMessages
       );
 
-      // Call API
-      const response = await fetch(
-        process.env.NODE_ENV === 'development'
-          ? `http://vm.chronos.disco.unimib.it:7862/generate`
-          : `http://vm.chronos.disco.unimib.it:7862/generate`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...normalizedOptions,
-            messages: apiMessages,
-          }),
-        }
-      );
+      // Call API through our server-side proxy endpoint
+      const response = await fetch('/holmes24/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...normalizedOptions,
+          messages: apiMessages,
+        }),
+      });
 
       if (!response.ok) {
         throw new Error(`API Error: ${response.status}`);

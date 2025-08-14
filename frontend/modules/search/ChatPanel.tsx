@@ -118,7 +118,9 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     max_new_tokens: 1024,
     top_p: 0.65,
     token_repetition_penalty_max: 1.15,
-    system: `Sei un assistente che parla ITALIANO o INGLESE, scegli in base alla lingua della DOMANDA e del CONTESTO: se la domanda è formulata in INGLESE rispondi in INGLESE, se è formulata in ITALIANO rispondi in ITALIANO. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio. Se non conosci la risposta, limitati a dire che non lo sai.`,
+    system:
+      process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
+      `Sei un assistente che parla ITALIANO o INGLESE, scegli in base alla lingua della DOMANDA e del CONTESTO: se la domanda è formulata in INGLESE rispondi in INGLESE, se è formulata in ITALIANO rispondi in ITALIANO. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio. Se non conosci la risposta, limitati a dire che non lo sai.`,
     message: '',
     useDocumentContext: true,
     retrievalMethod: 'full',
@@ -152,11 +154,8 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
           .filter(
             (doc) =>
               Array.isArray(doc.annotations) &&
-              doc.annotations.some(
-                (ann: any) =>
-                  selectedFilters.includes(ann.id_ER) ||
-                  selectedFilters.includes(ann.display_name?.toLowerCase()) ||
-                  selectedFilters.includes(ann.display_name)
+              doc.annotations.some((ann: any) =>
+                selectedFilters.includes(ann.id_ER)
               )
           )
           .map((doc) => doc.id.toString());
@@ -550,7 +549,10 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                       className="text-slate-800 resize-none bg-transparent w-full border-none text-sm h-full"
                       spellCheck="false"
                       rows={10}
-                      placeholder="Here you can add your system prompt which determins the behaviour of the AI model."
+                      placeholder={
+                        process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
+                        'Here you can add your system prompt which determins the behaviour of the AI model.'
+                      }
                       {...register('system')}
                     />
                   </div>
