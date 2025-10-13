@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ProcessedCluster } from '../DocumentProvider/types';
 import { Button } from '@nextui-org/react';
 import { Checkbox, Col, Drawer, message, Modal, Row, Select, Tag } from 'antd';
@@ -7,6 +7,7 @@ import {
   selectDocumentId,
   selectDocumentTaxonomy,
   useSelector,
+  useDocumentContext,
 } from '../DocumentProvider/selectors';
 import { getAllNodeData } from '@/components/Tree';
 import {
@@ -25,7 +26,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useMutation } from '@/utils/trpc';
-import { DocumentContext } from '../DocumentProvider/DocumentProvider';
+
 import { getClustersGroups, groupBy } from '@/utils/shared';
 import { CheckboxChangeEvent } from 'antd/es/checkbox';
 
@@ -137,6 +138,7 @@ const dragAndDropColStyle = {
 };
 const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
   const [isOpen, setIsOpen] = useState(false); //modal open closed state
+  const [isSaving, setIsSaving] = useState(false); //loading state for save button
   const [sourceCluster, setSourceCluster] = useState<ProcessedCluster | null>(
     null
   ); //selected source cluster
@@ -150,7 +152,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
   const taxonomy = useSelector(selectDocumentTaxonomy); //taxonomy of the document
   const docId = useSelector(selectDocumentId);
   const annSetName = useSelector(selectCurrentAnnotationSetName);
-  const context = useContext(DocumentContext);
+  const context = useDocumentContext();
   const moveEntitiesToClusters = useMutation([
     'document.moveEntitiesToCluster',
   ]);
@@ -307,6 +309,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
 
   async function handleSave() {
     let success = false;
+    setIsSaving(true);
     try {
       let updatedDoc = moveEntitiesToClusters.mutate(
         {
@@ -322,9 +325,11 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
               let clusterGroups = getClustersGroups(data, annSetName);
 
               onEdit(clusterGroups);
-              context?.updateData(data);
+              context.updateData(data);
               message.success('Clusters aggiornati con successo');
               success = true;
+              // Close drawer only after successful save
+              setIsOpen(false);
             }
           },
         }
@@ -333,6 +338,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
     } catch (error) {
       console.error(error);
     } finally {
+      setIsSaving(false);
       setSourceCluster(null);
       setDestCluster(null);
       setSourceList([]);
@@ -358,7 +364,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
         width={'70%'}
         title="Modifica cluster"
         open={isOpen}
-        onClose={() => setIsOpen(false)}
+        onClose={() => !isSaving && setIsOpen(false)}
       >
         <Row justify="space-between" align="middle" gutter={0}>
           <Col span={10}>
@@ -545,7 +551,9 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
         </Row>
         {editedClusters && (
           <Row justify={'center'}>
-            <Button onClick={handleSave}>Salva</Button>
+            <Button onClick={handleSave} loading={isSaving}>
+              Salva
+            </Button>
           </Row>
         )}
       </Drawer>

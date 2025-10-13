@@ -470,7 +470,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                   />
                 </div>
                 <div className="flex flex-col gap-3">
-                  <Tooltip
+                  {/*<Tooltip
                     className="w-full"
                     color="invert"
                     placement="left"
@@ -489,7 +489,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                         Use documents context
                       </label>
                     </div>
-                  </Tooltip>
+                  </Tooltip>*/}
                   <span className="text-sm font-semibold">
                     Retrieval method
                   </span>

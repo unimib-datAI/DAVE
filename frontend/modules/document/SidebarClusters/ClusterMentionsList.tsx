@@ -65,7 +65,12 @@ const Mark = styled.mark({
 });
 
 const highlightMatchingText = (text: string, matchingText: string) => {
-  const matchRegex = RegExp(matchingText, 'ig');
+  // Escape special regex characters
+  const escapedMatchingText = matchingText.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&'
+  );
+  const matchRegex = RegExp(escapedMatchingText, 'ig');
 
   // Matches array needed to maintain the correct letter casing
   const matches = [...Array.from(text.matchAll(matchRegex))];
@@ -111,25 +116,54 @@ const ClusterMentionsList = ({
         return;
       }
 
-      // Directly highlight the annotation - the VirtualizedNER component will handle scrolling
+      // Clear any existing highlight first to ensure a fresh highlight
       dispatch({
         type: 'highlightAnnotation',
         payload: {
-          annotationId: id,
+          annotationId: -1,
         },
       });
 
-      // Wait for the VirtualizedNER to scroll to the annotation, then scroll to the specific element
-      setTimeout(() => {
-        const element = document.getElementById(`entity-tag-${id}`);
-        if (element) {
-          element.scrollIntoView({
-            behavior: 'smooth',
-            block: 'center',
-            inline: 'nearest',
-          });
-        }
-      }, 200); // Reduced delay since we don't need to wait for page loading
+      // Use requestAnimationFrame to ensure the clear has been processed
+      requestAnimationFrame(() => {
+        // Set the new highlight
+        dispatch({
+          type: 'highlightAnnotation',
+          payload: {
+            annotationId: id,
+          },
+        });
+
+        // Wait longer for the VirtualizedNER to scroll and render the annotation
+        const scrollAndHighlight = () => {
+          const element = document.getElementById(`entity-tag-${id}`);
+          if (element) {
+            element.scrollIntoView({
+              behavior: 'smooth',
+              block: 'center',
+              inline: 'nearest',
+            });
+          } else {
+            // If element not found immediately, try again after a short delay
+            setTimeout(() => {
+              const retryElement = document.getElementById(`entity-tag-${id}`);
+              if (retryElement) {
+                retryElement.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'center',
+                  inline: 'nearest',
+                });
+              } else {
+                console.warn(
+                  `Entity element with id entity-tag-${id} not found after retry`
+                );
+              }
+            }, 200);
+          }
+        };
+
+        setTimeout(scrollAndHighlight, 300); // Increased delay to allow virtualization to render
+      });
     },
     [annotations, dispatch]
   );

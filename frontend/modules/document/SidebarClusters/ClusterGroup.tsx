@@ -94,7 +94,19 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
 
   const typesPath = useMemo(() => {
     const nodes = getNodesPath(taxonomy, type);
-    return nodes.map((n) => n.label).join(' / ');
+    const path = nodes.map((n) => n.label).join(' / ');
+
+    // If the root node is "Altro" (UNKNOWN) and we have an actual type value,
+    // append the original type to show "Altro/type"
+    if (
+      nodes.length === 1 &&
+      nodes[0].key === 'UNKNOWN' &&
+      type !== 'UNKNOWN'
+    ) {
+      return `${path}/${type}`;
+    }
+
+    return path;
   }, [type]);
 
   // Filter and sort clusters based on searchTerm and selectedSort

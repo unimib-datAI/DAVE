@@ -1,6 +1,183 @@
 import { isTopLevelItem } from './Node';
 import { TreeItem, ChildTreeItem } from './Tree';
 
+// Cache for random colors assigned to entity types
+const entityColorCache = new Map<string, string>();
+
+// Existing taxonomy colors to avoid when generating random colors
+const existingColors = [
+  '#FCE7F3', // persona - light pink
+  '#ffdebf', // data - light orange
+  '#FAE8FF', // luogo - light purple
+  '#8d9c1a', // norma - olive green
+  '#a63c22', // id - dark red
+  '#baf2e6', // organizzazione - light teal
+  '#a05c72', // money - dark pink
+  '#7cb9e8', // case - light blue
+  '#4a90e2', // REGULATION - blue
+  '#f5a623', // ROLE - orange
+  '#d0021b', // AUTHORITY - red
+  '#7ed321', // DATA.CAT - green
+  '#bd10e0', // DATA.OP - purple
+  '#9013fe', // RIGHT - purple-blue
+  '#ff6b35', // RISK/IMPACT - orange-red
+  '#e2e2e2', // UNKNOWN - gray
+];
+
+/**
+ * Converts hex color to HSL for color comparison
+ */
+const hexToHsl = (hex: string): [number, number, number] => {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0,
+    s = 0,
+    l = (max + min) / 2;
+
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+    switch (max) {
+      case r:
+        h = (g - b) / d + (g < b ? 6 : 0);
+        break;
+      case g:
+        h = (b - r) / d + 2;
+        break;
+      case b:
+        h = (r - g) / d + 4;
+        break;
+    }
+    h /= 6;
+  }
+
+  return [h * 360, s * 100, l * 100];
+};
+
+/**
+ * Checks if a color is too similar to existing taxonomy colors
+ */
+const isColorTooSimilar = (newColor: string): boolean => {
+  const [newH, newS, newL] = hexToHsl(newColor);
+
+  return existingColors.some((existingColor) => {
+    const [existingH, existingS, existingL] = hexToHsl(existingColor);
+
+    // Check if colors are too similar in hue, saturation, and lightness
+    const hueDiff = Math.min(
+      Math.abs(newH - existingH),
+      360 - Math.abs(newH - existingH)
+    );
+    const satDiff = Math.abs(newS - existingS);
+    const lightDiff = Math.abs(newL - existingL);
+
+    // Consider colors too similar if they're close in all three dimensions
+    return hueDiff < 30 && satDiff < 20 && lightDiff < 20;
+  });
+};
+
+/**
+ * Generates a random color in hex format that doesn't conflict with existing taxonomy colors
+ */
+const generateRandomColor = (): string => {
+  let attempts = 0;
+  const maxAttempts = 50;
+
+  while (attempts < maxAttempts) {
+    // Generate bright, vibrant colors by ensuring good saturation and lightness
+    const hue = Math.floor(Math.random() * 360);
+    const saturation = Math.floor(Math.random() * 40) + 60; // 60-100%
+    const lightness = Math.floor(Math.random() * 35) + 45; // 45-80%
+
+    // Convert HSL to RGB
+    const c = (1 - Math.abs(2 * (lightness / 100) - 1)) * (saturation / 100);
+    const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+    const m = lightness / 100 - c / 2;
+
+    let r = 0,
+      g = 0,
+      b = 0;
+
+    if (0 <= hue && hue < 60) {
+      r = c;
+      g = x;
+      b = 0;
+    } else if (60 <= hue && hue < 120) {
+      r = x;
+      g = c;
+      b = 0;
+    } else if (120 <= hue && hue < 180) {
+      r = 0;
+      g = c;
+      b = x;
+    } else if (180 <= hue && hue < 240) {
+      r = 0;
+      g = x;
+      b = c;
+    } else if (240 <= hue && hue < 300) {
+      r = x;
+      g = 0;
+      b = c;
+    } else if (300 <= hue && hue < 360) {
+      r = c;
+      g = 0;
+      b = x;
+    }
+
+    const rHex = Math.round((r + m) * 255)
+      .toString(16)
+      .padStart(2, '0');
+    const gHex = Math.round((g + m) * 255)
+      .toString(16)
+      .padStart(2, '0');
+    const bHex = Math.round((b + m) * 255)
+      .toString(16)
+      .padStart(2, '0');
+
+    const color = `#${rHex}${gHex}${bHex}`;
+
+    // Check if this color is sufficiently different from existing ones
+    if (!isColorTooSimilar(color)) {
+      return color;
+    }
+
+    attempts++;
+  }
+
+  // Fallback: return a color even if it might be similar (shouldn't happen often)
+  const fallbackHue = Math.floor(Math.random() * 360);
+  return `hsl(${fallbackHue}, 75%, 65%)`;
+};
+
+/**
+ * Gets or generates a random color for an entity type
+ */
+const getRandomColorForEntityType = (entityType: string): string => {
+  if (!entityColorCache.has(entityType)) {
+    entityColorCache.set(entityType, generateRandomColor());
+  }
+  return entityColorCache.get(entityType)!;
+};
+
+/**
+ * Clears the entity color cache - useful for resetting random colors
+ */
+export const clearEntityColorCache = (): void => {
+  entityColorCache.clear();
+};
+
+/**
+ * Gets all cached entity colors
+ */
+export const getEntityColorCache = (): Map<string, string> => {
+  return new Map(entityColorCache);
+};
+
 export type ParentNode = Omit<TreeItem, 'children'> & { parent: string | null };
 export type ChildNode = Omit<ChildTreeItem, 'children'> & { parent: string };
 export type ChildNodeWithColor = Omit<ChildNode, 'parent'> & { color: string };
@@ -85,164 +262,127 @@ export const insertNodeFlat = (obj: FlatTreeObj, node: FlatTreeNode) => {
 };
 
 // Entity type mapping from English to Italian and grouping similar types
-const entityTypeMapping: Record<string, string> = {
-  // Person types
-  person: 'persona',
-  Person: 'persona',
-  PER: 'persona',
-  PERSON: 'persona',
-  people: 'persona',
-  People: 'persona',
-  individual: 'persona',
-  Individual: 'persona',
+// Using a case-insensitive approach to avoid TypeScript object key conflicts
+const entityTypeMapping: Record<string, string> = {};
 
-  // Location types
-  location: 'luogo',
-  Location: 'luogo',
-  LOC: 'luogo',
-  LOCATION: 'luogo',
-  place: 'luogo',
-  Place: 'luogo',
-  gpe: 'luogo', // Geo-political entity
-  GPE: 'luogo',
-  Gpe: 'luogo',
-
-  // Organization types
-  organization: 'organizzazione',
-  Organization: 'organizzazione',
-  ORG: 'organizzazione',
-  ORGANIZATION: 'organizzazione',
-  org: 'organizzazione',
-  Org: 'organizzazione',
-  company: 'organizzazione',
-  Company: 'organizzazione',
-  institution: 'organizzazione',
-  Institution: 'organizzazione',
-
-  // Date types
-  date: 'data',
-  Date: 'data',
-  DATE: 'data',
-  time: 'data',
-  Time: 'data',
-  TIME: 'data',
-  temporal: 'data',
-  Temporal: 'data',
-
-  // Money types
-  money: 'money',
-  Money: 'money',
-  MONEY: 'money',
-  MONETARY: 'money',
-  Monetary: 'money',
-  currency: 'money',
-  Currency: 'money',
-  financial: 'money',
-  Financial: 'money',
-  denaro: 'money',
-  Denaro: 'money',
-
-  // Legal/Document specific types
-  law: 'norma',
-  Law: 'norma',
-  LAW: 'norma',
-  legal: 'norma',
-  Legal: 'norma',
-  statute: 'norma',
-  Statute: 'norma',
-  regulation: 'norma',
-  Regulation: 'norma',
-
-  // Identifier types
-  id: 'id',
-  Id: 'id',
-  ID: 'id',
-  identifier: 'id',
-  Identifier: 'id',
-  number: 'id',
-  Number: 'id',
-  code: 'id',
-  Code: 'id',
-
-  // Facility types
-  FAC: 'facility',
-  fac: 'facility',
-  Fac: 'facility',
-  facility: 'facility',
-  Facility: 'facility',
-  building: 'facility',
-  Building: 'facility',
-  structure: 'facility',
-  Structure: 'facility',
-
-  // Nationality/Religion/Political types
-  NORP: 'norp',
-  norp: 'norp',
-  Norp: 'norp',
-  nationality: 'norp',
-  Nationality: 'norp',
-  religion: 'norp',
-  Religion: 'norp',
-  political: 'norp',
-  Political: 'norp',
-
-  // Numeric types
-  CARDINAL: 'numeric',
-  cardinal: 'numeric',
-  Cardinal: 'numeric',
-  ORDINAL: 'numeric',
-  ordinal: 'numeric',
-  Ordinal: 'numeric',
-  QUANTITY: 'numeric',
-  quantity: 'numeric',
-  Quantity: 'numeric',
-  PERCENT: 'numeric',
-  percent: 'numeric',
-  Percent: 'numeric',
-  number: 'numeric',
-  Number: 'numeric',
-
-  // Creative work types
-  WORK_OF_ART: 'creative_work',
-  work_of_art: 'creative_work',
-  Work_of_art: 'creative_work',
-  artwork: 'creative_work',
-  Artwork: 'creative_work',
-  creative: 'creative_work',
-  Creative: 'creative_work',
-
-  // Event types
-  EVENT: 'event',
-  event: 'event',
-  Event: 'event',
-
-  // Product types
-  PRODUCT: 'product',
-  product: 'product',
-  Product: 'product',
-
-  // Language types
-  LANGUAGE: 'language',
-  language: 'language',
-  Language: 'language',
-
-  // Miscellaneous types
-  misc: 'UNKNOWN',
-  Misc: 'UNKNOWN',
-  MISC: 'UNKNOWN',
-  miscellaneous: 'UNKNOWN',
-  Miscellaneous: 'UNKNOWN',
-  MISCELLANEOUS: 'UNKNOWN',
-  other: 'UNKNOWN',
-  Other: 'UNKNOWN',
-  OTHER: 'UNKNOWN',
-
-  // Default mapping for other unknown types
-  unknown: 'UNKNOWN',
-  Unknown: 'UNKNOWN',
-  UNK: 'UNKNOWN',
-  UNKNOWN: 'UNKNOWN',
+// Helper function to add mappings safely
+const addMapping = (key: string, value: string) => {
+  entityTypeMapping[key] = value;
 };
+
+// Person types
+addMapping('person', 'persona');
+addMapping('PER', 'persona');
+addMapping('PERSON', 'persona');
+addMapping('people', 'persona');
+addMapping('individual', 'persona');
+
+// Location types
+addMapping('location', 'luogo');
+addMapping('LOC', 'luogo');
+addMapping('LOCATION', 'luogo');
+addMapping('place', 'luogo');
+addMapping('gpe', 'luogo'); // Geo-political entity
+addMapping('GPE', 'luogo');
+
+// Organization types
+addMapping('organization', 'organizzazione');
+addMapping('ORG', 'organizzazione');
+addMapping('ORGANIZATION', 'organizzazione');
+addMapping('org', 'organizzazione');
+addMapping('company', 'organizzazione');
+addMapping('institution', 'organizzazione');
+
+// Date types
+addMapping('date', 'data');
+addMapping('DATE', 'data');
+addMapping('time', 'data');
+addMapping('TIME', 'data');
+addMapping('temporal', 'data');
+
+// Money types
+addMapping('money', 'money');
+addMapping('MONEY', 'money');
+addMapping('MONETARY', 'money');
+addMapping('currency', 'money');
+addMapping('financial', 'money');
+addMapping('denaro', 'money');
+
+// Legal/Document specific types
+addMapping('law', 'norma');
+addMapping('LAW', 'norma');
+addMapping('legal', 'norma');
+addMapping('statute', 'norma');
+
+// Identifier types
+addMapping('id', 'id');
+addMapping('ID', 'id');
+addMapping('identifier', 'id');
+addMapping('code', 'id');
+
+// Facility types
+addMapping('FAC', 'facility');
+addMapping('fac', 'facility');
+addMapping('facility', 'facility');
+addMapping('building', 'facility');
+addMapping('structure', 'facility');
+
+// Nationality/Religion/Political types
+addMapping('NORP', 'norp');
+addMapping('norp', 'norp');
+addMapping('nationality', 'norp');
+addMapping('religion', 'norp');
+addMapping('political', 'norp');
+
+// Numeric types
+addMapping('CARDINAL', 'numeric');
+addMapping('cardinal', 'numeric');
+addMapping('ORDINAL', 'numeric');
+addMapping('ordinal', 'numeric');
+addMapping('QUANTITY', 'numeric');
+addMapping('quantity', 'numeric');
+addMapping('PERCENT', 'numeric');
+addMapping('percent', 'numeric');
+addMapping('number', 'numeric');
+addMapping('NUM', 'numeric');
+
+// Creative work types
+addMapping('WORK_OF_ART', 'creative_work');
+addMapping('work_of_art', 'creative_work');
+addMapping('artwork', 'creative_work');
+addMapping('creative', 'creative_work');
+
+// Event types
+addMapping('EVENT', 'event');
+addMapping('event', 'event');
+
+// Product types
+addMapping('PRODUCT', 'product');
+addMapping('product', 'product');
+
+// Case types (newly added)
+addMapping('CASE', 'case');
+addMapping('case', 'case');
+addMapping('case_number', 'case');
+addMapping('CASE_NUMBER', 'case');
+addMapping('lawsuit', 'case');
+addMapping('LAWSUIT', 'case');
+
+// Language types
+addMapping('LANGUAGE', 'language');
+addMapping('language', 'language');
+
+// Miscellaneous types
+addMapping('misc', 'UNKNOWN');
+addMapping('MISC', 'UNKNOWN');
+addMapping('miscellaneous', 'UNKNOWN');
+addMapping('other', 'UNKNOWN');
+addMapping('OTHER', 'UNKNOWN');
+
+// Default mapping for other unknown types
+addMapping('unknown', 'UNKNOWN');
+addMapping('UNK', 'UNKNOWN');
+addMapping('UNKNOWN', 'UNKNOWN');
 
 /**
  * Maps entity types from English to Italian equivalents
@@ -307,8 +447,15 @@ export const getAllNodeData = (
   const parentNode = ascend(obj, key) as ParentNode;
   const { parent, ...nodeProps } = node;
 
+  // If the parent is UNKNOWN and the original key is different from UNKNOWN,
+  // assign a random color instead of the gray UNKNOWN color
+  let color = parentNode.color;
+  if (parentNode.key === 'UNKNOWN' && key !== 'UNKNOWN') {
+    color = getRandomColorForEntityType(key);
+  }
+
   return {
-    color: parentNode.color,
+    color,
     ...nodeProps,
   };
 };

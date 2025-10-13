@@ -17,23 +17,17 @@ const DocumentHit = ({
 }: DocumentHitProps) => {
   // Find matching annotation ids and display names
   const matchedItems = Array.isArray(hit.annotations)
-    ? hit.annotations.filter(
-        (ann: any) =>
-          selectedFilters.includes(ann.id_ER) ||
-          selectedFilters.includes(ann.display_name?.toLowerCase()) ||
-          selectedFilters.includes(ann.display_name)
-      )
+    ? hit.annotations.filter((ann: any) => selectedFilters.includes(ann.id_ER))
     : [];
 
   // Remove duplicates using Set for cleaner deduplication
   const uniqueMatchedItems = (() => {
     const seen = new Set<string>();
     return matchedItems.filter((item: any) => {
-      const displayName = item.display_name || item.id_ER;
-      if (seen.has(displayName)) {
+      if (seen.has(item.id_ER)) {
         return false;
       }
-      seen.add(displayName);
+      seen.add(item.id_ER);
       return true;
     });
   })();
@@ -67,14 +61,21 @@ const DocumentHit = ({
           {/* Chips for matched filters */}
           {uniqueMatchedItems.length > 0 && (
             <div className="flex flex-row flex-wrap gap-2 mt-4">
-              {uniqueMatchedItems.map((item: any) => (
+              {Array.from(
+                new Set(
+                  uniqueMatchedItems.map(
+                    (item: any) =>
+                      item.display_name ||
+                      filterIdToDisplayName[item.id_ER] ||
+                      item.id_ER
+                  )
+                )
+              ).map((displayName: string) => (
                 <span
-                  key={item.id_ER}
+                  key={displayName}
                   className="px-2 py-1 rounded-full bg-blue-200 text-blue-900 text-xs font-semibold"
                 >
-                  {item.display_name ||
-                    filterIdToDisplayName[item.id_ER] ||
-                    item.id_ER}
+                  {displayName}
                 </span>
               ))}
             </div>

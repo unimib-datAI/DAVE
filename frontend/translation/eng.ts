@@ -50,6 +50,7 @@ const t: Translation = {
     },
     subToolbar: {
       anonimize: "Anonimize person's names",
+      deAnonimize: 'De-anonymize document',
       annotationSet: {
         label: 'Set',
         new: 'New annotation set',

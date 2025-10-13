@@ -71,9 +71,14 @@ const FacetFilter = ({
         )
       : fuse.current.search(value.filter).map(({ item }) => item);
 
+  // Filter out anonymous personas
+  const filteredAnonymous = deduplicatedChildren.filter(
+    (child) => child.display_name !== '[ANONYMOUS PERSONA]'
+  );
+
   // Sort the filtered children
-  const filteredChildren = deduplicatedChildren.sort((a, b) =>
-    (a.display_name || a.key).localeCompare(b.display_name || b.key)
+  const filteredChildren = filteredAnonymous.sort((a, b) =>
+    (a.display_name || a.key || '').localeCompare(b.display_name || b.key || '')
   );
 
   const children = filteredChildren.slice(0, VISIBLE_ELEMENTS);
@@ -84,28 +89,46 @@ const FacetFilter = ({
     keys: string[],
     option: any
   ) => {
-    // Filter out empty or whitespace-only strings
-    const validKeys = keys.filter((k) => k && k.trim() !== '');
-    const displayName = option.display_name
-      ? option.display_name.toLowerCase().trim()
-      : '';
+    // Normalize all keys to lowercase and filter out empty strings
+    const normalizedKey = key.toLowerCase().trim();
+    const normalizedIds = keys
+      .filter((k) => k && k.trim() !== '')
+      .map((k) => k.toLowerCase().trim());
 
-    // For grouped entities, we want to ensure we're handling all related keys
-    const allRelatedKeys = [
-      ...validKeys,
-      ...(displayName ? [displayName] : []),
-      key.toLowerCase().trim(),
-    ].filter((k) => k && k.trim() !== '');
+    // All possible keys for this option (normalized)
+    const allOptionKeys = [normalizedKey, ...normalizedIds].filter(
+      (k) => k && k.trim() !== ''
+    );
 
-    const updatedFilters = checked
-      ? Array.from(new Set([...selectedFilters, ...allRelatedKeys]))
-      : selectedFilters.filter(
-          (f) => !allRelatedKeys.some((k) => k === f.toLowerCase())
+    // Normalize current selected filters for comparison
+    const normalizedSelectedFilters = selectedFilters.map((f) =>
+      f.toLowerCase().trim()
+    );
+
+    let updatedFilters: string[];
+
+    if (checked) {
+      // Add all option keys (use original case from keys array, or normalized key if not in keys)
+      const keysToAdd = allOptionKeys.map((normalizedKey) => {
+        // Try to find original case version in the keys array
+        const originalKey = keys.find(
+          (k) => k.toLowerCase().trim() === normalizedKey
         );
+        return originalKey || normalizedKey;
+      });
 
-    // Filter out any empty strings that might have been in selectedFilters
+      updatedFilters = Array.from(new Set([...selectedFilters, ...keysToAdd]));
+    } else {
+      // Remove all related keys (case-insensitive comparison)
+      updatedFilters = selectedFilters.filter((selectedFilter) => {
+        const normalizedSelectedFilter = selectedFilter.toLowerCase().trim();
+        return !allOptionKeys.includes(normalizedSelectedFilter);
+      });
+    }
+
+    // Filter out any empty strings
     const cleanedFilters = updatedFilters.filter((f) => f && f.trim() !== '');
-    onFilterChange(filterType, Array.from(new Set(cleanedFilters)));
+    onFilterChange(filterType, cleanedFilters);
   };
 
   return (
@@ -133,27 +156,26 @@ const FacetFilter = ({
         {children.map((option) => {
           return (
             <Checkbox
-              key={option.key || option.display_name}
+              key={option.key}
               isSelected={
                 (option.key &&
                   selectedFilters.some(
-                    (f) => f.toLowerCase() === option.key.toLowerCase()
-                  )) ||
-                (option.display_name &&
-                  selectedFilters.some(
-                    (f) => f.toLowerCase() === option.display_name.toLowerCase()
+                    (f) =>
+                      f.toLowerCase().trim() === option.key.toLowerCase().trim()
                   )) ||
                 option.ids_ER.some(
                   (id: string) =>
-                    id && id.trim() !== '' && selectedFilters.includes(id)
+                    id &&
+                    id.trim() !== '' &&
+                    selectedFilters.some(
+                      (f) => f.toLowerCase().trim() === id.toLowerCase().trim()
+                    )
                 )
               }
-              value={
-                filterType === 'annotation' ? option.display_name : option.key
-              }
-              onChange={(checked) =>
-                handleChecked(checked, option.key, option.ids_ER, option)
-              }
+              value={option.key}
+              onChange={(checked) => {
+                handleChecked(checked, option.key, option.ids_ER, option);
+              }}
             >
               <div className="flex flex-row items-center gap-1">
                 {option.is_linked && (

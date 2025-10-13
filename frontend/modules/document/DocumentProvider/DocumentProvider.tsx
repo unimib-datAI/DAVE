@@ -20,22 +20,19 @@ import { orderAnnotations } from '@/lib/ner/core';
 import { createTaxonomy } from './utils';
 import { mapEntityType } from '../../../components/Tree/utils';
 import { useDocumentDispatch } from './selectors';
-interface DocumentContextType {
-  data: any; // Replace `any` with your actual data type
-  updateData: (newData: any) => void; // Define the type for newData
-}
-
-export const DocumentContext = createContext<DocumentContextType | undefined>(
-  undefined
-);
+import { DocumentContext } from './DocumentContext';
 /**
  * Fetches a document and provides it to the context consumer globally for the page.
  */
 const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   const [id] = useParam<string>('id');
-  const { data, isFetching } = useQuery(['document.getDocument', { id: id }], {
-    staleTime: Infinity,
-  });
+  const [deAnonimize, setDeAnonimize] = useState(false);
+  const { data, isFetching } = useQuery(
+    ['document.getDocument', { id: id, deAnonimize }],
+    {
+      staleTime: Infinity,
+    }
+  );
   // State to hold the document data
   const [documentData, setDocumentData] = useState(data);
   useEffect(() => {
@@ -51,7 +48,9 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   }
 
   return documentData ? (
-    <DocumentContext.Provider value={{ data: documentData, updateData }}>
+    <DocumentContext.Provider
+      value={{ data: documentData, updateData, deAnonimize, setDeAnonimize }}
+    >
       <DocumentStateProvider data={documentData}>
         {children}
       </DocumentStateProvider>

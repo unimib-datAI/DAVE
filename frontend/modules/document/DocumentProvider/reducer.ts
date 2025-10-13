@@ -302,12 +302,8 @@ export const documentReducer = createImmerReducer<State, Action>({
         type: mappedType,
         mention: text,
         is_linked: false,
-        display_name:
-          type === 'persona' || type === 'parte' || type === 'controparte'
-            ? `[ANONYMOUS ${mappedType.toUpperCase()}]`
-            : text,
-        anonymize:
-          type === 'persona' || type === 'parte' || type === 'controparte',
+        display_name: text,
+        anonymize: false,
       };
 
       // Dispatch a custom event to be caught by the ToolbarContent
