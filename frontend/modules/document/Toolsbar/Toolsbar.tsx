@@ -5,6 +5,7 @@ import FixedItems from './FixedItems';
 import SelectAnnotationSet from './SelectAnnotationSet';
 import SelectTypeFilter from './SelectTypeFilter';
 import { AnonimizeSwitch } from './AnonimizeSwitch';
+import { DeAnonimizeButton } from './DeAnonimizeButton';
 
 const Container = styled.div({
   display: 'flex',
@@ -35,6 +36,7 @@ const Toolsbar = () => {
         <SelectAnnotationSet />
         <SelectTypeFilter />
         <AnonimizeSwitch />
+        <DeAnonimizeButton />
       </ItemsContainer>
       {isLastView && <FixedItems />}
     </Container>

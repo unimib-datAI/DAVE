@@ -44,7 +44,7 @@ export const getNormalizedEntityType = (type: string): string => {
   }
 
   // Legal types
-  if (/^(law|legal|statute|regulation)s?$/i.test(lowerType)) {
+  if (/^(law|legal|statute)s?$/i.test(lowerType)) {
     return 'norma';
   }
 

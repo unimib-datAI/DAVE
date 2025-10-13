@@ -212,6 +212,7 @@ const buildFacets = (facets: FacetedQueryOutput['facets']) => {
       existingGroup.children.push(...facet.children);
     }
   });
+  console.log('grouped ann', groupedAnnotations);
 
   // Convert grouped annotations back to array
   const annotations = Array.from(groupedAnnotations.values())
@@ -247,7 +248,7 @@ const Facets = ({
 
   const fuse = useRef(
     new Fuse(allFacets, {
-      keys: ['key'],
+      keys: ['key', 'display_name'],
     })
   );
 
@@ -266,58 +267,67 @@ const Facets = ({
       (filter) => filter && filter.trim() !== ''
     );
 
+    // Normalize cleaned filters for consistent comparison
+    const normalizedSelectedFilters = cleanedFilters.map((f) =>
+      f.toLowerCase().trim()
+    );
+
     filteredFacets.sort((a, b) => {
       const aSelected =
-        (a.key && cleanedFilters.includes(a.key)) ||
-        a.children.some(
-          (child) =>
-            (child.display_name &&
-              cleanedFilters.includes(child.display_name.toLowerCase())) ||
-            child.ids_ER.some(
-              (id) => id && id.trim() !== '' && cleanedFilters.includes(id)
-            )
+        (a.key &&
+          normalizedSelectedFilters.includes(a.key.toLowerCase().trim())) ||
+        a.children.some((child) =>
+          child.ids_ER.some(
+            (id) =>
+              id &&
+              id.trim() !== '' &&
+              normalizedSelectedFilters.includes(id.toLowerCase().trim())
+          )
         );
       const bSelected =
-        (b.key && cleanedFilters.includes(b.key)) ||
-        b.children.some(
-          (child) =>
-            (child.display_name &&
-              cleanedFilters.includes(child.display_name.toLowerCase())) ||
-            child.ids_ER.some(
-              (id) => id && id.trim() !== '' && cleanedFilters.includes(id)
-            )
+        (b.key &&
+          normalizedSelectedFilters.includes(b.key.toLowerCase().trim())) ||
+        b.children.some((child) =>
+          child.ids_ER.some(
+            (id) =>
+              id &&
+              id.trim() !== '' &&
+              normalizedSelectedFilters.includes(id.toLowerCase().trim())
+          )
         );
       return (bSelected ? 1 : 0) - (aSelected ? 1 : 0); // Prioritize selected facets
     });
   }, [selectedFilters, filteredFacets]);
 
   // Reorder filtered facets to prioritize matches
-  filteredFacets.sort((a, b) => {
-    const filterLower = value.filter.toLowerCase();
-    const aMatches =
-      (a.key && a.key.toLowerCase().includes(filterLower)) ||
-      a.children.some(
-        (child) =>
-          (child.display_name &&
-            child.display_name.toLowerCase().includes(filterLower)) ||
-          child.ids_ER.some(
-            (id) =>
-              id && id.trim() !== '' && id.toLowerCase().includes(filterLower)
-          )
-      );
-    const bMatches =
-      (b.key && b.key.toLowerCase().includes(filterLower)) ||
-      b.children.some(
-        (child) =>
-          (child.display_name &&
-            child.display_name.toLowerCase().includes(filterLower)) ||
-          child.ids_ER.some(
-            (id) =>
-              id && id.trim() !== '' && id.toLowerCase().includes(filterLower)
-          )
-      );
-    return (bMatches ? 1 : 0) - (aMatches ? 1 : 0); // Prioritize facets that match the filter
-  });
+  if (value.filter.trim() !== '') {
+    filteredFacets.sort((a, b) => {
+      const filterLower = value.filter.toLowerCase().trim();
+      const aMatches =
+        (a.key && a.key.toLowerCase().includes(filterLower)) ||
+        a.children.some(
+          (child) =>
+            (child.display_name &&
+              child.display_name.toLowerCase().includes(filterLower)) ||
+            child.ids_ER.some(
+              (id) =>
+                id && id.trim() !== '' && id.toLowerCase().includes(filterLower)
+            )
+        );
+      const bMatches =
+        (b.key && b.key.toLowerCase().includes(filterLower)) ||
+        b.children.some(
+          (child) =>
+            (child.display_name &&
+              child.display_name.toLowerCase().includes(filterLower)) ||
+            child.ids_ER.some(
+              (id) =>
+                id && id.trim() !== '' && id.toLowerCase().includes(filterLower)
+            )
+        );
+      return (bMatches ? 1 : 0) - (aMatches ? 1 : 0); // Prioritize facets that match the filter
+    });
+  }
   return allFacets.length > 0 ? (
     <div className="sticky top-16 w-72 h-[calc(100vh-4rem)]">
       <div className="overflow-y-auto h-full">
@@ -346,18 +356,13 @@ const Facets = ({
                   facet.key
                     .toLowerCase()
                     .includes(value.filter.toLowerCase())) ||
-                  facet.children.some(
-                    (child) =>
-                      (child.display_name &&
-                        child.display_name
-                          .toLowerCase()
-                          .includes(value.filter.toLowerCase())) ||
-                      child.ids_ER.some(
-                        (id) =>
-                          id &&
-                          id.trim() !== '' &&
-                          id.toLowerCase().includes(value.filter.toLowerCase())
-                      )
+                  facet.children.some((child) =>
+                    child.ids_ER.some(
+                      (id) =>
+                        id &&
+                        id.trim() !== '' &&
+                        id.toLowerCase().includes(value.filter.toLowerCase())
+                    )
                   ))
               }
               selectedFilters={selectedFilters}
@@ -366,7 +371,9 @@ const Facets = ({
                 const cleanedFilters = updatedFilters.filter(
                   (filter) => filter && filter.trim() !== ''
                 );
-                setSelectedFilters(Array.from(new Set(cleanedFilters)));
+                // Remove duplicates while preserving order
+                const uniqueFilters = Array.from(new Set(cleanedFilters));
+                setSelectedFilters(uniqueFilters);
               }}
             />
           ))}

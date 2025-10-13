@@ -12,6 +12,7 @@ import {
 import { getNormalizedEntityType } from './utils';
 import SelectAnnotationSet from '../Toolsbar/SelectAnnotationSet';
 import {
+  DocumentContext,
   DocumentStateContext,
   DocumentDispatchContext,
 } from './DocumentContext';
@@ -40,6 +41,21 @@ export const useDocumentDispatch = () => {
   if (context === undefined) {
     throw new Error(
       'useDocumentDispatch must be used within a DocumentProvider'
+    );
+  }
+
+  return context;
+};
+
+/**
+ * Access the document context within the DocumentProvider.
+ */
+export const useDocumentContext = () => {
+  const context = useContext(DocumentContext);
+
+  if (context === undefined) {
+    throw new Error(
+      'useDocumentContext must be used within a DocumentProvider'
     );
   }
 
@@ -190,8 +206,16 @@ export const selectDocumentClusters = createSelector(
 
     const clusters = annSetClusters
       .map((cluster) => {
+        console.log(
+          '🔍 Processing cluster:',
+          cluster.title,
+          'with mentions:',
+          cluster.mentions
+        );
+
         const mentions = cluster.mentions
-          .map((mention) => {
+          .map((mention, index) => {
+            console.log(`🔍 Processing mention ${index}:`, mention);
             const ann = annSet.annotations.find((ann) => ann.id === mention.id);
 
             if (!ann) {
@@ -200,17 +224,24 @@ export const selectDocumentClusters = createSelector(
               return null;
             }
 
+            console.log(`🔍 Found annotation for mention ${index}:`, ann);
+
             const startOffset = ann.start - 10 < 0 ? 0 : ann.start - 10;
             const endOffset =
               ann.end + 10 > text.length ? text.length : ann.end + 10;
 
-            return {
-              id: ann.id,
-              mention: ann.features.mention || text.slice(ann.start, ann.end),
+            const processedMention = {
+              id: mention.id, // Keep original mention ID
+              mention: mention.mention, // Keep original mention text
               mentionText: `...${text.slice(startOffset, endOffset)}...`,
             };
+
+            console.log(`🔍 Processed mention ${index}:`, processedMention);
+            return processedMention;
           })
           .filter((mention) => mention !== null); // Filter out null mentions
+
+        console.log('🔍 Final mentions for cluster:', cluster.title, mentions);
 
         // Normalize cluster type using robust case-insensitive mapping
         // Ensure the normalized type is consistently cased
@@ -310,7 +341,7 @@ export const selectFilteredEntityAnnotationsWithSearch = createSelector(
     }
 
     // Log only when actively filtering with search term on our target document
-    if (searchTerm && documentId === targetDocId) {
+    if (searchTerm && documentId.toString() === targetDocId) {
       console.log(
         'DEBUG - APPLYING SEARCH FILTER for document:',
         documentId,
@@ -352,7 +383,7 @@ export const selectFilteredEntityAnnotationsWithSearch = createSelector(
     });
 
     // Log filtered results for our target document
-    if (searchTerm && documentId === targetDocId) {
+    if (searchTerm && documentId.toString() === targetDocId) {
       const debugFilteredResults = filteredResults.map((ann) => ({
         id: ann.id,
         type: ann.type,

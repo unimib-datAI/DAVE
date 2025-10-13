@@ -106,11 +106,8 @@ const DeleteButton = styled.button({
 
 import React from 'react';
 
-const EntityNode = React.memo(
-  React.forwardRef<HTMLSpanElement, EntityNodeProps>(function EntityNode(
-    props,
-    ref
-  ) {
+const EntityNodeInner = React.forwardRef<HTMLSpanElement, EntityNodeProps>(
+  function EntityNodeComponent(props, ref) {
     const { text, start, annotation } = props;
     const [highlight, setHighlight] = useState(false);
     const {
@@ -201,14 +198,24 @@ const EntityNode = React.memo(
       (ann: Annotation<AdditionalAnnotationProps>) => {
         const types_set = new Set(ann.features.types || []);
         types_set.add(ann.type);
-        const types = Array.from(types_set).map(
-          (t) => getTaxonomyNode(t).label
-        );
-        const nMoreTypes = types.length - 1;
+        const types = Array.from(types_set);
+
+        // Map each type to its label
+        const typeLabels = types.map((t) => {
+          const node = getTaxonomyNode(t);
+          // If the node is the UNKNOWN node (Altro) but the original type isn't "UNKNOWN",
+          // show "Altro/originalType"
+          if (node.key === 'UNKNOWN' && t !== 'UNKNOWN') {
+            return `${node.label}/${t}`;
+          }
+          return node.label;
+        });
+
+        const nMoreTypes = typeLabels.length - 1;
         if (nMoreTypes === 0) {
-          return types[0];
+          return typeLabels[0];
         }
-        return `${types[0]} +${nMoreTypes}`;
+        return `${typeLabels[0]} +${nMoreTypes}`;
       },
       [getTaxonomyNode]
     );
@@ -322,16 +329,18 @@ const EntityNode = React.memo(
     // const tagContent = useMemo(() => recurseTag(), [recurseTag]);
 
     return <>{text ? getTag({ color, annotation, children: text }) : null}</>;
-  }),
-  (prevProps, nextProps) => {
-    // Custom equality check to prevent unnecessary re-renders
-    return (
-      prevProps.text === nextProps.text &&
-      prevProps.start === nextProps.start &&
-      prevProps.annotation.id === nextProps.annotation.id &&
-      prevProps.annotation.type === nextProps.annotation.type
-    );
   }
 );
+
+// Apply memo separately after naming the component
+const EntityNode = React.memo(EntityNodeInner, (prevProps, nextProps) => {
+  // Custom equality check to prevent unnecessary re-renders
+  return (
+    prevProps.text === nextProps.text &&
+    prevProps.start === nextProps.start &&
+    prevProps.annotation.id === nextProps.annotation.id &&
+    prevProps.annotation.type === nextProps.annotation.type
+  );
+});
 
 export default EntityNode;

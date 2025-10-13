@@ -42,7 +42,9 @@ const getActiveFilters = (
       });
     })
     .flat();
-  return removeDuplicateFilters(mappedActiveFilters.filter(Boolean));
+  return removeDuplicateFilters(
+    mappedActiveFilters.filter((item): item is MappedFilters => item !== null)
+  );
 };
 
 interface MappedFilters {
@@ -52,17 +54,19 @@ interface MappedFilters {
 function removeDuplicateFilters(filters: MappedFilters[]) {
   const seen = new Set();
   return filters.filter((filter) => {
-    // Skip filters with null/undefined values or empty display names
+    // Skip filters with null/undefined values or empty ids
     if (
       !filter ||
       !filter.value ||
-      !filter.value.display_name ||
-      filter.value.display_name.trim() === ''
+      !filter.value.ids_ER ||
+      filter.value.ids_ER.length === 0
     ) {
       return false;
     }
-    const duplicate = seen.has(filter.value.display_name);
-    seen.add(filter.value.display_name);
+    // Use the first id_ER as the key for deduplication
+    const id = filter.value.ids_ER[0];
+    const duplicate = seen.has(id);
+    seen.add(id);
     return !duplicate;
   });
 }
@@ -124,7 +128,7 @@ const ActiveFiltersList = ({ facets }: ActiveFiltersListProps) => {
             className="cursor-pointer hover:opacity-90 border-none m-0  bg-slate-900 rounded-full px-2 py-1 text-white text-xs flex flex-row items-center gap-2"
           >
             {filter.filterType.startsWith('annotation')
-              ? filter.value.display_name
+              ? filter.value.display_name || filter.value.key
               : filter.value.key}
             <X size={16} />
           </button>

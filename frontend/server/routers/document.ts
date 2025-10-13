@@ -18,6 +18,7 @@ export type Document = {
     clusters: {
       [key: string]: Cluster[];
     };
+    anonymized?: boolean;
   };
   annotation_sets: {
     [key: string]: AnnotationSet<EntityAnnotation>;
@@ -82,10 +83,13 @@ export type SectionAnnotation = Annotation;
 const baseURL = `${process.env.API_BASE_URI}`;
 // const baseURL = `${process.env.API_BASE_URI}`;
 //TODO: modificare chiamata per cercare il doc in locale
-const getDocumentById = async (id: number): Promise<Document> => {
+const getDocumentById = async (
+  id: number,
+  deAnonimize?: boolean
+): Promise<Document> => {
   try {
     const document = await fetchJson<any, Document>(
-      `${baseURL}/document/${id}`,
+      `${baseURL}/document/${id}/${deAnonimize ?? false}`,
       {
         headers: {
           Authorization: getAuthHeader(),
@@ -186,10 +190,11 @@ export const documents = createRouter()
   .query('getDocument', {
     input: z.object({
       id: z.any(),
+      deAnonimize: z.boolean().default(false),
     }),
     resolve: ({ input }) => {
-      const { id } = input;
-      return getDocumentById(id);
+      const { id, deAnonimize } = input;
+      return getDocumentById(id, deAnonimize);
     },
   })
   .query('inifniteDocuments', {

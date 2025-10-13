@@ -48,6 +48,7 @@ export type Translation = {
     };
     subToolbar: {
       anonimize: string;
+      deAnonimize: string;
       annotationSet: {
         label: string;
         new: string;

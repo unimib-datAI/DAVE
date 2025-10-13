@@ -146,15 +146,26 @@ const Search = () => {
     );
     if (validFilters.length === 0) return allHits;
 
+    // Normalize valid filters for consistent comparison
+    const normalizedValidFilters = validFilters.map((f) =>
+      f.toLowerCase().trim()
+    );
+
     const matches = allHits.filter(
       (hit) =>
         Array.isArray(hit.annotations) &&
         hit.annotations.some(
           (ann: any) =>
-            (ann.id_ER && validFilters.includes(ann.id_ER)) ||
-            (ann.display_name?.toLowerCase() &&
-              validFilters.includes(ann.display_name?.toLowerCase())) ||
-            (ann.display_name && validFilters.includes(ann.display_name))
+            (ann.id_ER &&
+              ann.id_ER.trim() !== '' &&
+              normalizedValidFilters.includes(
+                ann.id_ER.toLowerCase().trim()
+              )) ||
+            (ann.display_name &&
+              ann.display_name.trim() !== '' &&
+              normalizedValidFilters.includes(
+                ann.display_name.toLowerCase().trim()
+              ))
         )
     );
     const nonMatches = allHits.filter(
@@ -162,10 +173,16 @@ const Search = () => {
         !Array.isArray(hit.annotations) ||
         !hit.annotations.some(
           (ann: any) =>
-            (ann.id_ER && validFilters.includes(ann.id_ER)) ||
-            (ann.display_name?.toLowerCase() &&
-              validFilters.includes(ann.display_name?.toLowerCase())) ||
-            (ann.display_name && validFilters.includes(ann.display_name))
+            (ann.id_ER &&
+              ann.id_ER.trim() !== '' &&
+              normalizedValidFilters.includes(
+                ann.id_ER.toLowerCase().trim()
+              )) ||
+            (ann.display_name &&
+              ann.display_name.trim() !== '' &&
+              normalizedValidFilters.includes(
+                ann.display_name.toLowerCase().trim()
+              ))
         )
     );
     return [...matches, ...nonMatches];
@@ -225,7 +242,10 @@ const Search = () => {
             <div className="flex flex-col sticky top-16 bg-white py-6">
               <h4>
                 {`${data.pages[0].pagination.total_hits} results`}
-                {text && text.trim() !== '' && ` for "${text}"`}
+                {text &&
+                  typeof text === 'string' &&
+                  text.trim() !== '' &&
+                  ` for "${text}"`}
               </h4>
               {data && <ActiveFiltersList facets={data.pages[0].facets} />}
             </div>
@@ -241,9 +261,23 @@ const Search = () => {
                   hit={hit}
                   highlight={
                     Array.isArray(hit.annotations) &&
-                    hit.annotations.some((ann: any) =>
-                      selectedFilters.includes(ann.id_ER)
-                    )
+                    hit.annotations.some((ann: any) => {
+                      const normalizedSelectedFilters = selectedFilters.map(
+                        (f) => f.toLowerCase().trim()
+                      );
+                      return (
+                        (ann.id_ER &&
+                          ann.id_ER.trim() !== '' &&
+                          normalizedSelectedFilters.includes(
+                            ann.id_ER.toLowerCase().trim()
+                          )) ||
+                        (ann.display_name &&
+                          ann.display_name.trim() !== '' &&
+                          normalizedSelectedFilters.includes(
+                            ann.display_name.toLowerCase().trim()
+                          ))
+                      );
+                    })
                   }
                   selectedFilters={selectedFilters}
                   filterIdToDisplayName={filterIdToDisplayName}

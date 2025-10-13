@@ -63,11 +63,23 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
     const types_set = new Set(annotation.features.types || []);
     types_set.add(annotation.type);
     const types = Array.from(types_set);
-    const nMoreTypes = types.length - 1;
+
+    // Map types to display format
+    const typeLabels = types.map((t) => {
+      const node = getAllNodeData(taxonomy, t);
+      // If the node is the UNKNOWN node (Altro) but the original type isn't "UNKNOWN",
+      // show "Altro/originalType"
+      if (node.key === 'UNKNOWN' && t !== 'UNKNOWN') {
+        return `${node.label}/${t}`;
+      }
+      return node.label;
+    });
+
+    const nMoreTypes = typeLabels.length - 1;
     if (nMoreTypes === 0) {
-      return types[0];
+      return typeLabels[0];
     }
-    return `${types[0]} +${nMoreTypes}`;
+    return `${typeLabels[0]} +${nMoreTypes}`;
   };
 
   const taxonomyNode = useMemo(() => {

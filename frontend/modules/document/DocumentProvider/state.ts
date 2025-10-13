@@ -101,6 +101,46 @@ export const baseTaxonomy: Taxonomy = [
     color: '#a05c72',
   },
   {
+    key: 'case',
+    label: 'Case',
+    color: '#7cb9e8',
+  },
+  {
+    key: 'REGULATION',
+    label: 'Regulation',
+    color: '#4a90e2',
+  },
+  {
+    key: 'ROLE',
+    label: 'Role',
+    color: '#f5a623',
+  },
+  {
+    key: 'AUTHORITY',
+    label: 'Authority',
+    color: '#d0021b',
+  },
+  {
+    key: 'DATA.CAT',
+    label: 'Data Category',
+    color: '#7ed321',
+  },
+  {
+    key: 'DATA.OP',
+    label: 'Data Operation',
+    color: '#bd10e0',
+  },
+  {
+    key: 'RIGHT',
+    label: 'Right',
+    color: '#9013fe',
+  },
+  {
+    key: 'RISK/IMPACT',
+    label: 'Risk/Impact',
+    color: '#ff6b35',
+  },
+  {
     key: 'UNKNOWN',
     label: 'Altro',
     color: '#e2e2e2',

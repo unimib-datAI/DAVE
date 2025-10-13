@@ -3,6 +3,7 @@ import {
   selectDocumentData,
   useDocumentDispatch,
   useSelector,
+  selectCurrentAnnotationSetName,
 } from '../DocumentProvider/selectors';
 import { HiArrowLeft } from '@react-icons/all-files/hi/HiArrowLeft';
 import { Text } from '@nextui-org/react';
@@ -33,9 +34,12 @@ const ToolbarContent = () => {
   const dispatch = useDocumentDispatch();
   const router = useRouter();
   const [annotations, setAnnotations] = useAtom(annotationsAtom);
+  const currentAnnotationSetName = useSelector(selectCurrentAnnotationSetName);
   const [hasUnsavedAnnotations, setHasUnsavedAnnotations] = useState(false);
   const documentId = router.query.id as string;
   const indexName = process.env.NEXT_PUBLIC_ELASTIC_INDEX || 'documents';
+  // Type assertion to handle the string type requirement
+  const indexNameString: string = indexName;
   // Keep track of annotation version to detect changes
   const annotationVersion = useRef(0);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -77,8 +81,17 @@ const ToolbarContent = () => {
       setHasUnsavedAnnotations(true);
       setHasUnsavedChanges(true);
 
-      // Create a new annotation with to_delete flag set to false
-      let newAnnotation = { ...event.detail, to_delete: false };
+      // Create a new annotation with to_delete flag set to false and track that it's newly added
+      let newAnnotation = {
+        ...event.detail,
+        to_delete: false,
+        is_new_addition: true, // Mark as newly added so we can identify it later
+      };
+
+      // Ensure all required properties are present
+      if (!newAnnotation.mention && event.detail.text) {
+        newAnnotation.mention = event.detail.text;
+      }
 
       // Get the next available ID for this annotation
       // Find the maximum ID in the existing annotations and increment it
@@ -114,9 +127,12 @@ const ToolbarContent = () => {
       // Assign the ID
       newAnnotation.id = nextId;
 
-      // Set id_ER to Wikipedia URL format
+      // Generate a random unique string to append to the id_ER
+      const uniqueId = Math.random().toString(36).substring(2, 10);
+
+      // Set id_ER to Wikipedia URL format with unique ID
       if (!newAnnotation.id_ER) {
-        newAnnotation.id_ER = `https://en.wikipedia.org/wiki?curid=${nextId}`;
+        newAnnotation.id_ER = `https://en.wikipedia.org/wiki?curid=${nextId}-${uniqueId}`;
       }
 
       // Ensure id_ER is always in Wikipedia URL format even if it exists
@@ -124,7 +140,7 @@ const ToolbarContent = () => {
         newAnnotation.id_ER &&
         !newAnnotation.id_ER.includes('wikipedia.org')
       ) {
-        newAnnotation.id_ER = `https://en.wikipedia.org/wiki?curid=${nextId}`;
+        newAnnotation.id_ER = `https://en.wikipedia.org/wiki?curid=${nextId}-${uniqueId}`;
       }
 
       console.log('Tracking annotation:', newAnnotation);
@@ -156,48 +172,119 @@ const ToolbarContent = () => {
       setHasUnsavedChanges(true);
 
       console.log('Tracking annotation deletion:', event.detail);
+      console.log('Setting to_delete flag for annotation');
 
       setAnnotations((prev) => {
         const docAnnotations = prev[documentId] || [];
 
-        // Mark annotations as deleted instead of removing them
+        // For newly added annotations that haven't been saved yet,
+        // we have two options:
+        // 1. If they're newly added (is_new_addition = true or event.detail.isNewlyAdded is true),
+        //    we can completely remove them
+        // 2. Otherwise, mark them as to_delete = true
+
+        // Check if this was indicated as a newly added annotation in the event
+        const isNewlyAddedFromEvent = !!event.detail.isNewlyAdded;
+
+        console.log('Deleting annotation with details:', {
+          id: event.detail.id,
+          mention: event.detail.mention,
+          isNewlyAddedFromEvent,
+          detail: event.detail,
+        });
+
         if (event.detail.id) {
           // Find by ID if available
+          const annotationToDelete = docAnnotations.find(
+            (ann) => ann.id === event.detail.id
+          );
+
+          // Check if this is a newly added annotation that hasn't been saved yet
+          if (
+            annotationToDelete &&
+            (annotationToDelete as any).is_new_addition === true
+          ) {
+            console.log(
+              'Removing newly added annotation with ID:',
+              event.detail.id
+            );
+            // Just remove it completely as it was never saved to the server
+            return {
+              ...prev,
+              [documentId]: docAnnotations.filter(
+                (ann) => ann.id !== event.detail.id
+              ),
+            };
+          }
+
+          // Otherwise mark it for deletion
           return {
             ...prev,
             [documentId]: docAnnotations.map((ann) =>
               ann.id === event.detail.id
-                ? {
-                    ...ann,
-                    to_delete: true,
-                    // Always use Wikipedia URL format for id_ER
-                    id_ER: `https://en.wikipedia.org/wiki?curid=${ann.id}`,
-                  }
+                ? (() => {
+                    // Create a new object with explicit to_delete=true
+                    const deletedAnn = { ...ann };
+                    // Make sure to_delete is explicitly set to true
+                    deletedAnn.to_delete = true;
+                    // Keep the existing id_ER to maintain consistency
+                    if (!deletedAnn.id_ER) {
+                      deletedAnn.id_ER = `https://en.wikipedia.org/wiki?curid=${
+                        ann.id
+                      }-${Math.random().toString(36).substring(2, 10)}`;
+                    }
+                    return deletedAnn;
+                  })()
                 : ann
             ),
           };
         }
 
         // Fallback to finding by mention text
+        const annotationToDelete = docAnnotations.find(
+          (ann) => ann.mention === event.detail.mention
+        );
+
+        // Check if this is a newly added annotation that hasn't been saved yet
+        if (
+          annotationToDelete &&
+          (annotationToDelete as any).is_new_addition === true
+        ) {
+          console.log(
+            'Removing newly added annotation with mention:',
+            event.detail.mention
+          );
+          // Just remove it completely as it was never saved to the server
+          return {
+            ...prev,
+            [documentId]: docAnnotations.filter(
+              (ann) => ann.mention !== event.detail.mention
+            ),
+          };
+        }
+
+        // Otherwise mark it for deletion
         return {
           ...prev,
           [documentId]: docAnnotations.map((ann) =>
             ann.mention === event.detail.mention
               ? {
                   ...ann,
-                  to_delete: true,
-                  // Always use Wikipedia URL format for id_ER
-                  id_ER: `https://en.wikipedia.org/wiki?curid=${ann.id}`,
+                  to_delete: true, // Explicitly set to true for deletion
+                  // Keep the existing id_ER to maintain consistency
+                  id_ER:
+                    ann.id_ER ||
+                    `https://en.wikipedia.org/wiki?curid=${
+                      ann.id
+                    }-${Math.random().toString(36).substring(2, 10)}`,
                 }
               : ann
           ),
         };
       });
 
-      console.log(
-        'Annotation marked for deletion, id_ER preserved:',
-        event.detail
-      );
+      console.log('Annotation handled for deletion:', event.detail);
+      console.log('to_delete flag should now be set to true');
       setHasUnsavedAnnotations(true);
     };
 
@@ -267,13 +354,13 @@ const ToolbarContent = () => {
     console.log('Clusters being saved:', document.features?.clusters);
 
     // Helper function for generating Wikipedia URL format
-    const createWikipediaUrl = (id: number) =>
+    const createWikipediaUrl = (id: number | string) =>
       `https://en.wikipedia.org/wiki?curid=${id}`;
 
     // First save the document
     save.mutate(
       {
-        docId: document.id,
+        docId: String(document.id),
         annotationSets: document.annotation_sets,
         features: document.features,
       },
@@ -285,121 +372,77 @@ const ToolbarContent = () => {
             document.features
           );
 
-          // Also save any pending annotations silently
+          // Get all current annotations for the document
           const docAnnotations = annotations[documentId] || [];
-          if (documentId && docAnnotations.length > 0) {
+
+          // Ensure docAnnotations is an array
+          const annotationsArray = Array.isArray(docAnnotations)
+            ? docAnnotations
+            : Object.values(docAnnotations);
+
+          // No filtering or processing - use the raw annotations
+
+          console.log(
+            'Sending all annotations to the server:',
+            annotationsArray.length
+          );
+
+          if (documentId && annotationsArray && annotationsArray.length > 0) {
             console.log(
               '==================== ANNOTATIONS SAVE ===================='
             );
             console.log('Document ID:', documentId);
             console.log('Index name:', indexName);
-            console.log('Number of annotations:', docAnnotations.length);
             console.log(
-              'Annotations before deduplication:',
-              JSON.stringify(docAnnotations, null, 2)
+              'Number of annotations to save:',
+              annotationsArray.length
+            );
+            console.log(
+              'Raw annotations being sent:',
+              JSON.stringify(annotationsArray, null, 2)
             );
 
             // Log the id_ER values for debugging
             console.log(
               'Annotation id_ER values:',
-              docAnnotations.map((ann) => ({
+              annotationsArray.map((ann: any) => ({
                 id: ann.id,
                 id_ER: ann.id_ER,
                 to_delete: ann.to_delete,
               }))
             );
 
-            // Deduplicate annotations based on start/end indices and mention
-            const uniqueAnnotations = [];
-            const seen = new Set();
-
             // Log how many annotations are marked for deletion
-            const deletedCount = docAnnotations.filter(
-              (ann) => ann.to_delete
+            const deletedCount = annotationsArray.filter(
+              (ann: any) => ann.to_delete
             ).length;
             console.log(`Annotations marked for deletion: ${deletedCount}`);
 
-            docAnnotations.forEach((ann) => {
-              // Create a unique key for each annotation based on start, end, and mention
-              const key = `${ann.start}-${ann.end}-${ann.mention}`;
+            // No processing - we're sending the raw annotations directly
+            // Get all current annotations for the current annotation set from Redux store
+            const reduxAnnotations = currentAnnotationSetName
+              ? document.annotation_sets[currentAnnotationSetName]
+                  ?.annotations || []
+              : [];
 
-              // Only add if we haven't seen this combination before
-              if (!seen.has(key)) {
-                seen.add(key);
+            // Transform annotations from Redux format to API format
+            const rawAnnotations = reduxAnnotations.map((ann: any) => ({
+              ...ann,
+              mention:
+                ann.features?.mention ||
+                document.text.slice(ann.start, ann.end),
+            }));
 
-                // Ensure ID is a numerical value
-                if (typeof ann.id !== 'number') {
-                  // Try to parse the ID as an integer
-                  const parsedId = parseInt(String(ann.id), 10);
-                  if (!isNaN(parsedId)) {
-                    // If parsing succeeds, use the parsed value
-                    ann.id = parsedId;
-                  } else {
-                    // If parsing fails, find the next available ID
-                    let nextId = 1; // Default starting ID
-
-                    // Check document's next_annid values
-                    if (document.annotation_sets) {
-                      const maxDocId = Math.max(
-                        ...Object.values(document.annotation_sets).map(
-                          (set) => set.next_annid || 0
-                        )
-                      );
-                      nextId = Math.max(nextId, maxDocId);
-                    }
-
-                    // Check already processed annotations in this batch
-                    if (uniqueAnnotations.length > 0) {
-                      const maxBatchId = Math.max(
-                        ...uniqueAnnotations.map((a) =>
-                          typeof a.id === 'number' ? a.id : 0
-                        )
-                      );
-                      nextId = Math.max(nextId, maxBatchId + 1);
-                    }
-
-                    ann.id = nextId;
-                  }
-                }
-
-                // Make sure the to_delete flag is set if it wasn't already
-                if (ann.to_delete === undefined) {
-                  ann.to_delete = false;
-                }
-
-                // Ensure the ID is within Elasticsearch integer range (max 2^31-1)
-                if (ann.id > 2147483647) {
-                  ann.id = ann.id % 2147483647; // Keep it within the safe range
-                }
-
-                // Ensure id_ER is in Wikipedia URL format
-                if (!ann.id_ER || !ann.id_ER.includes('wikipedia.org')) {
-                  ann.id_ER = createWikipediaUrl(ann.id);
-                }
-
-                // For deleted annotations, make sure they have a proper id_ER too
-                if (
-                  ann.to_delete &&
-                  (!ann.id_ER || !ann.id_ER.includes('wikipedia.org'))
-                ) {
-                  ann.id_ER = createWikipediaUrl(ann.id);
-                }
-
-                uniqueAnnotations.push(ann);
-              } else {
-                console.log(
-                  `Skipping duplicate annotation: ${key}, id_ER: ${ann.id_ER}`
-                );
-              }
-            });
-
+            // Skip JSON.stringify if rawAnnotations is not defined
+            if (rawAnnotations) {
+              console.log(
+                'Raw annotations being sent:',
+                JSON.stringify(rawAnnotations, null, 2)
+              );
+            }
             console.log(
-              'Annotations after deduplication:',
-              JSON.stringify(uniqueAnnotations, null, 2)
-            );
-            console.log(
-              'Final annotation id_ER values:',
-              uniqueAnnotations.map((ann) => ({
+              'Raw annotation id_ER values:',
+              rawAnnotations.map((ann: any) => ({
                 id: ann.id,
                 id_ER: ann.id_ER,
                 to_delete: ann.to_delete,
@@ -409,11 +452,24 @@ const ToolbarContent = () => {
               '=========================================================='
             );
 
+            // Simply use the raw annotations as they are in the state
+            // No processing needed
+            console.log(
+              '=========================================================='
+            );
+
+            console.log(
+              'Raw annotations to send to API:',
+              rawAnnotations ? rawAnnotations.length : 0
+            );
+
+            // rawAnnotations already defined above - use it directly
+
             addAnnotationsMutation.mutate(
               {
-                indexName,
+                indexName: indexNameString,
                 documentId,
-                annotations: uniqueAnnotations,
+                annotations: rawAnnotations as any,
               },
               {
                 onSuccess: (result) => {
@@ -422,11 +478,16 @@ const ToolbarContent = () => {
                   );
                   console.log('Response:', result);
                   console.log('Document ID:', documentId);
-                  console.log('Annotations count:', uniqueAnnotations.length);
-                  console.log(
-                    'Deleted annotations:',
-                    uniqueAnnotations.filter((ann) => ann.to_delete).length
-                  );
+                  // Only log length if rawAnnotations is defined
+                  if (rawAnnotations) {
+                    console.log('Annotations count:', rawAnnotations.length);
+                    console.log(
+                      'Deleted annotations:',
+                      (rawAnnotations as any[]).filter(
+                        (ann: any) => ann.to_delete
+                      ).length
+                    );
+                  }
                   console.log(
                     '====================================================================='
                   );
@@ -435,36 +496,32 @@ const ToolbarContent = () => {
                   setHasUnsavedAnnotations(false);
                   setHasUnsavedChanges(false);
 
-                  // Force reset document version to avoid stale state comparisons
+                  // Force reset annotation version to avoid stale state comparisons
                   annotationVersion.current = Date.now();
 
-                  // After successful save, we can clear annotations marked for deletion
+                  // After successful save, we can remove newly added annotations that were marked for deletion
+                  // and clear the is_new_addition flag for all other annotations
                   if (documentId) {
                     // Update the annotations state
                     setAnnotations((prev) => {
                       const docAnnotations = prev[documentId] || [];
-                      // Log deleted annotations for debugging
-                      const deletedAnnotations = docAnnotations.filter(
-                        (ann) => ann.to_delete
-                      );
-                      console.log(
-                        'Removing deleted annotations:',
-                        deletedAnnotations
-                      );
-                      console.log(
-                        'Deleted annotation id_ER values:',
-                        deletedAnnotations.map((ann) => ({
-                          id: ann.id,
-                          id_ER: ann.id_ER,
-                        }))
-                      );
 
-                      // Remove annotations marked for deletion
+                      // Remove only newly added annotations that were marked for deletion
                       const updatedAnnotations = {
                         ...prev,
-                        [documentId]: docAnnotations.filter(
-                          (ann) => !ann.to_delete
-                        ),
+                        [documentId]: docAnnotations
+                          .filter(
+                            (ann: any) =>
+                              // Remove only newly added annotations that were marked for deletion
+                              !(
+                                ann.is_new_addition === true &&
+                                ann.to_delete === true
+                              )
+                          )
+                          .map((ann) => ({
+                            ...ann,
+                            is_new_addition: false, // Clear the is_new_addition flag for all saved annotations
+                          })),
                       };
 
                       return updatedAnnotations;
@@ -490,7 +547,7 @@ const ToolbarContent = () => {
                         const cleanedAnnotations = {
                           ...prev,
                           [documentId]: (prev[documentId] || []).filter(
-                            (ann) => !ann.to_delete
+                            (ann: any) => !ann.to_delete
                           ),
                         };
                         return cleanedAnnotations;
@@ -510,7 +567,7 @@ const ToolbarContent = () => {
                   );
                   console.error('Error:', error);
                   console.error('Document ID:', documentId);
-                  console.error('Annotations:', uniqueAnnotations);
+                  console.error('Annotations:', rawAnnotations);
                   console.error(
                     '=============================================================='
                   );
@@ -529,19 +586,84 @@ const ToolbarContent = () => {
           annotationVersion.current = Date.now();
 
           // Also save the annotations
-          if (annotations.length > 0) {
-            saveAnnotations()
-              .then((result) => {
-                console.log('Annotations save result:', result);
-                if (result.success) {
+          if (annotations[documentId] && annotations[documentId].length > 0) {
+            // Save all annotations in auto-save mode too
+            const docAnnotations = annotations[documentId] || [];
+
+            // Ensure docAnnotations is an array
+            const annotationsArray = Array.isArray(docAnnotations)
+              ? docAnnotations
+              : Object.values(docAnnotations);
+
+            // Skip filtering - we'll use the raw annotations directly
+
+            // Skip all processing - we'll use the raw annotations directly
+
+            // Get raw annotations directly from Redux store for current annotation set
+            const reduxAnnotations = currentAnnotationSetName
+              ? document.annotation_sets[currentAnnotationSetName]
+                  ?.annotations || []
+              : [];
+
+            // Transform annotations from Redux format to API format
+            const rawAnnotations = reduxAnnotations.map((ann: any) => ({
+              ...ann,
+              mention:
+                ann.features?.mention ||
+                document.text.slice(ann.start, ann.end),
+            }));
+
+            console.log(
+              'Auto-save raw annotations to send:',
+              rawAnnotations.length
+            );
+
+            // Skip sending if there are no annotations to save
+            if (rawAnnotations.length === 0) {
+              console.log('No annotations to save during auto-save');
+              return;
+            }
+
+            // We've already got the raw annotations
+
+            addAnnotationsMutation.mutate(
+              {
+                indexName: indexNameString,
+                documentId,
+                annotations: rawAnnotations as any,
+              },
+              {
+                onSuccess: (result) => {
+                  console.log('Annotations save result:', result);
                   console.log('Successfully saved annotations');
-                } else {
-                  console.error('Failed to save annotations:', result.error);
-                }
-              })
-              .catch((error) => {
-                console.error('Error saving annotations:', error);
-              });
+
+                  // After auto-save, update annotations state the same way as after manual save
+                  setAnnotations((prev) => {
+                    const currentAnnotations = prev[documentId] || [];
+                    return {
+                      ...prev,
+                      [documentId]: currentAnnotations
+                        // Remove only newly added annotations that were marked for deletion
+                        .filter(
+                          (ann: any) =>
+                            // Remove only newly added annotations that were marked for deletion
+                            !(
+                              ann.is_new_addition === true &&
+                              ann.to_delete === true
+                            )
+                        )
+                        .map((ann) => ({
+                          ...ann,
+                          is_new_addition: false, // Clear the is_new_addition flag for all saved annotations
+                        })),
+                    };
+                  });
+                },
+                onError: (error) => {
+                  console.error('Failed to save annotations:', error);
+                },
+              }
+            );
           }
 
           // Set status to saved
@@ -714,7 +836,7 @@ const ToolbarContent = () => {
     }
 
     // Update in any state except during saving
-    if (saveStatus !== 'saving') {
+    if (saveStatus === ('saving' as any)) {
       // Consider both document changes and annotation changes
       const hasUnsaved = hasChanges || hasUnsavedAnnotations;
       setHasUnsavedChanges(hasUnsaved);
@@ -724,7 +846,7 @@ const ToolbarContent = () => {
         savedStatus.current = false;
 
         // If we were previously in saved state, switch to idle to show yellow button
-        if (saveStatus === 'saved') {
+        if (saveStatus === ('saved' as any)) {
           setSaveStatus('idle');
         }
       }
@@ -737,7 +859,7 @@ const ToolbarContent = () => {
         // If we have annotations that aren't marked for deletion, make sure we're not showing saved
         if (savedStatus.current) {
           savedStatus.current = false;
-          if (saveStatus === 'saved') {
+          if (saveStatus === ('saved' as any)) {
             setSaveStatus('idle');
           }
         }
@@ -801,7 +923,7 @@ const ToolbarContent = () => {
     event.preventDefault();
 
     // Check if we have a referrer from the same origin
-    const referrer = document.referrer;
+    const referrer = window.document.referrer || '';
     const isFromSameOrigin =
       referrer && referrer.startsWith(window.location.origin);
 
