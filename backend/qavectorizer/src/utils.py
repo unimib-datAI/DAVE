@@ -113,6 +113,9 @@ def get_facets_annotations_no_agg(hits):
 
         # Loop through the list of objects
         for obj in mentions_type_buckets[bucket_key]:
+            # Skip objects that don't have id_ER field
+            if "id_ER" not in obj:
+                continue
             # If the 'name' of the object is not in the dictionary, add the object to the dictionary
             if obj["id_ER"] not in aggregated_data:
                 appended_obj = obj
@@ -126,9 +129,9 @@ def get_facets_annotations_no_agg(hits):
             ment = aggregated_data[mention]
             child = {
                 "key": mention,
-                "display_name": ment["display_name"],
+                "display_name": ment.get("display_name", "Unknown"),
                 "doc_count": ment["doc_count"],
-                "is_linked": ment["is_linked"],
+                "is_linked": ment.get("is_linked", False),
             }
             children.append(child)
         final_bucket["children"] = children
@@ -138,7 +141,6 @@ def get_facets_annotations_no_agg(hits):
 
 
 def get_facets_metadata(search_res):
-
     metadata_type_buckets = {}
     for document in search_res["hits"]["hits"]:
         if "metadata" not in document["_source"]:

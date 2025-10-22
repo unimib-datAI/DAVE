@@ -139,7 +139,11 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       );
 
       // Call API through our server-side proxy endpoint
-      const response = await fetch('/holmes24/api/generate', {
+      const basePath =
+        process.env.NEXT_PUBLIC_BASE_PATH === '/'
+          ? ''
+          : process.env.NEXT_PUBLIC_BASE_PATH || '';
+      const response = await fetch(`${basePath}/api/generate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
