@@ -20,7 +20,7 @@ services:
 
     documents:
         restart: $RESTART_POLICY
-        build: documents
+        build: ./backend/documents
         environment:
             DOCS_PORT: 3001
             ENABLE_AUTH: false
@@ -28,7 +28,7 @@ services:
         networks:
             - dave_net
         volumes:
-            - ./documents/src:/app/src
+            - ./backend/documents/src:/app/src
         ports:
             - 3001:3001
 
@@ -82,7 +82,7 @@ services:
 
     text-generation:
         build:
-            context: ./text-generation
+            context: ./backend/text-generation
             dockerfile: Dockerfile
         deploy:
             resources:
@@ -124,7 +124,7 @@ services:
 
     qavectorizer:
         build:
-            context: ./qavectorizer
+            context: ./backend/qavectorizer
             dockerfile: Dockerfile
         depends_on:
             - es
@@ -151,9 +151,9 @@ services:
         networks:
             - dave_net
         volumes:
-            - ./qavectorizer/src:/workspace
-            - ./models:/root/models
-            - ./models/qavectorizer:/root/.cache/huggingface
+            - ./backend/qavectorizer/src:/workspace
+            - ./backend/models:/root/models
+            - ./backend/models/qavectorizer:/root/.cache/huggingface
 networks:
     dave_net:
         driver: bridge
