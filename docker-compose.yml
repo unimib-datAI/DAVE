@@ -14,7 +14,7 @@ services:
             - ./mongo/data:/data/db
             - ./mongo/initdb.d:/docker-entrypoint-initdb.d/
         ports:
-            - 127.0.0.1:27017:27017
+            - 127.0.0.1:27018:27017
         networks:
             - dave_net
 
@@ -118,7 +118,7 @@ services:
         networks:
             - dave_net
         ports:
-            - 9201:9200
+            - 9200:9200
         volumes:
             - ./elasticsearch/data:/usr/share/elasticsearch/data
 
