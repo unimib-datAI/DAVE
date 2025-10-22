@@ -1,10 +1,18 @@
 /** @type {import('next').NextConfig} */
 
+// Handle basePath - Next.js requires it to be either empty string or a path prefix (not "/")
+const getBasePath = () => {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH;
+  if (!basePath || basePath === '/') {
+    return '';
+  }
+  return basePath;
+};
 
 const nextConfig = {
   reactStrictMode: true,
   experimental: {
-    emotion: true
+    emotion: true,
   },
   images: {
     domains: ['upload.wikimedia.org'],
@@ -24,23 +32,23 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   async redirects() {
+    let redirectRoutes = [];
 
-    let redirectRoutes = []
-
-    if (process.env.NEXT_PUBLIC_BASE_PATH) {
+    const basePath = getBasePath();
+    if (basePath) {
       redirectRoutes = [
         {
           source: '/',
-          destination: process.env.NEXT_PUBLIC_BASE_PATH,
+          destination: basePath,
           permanent: true,
-          basePath: false
+          basePath: false,
         },
-        ...redirectRoutes
-      ]
+        ...redirectRoutes,
+      ];
     }
     return redirectRoutes;
   },
-  basePath: process.env.NEXT_PUBLIC_BASE_PATH,
-}
+  basePath: getBasePath(),
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;

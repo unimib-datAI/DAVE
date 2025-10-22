@@ -43,3 +43,4 @@ __pycache__
 
 mongo
 elasticsearch
+backend/models

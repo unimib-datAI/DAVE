@@ -19,8 +19,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     res.setHeader('X-Accel-Buffering', 'no'); // Prevents proxy buffering
     res.setHeader('Transfer-Encoding', 'chunked');
 
-    // Get the text generation server URL
-    const textGenerationUrl = 'http://10.0.0.108:7862/generate';
+    // Get the text generation server URL from environment variable
+    console.log('text gen address', process.env.API_LLM);
+    const textGenerationUrl =
+      `${process.env.API_LLM}/generate` || 'http://10.0.0.108:7862/generate';
 
     // Forward the request to the text generation server
     const response = await fetch(textGenerationUrl, {

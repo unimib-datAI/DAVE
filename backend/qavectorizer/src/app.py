@@ -817,7 +817,7 @@ if __name__ == "__main__":
 
     # Create a single default retriever
     default_retriever = DocumentRetriever(
-        url=environ.get("PIPELINE_ADDRESS", "http://localhost:3001") + "/api/document"
+        url=environ.get("PIPELINE_ADDRESS", "http://documents:3001") + "/api/document"
     )
 
     # if not os.getenv("ENVIRONMENT", "production") == "dev":

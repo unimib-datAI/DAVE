@@ -1,71 +1,25 @@
-import sys
-import os
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "exllama"))
-
-import glob
 import asyncio
 import uvicorn
-from typing import Union
-from pathlib import Path
+import os
+from typing import Optional, List
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import Any, Dict, Optional, List
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, HTTPException, Request
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
-# from EXLlamaModel import EXLlamaModel
-# from exllama.generator import ExLlamaGenerator
-from cerberoModel import CerberoModel
-from PhiModel import PhiModel
 
-# exllama imports:
+# Get configuration from environment variables
+TEXT_GENERATION_ADDR = os.getenv("TEXT_GENERATION_ADDR", "http://localhost:8000")
+TEXT_GENERATION_KEY = os.getenv("TEXT_GENERATION_KEY", "your-key")
+MODEL_NAME = os.getenv("MODEL_NAME", "default-model")
 
-import argparse
-import sys
-import os
-
-# [Parse arguments]:
-parser = argparse.ArgumentParser(description="Simple FastAPI wrapper for ExLlama")
-
-parser.add_argument(
-    "-d",
-    "--directory",
-    type=str,
-    help="Path to directory containing config.json, model.tokenizer and * .safetensors",
-)
-parser.add_argument(
-    "-gl",
-    "--gpu_layers",
-    type=int,
-    default=-1,
-    help="Number of layers to put in GPU; -1 for all.",
-)
-
-args = parser.parse_args()
-
-# Directory check:
-# if args.directory is not None:
-#     args.tokenizer = os.path.join(args.directory, "tokenizer.model")
-#     args.config = os.path.join(args.directory, "config.json")
-#     st_pattern = os.path.join(args.directory, "*.safetensors")
-#     st = glob.glob(st_pattern)
-#     if len(st) == 0:
-#         print(f" !! No files matching {st_pattern}")
-#         sys.exit()
-#     if len(st) > 1:
-#         print(f" !! Multiple files matching {st_pattern}")
-#         sys.exit()
-#     args.model = st[0]
-# else:
-#     if args.tokenizer is None or args.config is None or args.model is None:
-#         print(" !! Please specify -d")
-#         sys.exit()
-# -------
-
+# Ensure the address ends with /v1 for OpenAI compatibility
+if not TEXT_GENERATION_ADDR.endswith("/v1"):
+    LLM_API_BASE_URL = f"{TEXT_GENERATION_ADDR}/v1"
+else:
+    LLM_API_BASE_URL = TEXT_GENERATION_ADDR
 
 # Setup FastAPI:
 app = FastAPI()
@@ -82,14 +36,10 @@ app.add_middleware(
 # -------
 
 
-# fastapi_chat.html uses this to check what model is being used.
-# (My Webserver uses this to check if my LLM is running):
+# Health check endpoint
 @app.get("/check")
 def check():
-    # just return name without path or safetensors so we don't expose local paths:
-    model = os.path.basename(args.model).replace(".safetensors", "")
-
-    return {model}
+    return {"status": "running", "model": MODEL_NAME, "api_base": LLM_API_BASE_URL}
 
 
 class CountTokensRequest(BaseModel):
@@ -98,9 +48,8 @@ class CountTokensRequest(BaseModel):
 
 @app.post("/count-tokens")
 def count_tokens(req: CountTokensRequest):
-    # ids = model.tokenize(req.inputs)
-    # return ids.shape[-1]
-    return -1
+    # Token counting not implemented for OpenAI compatible mode
+    return len(req.inputs.split()) * 1.3  # rough estimate
 
 
 class GenerateRequest(BaseModel):
@@ -149,18 +98,13 @@ async def stream_data(req: GenerateRequest):
             await asyncio.sleep(1)
 
     try:
-
-        # _MESSAGE, max_new_tokens = model.prepare_message(
-        #     messages=req.messages,
-        #     max_new_tokens=req.max_new_tokens,
-        # )
         print("stream", req.messages)
         llm = ChatOpenAI(
-            openai_api_base="http://localhost:8000/v1",
-            openai_api_key="your-api-key",
+            openai_api_base=LLM_API_BASE_URL,
+            openai_api_key=TEXT_GENERATION_KEY,
+            model_name=MODEL_NAME,
             streaming=True,
             temperature=req.temperature,
-            # top_k=req.top_k,
             top_p=req.top_p,
             max_tokens=req.max_new_tokens,
             frequency_penalty=req.token_repetition_penalty_max,
@@ -190,31 +134,8 @@ async def stream_data_test(req: GenerateRequest):
             await asyncio.sleep(1)
 
     try:
-
-        # _MESSAGE, max_new_tokens = model.prepare_message(
-        #     messages=req.messages,
-        #     max_new_tokens=req.max_new_tokens,
-        # )
-
-        # if req.stream:
-        #     # copy of generate_simple() so that I could yield each token for streaming without having to change generator.py and make merging updates a nightmare:
-        #     print("temp", req.temperature)
-        #     return StreamingResponse(
-        #         model.generate_stream(
-        #             _MESSAGE,
-        #             max_new_tokens,
-        #             req.temperature,
-        #             req.top_k,
-        #             req.top_p,
-        #             req.min_p,
-        #             req.token_repetition_penalty_max,
-        #             req.token_repetition_penalty_sustain,
-        #             req.token_repetition_penalty_decay,
-        #         )
-        #     )
-        # else:
-        #     return model.generate(_MESSAGE, max_new_tokens)
-        return
+        # Test endpoint - returns empty response
+        return {"response": "Test endpoint - not implemented"}
     except Exception as e:
         print("Exception", e)
         return {"response": f"Exception while processing request: {e}"}
@@ -227,9 +148,5 @@ async def stream_data_test(req: GenerateRequest):
 
 
 if __name__ == "__main__":
-
-    # -------
-
-    # [start fastapi]:
     _PORT = 7862
     uvicorn.run(app, host="0.0.0.0", port=_PORT)

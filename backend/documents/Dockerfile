@@ -18,8 +18,11 @@ COPY package.json pnpm-lock.yaml /app/
 RUN pnpm config set auto-install-peers true
 RUN pnpm install
 
-# Copy the rest of our Next.js folder into /app
-COPY . /app
+# Copy source code (excluding node_modules)
+COPY src /app/src
+COPY .babelrc /app/
+COPY _files /app/_files
+COPY _collections /app/_collections
 
 # Ensure port 3000 is accessible to our system
 EXPOSE 3001

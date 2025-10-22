@@ -35,7 +35,7 @@ services:
     ui:
         restart: $RESTART_POLICY
         build:
-            context: giustizia-ui
+            context: ./frontend
             args:
                 ACCESS_USERNAME: $UI_ACCESS_USERNAME
                 ACCESS_PASSWORD: $UI_ACCESS_PASSWORD
@@ -54,6 +54,8 @@ services:
         ports:
             - $LISTEN_UI:3000
             - 127.0.0.1:9229:9229
+        networks:
+            - dave_net
         environment:
             ACCESS_USERNAME: $UI_ACCESS_USERNAME
             ACCESS_PASSWORD: $UI_ACCESS_PASSWORD
@@ -73,29 +75,27 @@ services:
         extra_hosts:
             - "host.docker.internal:host-gateway"
         volumes:
-            - ./giustizia-ui/frontend/modules:/app/modules
-            - ./giustizia-ui/frontend/server:/app/server
-            - ./giustizia-ui/frontend/pages:/app/pages
-            - ./giustizia-ui/frontend/components:/app/components
-            - ./giustizia-ui/frontend/lib:/app/lib
-            - ./giustizia-ui/frontend/package.json:/app/package.json
+            - ./frontend/modules:/app/modules
+            - ./frontend/server:/app/server
+            - ./frontend/pages:/app/pages
+            - ./frontend/components:/app/components
+            - ./frontend/lib:/app/lib
+            - ./frontend/package.json:/app/package.json
 
     text-generation:
         build:
             context: ./backend/text-generation
             dockerfile: Dockerfile
-        deploy:
-            resources:
-                reservations:
-                    devices:
-                        - driver: nvidia
-                          count: 1
-                          capabilities: [gpu]
         environment:
-            - GPU_LAYERS=${TEXT_GENERATION_GPU_LAYERS}
+            - HOST=0.0.0.0
+            - TEXT_GENERATION_ADDR=${TEXT_GENERATION_ADDR:-http://localhost:8000}
+            - TEXT_GENERATION_KEY=${TEXT_GENERATION_KEY:-your-key}
+            - MODEL_NAME=${MODEL_NAME:-default-model}
         ports:
-            - 10.0.0.108:7862:7862
+            - 7862:7862
             - 8000:8000
+        networks:
+            - dave_net
         volumes:
             - ./models/text-generation:/workspace/models
             - /mnt/data:/models
