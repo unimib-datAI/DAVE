@@ -6,7 +6,7 @@ import { IconButton } from '@/components';
 
 export function DeAnonimizeButton() {
   const t = useText('document');
-  const { setDeAnonimize } = useDocumentContext();
+  const { deAnonimize, setDeAnonimize } = useDocumentContext();
   const document = useSelector(selectDocumentData);
 
   if (!document.features?.anonymized) {
@@ -15,8 +15,11 @@ export function DeAnonimizeButton() {
 
   return (
     <IconButton
-      onClick={() => setDeAnonimize(true)}
-      title={t('subToolbar.deAnonimize')}
+      onClick={() => setDeAnonimize(!deAnonimize)}
+      title={
+        deAnonimize ? t('subToolbar.anonimize') : t('subToolbar.deAnonimize')
+      }
+      style={{ opacity: deAnonimize ? 1 : 0.6 }}
     >
       <svg
         width="16"

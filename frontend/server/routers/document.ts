@@ -96,7 +96,7 @@ const getDocumentById = async (
         },
       }
     );
-
+    console.log('*** current document text ***', document.text);
     return document;
   } catch (err) {
     throw new TRPCError({
