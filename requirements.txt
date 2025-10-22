@@ -1,0 +1,8 @@
+pymongo
+python-dotenv
+tqdm
+elasticsearch==8.9.0
+torch
+nltk
+sentence-transformers
+langchain-text-splitters
