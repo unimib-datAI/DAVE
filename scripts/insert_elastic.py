@@ -38,6 +38,38 @@ def get_string_hash(input_string):
     return hash_object.hexdigest()
 
 
+def process_annotation(annotation, text, document_id):
+    """Process a single annotation into the required format."""
+    name = text[annotation["start"] : annotation["end"]]
+
+    ann_object = {
+        "mention": name,
+        "start": annotation["start"],
+        "end": annotation["end"],
+        "id": annotation["id"],
+        "type": annotation["type"],
+    }
+
+    # Handle linking information
+    if "linking" in annotation.get("features", {}) and not annotation["features"][
+        "linking"
+    ].get("is_nil", True):
+        linking = annotation["features"]["linking"]
+        ann_object.update(
+            {
+                "display_name": annotation["features"].get("title", name),
+                "is_linked": True,
+                "id_ER": linking.get("top_candidate", {}).get("url", ""),
+            }
+        )
+    else:
+        ann_object.update(
+            {"display_name": name, "is_linked": False, "id_ER": f"{document_id}_{name}"}
+        )
+
+    return ann_object
+
+
 def clean_document_data(file_object):
     """Clean and prepare document data for indexing."""
     # Remove unnecessary fields
@@ -114,7 +146,11 @@ def recreate_index(index_name=INDEX_NAME, delete_existing=False):
 
         if not es.indices.exists(index=index_name):
             index_settings = get_index_settings()
-            response = es.indices.create(index=index_name, body=index_settings)
+            response = es.indices.create(
+                index=index_name,
+                mappings=index_settings["mappings"],
+                settings=index_settings["settings"],
+            )
             print(f"Created index: {index_name}")
             return response
         else:
@@ -159,8 +195,9 @@ def read_json_files(path, target_ids=None):
                 if target_ids and file_object["id"] not in target_ids:
                     continue
 
-                # No entity processing
-                file_object["annotations"] = []
+                # Process annotations
+                annotations = process_document_annotations(file_object)
+                file_object["annotations"] = annotations
 
                 # Clean up the document
                 file_object = clean_document_data(file_object)
@@ -173,6 +210,29 @@ def read_json_files(path, target_ids=None):
 
     print(f"Successfully processed {len(data)} documents")
     return data
+
+
+def process_document_annotations(file_object):
+    """Extract and process annotations from a document."""
+    text = file_object.get("text", "")
+    annotations = []
+
+    annotation_sets = file_object.get("annotation_sets", {})
+    entities = annotation_sets.get("entities_", {})
+    raw_annotations = entities.get("annotations", [])
+
+    for annotation in raw_annotations:
+        try:
+            ann_object = process_annotation(annotation, text, file_object.get("id", ""))
+            annotations.append(ann_object)
+        except Exception as e:
+            print(f"Warning: Error processing annotation: {e}")
+            continue
+
+    print(
+        f"Processed {len(annotations)} annotations for document '{file_object.get('name', 'Unknown')}'"
+    )
+    return annotations
 
 
 def send_to_elasticsearch(data, index_name=INDEX_NAME, update_existing=True):
@@ -190,19 +250,22 @@ def send_to_elasticsearch(data, index_name=INDEX_NAME, update_existing=True):
         try:
             if update_existing:
                 # Remove existing documents with same ID
-                search_query = {"query": {"term": {"id": item["id"]}}}
-                search_response = es.search(index=index_name, body=search_query)
+                search_response = es.search(
+                    index=index_name, query={"term": {"id": item["id"]}}
+                )
 
                 for hit in search_response["hits"]["hits"]:
                     es.delete(index=index_name, id=hit["_id"])
 
             # Index the new document
-            es.index(index=index_name, body=item)
+            es.index(index=index_name, id=item["id"], document=item)
 
         except Exception as e:
             print(f"Error indexing document {item.get('name', 'Unknown')}: {e}")
 
     print("Document indexing completed")
+    # Refresh the index to make documents searchable immediately
+    es.indices.refresh(index=index_name)
 
 
 # Initialize text splitter
@@ -307,8 +370,7 @@ def update_document_with_chunks(doc_id, doc_source, chunker_instance):
 
     # Update document in Elasticsearch
     try:
-        data = {"doc": {"chunks": passages_body}}
-        response = es.update(index=INDEX_NAME, id=doc_id, body=data)
+        response = es.update(index=INDEX_NAME, id=doc_id, doc={"chunks": passages_body})
         print(f"Updated document {doc_id} with {len(chunks)} chunks")
     except Exception as e:
         print(f"Error updating document {doc_id}: {e}")
@@ -326,11 +388,9 @@ def process_documents_for_chunking(index_name=INDEX_NAME, query=None, batch_size
     if query is None:
         query = {"match_all": {}}
 
-    search_body = {"query": query}
-
     try:
         print("Searching for documents to process...")
-        response = es.search(index=index_name, body=search_body, size=batch_size)
+        response = es.search(index=index_name, query=query, size=batch_size)
         documents = response["hits"]["hits"]
 
         print(f"Found {len(documents)} documents to process")
@@ -343,7 +403,8 @@ def process_documents_for_chunking(index_name=INDEX_NAME, query=None, batch_size
 
         # Process each document
         for doc in tqdm(documents, desc="Adding chunks and embeddings"):
-            doc_id = doc["_id"]
+            # Use the custom ID (hash) instead of Elasticsearch's auto-generated _id
+            doc_id = doc["_source"]["id"]
             doc_source = doc["_source"]
             update_document_with_chunks(doc_id, doc_source, chunker)
 
