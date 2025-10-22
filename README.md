@@ -69,9 +69,9 @@ Edit the `.env` file and populate the following variables:
 - **`UI_ACCESS_USERNAME`** - Username for UI authentication (default: `admin`)
 - **`UI_ACCESS_PASSWORD`** - Password for UI authentication (default: `password`)
 - **`UI_NEXTAUTH_SECRET`** - Secret key for NextAuth.js session encryption (generate a random string)
-- **`UI_NEXTAUTH_URL`** - NextAuth callback URL (default: `http://0.0.0.0:3000/api/auth`)
-- **`UI_NEXT_PUBLIC_BASE_PATH`** - Base path for the UI (default: `/`)
-- **`UI_NEXT_PUBLIC_FULL_PATH`** - Full path URL for the UI (default: `http://0.0.0.0:3000`)
+- **`UI_NEXTAUTH_URL`** - NextAuth callback URL (default: `http://127.0.0.1:3000/dave/api/auth`)
+- **`UI_NEXT_PUBLIC_BASE_PATH`** - Base path for the UI (default: `/dave`)
+- **`UI_NEXT_PUBLIC_FULL_PATH`** - Full path URL for the UI (default: `http://127.0.0.1:3000/dave`)
 - **`UI_API_LLM`** - Internal URL for text generation service
 - **`UI_API_INDEXER`** - Internal URL for indexer service
 - **`UI_VARIANT`** - UI variant configuration (default: `default`)
