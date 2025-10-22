@@ -13,6 +13,8 @@ class AppSettings(BaseSettings):
     chroma_port: str = os.getenv("CHROMA_PORT", "8000")
     # port where elastic runs
     elastic_port: str = os.getenv("ELASTIC_PORT", "9201")
+    # url for documents service
+    documents_url: str = os.getenv("DOCUMENTS_URL", "")
     # the mebedding models used, if you change the model you also have the re-index documents
     embedding_model: str = os.getenv(
         "SENTENCE_TRANSFORMER_EMBEDDING_MODEL",
