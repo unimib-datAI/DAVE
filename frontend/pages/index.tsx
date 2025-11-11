@@ -3,9 +3,14 @@ import { LLMButton } from '@/modules/search/LLMButton';
 import { Searchbar } from '@/modules/search/Searchbar';
 import { Button } from '@nextui-org/react';
 import { useRouter } from 'next/router';
+import { UploadDocumentsModal } from '@/components/UploadDocumentsModal';
+import { UploadProgressIndicator } from '@/components/UploadProgressIndicator';
+import { useAtom } from 'jotai';
+import { uploadModalOpenAtom } from '@/atoms/upload';
 
 const Homepage = () => {
   const router = useRouter();
+  const [, setUploadModalOpen] = useAtom(uploadModalOpenAtom);
   const { register, onSubmit, setValue } = useForm({
     text: '',
   });
@@ -37,7 +42,7 @@ const Homepage = () => {
         <form onSubmit={onSubmit(handleSubmit)} className="w-full max-w-2xl">
           <Searchbar {...register('text')} />
         </form>
-        <div>
+        <div style={{ display: 'flex', gap: '1rem' }}>
           <Button
             style={{ zIndex: 1, backgroundColor: 'black' }}
             onPress={() => {
@@ -47,9 +52,17 @@ const Homepage = () => {
           >
             See all documents
           </Button>
+          <Button
+            style={{ zIndex: 1, backgroundColor: '#0070f3' }}
+            onPress={() => setUploadModalOpen(true)}
+          >
+            Upload annotated documents
+          </Button>
         </div>
       </div>
       <LLMButton />
+      <UploadDocumentsModal />
+      <UploadProgressIndicator />
     </>
   );
 };

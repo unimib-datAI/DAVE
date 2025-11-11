@@ -6,6 +6,11 @@ import { Option } from 'lucide-react';
 import { Link, Link2, SearchIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useRef, useState } from 'react';
+import { useAtom } from 'jotai';
+import {
+  deanonymizeFacetsAtom,
+  deanonymizedFacetNamesAtom,
+} from '@/utils/atoms';
 
 type FacetFilterProps = {
   facet: Facet;
@@ -41,6 +46,9 @@ const FacetFilter = ({
   onFilterChange,
   selectedFilters,
 }: FacetFilterProps) => {
+  const [deanonymize] = useAtom(deanonymizeFacetsAtom);
+  const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
+
   const { register, value } = useForm({
     filter: '',
   });
@@ -58,17 +66,30 @@ const FacetFilter = ({
   const STEP = 10;
   const VISIBLE_ELEMENTS = page * STEP + MAX_VISIBLE_CHILDREN;
 
-  // Deduplicate children by their display_name to avoid duplicates in grouped filters
+  // Group children by their display_name (or de-anonymized name) and combine their ids_ER
+  const groupedChildren = facet.children.reduce((acc, child) => {
+    // Use de-anonymized name if available, otherwise use display_name or key
+    const displayName =
+      deanonymize && child.display_name && deanonymizedNames[child.display_name]
+        ? deanonymizedNames[child.display_name]
+        : child.display_name || child.key;
+    const key = displayName?.toLowerCase() || '';
+
+    if (!acc[key]) {
+      acc[key] = { ...child };
+    } else {
+      // Combine ids_ER arrays, removing duplicates
+      acc[key].ids_ER = Array.from(
+        new Set([...acc[key].ids_ER, ...child.ids_ER])
+      );
+      acc[key].doc_count += child.doc_count;
+    }
+    return acc;
+  }, {} as Record<string, (typeof facet.children)[0]>);
+
   const deduplicatedChildren =
     value.filter.trim() === ''
-      ? Array.from(
-          new Map(
-            facet.children.map((child) => [
-              child.display_name?.toLowerCase() || child.key?.toLowerCase(),
-              child,
-            ])
-          ).values()
-        )
+      ? Object.values(groupedChildren)
       : fuse.current.search(value.filter).map(({ item }) => item);
 
   // Filter out anonymous personas
@@ -154,6 +175,8 @@ const FacetFilter = ({
 
       <div className="flex flex-col">
         {children.map((option) => {
+          if (!option.display_name.includes('vault:v1'))
+            console.log('***option', option);
           return (
             <Checkbox
               key={option.key}
@@ -185,7 +208,11 @@ const FacetFilter = ({
                 )}
                 <span className="text-base whitespace-nowrap text-ellipsis overflow-hidden w-48">
                   {filterType === 'annotation'
-                    ? option.display_name || option.key
+                    ? deanonymize &&
+                      option.display_name &&
+                      deanonymizedNames[option.display_name]
+                      ? deanonymizedNames[option.display_name]
+                      : option.display_name || option.key
                     : option.key}
                 </span>
               </div>

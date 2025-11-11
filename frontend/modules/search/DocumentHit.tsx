@@ -1,6 +1,11 @@
 import { FacetedQueryHit } from '@/server/routers/search';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { useAtom } from 'jotai';
+import {
+  deanonymizeFacetsAtom,
+  deanonymizedFacetNamesAtom,
+} from '@/utils/atoms';
 
 type DocumentHitProps = {
   hit: FacetedQueryHit;
@@ -15,6 +20,8 @@ const DocumentHit = ({
   selectedFilters = [],
   filterIdToDisplayName = {},
 }: DocumentHitProps) => {
+  const [deanonymize] = useAtom(deanonymizeFacetsAtom);
+  const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
   // Find matching annotation ids and display names
   const matchedItems = Array.isArray(hit.annotations)
     ? hit.annotations.filter((ann: any) => selectedFilters.includes(ann.id_ER))
@@ -63,12 +70,18 @@ const DocumentHit = ({
             <div className="flex flex-row flex-wrap gap-2 mt-4">
               {Array.from(
                 new Set(
-                  uniqueMatchedItems.map(
-                    (item: any) =>
+                  uniqueMatchedItems.map((item: any) => {
+                    const originalName =
                       item.display_name ||
                       filterIdToDisplayName[item.id_ER] ||
-                      item.id_ER
-                  )
+                      item.id_ER;
+                    // Use de-anonymized name if available
+                    return deanonymize &&
+                      item.display_name &&
+                      deanonymizedNames[item.display_name]
+                      ? deanonymizedNames[item.display_name]
+                      : originalName;
+                  })
                 )
               ).map((displayName: string) => (
                 <span

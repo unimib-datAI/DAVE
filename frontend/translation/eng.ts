@@ -144,6 +144,19 @@ const t: Translation = {
       },
     },
   },
+  search: {
+    facets: {
+      deAnonymize: 'Show real names',
+      anonymize: 'Hide real names',
+      deAnonymizeTooltip: 'Show real names (de-anonymize)',
+      anonymizeTooltip: 'Hide real names (show anonymized)',
+    },
+  },
+  common: {
+    loading: 'Loading...',
+    showNames: 'Show Names',
+    hideNames: 'Hide Names',
+  },
 };
 
 export default t;

@@ -191,7 +191,7 @@ export const documentReducer = createImmerReducer<State, Action>({
     console.log(`🔍 Mapped annotation type "${type}" -> "${mappedType}"`);
 
     // Check if there's a matching cluster by lowercase label within clusters of the same type
-    const lowerCaseText = text.toLowerCase();
+    const lowerCaseText = text.replace('vault:v1:', '').toLowerCase();
     const clusters = state.data.features.clusters[activeAnnotationSet];
     console.log(
       `🔍 Searching for cluster matching "${lowerCaseText}" in ${clusters.length} total clusters`
@@ -231,7 +231,7 @@ export const documentReducer = createImmerReducer<State, Action>({
       // Create new cluster with mapped type
       const newCluster: Cluster = {
         id: clusterId,
-        title: text,
+        title: text.replace('vault:v1:', ''),
         type: mappedType,
         mentions: [],
       };
@@ -257,7 +257,7 @@ export const documentReducer = createImmerReducer<State, Action>({
       features: {
         mention: text,
         cluster: clusterId,
-        title: text,
+        title: text.replace('vault:v1:', ''),
         url: '',
         is_nil: false,
         additional_candidates: [],

@@ -19,3 +19,5 @@ export const chatHistoryAtom = atom<MessagesState>({
   contexts: [],
   statuses: [],
 });
+export const deanonymizeFacetsAtom = atom<boolean>(false);
+export const deanonymizedFacetNamesAtom = atom<Record<string, string>>({});

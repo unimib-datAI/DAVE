@@ -251,6 +251,7 @@ export const selectDocumentClusters = createSelector(
           ...cluster,
           type: normalizedType,
           mentions,
+          title: cluster.title.replace('vault:v1:', ''),
         } as ProcessedCluster;
       })
       .filter((cluster) => cluster.mentions.length > 0); // Filter out empty clusters

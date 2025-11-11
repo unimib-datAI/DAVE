@@ -135,4 +135,17 @@ export type Translation = {
       };
     };
   };
+  search: {
+    facets: {
+      deAnonymize: string;
+      anonymize: string;
+      deAnonymizeTooltip: string;
+      anonymizeTooltip: string;
+    };
+  };
+  common: {
+    loading: string;
+    showNames: string;
+    hideNames: string;
+  };
 };
