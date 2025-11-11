@@ -1,10 +1,6 @@
 import { getSpan } from '@/lib/ner/core';
 import { Annotation, EntityNode as EntityNodeType } from '@/lib/ner/core/types';
-import {
-  ChildNodeWithColor,
-  getAllNodeData,
-  isPersonType,
-} from '@/components/Tree';
+import { ChildNodeWithColor, getAllNodeData } from '@/components/Tree';
 import {
   AdditionalAnnotationProps,
   EntityAnnotation,
@@ -24,9 +20,7 @@ import { useNERContext } from './nerContext';
 import { FiX } from '@react-icons/all-files/fi/FiX';
 import { FiLink } from '@react-icons/all-files/fi/FiLink';
 import { keyframes } from '@emotion/react';
-import { maskWords } from '@/utils/shared';
-import { useAtom } from 'jotai';
-import { anonimizedNamesAtom } from '@/utils/atoms';
+import { useDocumentContext } from '../../modules/document/DocumentProvider/selectors';
 
 type EntityNodeProps = EntityNodeType<AdditionalAnnotationProps>;
 
@@ -120,8 +114,7 @@ const EntityNodeInner = React.forwardRef<HTMLSpanElement, EntityNodeProps>(
       highlightAnnotation,
       showAnnotationDelete,
     } = useNERContext();
-    //get anonimization status
-    const [anonimized, setAnonimized] = useAtom(anonimizedNamesAtom);
+    const { deAnonimize } = useDocumentContext();
 
     useEffect(() => {
       if (highlightAnnotation === annotation.id) {
@@ -232,9 +225,12 @@ const EntityNodeInner = React.forwardRef<HTMLSpanElement, EntityNodeProps>(
         children: ReactNode;
         annotation: Annotation<AdditionalAnnotationProps>;
       }) => {
-        //this code is used to anonimize the person's name
-        if (isPersonType(annotation.type) && anonimized) {
-          children = maskWords(children as string);
+        if (
+          !deAnonimize &&
+          typeof children === 'string' &&
+          children.length > 15
+        ) {
+          children = children.slice(0, 15) + '...';
         }
         const tagElement = (
           <Tag
@@ -274,7 +270,7 @@ const EntityNodeInner = React.forwardRef<HTMLSpanElement, EntityNodeProps>(
       },
       [
         highlight,
-        anonimized,
+        deAnonimize,
         handleTagClick,
         handleOnTagEnter,
         handleOnTagLeave,
@@ -328,7 +324,17 @@ const EntityNodeInner = React.forwardRef<HTMLSpanElement, EntityNodeProps>(
     // memoized the tag recursion so that it runs only when the tag prop changes
     // const tagContent = useMemo(() => recurseTag(), [recurseTag]);
 
-    return <>{text ? getTag({ color, annotation, children: text }) : null}</>;
+    return (
+      <>
+        {text
+          ? getTag({
+              color,
+              annotation,
+              children: text.replace('vault:v1:', ''),
+            })
+          : null}
+      </>
+    );
   }
 );
 

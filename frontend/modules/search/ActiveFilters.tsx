@@ -1,6 +1,11 @@
 import { Facet, FacetedQueryOutput } from '@/server/routers/search';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/router';
+import { useAtom } from 'jotai';
+import {
+  deanonymizeFacetsAtom,
+  deanonymizedFacetNamesAtom,
+} from '@/utils/atoms';
 
 const getActiveFilters = (
   facets: ActiveFiltersListProps['facets'],
@@ -76,6 +81,8 @@ type ActiveFiltersListProps = {
 
 const ActiveFiltersList = ({ facets }: ActiveFiltersListProps) => {
   const router = useRouter();
+  const [deanonymize] = useAtom(deanonymizeFacetsAtom);
+  const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
   const activeFilters =
     facets.annotations.length === 0 && facets.metadata.length === 0
       ? []
@@ -121,15 +128,21 @@ const ActiveFiltersList = ({ facets }: ActiveFiltersListProps) => {
     <div className="flex flex-row items-center flex-wrap gap-2">
       {activeFilters.map((filter, index) => {
         console.log('filter', filter);
+        const displayText = filter.filterType.startsWith('annotation')
+          ? deanonymize &&
+            filter.value.display_name &&
+            deanonymizedNames[filter.value.display_name]
+            ? deanonymizedNames[filter.value.display_name]
+            : filter.value.display_name || filter.value.key
+          : filter.value.key;
+
         return (
           <button
             key={index}
             onClick={() => removeFilter(filter.filterType, filter.value)}
             className="cursor-pointer hover:opacity-90 border-none m-0  bg-slate-900 rounded-full px-2 py-1 text-white text-xs flex flex-row items-center gap-2"
           >
-            {filter.filterType.startsWith('annotation')
-              ? filter.value.display_name || filter.value.key
-              : filter.value.key}
+            {displayText}
             <X size={16} />
           </button>
         );

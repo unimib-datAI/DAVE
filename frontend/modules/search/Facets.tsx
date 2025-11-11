@@ -4,6 +4,7 @@ import Fuse from 'fuse.js';
 import { SearchIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FacetFilter } from './FacetFilter';
+import { DeAnonymizeFacetsButton } from './DeAnonymizeFacetsButton';
 
 // Entity type grouping map - keys are lowercase
 const entityTypeGroupMap: Record<string, string> = {
@@ -332,8 +333,18 @@ const Facets = ({
     <div className="sticky top-16 w-72 h-[calc(100vh-4rem)]">
       <div className="overflow-y-auto h-full">
         <div className="flex flex-col pr-6 py-6 gap-8">
-          <div className="flex flex-col">
+          <div className="flex flex-col gap-3">
             <div className="text-lg font-semibold">Filter</div>
+            <DeAnonymizeFacetsButton
+              facets={{
+                annotations: allFacets
+                  .filter((f) => f.filterType === 'annotation')
+                  .map(({ filterType, ...rest }) => rest),
+                metadata: allFacets
+                  .filter((f) => f.filterType === 'metadata')
+                  .map(({ filterType, ...rest }) => rest),
+              }}
+            />
             <div className="flex flex-row items-center border-[1px] border-solid border-slate-200 rounded-md p-3 w-full gap-2">
               <SearchIcon size={22} />
               <input

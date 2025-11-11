@@ -253,9 +253,9 @@ export const search = createRouter()
       let string = JSON.stringify({
         ...input,
         n_facets: 20,
-        page: input.cursor || 1,
+        page: input.cursor || 1, //comment
       });
-      console.log('string', string);
+      console.log('current index', index);
       const res = await fetch(
         `${process.env.API_INDEXER}/elastic/index/${index}/query`,
         {

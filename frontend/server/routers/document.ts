@@ -326,4 +326,140 @@ export const documents = createRouter()
         }
       }
     },
+  })
+  .mutation('createDocument', {
+    input: z.object({
+      document: z.object({
+        text: z.string(),
+        annotation_sets: z.record(z.string(), z.any()),
+        preview: z.string().optional(),
+        name: z.string().optional(),
+        features: z.record(z.string(), z.any()).optional(),
+        offset_type: z.string().optional(),
+      }),
+    }),
+    resolve: async ({ input }) => {
+      const { document } = input;
+      const elasticIndex = process.env.ELASTIC_INDEX;
+
+      try {
+        const result = await fetchJson<any, any>(`${baseURL}/document`, {
+          method: 'POST',
+          headers: {
+            Authorization: getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+          body: {
+            ...document,
+            elasticIndex,
+          },
+        });
+
+        return result;
+      } catch (error) {
+        console.error('Error creating document:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to create document: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        });
+      }
+    },
+  })
+  .mutation('deanonymizeKey', {
+    input: z.object({
+      key: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      const { key } = input;
+
+      try {
+        const result = await fetchJson<
+          any,
+          { key: string; value: string } | { error: string; key: string }
+        >(`${baseURL}/document/deanonymize-key`, {
+          method: 'POST',
+          headers: {
+            Authorization: getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+          body: {
+            key,
+          },
+        });
+
+        if ('error' in result) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: result.error,
+          });
+        }
+
+        return result;
+      } catch (error) {
+        console.error('Error deanonymizing key:', error);
+        if (error instanceof TRPCError) {
+          throw error;
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to deanonymize key: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        });
+      }
+    },
+  })
+  .mutation('deanonymizeKeys', {
+    input: z.object({
+      keys: z.array(z.string()),
+    }),
+    resolve: async ({ input }) => {
+      const { keys } = input;
+
+      try {
+        // Call the endpoint for each key and collect results
+        const results = await Promise.allSettled(
+          keys.map(async (key) => {
+            const result = await fetchJson<
+              any,
+              { key: string; value: string } | { error: string; key: string }
+            >(`${baseURL}/document/deanonymize-key`, {
+              method: 'POST',
+              headers: {
+                Authorization: getAuthHeader(),
+                'Content-Type': 'application/json',
+              },
+              body: {
+                key,
+              },
+            });
+            return result;
+          })
+        );
+
+        // Build a map of successful de-anonymizations
+        const deanonymizedMap: Record<string, string> = {};
+
+        results.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            const data = result.value;
+            if ('value' in data && !('error' in data)) {
+              deanonymizedMap[keys[index]] = data.value;
+            }
+          }
+        });
+
+        return deanonymizedMap;
+      } catch (error) {
+        console.error('Error deanonymizing keys:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to deanonymize keys: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        });
+      }
+    },
   });

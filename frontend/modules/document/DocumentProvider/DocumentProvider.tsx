@@ -26,13 +26,20 @@ import { DocumentContext } from './DocumentContext';
  */
 const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   const [id] = useParam<string>('id');
-  const [deAnonimize, setDeAnonimize] = useState(false);
-  const { data, isFetching } = useQuery(
+  const [deAnonimize, setDeAnonimize] = useState(
+    process.env.NODE_ENV === 'development'
+  );
+  const { data, isFetching, refetch } = useQuery(
     ['document.getDocument', { id: id, deAnonimize }],
     {
       staleTime: Infinity,
     }
   );
+
+  // Force refetch when deAnonimize changes to ensure reload even for cached keys
+  useEffect(() => {
+    refetch();
+  }, [deAnonimize, refetch]);
   // State to hold the document data
   const [documentData, setDocumentData] = useState(data);
   useEffect(() => {
