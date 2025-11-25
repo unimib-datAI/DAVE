@@ -462,4 +462,153 @@ export const documents = createRouter()
         });
       }
     },
+  })
+  .mutation('annotateAndUpload', {
+    input: z.object({
+      text: z.string(),
+      name: z.string().optional(),
+    }),
+    resolve: async ({ input }) => {
+      const { text, name } = input;
+      const spacynerURL =
+        process.env.ANNOTATION_SPACYNER_URL ||
+        'http://spacyner:80/api/spacyner';
+      const blinkURL =
+        process.env.ANNOTATION_BLINK_URL ||
+        'http://biencoder:80/api/blink/biencoder/mention/doc';
+      const indexerURL =
+        process.env.ANNOTATION_INDEXER_URL ||
+        'http://indexer:80/api/indexer/search/doc';
+      const nilpredictionURL =
+        process.env.ANNOTATION_NILPREDICTION_URL ||
+        'http://nilpredictor:80/api/nilprediction/doc';
+      const nilclusterURL =
+        process.env.ANNOTATION_NILCLUSTER_URL ||
+        'http://clustering:80/api/clustering';
+      const consolidationURL =
+        process.env.ANNOTATION_CONSOLIDATION_URL ||
+        'http://consolidation:80/api/consolidation';
+      const elasticIndex = process.env.ELASTIC_INDEX;
+
+      try {
+        // Step 1: Create initial gatenlp Document
+        let gdoc = {
+          text: text,
+          features: {},
+          offset_type: 'p',
+          annotation_sets: {},
+        };
+
+        console.log('Step 1: Calling spacyner...');
+        // Step 2: SpaCy NER
+        const spacynerRes = await fetchJson<any, any>(spacynerURL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: gdoc,
+        });
+        gdoc = spacynerRes;
+
+        console.log('Step 2: Calling blink biencoder...');
+        // Step 3: BLINK biencoder mention detection
+        const blinkRes = await fetchJson<any, any>(blinkURL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: gdoc,
+        });
+        gdoc = blinkRes;
+
+        console.log('Step 3: Calling indexer search...');
+        // Step 4: Indexer search
+        const indexerRes = await fetchJson<any, any>(indexerURL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: gdoc,
+        });
+        gdoc = indexerRes;
+
+        console.log('Step 4: Calling nilprediction...');
+        // Step 5: NIL prediction
+        const nilRes = await fetchJson<any, any>(nilpredictionURL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: gdoc,
+        });
+        gdoc = nilRes;
+
+        console.log('Step 5: Calling clustering...');
+        // Step 6: NIL Clustering
+        const nilclusterRes = await fetchJson<any, any>(nilclusterURL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: gdoc,
+        });
+        gdoc = nilclusterRes;
+
+        console.log('Step 6: Calling consolidation...');
+        // Step 7: Consolidation
+        const consolidationRes = await fetchJson<any, any>(consolidationURL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: gdoc,
+        });
+        gdoc = consolidationRes;
+
+        console.log('Step 7: Cleaning up encoding features...');
+        // Step 7: Clean up encoding features from linking
+        if (gdoc.annotation_sets && (gdoc.annotation_sets as any).entities_) {
+          const entities =
+            (gdoc.annotation_sets as any).entities_.annotations || [];
+          for (const ann of entities) {
+            if (
+              ann.features &&
+              ann.features.linking &&
+              ann.features.linking.encoding
+            ) {
+              delete ann.features.linking.encoding;
+            }
+          }
+        }
+
+        console.log('Step 8: Uploading annotated document...');
+        // Step 9: Upload the annotated document
+        const documentToUpload = {
+          ...gdoc,
+          name: name || 'Untitled Document',
+          preview: text.substring(0, 200) + (text.length > 200 ? '...' : ''),
+          elasticIndex,
+        };
+
+        const result = await fetchJson<any, any>(`${baseURL}/document`, {
+          method: 'POST',
+          headers: {
+            Authorization: getAuthHeader(),
+            'Content-Type': 'application/json',
+          },
+          body: documentToUpload,
+        });
+
+        console.log('Document uploaded successfully');
+        return result;
+      } catch (error) {
+        console.error('Error in annotateAndUpload:', error);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Failed to annotate and upload document: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        });
+      }
+    },
   });
