@@ -39,3 +39,23 @@ Start the server:
 ```
 pnpm run dev
 ```
+
+## API Documentation
+
+This service now includes interactive Swagger/OpenAPI documentation for all API endpoints.
+
+Once the server is running, you can access the Swagger UI at:
+
+```
+http://localhost:{DOCS_PORT}/api-docs
+```
+
+Replace `{DOCS_PORT}` with the port number specified in your `.env` file.
+
+The Swagger documentation provides:
+- Interactive API endpoint testing
+- Complete request/response schemas
+- Detailed parameter descriptions
+- Data model definitions
+
+For more details, see [SWAGGER.md](./SWAGGER.md).

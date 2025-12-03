@@ -1,4 +1,4 @@
-import mongoose, { Schema } from 'mongoose';
+import mongoose, { Schema } from "mongoose";
 
 // const annotationSchema = new Schema({
 //   type: String,
@@ -9,15 +9,20 @@ import mongoose, { Schema } from 'mongoose';
 // })
 
 const annotationSchema = new Schema({
-  annotationSetId: mongoose.Types.ObjectId,
-  id: Number,
-  type: String,
-  start: Number,
-  end: Number,
-  features: Object
+    annotationSetId: mongoose.Types.ObjectId,
+    id: Number,
+    type: String,
+    start: Number,
+    end: Number,
+    features: Object,
+    originalKey: String,
 });
-export const Annotation = mongoose.model('Annotation', annotationSchema, 'annotations');
+export const Annotation = mongoose.model(
+    "Annotation",
+    annotationSchema,
+    "annotations",
+);
 
 export const annotationDTO = (annotation) => {
-  return new Annotation(annotation);
-}
+    return new Annotation(annotation);
+};

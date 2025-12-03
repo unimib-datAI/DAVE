@@ -13,7 +13,47 @@ export default (app) => {
     app.use("/save", route);
 
     /**
-     * Save entity annotation set and optionally document features
+     * @swagger
+     * /api/save:
+     *   post:
+     *     summary: Save annotation sets and features
+     *     description: Save entity annotation sets and optionally update document features
+     *     tags: [Save]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             required:
+     *               - docId
+     *               - annotationSets
+     *             properties:
+     *               docId:
+     *                 oneOf:
+     *                   - type: string
+     *                   - type: number
+     *                 description: Document ID
+     *               annotationSets:
+     *                 type: object
+     *                 description: Annotation sets to save
+     *               features:
+     *                 type: object
+     *                 description: Optional document features to update
+     *     responses:
+     *       200:
+     *         description: Successfully saved annotation sets and features
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     *               properties:
+     *                 annotationSets:
+     *                   type: object
+     *                 features:
+     *                   type: object
+     *                 success:
+     *                   type: boolean
      */
     route.post(
         "/",
@@ -95,6 +135,34 @@ export default (app) => {
         }),
     );
 
+    /**
+     * @swagger
+     * /api/save/rate-conversation:
+     *   post:
+     *     summary: Rate a conversation
+     *     description: Save a rating for a chat conversation
+     *     tags: [Save]
+     *     requestBody:
+     *       required: true
+     *       content:
+     *         application/json:
+     *           schema:
+     *             type: object
+     *             properties:
+     *               rateValue:
+     *                 type: number
+     *                 description: Rating value for the conversation
+     *               chatState:
+     *                 type: object
+     *                 description: Current state of the chat
+     *     responses:
+     *       200:
+     *         description: Successfully saved conversation rating
+     *         content:
+     *           application/json:
+     *             schema:
+     *               type: object
+     */
     route.post(
         "/rate-conversation",
         asyncRoute(async (req, res) => {
