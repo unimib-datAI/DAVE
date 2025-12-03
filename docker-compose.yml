@@ -23,7 +23,8 @@ services:
         build: ./backend/documents
         environment:
             DOCS_PORT: 3001
-            ENABLE_AUTH: false
+            ENABLE_AUTH: true
+            JWT_SECRET: ${DOCUMENTS_JWT_SECRET:-your-secret-key-change-in-production}
             MONGO: $MONGO
         networks:
             - dave_net
