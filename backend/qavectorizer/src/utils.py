@@ -30,10 +30,10 @@ def get_facets_annotations(search_res):
                         "key": children_bucket["key"],
                         "display_name": children_bucket["top_hits_per_mention"]["hits"][
                             "hits"
-                        ][0]["_source"]["display_name"],
+                        ][0]["_source"].get("mention", children_bucket["key"]),
                         "is_linked": children_bucket["top_hits_per_mention"]["hits"][
                             "hits"
-                        ][0]["_source"]["is_linked"],
+                        ][0]["_source"].get("is_linked", False),
                         "doc_count": children_bucket["doc_count"],
                     }
                     for children_bucket in bucket["mentions"]["buckets"]
@@ -113,9 +113,6 @@ def get_facets_annotations_no_agg(hits):
 
         # Loop through the list of objects
         for obj in mentions_type_buckets[bucket_key]:
-            # Skip objects that don't have id_ER field
-            if "id_ER" not in obj:
-                continue
             # If the 'name' of the object is not in the dictionary, add the object to the dictionary
             if obj["id_ER"] not in aggregated_data:
                 appended_obj = obj
@@ -129,9 +126,9 @@ def get_facets_annotations_no_agg(hits):
             ment = aggregated_data[mention]
             child = {
                 "key": mention,
-                "display_name": ment.get("display_name", "Unknown"),
+                "display_name": ment["display_name"],
                 "doc_count": ment["doc_count"],
-                "is_linked": ment.get("is_linked", False),
+                "is_linked": ment["is_linked"],
             }
             children.append(child)
         final_bucket["children"] = children
@@ -182,6 +179,28 @@ def get_facets_metadata(search_res):
         final_bucket["n_children"] = len(children)
         metadata_facets.append(final_bucket)
     return metadata_facets
+
+
+def get_facets_metadata_agg(search_res):
+    def convert_metadata_bucket(bucket):
+        return {
+            "key": bucket["key"],
+            "n_children": len(bucket["values"]["buckets"]),
+            "doc_count": bucket["doc_count"],
+            "children": [
+                {
+                    "key": value_bucket["key"],
+                    "display_name": value_bucket["key"],
+                    "doc_count": value_bucket["doc_count"],
+                }
+                for value_bucket in bucket["values"]["buckets"]
+            ],
+        }
+
+    return [
+        convert_metadata_bucket(bucket)
+        for bucket in search_res["aggregations"]["metadata"]["types"]["buckets"]
+    ]
 
 
 def anonymize(s):
