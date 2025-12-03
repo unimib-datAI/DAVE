@@ -1,14 +1,21 @@
-import { useQuery } from "@/utils/trpc";
-import styled from "@emotion/styled";
-import { Popover, Avatar, Button, Dropdown, User, Text } from "@nextui-org/react";
-import { FiSliders } from "@react-icons/all-files/fi/FiSliders";
-import { signOut, useSession } from "next-auth/react";
-import Link from "next/link";
-import { useRouter } from "next/router";
-import Skeleton from 'react-loading-skeleton'
-import 'react-loading-skeleton/dist/skeleton.css'
-import { useText } from "../TranslationProvider";
-
+import { useQuery } from '@/utils/trpc';
+import styled from '@emotion/styled';
+import {
+  Popover,
+  Avatar,
+  Button,
+  Dropdown,
+  User,
+  Text,
+} from '@nextui-org/react';
+import { FiSliders } from '@react-icons/all-files/fi/FiSliders';
+import { FiFolder } from '@react-icons/all-files/fi/FiFolder';
+import { signOut, useSession } from 'next-auth/react';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
+import { useText } from '../TranslationProvider';
 
 const LinkButton = styled.a({
   border: 'none',
@@ -19,9 +26,9 @@ const LinkButton = styled.a({
   transition: 'background 250ms ease-out',
 
   '&:hover': {
-    backgroundColor: 'rgb(0 0 0/0.03)'
-  }
-})
+    backgroundColor: 'rgb(0 0 0/0.03)',
+  },
+});
 
 const LoginAvatar = () => {
   const t = useText('infer');
@@ -30,15 +37,20 @@ const LoginAvatar = () => {
   const handleAction = (key: string | number) => {
     if (key === 'logout') {
       signOut({
-        callbackUrl: '/login'
-      })
+        callbackUrl: '/login',
+      });
     }
-  }
+  };
 
   if (status === 'loading') {
     return (
-      <Skeleton width={40} height={40} borderRadius="50%" style={{ lineHeight: 'unset' }} />
-    )
+      <Skeleton
+        width={40}
+        height={40}
+        borderRadius="50%"
+        style={{ lineHeight: 'unset' }}
+      />
+    );
   }
 
   if (status === 'unauthenticated') {
@@ -46,7 +58,7 @@ const LoginAvatar = () => {
       <Link href="/login" passHref>
         <LinkButton>Login</LinkButton>
       </Link>
-    )
+    );
   }
 
   return (
@@ -65,14 +77,20 @@ const LoginAvatar = () => {
               Gestisci tassonomia
             </Text>
           </Link>
-
+        </Dropdown.Item>
+        <Dropdown.Item key="collections" icon={<FiFolder />}>
+          <Link href="/collections" passHref>
+            <Text as="a" b color="inherit">
+              Manage Collections
+            </Text>
+          </Link>
         </Dropdown.Item>
         <Dropdown.Item key="logout" color="error" withDivider>
           {t('toolbar.logout')}
         </Dropdown.Item>
       </Dropdown.Menu>
     </Dropdown>
-  )
-}
+  );
+};
 
 export default LoginAvatar;

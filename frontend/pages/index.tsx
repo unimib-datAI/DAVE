@@ -7,6 +7,7 @@ import { UploadDocumentsModal } from '@/components/UploadDocumentsModal';
 import { UploadProgressIndicator } from '@/components/UploadProgressIndicator';
 import { useAtom } from 'jotai';
 import { uploadModalOpenAtom } from '@/atoms/upload';
+import { ToolbarLayout } from '@/components/ToolbarLayout';
 
 const Homepage = () => {
   const router = useRouter();
@@ -24,7 +25,7 @@ const Homepage = () => {
   };
 
   return (
-    <>
+    <ToolbarLayout>
       <div className="flex flex-col items-center justify-center text-center w-full gap-14 h-screen">
         <div className="flex flex-col items-center text-center -mt-40">
           <h1>DAVE</h1>
@@ -62,8 +63,7 @@ const Homepage = () => {
       </div>
       <LLMButton />
       <UploadDocumentsModal />
-      <UploadProgressIndicator />
-    </>
+    </ToolbarLayout>
   );
 };
 

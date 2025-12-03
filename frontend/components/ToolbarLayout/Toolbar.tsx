@@ -2,6 +2,7 @@ import styled from '@emotion/styled';
 import Link from 'next/link';
 import { PropsWithChildren } from 'react';
 import { LoginAvatar } from '../LoginAvatar';
+import { CollectionSelector } from '../CollectionSelector';
 
 const Container = styled.div({
   position: 'fixed',
@@ -44,6 +45,7 @@ const Toolbar = ({ children }: PropsWithChildren<{}>) => {
         <Logo>🔨</Logo>
       </Link>
       <ToolbarContent>
+        <CollectionSelector />
         {children}
         <LoginAvatar />
       </ToolbarContent>
