@@ -1,32 +1,36 @@
+import hashlib
+import json
+import logging
+import os
 import re
-from elasticsearch import Elasticsearch
-import uvicorn
-from pydantic import BaseModel
-from typing import List
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, HTTPException, Depends
 import uuid
-from transformers import AutoTokenizer
-from sentence_transformers import SentenceTransformer
 from functools import lru_cache
-from settings import AppSettings
+from os import environ
+from typing import List, Optional
+
+import requests
+import torch
+import uvicorn
+from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from pydantic import BaseModel
 from retriever import DocumentRetriever
+from sentence_transformers import SentenceTransformer
+from settings import AppSettings
+from transformers import AutoTokenizer
 from utils import (
-    get_facets_annotations,
-    get_facets_metadata,
-    get_hits,
-    get_facets_annotations_no_agg,
-    group_facets,
     collect_chunk_ranks,
     collect_chunk_ranks_full_text,
+    get_facets_annotations,
+    get_facets_annotations_no_agg,
+    get_facets_metadata,
+    get_hits,
+    group_facets,
 )
-import torch
-from os import environ
-import json
-import os
-import logging
-from fastapi.responses import JSONResponse
-import requests
+
+from elasticsearch import Elasticsearch
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -36,8 +40,48 @@ def get_settings():
     return AppSettings()
 
 
-# Setup FastAPI:
-app = FastAPI()
+# Setup FastAPI with comprehensive API documentation:
+app = FastAPI(
+    title="QA Vectorizer API",
+    description="""
+    QA Vectorizer API provides document indexing, search, and retrieval capabilities using Elasticsearch and vector embeddings.
+
+    ## Features
+
+    * **Vector Search**: Semantic search using sentence transformers and dense vector embeddings
+    * **Hybrid Search**: Combines vector search with full-text search using RRF (Reciprocal Rank Fusion)
+    * **Document Management**: Index, update, and delete documents with annotations
+    * **Elasticsearch Integration**: Full Elasticsearch index management
+    * **Annotation Support**: Handle document annotations and entity mentions
+    * **Chunking**: Automatic document chunking with configurable parameters
+
+    ## Authentication
+
+    Currently, the API does not require authentication (CORS is open).
+    """,
+    version="1.0.0",
+    contact={
+        "name": "IKBP Team",
+    },
+    openapi_tags=[
+        {
+            "name": "Vector Search",
+            "description": "Hybrid vector and full-text search operations. Note: Despite the legacy /chroma route name, this actually queries Elasticsearch.",
+        },
+        {
+            "name": "Elasticsearch Index",
+            "description": "Elasticsearch index management operations",
+        },
+        {
+            "name": "Elasticsearch Documents",
+            "description": "Document indexing and management operations",
+        },
+        {
+            "name": "Elasticsearch Query",
+            "description": "Search and query operations",
+        },
+    ],
+)
 
 # I need open CORS for my setup, you may not!!
 app.add_middleware(
@@ -50,16 +94,22 @@ app.add_middleware(
 
 
 class CreateCollectionRequest(BaseModel):
+    """Request model for creating a new collection"""
+
     name: str
 
 
 class IndexDocumentRequest(BaseModel):
+    """Request model for indexing documents with embeddings"""
+
     embeddings: List[List[float]]
     documents: List[str]
     metadatas: List[dict] = []
 
 
 class QueryCollectionRquest(BaseModel):
+    """Request model for querying a collection with vector search"""
+
     query: str
     filter_ids: List[str] = []
     k: int = 5
@@ -67,10 +117,330 @@ class QueryCollectionRquest(BaseModel):
     include: List[str] = ["metadatas", "documents", "distances"]
     retrievalMethod: str = "full"
     force_rag: bool = False
+    # Optional collection identifier to restrict searches to a single collection
+    collectionId: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "query": "What is the verdict?",
+                "filter_ids": ["doc123"],
+                "k": 5,
+                "retrievalMethod": "full",
+                "force_rag": False,
+                "collectionId": "my_collection_id",
+            }
+        }
+
+
+class ChunkMetadata(BaseModel):
+    """Metadata for a document chunk"""
+
+    doc_id: str
+    chunk_size: int
+
+    class Config:
+        json_schema_extra = {
+            "example": {"doc_id": "a7f8d9e2c1b3456789abcdef", "chunk_size": 450}
+        }
+
+
+class DocumentChunk(BaseModel):
+    """A chunk of a document with text and metadata"""
+
+    id: str
+    text: str
+    metadata: ChunkMetadata
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "a7f8d9e2c1b3456789abcdef",
+                "text": "Il Tribunale di Milano ha stabilito che la parte ricorrente ha diritto al risarcimento dei danni subiti. La decisione si basa sull'articolo 1223 del codice civile che stabilisce il principio del risarcimento integrale del danno.",
+                "metadata": {"doc_id": "a7f8d9e2c1b3456789abcdef", "chunk_size": 245},
+            }
+        }
+
+
+class DocumentInfo(BaseModel):
+    """Full document information"""
+
+    id: str
+    name: str
+    text: str
+    preview: str
+    annotation_sets: Optional[dict] = None
+    features: Optional[dict] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "a7f8d9e2c1b3456789abcdef",
+                "name": "Sentenza 2023/001 - Tribunale di Milano",
+                "text": "Il Tribunale di Milano, in data 15 gennaio 2023, ha emesso la seguente sentenza...",
+                "preview": "Il Tribunale di Milano, in data 15 gennaio 2023...",
+                "annotation_sets": {
+                    "entities_": {"name": "entities_", "annotations": []}
+                },
+                "features": {"year": "2023", "court": "Milano"},
+            }
+        }
+
+
+class QueryCollectionResponse(BaseModel):
+    """Response model for query collection endpoint"""
+
+    doc: DocumentInfo
+    chunks: List[DocumentChunk]
+    full_docs: bool
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "doc": {
+                    "id": "a7f8d9e2c1b3456789abcdef",
+                    "name": "Sentenza 2023/001 - Tribunale di Milano",
+                    "text": "Il Tribunale di Milano, in data 15 gennaio 2023, ha emesso la seguente sentenza. Il giudice Mario Rossi ha presieduto l'udienza...",
+                    "preview": "Il Tribunale di Milano, in data 15 gennaio 2023...",
+                    "annotation_sets": {
+                        "entities_": {
+                            "name": "entities_",
+                            "annotations": [
+                                {
+                                    "id": 1,
+                                    "type": "persona",
+                                    "start": 89,
+                                    "end": 100,
+                                    "mention": "Mario Rossi",
+                                }
+                            ],
+                        }
+                    },
+                    "features": {"year": "2023", "court": "Milano"},
+                },
+                "chunks": [
+                    {
+                        "id": "a7f8d9e2c1b3456789abcdef",
+                        "text": "Il Tribunale di Milano ha stabilito che la parte ricorrente ha diritto al risarcimento dei danni subiti. La decisione si basa sull'articolo 1223 del codice civile.",
+                        "metadata": {
+                            "doc_id": "a7f8d9e2c1b3456789abcdef",
+                            "chunk_size": 165,
+                        },
+                    },
+                    {
+                        "id": "a7f8d9e2c1b3456789abcdef",
+                        "text": "La parte ricorrente, Giuseppe Verdi, ha presentato ricorso contro la parte convenuta, Antonio Bianchi, contestando la validità del contratto sottoscritto.",
+                        "metadata": {
+                            "doc_id": "a7f8d9e2c1b3456789abcdef",
+                            "chunk_size": 156,
+                        },
+                    },
+                ],
+                "full_docs": False,
+            }
+        }
+
+
+class CreateElasticIndexResponse(BaseModel):
+    """Response model for creating an Elasticsearch index"""
+
+    n_documents: int
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "legal_documents": {
+                    "aliases": {},
+                    "mappings": {
+                        "properties": {
+                            "text": {"type": "text"},
+                            "name": {"type": "keyword"},
+                            "annotations": {"type": "nested"},
+                            "metadata": {"type": "nested"},
+                            "chunks": {"type": "nested"},
+                        }
+                    },
+                    "settings": {
+                        "index": {
+                            "mapping": {"nested_objects": {"limit": "20000"}},
+                            "number_of_shards": "1",
+                            "number_of_replicas": "1",
+                        }
+                    },
+                },
+                "n_documents": 0,
+            }
+        }
+
+
+class DeleteIndexResponse(BaseModel):
+    """Response model for deleting an index"""
+
+    count: int
+
+    class Config:
+        json_schema_extra = {"example": {"count": 1}}
+
+
+class IndexDocumentResponse(BaseModel):
+    """Response model for indexing a document"""
+
+    result: str
+    id: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {"result": "created", "id": "a7f8d9e2c1b3456789abcdef"}
+        }
+
+
+class AnnotationUpdateResponse(BaseModel):
+    """Response model for updating annotations"""
+
+    result: str
+    document_id: str
+    annotations_count: int
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "result": "updated",
+                "document_id": "doc123",
+                "annotations_count": 15,
+            }
+        }
+
+
+class SearchHit(BaseModel):
+    """A single search result hit"""
+
+    id: str
+    name: str
+    text: str
+    preview: Optional[str] = None
+    score: float
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "id": "doc123",
+                "name": "Sentenza 2023/001",
+                "text": "Full document text...",
+                "preview": "Preview text...",
+                "score": 12.5,
+            }
+        }
+
+
+class FacetValue(BaseModel):
+    """A facet value with count"""
+
+    value: str
+    count: int
+    display_name: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "value": "entity_123",
+                "display_name": "M**** R****",
+                "count": 15,
+            }
+        }
+
+
+class PaginationInfo(BaseModel):
+    """Pagination information"""
+
+    current_page: int
+    total_pages: int
+    total_hits: int
+
+    class Config:
+        json_schema_extra = {
+            "example": {"current_page": 1, "total_pages": 5, "total_hits": 100}
+        }
+
+
+class QueryElasticIndexResponse(BaseModel):
+    """Response model for querying an Elasticsearch index"""
+
+    hits: List[SearchHit]
+    facets: dict
+    pagination: PaginationInfo
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "hits": [
+                    {
+                        "id": "doc123",
+                        "name": "Sentenza 2023/001",
+                        "text": "Il Tribunale di Milano...",
+                        "preview": "Il Tribunale...",
+                        "score": 12.5,
+                    }
+                ],
+                "facets": {
+                    "annotations": {
+                        "persona": [
+                            {
+                                "value": "entity_123",
+                                "display_name": "M**** R****",
+                                "count": 15,
+                            }
+                        ],
+                        "parte": [
+                            {
+                                "value": "entity_456",
+                                "display_name": "G****** V****",
+                                "count": 8,
+                            }
+                        ],
+                    },
+                    "metadata": {
+                        "Anno Sentenza": [
+                            {"value": "2023", "count": 45},
+                            {"value": "2022", "count": 38},
+                        ]
+                    },
+                },
+                "pagination": {
+                    "current_page": 1,
+                    "total_pages": 5,
+                    "total_hits": 100,
+                },
+            }
+        }
 
 
 class GetElasticMappingRequest(BaseModel):
+    """Request model for getting Elasticsearch index mapping"""
+
     index_name: str
+
+
+class IndexElasticDocumentWithProcessingRequest(BaseModel):
+    """Request model for indexing a document with full processing (annotations, chunking, embeddings)"""
+
+    text: str
+    annotation_sets: Optional[dict] = None
+    preview: Optional[str] = None
+    name: Optional[str] = None
+    features: Optional[dict] = None
+    offset_type: Optional[str] = None
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "This is the full text of the legal document...",
+                "name": "Document Title",
+                "preview": "This is a preview...",
+                "annotation_sets": {},
+                "features": {},
+                "offset_type": "character",
+            }
+        }
 
 
 class CustomJSONResponse(JSONResponse):
@@ -87,34 +457,111 @@ class CustomJSONResponse(JSONResponse):
 
 
 @app.post(
-    "/chroma/collection/{collection_name}/query", response_class=CustomJSONResponse
+    "/chroma/collection/{collection_name}/query",
+    response_class=CustomJSONResponse,
+    tags=["Vector Search"],
+    summary="Hybrid vector and full-text search (Elasticsearch)",
+    description="""
+    Perform hybrid vector and full-text search using RRF (Reciprocal Rank Fusion).
+
+    **Note:** Despite the legacy route name `/chroma`, this endpoint queries Elasticsearch, not ChromaDB.
+    The route name will be updated in a future version.
+
+    This endpoint combines:
+    - Dense vector search using sentence embeddings (via Elasticsearch kNN)
+    - Full-text search matching (via Elasticsearch query_string)
+    - Entity matching (unless disabled with retrievalMethod='hibrid_no_ner')
+
+    The results from different search methods are combined using Reciprocal Rank Fusion (RRF)
+    to provide the most relevant document chunks.
+
+    **Parameters:**
+    - `collection_name`: Name of the Elasticsearch index to search
+    - Request body contains query text, filters, and retrieval method configuration
+
+    Returns ranked document chunks with their parent documents and metadata.
+    """,
+    response_description="List of documents with relevant chunks ranked by RRF score",
 )
-async def query_collection(collection_name: str, req: QueryCollectionRquest):
+async def query_collection(
+    collection_name: str,
+    req: QueryCollectionRquest,
+    x_collection_id: Optional[str] = Header(None, alias="X-Collection-Id"),
+):
     embeddings = []
-    print("query", req.dict())
     with torch.no_grad():
         # create embeddings for the query
         embeddings = model.encode(req.query)
     embeddings = embeddings.tolist()
-    print(len(embeddings))
     query_body = None
     query_full_text = None
 
+    # Prefer collectionId in JSON body, fallback to X-Collection-Id header
+    collection_id = None
+    if getattr(req, "collectionId", None):
+        collection_id = req.collectionId
+    elif x_collection_id:
+        collection_id = x_collection_id
+
+    # GREATLY increase k when filtering to a single document
+    if hasattr(req, "filter_ids") and len(req.filter_ids) == 1:
+        knn_k = 100  # Increased from 15 to 100 for single documents
+        chunks_to_gather = 80  # Increased from 30 to 80
+        inner_hits_size = 100  # Size for inner hits in nested queries
+        print(
+            f"SINGLE DOCUMENT MODE: knn_k={knn_k}, chunks_to_gather={chunks_to_gather}"
+        )
+    else:
+        knn_k = 25
+        chunks_to_gather = 25
+        inner_hits_size = 30
+        print(
+            f"MULTI DOCUMENT MODE: knn_k={knn_k}, chunks_to_gather={chunks_to_gather}"
+        )
+
     if hasattr(req, "filter_ids") and len(req.filter_ids) > 0:
-        query_body = {
-            "knn": {
-                "inner_hits": {
-                    "_source": False,
-                    "fields": ["chunks.vectors.text", "_score"],
-                    # "size": 10,
+        # Build a terms filter for doc ids
+        filter_terms = [doc_id for doc_id in req.filter_ids]
+
+        # Build the base knn filter. If a collection_id is provided, add a must-term on collectionId.
+        if collection_id:
+            query_body = {
+                "knn": {
+                    "inner_hits": {
+                        "_source": False,
+                        "fields": ["chunks.vectors.text", "_score"],
+                        "size": knn_k,
+                    },
+                    "field": "chunks.vectors.predicted_value",
+                    "query_vector": embeddings,
+                    "k": knn_k,
+                    "num_candidates": 1000,
+                    # Use a bool filter to combine id terms and collectionId term
+                    "filter": {
+                        "bool": {
+                            "must": [
+                                {"terms": {"id": filter_terms}},
+                                {"term": {"collectionId": collection_id}},
+                            ]
+                        }
+                    },
                 },
-                "field": "chunks.vectors.predicted_value",
-                "query_vector": embeddings,
-                "k": 5,
-                # "num_candidates": 1000,
-                "filter": {"terms": {"id": [doc_id for doc_id in req.filter_ids]}},
-            },
-        }
+            }
+        else:
+            query_body = {
+                "knn": {
+                    "inner_hits": {
+                        "_source": False,
+                        "fields": ["chunks.vectors.text", "_score"],
+                        "size": knn_k,
+                    },
+                    "field": "chunks.vectors.predicted_value",
+                    "query_vector": embeddings,
+                    "k": knn_k,
+                    "num_candidates": 1000,
+                    "filter": {"terms": {"id": filter_terms}},
+                },
+            }
 
         # excludes ner entities search if specified in retrieval method
         should_query = (
@@ -135,13 +582,19 @@ async def query_collection(collection_name: str, req: QueryCollectionRquest):
                 },
             ]
         )
+
+        # Build the boolean filter for the full-text nested query; include collectionId term when provided
+        fulltext_filter_list = [
+            {"terms": {"id": [doc_id for doc_id in req.filter_ids]}}
+        ]
+        if collection_id:
+            fulltext_filter_list.append({"term": {"collectionId": collection_id}})
+
         q = {
             "_source": True,
             "query": {
                 "bool": {
-                    "filter": [
-                        {"terms": {"id": [doc_id for doc_id in req.filter_ids]}}
-                    ],
+                    "filter": fulltext_filter_list,
                     "must": [
                         {
                             "nested": {
@@ -159,6 +612,7 @@ async def query_collection(collection_name: str, req: QueryCollectionRquest):
                                 "inner_hits": {
                                     "_source": False,
                                     "fields": ["chunks.vectors.text", "_score"],
+                                    "size": inner_hits_size,  # Increase inner hits size
                                 },
                             }
                         }
@@ -186,24 +640,57 @@ async def query_collection(collection_name: str, req: QueryCollectionRquest):
                     "inner_hits": {
                         "_source": False,
                         "fields": ["chunks.vectors.text", "_score"],
+                        "size": inner_hits_size,  # Increase here as well
                     },
                 },
             },
         }
+        # If collection_id present, wrap the full text result set with an additional top-level filter by collection_id
+        if collection_id:
+            # Adjust query_full_text to include collectionId at top-level filter (so hits are limited by collection)
+            query_full_text = {
+                "_source": ["id"],
+                "query": {
+                    "bool": {
+                        "filter": [{"term": {"collectionId": collection_id}}],
+                        "must": query_full_text["query"],
+                    }
+                },
+                "inner_hits": query_full_text.get("inner_hits", {}),
+            }
 
     else:
-        query_body = {
-            "_source": ["id"],
-            "knn": {
-                "inner_hits": {
-                    "_source": False,
-                    "fields": ["chunks.vectors.text", "_score"],
+        # Base knn query for no explicit filter_ids. If collectionId provided, attach it as a filter inside knn.
+        if collection_id:
+            query_body = {
+                "_source": ["id"],
+                "knn": {
+                    "inner_hits": {
+                        "_source": False,
+                        "fields": ["chunks.vectors.text", "_score"],
+                        "size": knn_k,
+                    },
+                    "field": "chunks.vectors.predicted_value",
+                    "query_vector": embeddings,
+                    "k": knn_k,
+                    # Add filter by collectionId for global search
+                    "filter": {"term": {"collectionId": collection_id}},
                 },
-                "field": "chunks.vectors.predicted_value",
-                "query_vector": embeddings,
-                "k": 5,
-            },
-        }
+            }
+        else:
+            query_body = {
+                "_source": ["id"],
+                "knn": {
+                    "inner_hits": {
+                        "_source": False,
+                        "fields": ["chunks.vectors.text", "_score"],
+                        "size": knn_k,  # Add size parameter
+                    },
+                    "field": "chunks.vectors.predicted_value",
+                    "query_vector": embeddings,
+                    "k": knn_k,
+                },
+            }
 
         # excludes ner entities search if specified in retrieval method
         should_query = (
@@ -224,56 +711,105 @@ async def query_collection(collection_name: str, req: QueryCollectionRquest):
                 },
             ]
         )
-        q = {
-            "_source": True,
-            "query": {
-                "bool": {
-                    # "filter": [
-                    #     {
-                    #         "terms": {
-                    #             "id": [
-                    #                 "e45a49ff92fe4c11a9455a66b5c8ced89b3d4e844db9b8c05bfd738524a40bcb"
-                    #             ]
-                    #         }
-                    #     }
-                    # ],
-                    "must": [
-                        {
+
+        # Build the main 'q' full-text query; if collectionId provided, include it in the top-level bool filter.
+        if collection_id:
+            q = {
+                "_source": True,
+                "query": {
+                    "bool": {
+                        "filter": [{"term": {"collectionId": collection_id}}],
+                        "must": [
+                            {
+                                "nested": {
+                                    "path": "chunks",
+                                    "query": {
+                                        "nested": {
+                                            "path": "chunks.vectors",
+                                            "query": {
+                                                "bool": {
+                                                    "should": should_query,
+                                                }
+                                            },
+                                        }
+                                    },
+                                    "inner_hits": {
+                                        "_source": False,
+                                        "fields": ["chunks.vectors.text", "_score"],
+                                        "size": inner_hits_size,
+                                    },
+                                }
+                            }
+                        ],
+                    },
+                },
+            }
+            query_full_text = {
+                "_source": ["id"],
+                "query": {
+                    "bool": {
+                        "filter": [{"term": {"collectionId": collection_id}}],
+                        "must": {
                             "nested": {
-                                "path": "chunks",
-                                "query": {
-                                    "nested": {
-                                        "path": "chunks.vectors",
-                                        "query": {
-                                            "bool": {
-                                                "should": should_query,
-                                            }
-                                        },
-                                    }
-                                },
+                                "path": "chunks.vectors",
+                                "query": {"bool": {"should": should_query}},
                                 "inner_hits": {
                                     "_source": False,
                                     "fields": ["chunks.vectors.text", "_score"],
+                                    "size": inner_hits_size,
                                 },
                             }
-                        }
-                    ],
+                        },
+                    }
                 },
-            },
-        }
-        query_full_text = {
-            "_source": ["id"],
-            "query": {
-                "nested": {
-                    "path": "chunks.vectors",
-                    "query": {"bool": {"should": should_query}},
-                    "inner_hits": {
-                        "_source": False,
-                        "fields": ["chunks.vectors.text", "_score"],
+            }
+        else:
+            q = {
+                "_source": True,
+                "query": {
+                    "bool": {
+                        "must": [
+                            {
+                                "nested": {
+                                    "path": "chunks",
+                                    "query": {
+                                        "nested": {
+                                            "path": "chunks.vectors",
+                                            "query": {
+                                                "bool": {
+                                                    "should": should_query,
+                                                }
+                                            },
+                                        }
+                                    },
+                                    "inner_hits": {
+                                        "_source": False,
+                                        "fields": ["chunks.vectors.text", "_score"],
+                                        "size": inner_hits_size,
+                                    },
+                                }
+                            }
+                        ],
                     },
                 },
-            },
-        }
+            }
+            query_full_text = {
+                "_source": ["id"],
+                "query": {
+                    "nested": {
+                        "path": "chunks.vectors",
+                        "query": {"bool": {"should": should_query}},
+                        "inner_hits": {
+                            "_source": False,
+                            "fields": ["chunks.vectors.text", "_score"],
+                            "size": inner_hits_size,
+                        },
+                    },
+                },
+            }
+
+        # collection_id has already been applied above (either from request body or X-Collection-Id header),
+        # so no additional post-processing is required here.
 
     results = (
         es_client.search(index=collection_name, body=query_body)
@@ -289,7 +825,7 @@ async def query_collection(collection_name: str, req: QueryCollectionRquest):
         and req.retrievalMethod != "hibrid_no_ner"
         and req.retrievalMethod != "dense"
     ):
-        print("results", results)
+        print("results")
 
     # debug print statement for checking correct retrieval mode
     response_full_text = (
@@ -304,7 +840,7 @@ async def query_collection(collection_name: str, req: QueryCollectionRquest):
         and req.retrievalMethod != "hibrid_no_ner"
         and req.retrievalMethod != "full-text"
     ):
-        print("response_full_text", response_full_text)
+        print("response_full_text")
     del embeddings
 
     # Get chunk-level ranks for both searches
@@ -315,8 +851,8 @@ async def query_collection(collection_name: str, req: QueryCollectionRquest):
         else {}
     )
 
-    # RRF Parameters
-    rrf_k = 60  # Adjust as needed
+    # RRF Parameters - increased for single documents
+    rrf_k = 100 if (hasattr(req, "filter_ids") and len(req.filter_ids) == 1) else 60
 
     # Combine ranks using RRF at the chunk level
     combined_scores = {}
@@ -331,12 +867,15 @@ async def query_collection(collection_name: str, req: QueryCollectionRquest):
 
     # Sort chunks by combined RRF scores
     final_ranking = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
-    # for rank, (doc_id, score) in enumerate(final_ranking[:20], start=1):
-    #     print(f"Rank: {rank}, Doc ID: {doc_id}, RRF Score: {score}")
+
+    # DEBUG: Print ranking information
+    print(f"Final ranking contains {len(final_ranking)} chunks")
+    print(f"Will gather top {chunks_to_gather} chunks")
 
     doc_chunks_id_map = {}
 
-    for chunk in final_ranking[:15]:
+    # Use the dynamically set chunks_to_gather value
+    for chunk in final_ranking[:chunks_to_gather]:
         doc_id = chunk[0][0]
         temp_chunk = {
             "id": doc_id,
@@ -347,12 +886,19 @@ async def query_collection(collection_name: str, req: QueryCollectionRquest):
             doc_chunks_id_map[doc_id].append(temp_chunk)
         else:
             doc_chunks_id_map[doc_id] = [temp_chunk]
+
+    print(
+        f"Retrieved {len(doc_chunks_id_map.get(list(doc_chunks_id_map.keys())[0] if doc_chunks_id_map else [], []))} chunks for the document"
+    )
+
     full_docs = []
 
     # get full documents from db
     doc_ids = list(doc_chunks_id_map.keys())
+    current_retriever = retrievers.get(collection_name, retriever)
+    print(f"current retriever {current_retriever}")
     for doc_id in doc_ids:
-        d = default_retriever.retrieve(doc_id)
+        d = current_retriever.retrieve(doc_id)
 
         # d = requests.get(
         #     "http://"
@@ -395,19 +941,13 @@ async def query_collection(collection_name: str, req: QueryCollectionRquest):
 
         print(f"Number of tokens: {len(tokens)}")
         if len(tokens) < 18000:
-            temp_chunk = {
-                "id": full_docs[0]["id"],
-                "text": full_docs[0]["text"],
-                "metadata": {
-                    "doc_id": full_docs[0]["id"],
-                    "chunk_size": len(full_docs[0]["text"]),
-                },
-            }
+            # Even though the document is small, return the gathered chunks
+            # instead of the full document to provide better retrieval context
             doc_results.append(
                 {
-                    "full_docs": True,
+                    "full_docs": False,
                     "doc": full_docs[0],
-                    "chunks": [temp_chunk],
+                    "chunks": doc_chunks_id_map[full_docs[0]["id"]],
                 }
             )
             return doc_results
@@ -456,23 +996,69 @@ async def query_collection(collection_name: str, req: QueryCollectionRquest):
     return doc_results
 
 
-class CreateElasticIndexRequest(BaseModel):
-    name: str
+def get_string_hash(input_string):
+    """Generate SHA256 hash for a given string."""
+    hash_object = hashlib.sha256()
+    hash_object.update(input_string.encode("utf-8"))
+    return hash_object.hexdigest()
 
 
-@app.post("/elastic/index")
-def create_elastic_index(req: CreateElasticIndexRequest):
-    if es_client.indices.exists(index=req.name):
-        index = es_client.indices.get(index=req.name)
-        count = es_client.count(index=req.name)
+def process_annotation(annotation, text, document_id):
+    """Process a single annotation into the required format."""
+    name = text[annotation["start"] : annotation["end"]]
 
-        return {**index, "n_documents": count}
+    ann_object = {
+        "mention": name,
+        "start": annotation["start"],
+        "end": annotation["end"],
+        "id": annotation["id"],
+        "type": annotation["type"],
+    }
 
-    # try:
-    es_client.indices.create(
-        index=req.name,
-        mappings={
+    # Handle linking information
+    if "linking" in annotation.get("features", {}) and not annotation["features"][
+        "linking"
+    ].get("is_nil", True):
+        linking = annotation["features"]["linking"]
+        ann_object.update(
+            {
+                "display_name": annotation["features"].get("title", name),
+                "is_linked": True,
+                "id_ER": linking.get("top_candidate", {}).get("url", ""),
+            }
+        )
+    else:
+        ann_object.update(
+            {"display_name": name, "is_linked": False, "id_ER": f"{document_id}_{name}"}
+        )
+
+    return ann_object
+
+
+def clean_document_data(file_object):
+    """Clean and prepare document data for indexing."""
+    # Remove unnecessary fields
+    for key in ["annotation_sets", "annoation_sets", "features", "_id"]:
+        if key in file_object:
+            del file_object[key]
+
+    # Ensure required fields exist
+    if "metadata" not in file_object:
+        file_object["metadata"] = []
+
+    return file_object
+
+
+def get_index_settings():
+    """Get the index settings with custom nested object limit."""
+    return {
+        "settings": {"index.mapping.nested_objects.limit": 20000},
+        "mappings": {
             "properties": {
+                "text": {"type": "text"},
+                "name": {"type": "keyword"},
+                "preview": {"type": "keyword"},
+                "id": {"type": "keyword"},
                 "metadata": {
                     "type": "nested",
                     "properties": {
@@ -483,21 +1069,88 @@ def create_elastic_index(req: CreateElasticIndexRequest):
                 "annotations": {
                     "type": "nested",
                     "properties": {
-                        "id_ER": {"type": "keyword"},
+                        "mention": {"type": "keyword"},
+                        "start": {"type": "integer"},
+                        "end": {"type": "integer"},
+                        "display_name": {"type": "keyword"},
+                        "id": {"type": "integer"},
                         "type": {"type": "keyword"},
+                        "is_linked": {"type": "boolean"},
+                        "id_ER": {"type": "keyword"},
+                    },
+                },
+                "chunks": {
+                    "type": "nested",
+                    "properties": {
+                        "vectors": {
+                            "type": "nested",
+                            "properties": {
+                                "predicted_value": {
+                                    "type": "dense_vector",
+                                    "index": True,
+                                    "dims": 768,
+                                    "similarity": "cosine",
+                                },
+                                "text": {"type": "text"},
+                                "entities": {"type": "text"},
+                            },
+                        },
                     },
                 },
             }
         },
-    )
+    }
+
+
+class CreateElasticIndexRequest(BaseModel):
+    """Request model for creating an Elasticsearch index"""
+
+    name: str
+
+    class Config:
+        json_schema_extra = {"example": {"name": "legal_documents"}}
+
+
+@app.post(
+    "/elastic/index",
+    tags=["Elasticsearch Index"],
+    summary="Create or get Elasticsearch index",
+    description="""
+    Create a new Elasticsearch index with predefined settings for document search.
+
+    If the index already exists, returns the existing index configuration.
+
+    Index settings include:
+    - Nested object limit: 20000
+    - Text fields for full-text search
+    - Nested annotations and metadata
+    - Dense vector fields for semantic search (768 dimensions, cosine similarity)
+    """,
+    response_description="Index configuration and document count",
+)
+def create_elastic_index(req: CreateElasticIndexRequest):
+    if es_client.indices.exists(index=req.name):
+        index = es_client.indices.get(index=req.name)
+        count = es_client.count(index=req.name)
+
+        return {**index, "n_documents": count}
+
+    index_settings = get_index_settings()
+    es_client.indices.create(index=req.name, **index_settings)
 
     index = es_client.indices.get(index=req.name)
 
     return {**index, "n_documents": 0}
 
 
-@app.delete("/elastic/index/{index_name}")
-def delete_elastic_index(index_name):
+@app.delete(
+    "/elastic/index/{index_name}",
+    tags=["Elasticsearch Index"],
+    summary="Delete an Elasticsearch index",
+    description="Delete an Elasticsearch index and all its documents permanently.",
+    response_description="Deletion confirmation",
+)
+def delete_elastic_index(index_name: str):
     try:
         es_client.indices.delete(index=index_name)
         return {"count": 1}
@@ -507,11 +1160,43 @@ def delete_elastic_index(index_name):
 
 
 class IndexElasticDocumentRequest(BaseModel):
+    """Request model for indexing a raw document"""
+
     doc: dict
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "doc": {
+                    "id": "doc123",
+                    "text": "Document content here...",
+                    "name": "Document Title",
+                    "metadata": [],
+                }
+            }
+        }
 
 
 class AddAnnotationsRequest(BaseModel):
+    """Request model for adding annotations to a document"""
+
     mentions: List[dict]
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "mentions": [
+                    {
+                        "id": 1,
+                        "mention": "John Doe",
+                        "type": "persona",
+                        "start": 10,
+                        "end": 18,
+                        "is_linked": False,
+                    }
+                ]
+            }
+        }
 
 
 def index_elastic_document_raw(doc, index_name):
@@ -520,8 +1205,14 @@ def index_elastic_document_raw(doc, index_name):
     return res["result"]
 
 
-@app.post("/elastic/index/{index_name}/doc")
-def index_elastic_document(req: IndexElasticDocumentRequest, index_name):
+@app.post(
+    "/elastic/index/{index_name}/doc",
+    tags=["Elasticsearch Documents"],
+    summary="Index a raw document",
+    description="Index a document directly into Elasticsearch without processing.",
+    response_description="Indexing result status",
+)
+def index_elastic_document(req: IndexElasticDocumentRequest, index_name: str):
     return index_elastic_document_raw(req.doc, index_name)
 
 
@@ -548,7 +1239,21 @@ def anonymize(s, s_type="persona", anonymize_type=["persona"]):
         return s
 
 
-@app.post("/elastic/index/{index_name}/doc/{document_id}/annotations")
+@app.post(
+    "/elastic/index/{index_name}/doc/{document_id}/annotations",
+    tags=["Elasticsearch Documents"],
+    summary="Add annotations to a document",
+    description="""
+    Add or update annotations (entity mentions) for a specific document.
+
+    Annotations include:
+    - Entity mentions (persona, parte, controparte, etc.)
+    - Entity linking information
+    - Start/end positions in the text
+    - Display names with optional anonymization
+    """,
+    response_description="Update result with annotation count",
+)
 def add_annotations_to_document(
     index_name: str, document_id: str, req: AddAnnotationsRequest
 ):
@@ -620,8 +1325,18 @@ def add_annotations_to_document(
         )
 
 
-@app.post("/elastic/index/{index_name}/doc/mongo")
-def index_elastic_document_mongo(req: IndexElasticDocumentRequest, index_name):
+@app.post(
+    "/elastic/index/{index_name}/doc/mongo",
+    tags=["Elasticsearch Documents"],
+    summary="Index a MongoDB document",
+    description="""
+    Index a document from MongoDB format with automatic metadata mapping.
+
+    Automatically maps MongoDB document fields to Elasticsearch schema and processes entity clusters.
+    """,
+    response_description="Indexing result status",
+)
+def index_elastic_document_mongo(req: IndexElasticDocumentRequest, index_name: str):
     METADATA_MAP = {
         "annosentenza": "Anno Sentenza",
         "annoruolo": "Anno Rouolo",
@@ -664,6 +1379,8 @@ def index_elastic_document_mongo(req: IndexElasticDocumentRequest, index_name):
 
 
 class QueryElasticIndexRequest(BaseModel):
+    """Request model for querying an Elasticsearch index"""
+
     text: str
     metadata: list = None
     annotations: list = None
@@ -671,8 +1388,34 @@ class QueryElasticIndexRequest(BaseModel):
     page: int = 1
     documents_per_page: int = 20
 
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "search query",
+                "page": 1,
+                "documents_per_page": 20,
+                "metadata": [{"type": "Anno Sentenza", "value": "2023"}],
+                "annotations": [{"type": "persona", "value": "entity_id"}],
+            }
+        }
 
-@app.post("/elastic/index/{index_name}/query")
+
+@app.post(
+    "/elastic/index/{index_name}/query",
+    tags=["Elasticsearch Query"],
+    summary="Query an Elasticsearch index",
+    description="""
+    Search documents in an Elasticsearch index with filtering and faceting.
+
+    Features:
+    - Full-text search on document content
+    - Filter by metadata (year, type, etc.)
+    - Filter by annotations (entities, persons, etc.)
+    - Faceted search results
+    - Pagination support
+    """,
+    response_description="Search results with hits, facets, and pagination info",
+)
 async def query_elastic_index(
     index_name: str,
     req: QueryElasticIndexRequest,
@@ -761,7 +1504,13 @@ async def query_elastic_index(
     }
 
 
-@app.get("/elastic/index/{index_name}/mapping")
+@app.get(
+    "/elastic/index/{index_name}/mapping",
+    tags=["Elasticsearch Index"],
+    summary="Get index mapping",
+    description="Retrieve the Elasticsearch mapping for an index to inspect field types and structure.",
+    response_description="Index mapping configuration",
+)
 def get_elastic_mapping(index_name: str):
     """Get the Elasticsearch mapping for an index to help diagnose type issues."""
     try:
@@ -769,6 +1518,129 @@ def get_elastic_mapping(index_name: str):
         return mapping
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.post(
+    "/{elastic_index}/_doc",
+    tags=["Elasticsearch Documents"],
+    summary="Index document with full processing",
+    description="""
+    Index a document with complete processing pipeline:
+
+    1. **Annotation Processing**: Extract and process entity annotations
+    2. **Text Chunking**: Split document into chunks (500 chars, 100 overlap)
+    3. **Embedding Generation**: Generate vector embeddings using sentence transformers
+    4. **Indexing**: Store in Elasticsearch with all metadata
+
+    This is the recommended endpoint for indexing new documents.
+    """,
+    response_description="Indexing result with document ID",
+)
+def index_document_with_processing(
+    elastic_index: str, req: IndexElasticDocumentWithProcessingRequest
+):
+    """Index a document with full processing: annotations, chunking, embeddings."""
+
+    try:
+        print(f"=== Indexing document to {elastic_index} ===")
+        print(f"Document name: {req.name}")
+        print(f"Text length: {len(req.text) if req.text else 0}")
+        print(f"Has annotation_sets: {req.annotation_sets is not None}")
+
+        # Prepare the document
+        file_object = {
+            "text": req.text,
+            "annotation_sets": req.annotation_sets,
+            "preview": req.preview,
+            "name": req.name,
+            "features": req.features,
+            "offset_type": req.offset_type,
+        }
+
+        # Generate document ID
+        file_object["id"] = get_string_hash(file_object["text"])
+        print(f"Generated document ID: {file_object['id']}")
+
+        # Process annotations
+        annotations = []
+        annotation_sets = file_object.get("annotation_sets", {}) or {}
+        print(f"annotation_sets keys: {list(annotation_sets.keys())}")
+        entities = annotation_sets.get("entities_", {})
+        print(f"entities_ keys: {list(entities.keys()) if entities else 'None'}")
+        raw_annotations = entities.get("annotations", [])
+        print(f"Number of raw annotations to process: {len(raw_annotations)}")
+
+        for i, annotation in enumerate(raw_annotations):
+            try:
+                ann_object = process_annotation(
+                    annotation, file_object["text"], file_object["id"]
+                )
+                annotations.append(ann_object)
+                if i < 3:  # Log first 3 annotations for debugging
+                    print(
+                        f"Processed annotation {i}: {ann_object.get('mention', 'N/A')} (type: {ann_object.get('type', 'N/A')})"
+                    )
+            except Exception as e:
+                print(f"Warning: Error processing annotation {i}: {e}")
+                print(f"Annotation data: {annotation}")
+                continue
+
+        file_object["annotations"] = annotations
+        print(f"Total annotations processed and added: {len(annotations)}")
+
+        # Clean up the document
+        file_object = clean_document_data(file_object)
+
+        # Ensure index exists
+        if not es_client.indices.exists(index=elastic_index):
+            index_settings = get_index_settings()
+            es_client.indices.create(index=elastic_index, **index_settings)
+
+        # Chunk and embed
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=500,
+            chunk_overlap=100,
+            length_function=len,
+        )
+        chunks = text_splitter.split_text(file_object["text"])
+
+        if chunks:
+            embeddings = model.encode(chunks, show_progress_bar=False)
+
+            passages_body = []
+            for emb, chunk in zip(embeddings, chunks):
+                # For simplicity, entities are empty as in notebook
+                passages_body.append(
+                    {
+                        "vectors": {
+                            "predicted_value": emb.tolist(),
+                            "text": chunk,
+                            "entities": "",
+                        }
+                    }
+                )
+
+            file_object["chunks"] = passages_body
+
+        # Index the document
+        print(
+            f"Indexing document with {len(file_object.get('annotations', []))} annotations..."
+        )
+        res = es_client.index(index=elastic_index, document=file_object)
+        es_client.indices.refresh(index=elastic_index)
+        print(f"Document indexed successfully: {res['result']}")
+        print(f"=== Indexing complete ===")
+
+        return {"result": res["result"], "id": file_object["id"]}
+
+    except Exception as e:
+        print(f"ERROR in index_document_with_processing: {str(e)}")
+        import traceback
+
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, detail=f"Error processing document: {str(e)}"
+        )
 
 
 if __name__ == "__main__":
@@ -803,9 +1675,9 @@ if __name__ == "__main__":
     es_client = Elasticsearch(
         hosts=[
             {
-                "host": "es",
+                "host": "10.0.0.108",
                 "scheme": "http",
-                "port": 9200,
+                "port": 9201,
             }
         ],
         request_timeout=60,
@@ -815,10 +1687,55 @@ if __name__ == "__main__":
         # },
     )
 
-    # Create a single default retriever
-    default_retriever = DocumentRetriever(
-        url=environ.get("PIPELINE_ADDRESS", "http://documents:3001") + "/api/document"
+    # Create retrievers based on .env pipeline addresses and docker-compose UI elastic indexes
+    retrievers = {}
+    retrievers["batini"] = DocumentRetriever(
+        url=environ.get("PIPELINE_ADDRESS", "http://10.0.0.108:3001") + "/api/document"
     )
+    retrievers["bologna_renzo_matched_1"] = DocumentRetriever(
+        url=environ.get("DEMO_PIPELINE_ADDRESS", "http://10.0.0.108:3002")
+        + "/api/document"
+    )
+    retrievers["sperimentazione"] = DocumentRetriever(
+        url=environ.get("SPERIMENTAZIONE_PIPELINE_ADDRESS", "http://10.0.0.108:3003")
+        + "/api/document"
+    )
+    retrievers["indagini"] = DocumentRetriever(
+        url=environ.get("INDAGINI_PIPELINE_ADDRESS", "http://10.0.0.108:3004")
+        + "/api/document"
+    )
+    retrievers["mirko"] = DocumentRetriever(
+        url=environ.get("MIRKO_PIPELINE_ADDRESS", "http://10.0.0.108:3005")
+        + "/api/document"
+    )
+    retrievers["doc_eng_1"] = DocumentRetriever(
+        url=environ.get("RENZO_PIPELINE_ADDRESS", "http://10.0.0.108:3006")
+        + "/api/document"
+    )
+    retrievers["messages"] = DocumentRetriever(
+        url=environ.get("MESSAGES_PIPELINE_ADDRESS", "http://10.0.0.108:3007")
+        + "/api/document"
+    )
+    retrievers["eu"] = DocumentRetriever(
+        url=environ.get("EU_PIPELINE_ADDRESS", "http://10.0.0.108:3008")
+        + "/api/document"
+    )
+    retrievers["eu_v2"] = DocumentRetriever(
+        url=environ.get("EU_V2_PIPELINE_ADDRESS", "http://10.0.0.108:3009")
+        + "/api/document"
+    )
+    retrievers["anonymization"] = DocumentRetriever(
+        url=environ.get("ANONYMIZATION_PIPELINE_ADDRESS", "http://10.0.0.108:3010")
+        + "/api/document"
+    )
+    retrievers["anonymized"] = DocumentRetriever(
+        url=environ.get("ANONYMIZATION_PIPELINE_ADDRESS", "http://10.0.0.108:3010")
+        + "/api/document"
+    )
+    retrievers["eu_anonymized"] = DocumentRetriever(
+        url="http://10.0.0.108:3011/api/document"
+    )
+    retriever = retrievers["batini"]  # default retriever
 
     # if not os.getenv("ENVIRONMENT", "production") == "dev":
     #     with open(environ.get("OGG2NAME_INDEX"), "r") as fd:
