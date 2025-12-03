@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { LLMButton } from '@/modules/search/LLMButton';
 import { useAtom } from 'jotai';
 import { facetsDocumentsAtom, selectedFiltersAtom } from '@/utils/atoms';
+import { ToolbarLayout } from '@/components/ToolbarLayout';
 
 const variants = {
   isFetching: { opacity: 0.5 },
@@ -197,23 +198,12 @@ const Search = () => {
   };
 
   return data ? (
-    <>
+    <ToolbarLayout>
       <div className="flex flex-col h-screen">
-        <div
-          className="fixed top-0 left-0 w-full flex items-center h-16 bg-white z-10 px-24 border-b border-gray-200"
-          style={{ borderBottom: '1px solid rgb(226, 232, 240)' }}
-        >
-          <Link href={'/'} passHref>
-            <a className="text-2xl font-semibold self-center">Dave</a>
-          </Link>
-          <form
-            onSubmit={onSubmit(handleSubmit)}
-            className="flex-grow max-w-3xl ml-auto mr-auto pl-4"
-          >
+        <div className="flex flex-col py-6 mt-16 px-24">
+          <form onSubmit={onSubmit(handleSubmit)} className="mb-4">
             <Searchbar {...register('text')} loading={isFetching} />
           </form>
-        </div>
-        <div className="flex flex-col py-6 mt-16 px-24">
           <h2>Documents</h2>
         </div>
         <motion.div
@@ -299,7 +289,7 @@ const Search = () => {
         </motion.div>
       </div>
       <LLMButton />
-    </>
+    </ToolbarLayout>
   ) : (
     <LoadingOverlay show />
   );

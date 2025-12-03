@@ -199,6 +199,7 @@ export const search = createRouter()
       filter_ids: z.array(z.string()).optional(),
       retrievalMethod: z.string().optional(),
       force_rag: z.boolean().optional(),
+      collectionId: z.string().optional(),
     }),
     resolve: async ({ input }) => {
       let index = process.env.ELASTIC_INDEX;
@@ -206,6 +207,7 @@ export const search = createRouter()
         'calling ',
         `${process.env.API_INDEXER}/chroma/collection/${index}/query`
       );
+      // forward collectionId (if provided) to the vector/search service so it can restrict by collection
       const documents = (await fetch(
         `${process.env.API_INDEXER}/chroma/collection/${index}/query`,
         {
@@ -218,6 +220,7 @@ export const search = createRouter()
             filter_ids: input.filter_ids,
             retrievalMethod: input.retrievalMethod,
             force_rag: input.force_rag,
+            collectionId: input.collectionId,
           }),
         }
       ).then((r) => r.json())) as GetSimilarDocumentResponse;
@@ -242,6 +245,7 @@ export const search = createRouter()
       ),
       limit: z.number().min(1).max(100).nullish(),
       cursor: z.number().nullish(),
+      collectionId: z.string().optional(),
     }),
     resolve: async ({ input }) => {
       let index = process.env.ELASTIC_INDEX;
@@ -250,6 +254,7 @@ export const search = createRouter()
         index,
         `${process.env.API_INDEXER}/elastic/index/${index}/query`
       );
+      // The body spreads input so collectionId (if provided) will be forwarded to the indexer
       let string = JSON.stringify({
         ...input,
         n_facets: 20,
