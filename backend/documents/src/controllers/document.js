@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import { Document } from "../models/document";
 import { AnnotationSet } from "../models/annotationSet";
 import { HTTPError, HTTP_ERROR_CODES } from "../utils/http-error";
@@ -5,7 +6,89 @@ import { annotationSetDTO } from "../models/annotationSet";
 import { AnnotationSetController } from "./annotationSet";
 import { Annotation, annotationDTO } from "../models/annotation";
 
+const getStringHash = (inputString) => {
+    return crypto.createHash("sha256").update(inputString).digest("hex");
+};
+
+const removeSurrogates = (text) => {
+    if (typeof text !== "string") return text;
+    // Remove surrogate pairs and unpaired surrogates to match Python's surrogatepass decode ignore
+    return text.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]?|[\uDC00-\uDFFF]/g, "");
+};
+
 export const DocumentController = {
+    insertFullDocument: async (obj) => {
+        try {
+            // Clean document
+            const fieldsToRemove = ["_id", "inc_id", "__v", "edited"];
+            fieldsToRemove.forEach((field) => delete obj[field]);
+
+            // Generate id as hash of text if not provided
+            const text = obj.text || "";
+            const docId = obj.id || getStringHash(text);
+
+            // Remove surrogates from text
+            const cleanText = removeSurrogates(text);
+
+            // Set preview
+            const preview = obj.preview || cleanText.slice(0, 100) + "...";
+
+            // Create document data
+            const documentData = {
+                text: cleanText,
+                preview,
+                name: obj.name || "",
+                features: obj.features || {},
+                offset_type: obj.offset_type,
+                id: docId,
+            };
+
+            const doc = new Document(documentData);
+            await doc.save();
+
+            // Process annotation sets
+            const annotation_sets = obj.annotation_sets || {};
+            const annsetIdMap = {};
+            for (const [name, annset] of Object.entries(annotation_sets)) {
+                // Clean annset
+                delete annset._id;
+                const annRecord = {
+                    name,
+                    docId,
+                    next_annid: annset.next_annid || 1,
+                };
+                const newAnnSet = new AnnotationSet(annRecord);
+                const inserted = await newAnnSet.save();
+                annsetIdMap[name] = inserted._id;
+            }
+
+            // Process annotations
+
+            for (const [name, annset] of Object.entries(annotation_sets)) {
+                console.log("*** annotations", annset);
+                for (const annotation of annset.annotations || []) {
+                    const ann = { ...annotation };
+                    delete ann._id;
+                    delete ann.annotationSetId;
+                    if (ann.features && ann.features.mention) {
+                        ann.features.mention = removeSurrogates(
+                            ann.features.mention,
+                        );
+                    }
+                    ann.annotationSetId = annsetIdMap[name];
+                    const newAnn = new Annotation(ann);
+                    await newAnn.save();
+                }
+            }
+
+            return doc;
+        } catch (err) {
+            throw new HTTPError({
+                code: HTTP_ERROR_CODES.INTERNAL_SERVER_ERROR,
+                message: `Could not process and insert document. ${err}`,
+            });
+        }
+    },
     updateClusters: async (docId, annSet, clusters) => {
         try {
             const query = { id: docId };

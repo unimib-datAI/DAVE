@@ -25,7 +25,7 @@ async function makeEncryptionRequest(valueToEncrypt) {
     }
 }
 
-async function makeDecryptionRequest(valueToDecrypt) {
+export async function makeDecryptionRequest(valueToDecrypt) {
     try {
         const res = await axios({
             method: "post",
@@ -49,44 +49,39 @@ async function makeDecryptionRequest(valueToDecrypt) {
 }
 
 /**
- * Extract the annotation text from a document text using inclusive end index.
+ * Extract the annotation text from a document text using exclusive end index.
  * Returns UNKNOWN_ANNOTATION_TEXT if indexes out of range.
  */
 function getAnnotationDisplayText(annotationStart, annotationEnd, text) {
-    // annotationEnd is inclusive; slice end is exclusive so we add +1
+    // annotationEnd is exclusive; slice end is exclusive so we use annotationEnd
     if (
         Number.isInteger(annotationStart) &&
         Number.isInteger(annotationEnd) &&
         annotationStart >= 0 &&
-        annotationEnd >= annotationStart &&
-        annotationEnd < text.length
+        annotationEnd > annotationStart &&
+        annotationEnd <= text.length
     ) {
-        return text.slice(annotationStart, annotationEnd + 1);
+        return text.slice(annotationStart, annotationEnd);
     } else {
         return "UNKNOWN_ANNOTATION_TEXT";
     }
 }
 
 /**
- * Replace a substring defined by inclusive `end` index.
+ * Replace a substring defined by exclusive `end` index.
  */
 function replaceSubstring(str, start, end, replacement) {
-    // console.log(`*** replacing ${str.slice(start, end)} with ${replacement}`);
+    console.log(`*** replacing ${str.slice(start, end)} with ${replacement}`);
     const before = str.substring(0, start);
     const after = str.substring(end);
-    if ((before + replacement).length < 200)
-        console.log(
-            `*** replaced ${replacement}: ${before + replacement} ---- ${after.substring(0, 10)}`,
-        );
-
     return before + replacement + after;
 }
 
 /**
  * Decode (de-anonymize) a document in-place and return it.
- * - Handles inclusive `end` indexes.
+ * - Handles exclusive `end` indexes.
  * - Decrypts using API.
- * - Adjusts subsequent annotations correctly (off-by-one fixes included).
+ * - Adjusts subsequent annotations correctly ACROSS ALL ANNOTATION SETS.
  */
 export async function decode(doc) {
     if (!doc || typeof doc !== "object") {
@@ -101,12 +96,11 @@ export async function decode(doc) {
         )
     ) {
         // Nothing to do, return doc unchanged (but still mark if name present)
-        if (typeof doc.name === "string") doc.name += " de-anonymized";
+        if (typeof doc.name === "string") doc.name += "_ANNOTATED";
         return doc;
     }
 
     // First, decrypt all cluster titles
-    let clusterMap = {};
     for (const clusterAnnSet of Object.keys(doc.features.clusters)) {
         for (let i = 0; i < doc.features.clusters[clusterAnnSet].length; i++) {
             const cluster = doc.features.clusters[clusterAnnSet][i];
@@ -114,13 +108,38 @@ export async function decode(doc) {
             const result = await makeDecryptionRequest(encryptedTitle);
             if (result?.decryptedData) {
                 cluster.title = result.decryptedData;
-                clusterMap[cluster.id] = result.decryptedData;
+            }
+        }
+    }
+
+    // Helper function to shift all annotations that start at or after a given position
+    // This is critical to prevent index mismatches across annotation sets
+    function shiftAllAnnotations(fromPosition, delta) {
+        for (const annsetName of Object.keys(doc.annotation_sets)) {
+            const anns = doc.annotation_sets[annsetName].annotations ?? [];
+            for (const annotation of anns) {
+                if (
+                    Number.isInteger(annotation.start) &&
+                    annotation.start >= fromPosition
+                ) {
+                    annotation.start += delta;
+                    annotation.end += delta;
+                }
             }
         }
     }
 
     for (const annsetName of Object.keys(doc.annotation_sets)) {
         const anns = doc.annotation_sets[annsetName].annotations ?? [];
+        // Sort annotations by start position to ensure correct shifting
+        anns.sort((a, b) => a.start - b.start);
+        console.log(
+            `[DECODE] Processing annotation set: ${annsetName}, count: ${anns.length}`,
+        );
+
+        // Track the last processed end position to detect overlapping annotations
+        let lastProcessedEnd = -1;
+
         // Walk annotations by index so we can update subsequent annotations safely
         for (let i = 0; i < anns.length; i++) {
             const annotation = anns[i];
@@ -131,6 +150,18 @@ export async function decode(doc) {
                 annotation.end < annotation.start
             ) {
                 // skip malformed annotation
+                console.warn(
+                    `[DECODE] Skipping malformed annotation ${i} in ${annsetName}`,
+                );
+                continue;
+            }
+
+            // Skip overlapping annotations - if this annotation starts before the last one ended,
+            // it means it overlaps and would cause boundary corruption
+            if (annotation.start < lastProcessedEnd) {
+                console.warn(
+                    `[DECODE] Skipping overlapping annotation ${i} in ${annsetName}: start=${annotation.start} < lastProcessedEnd=${lastProcessedEnd}`,
+                );
                 continue;
             }
 
@@ -142,6 +173,16 @@ export async function decode(doc) {
 
             // Use originalKey instead of encryptionKey
             const originalKey = annotation.originalKey;
+
+            console.log(`[DECODE] Ann ${i}/${anns.length} in ${annsetName}:`);
+            console.log(
+                `  Position: ${annotation.start}-${annotation.end} (len=${annotation.end - annotation.start})`,
+            );
+            console.log(
+                `  Extracted: "${extracted.substring(0, 50)}${extracted.length > 50 ? "..." : ""}"`,
+            );
+            console.log(`  Has originalKey: ${!!originalKey}`);
+
             const result = originalKey
                 ? await makeDecryptionRequest(originalKey)
                 : null;
@@ -150,17 +191,23 @@ export async function decode(doc) {
             if (typeof deAnonymized !== "string") {
                 // Log detailed diagnostic information
                 console.error(
-                    `Error decrypting originalKey. annset=${annsetName} index=${i} start=${annotation.start} end=${annotation.end} extracted='${extracted}' docId=${doc.id ?? "unknown"}`,
+                    `[DECODE] FAILED to decrypt! annset=${annsetName} index=${i} start=${annotation.start} end=${annotation.end} extracted='${extracted.substring(0, 30)}' hasOriginalKey=${!!originalKey}`,
                 );
                 // Skip replacement; do not mutate doc.text or annotation indexes for this entry.
                 continue;
             }
 
+            console.log(
+                `  Decrypted: "${deAnonymized.substring(0, 50)}${deAnonymized.length > 50 ? "..." : ""}"`,
+            );
+
             const originalStart = annotation.start;
-            const originalEnd = annotation.end; // inclusive
+            const originalEnd = annotation.end; // exclusive
             const oldLen = originalEnd - originalStart;
             const newLen = deAnonymized.length;
             const delta = newLen - oldLen;
+
+            console.log(`  Delta: ${delta} (old=${oldLen}, new=${newLen})`);
 
             // Replace the substring in the document text with the decrypted mention text
             doc.text = replaceSubstring(
@@ -170,30 +217,27 @@ export async function decode(doc) {
                 deAnonymized,
             );
 
-            // Update the current annotation. Because `end` is inclusive:
-            annotation.end = originalStart + newLen - 1;
+            // Update the current annotation. Because `end` is exclusive:
+            annotation.end = originalStart + newLen;
 
-            // If length changed, shift later annotations that come after the originalEnd.
+            // If length changed, shift ALL annotations across ALL sets that come after originalEnd
+            // This fixes the index mismatch bug where annotations in other sets were not shifted
             if (delta !== 0) {
-                for (let j = i + 1; j < anns.length; j++) {
-                    const other = anns[j];
-                    if (
-                        !Number.isInteger(other.start) ||
-                        !Number.isInteger(other.end)
-                    )
-                        continue;
-
-                    other.start += delta;
-                    other.end += delta;
-                }
+                console.log(
+                    `  Shifting all annotations starting >= ${originalEnd} by ${delta}`,
+                );
+                shiftAllAnnotations(originalEnd, delta);
             }
+
+            // Update last processed end position
+            lastProcessedEnd = annotation.end;
         }
     }
 
     if (typeof doc.name === "string") {
-        doc.name += " de-anonymized";
+        doc.name += "_ANNOTATED";
     } else {
-        doc.name = (doc.name ?? "unknown") + " de-anonymized";
+        doc.name = (doc.name ?? "") + "_ANNOTATED";
     }
 
     return doc;
@@ -201,9 +245,9 @@ export async function decode(doc) {
 
 /**
  * Encode (anonymize) a document in-place and return it.
- * - Uses inclusive `end` indexes.
+ * - Uses exclusive `end` indexes.
  * - Encrypts using API.
- * - Fixes off-by-one when updating annotation.end.
+ * - Adjusts subsequent annotations correctly ACROSS ALL ANNOTATION SETS.
  */
 export async function encode(doc) {
     if (!doc || typeof doc !== "object") {
@@ -217,7 +261,7 @@ export async function encode(doc) {
             typeof doc.text === "string"
         )
     ) {
-        if (typeof doc.name === "string") doc.name += " de-anonymized";
+        if (typeof doc.name === "string") doc.name += "_ANNOTATED";
         return doc;
     }
 
@@ -251,8 +295,34 @@ export async function encode(doc) {
         }
     }
 
+    // Helper function to shift all annotations that start at or after a given position
+    // This is critical to prevent index mismatches across annotation sets
+    function shiftAllAnnotations(fromPosition, delta) {
+        for (const annsetName of Object.keys(doc.annotation_sets)) {
+            const anns = doc.annotation_sets[annsetName].annotations ?? [];
+            for (const annotation of anns) {
+                if (
+                    Number.isInteger(annotation.start) &&
+                    annotation.start >= fromPosition
+                ) {
+                    annotation.start += delta;
+                    annotation.end += delta;
+                }
+            }
+        }
+    }
+
     for (const annsetName of Object.keys(doc.annotation_sets)) {
         const anns = doc.annotation_sets[annsetName].annotations ?? [];
+        // Sort annotations by start position to ensure correct shifting
+        anns.sort((a, b) => a.start - b.start);
+        console.log(
+            `[ENCODE] Processing annotation set: ${annsetName}, count: ${anns.length}`,
+        );
+
+        // Track the last processed end position to detect overlapping annotations
+        let lastProcessedEnd = -1;
+
         for (let i = 0; i < anns.length; i++) {
             const annotation = anns[i];
             if (
@@ -261,6 +331,18 @@ export async function encode(doc) {
                 annotation.start < 0 ||
                 annotation.end < annotation.start
             ) {
+                console.warn(
+                    `[ENCODE] Skipping malformed annotation ${i} in ${annsetName}`,
+                );
+                continue;
+            }
+
+            // Skip overlapping annotations - if this annotation starts before the last one ended,
+            // it means it overlaps and would cause boundary corruption
+            if (annotation.start < lastProcessedEnd) {
+                console.warn(
+                    `[ENCODE] Skipping overlapping annotation ${i} in ${annsetName}: start=${annotation.start} < lastProcessedEnd=${lastProcessedEnd}`,
+                );
                 continue;
             }
 
@@ -268,6 +350,14 @@ export async function encode(doc) {
                 annotation.start,
                 annotation.end,
                 doc.text,
+            );
+
+            console.log(`[ENCODE] Ann ${i}/${anns.length} in ${annsetName}:`);
+            console.log(
+                `  Position: ${annotation.start}-${annotation.end} (len=${annotation.end - annotation.start})`,
+            );
+            console.log(
+                `  Extracted: "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`,
             );
 
             // Find the cluster that contains this annotation's ID in its mentions
@@ -297,6 +387,11 @@ export async function encode(doc) {
             const encryptedMention = result.vaultKey || text;
             annotation.originalKey = encryptedMention;
 
+            console.log(
+                `  Encrypted mention: "${encryptedMention.substring(0, 50)}${encryptedMention.length > 50 ? "..." : ""}"`,
+            );
+            console.log(`  Cluster index: ${clusterIndex}`);
+
             // Use the encrypted cluster title as replacement text
             const replacement =
                 (clusterIndex >= 0 &&
@@ -304,11 +399,17 @@ export async function encode(doc) {
                     encryptedTitles[annsetName][clusterIndex]) ||
                 encryptedMention;
 
+            console.log(
+                `  Replacement (cluster title or mention): "${replacement.substring(0, 50)}${replacement.length > 50 ? "..." : ""}"`,
+            );
+
             const originalStart = annotation.start;
-            const originalEnd = annotation.end; // inclusive
-            const oldLen = originalEnd - originalStart + 1;
+            const originalEnd = annotation.end; // exclusive
+            const oldLen = originalEnd - originalStart;
             const newLen = replacement.length;
             const delta = newLen - oldLen;
+
+            console.log(`  Delta: ${delta} (old=${oldLen}, new=${newLen})`);
 
             // Replace the substring
             doc.text = replaceSubstring(
@@ -318,22 +419,20 @@ export async function encode(doc) {
                 replacement,
             );
 
-            // Update the current annotation end (inclusive)
-            annotation.end = originalStart + newLen - 1;
+            // Update the current annotation end (exclusive)
+            annotation.end = originalStart + newLen;
 
-            // Shift subsequent annotations if needed (only those starting after originalEnd)
+            // Shift ALL annotations across ALL sets that start at or after originalEnd
+            // This fixes the index mismatch bug where annotations in other sets were not shifted
             if (delta !== 0) {
-                for (let j = i + 1; j < anns.length; j++) {
-                    const other = anns[j];
-                    if (
-                        !Number.isInteger(other.start) ||
-                        !Number.isInteger(other.end)
-                    )
-                        continue;
-                    other.start += delta;
-                    other.end += delta;
-                }
+                console.log(
+                    `  Shifting all annotations starting >= ${originalEnd} by ${delta}`,
+                );
+                shiftAllAnnotations(originalEnd, delta);
             }
+
+            // Update last processed end position
+            lastProcessedEnd = annotation.end;
         }
     }
 
@@ -354,10 +453,7 @@ export async function processDocument(doc, toEncode = true) {
     try {
         return toEncode ? await encode(doc) : await decode(doc);
     } catch (error) {
-        console.error(
-            `error processing document ${doc?.id ?? "undefined"}`,
-            error,
-        );
+        console.error("Error processing document:", error);
         throw error;
     }
 }
