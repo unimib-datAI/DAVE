@@ -1,160 +1,163 @@
 version: "3"
 services:
-    mongo:
-        restart: $RESTART_POLICY
-        image: mongo:4.4.6 # mongo 5 requires cpu supports AVX
-        environment:
-            MONGO_INITDB_ROOT_USERNAME: root
-            MONGO_INITDB_ROOT_PASSWORD: $MONGO_ROOT_PASSWORD
-            MONGO_INITDB_DATABASE: main
-            MONGO_INITDB_USERNAME: usr
-            MONGO_INITDB_PASSWORD: $MONGO_PASSWORD
-            MONGO: $MONGO
-        volumes:
-            - ./mongo/data:/data/db
-            - ./mongo/initdb.d:/docker-entrypoint-initdb.d/
-        ports:
-            - 127.0.0.1:27018:27017
-        networks:
-            - dave_net
+  mongo:
+    restart: $RESTART_POLICY
+    image: mongo:4.4.6 # mongo 5 requires cpu supports AVX
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: $MONGO_ROOT_PASSWORD
+      MONGO_INITDB_DATABASE: main
+      MONGO_INITDB_USERNAME: usr
+      MONGO_INITDB_PASSWORD: $MONGO_PASSWORD
+      MONGO: $MONGO
+    volumes:
+      - ./mongo/data:/data/db
+      - ./mongo/initdb.d:/docker-entrypoint-initdb.d/
+    ports:
+      - 127.0.0.1:27018:27017
+    networks:
+      - dave_net
 
-    documents:
-        restart: $RESTART_POLICY
-        build: ./backend/documents
-        environment:
-            DOCS_PORT: 3001
-            ENABLE_AUTH: true
-            JWT_SECRET: ${DOCUMENTS_JWT_SECRET:-your-secret-key-change-in-production}
-            MONGO: $MONGO
-        networks:
-            - dave_net
-        volumes:
-            - ./backend/documents/src:/app/src
-        ports:
-            - 3001:3001
+  documents:
+    restart: $RESTART_POLICY
+    build: ./backend/documents
+    environment:
+      DOCS_PORT: 3001
+      ENABLE_AUTH: true
+      JWT_SECRET: ${DOCUMENTS_JWT_SECRET:-your-secret-key-change-in-production}
+      MONGO: $MONGO
+      ANONYMIZATION_ENDPOINT: $ANONYMIZATION_ENDPOINT
+    networks:
+      - dave_net
+    volumes:
+      - ./backend/documents/src:/app/src
+    ports:
+      - 3001:3001
 
-    ui:
-        restart: $RESTART_POLICY
-        build:
-            context: ./frontend
-            args:
-                ACCESS_USERNAME: $UI_ACCESS_USERNAME
-                ACCESS_PASSWORD: $UI_ACCESS_PASSWORD
-                API_BASE_URI: ${PIPELINE_ADDRESS}/api
-                API_USERNAME: ""
-                API_PASSWORD: ""
-                NEXTAUTH_SECRET: $UI_NEXTAUTH_SECRET
-                NEXTAUTH_URL: $UI_NEXTAUTH_URL
-                NEXT_PUBLIC_BASE_PATH: $UI_NEXT_PUBLIC_BASE_PATH
-                NEXT_PUBLIC_FULL_PATH: $UI_NEXT_PUBLIC_FULL_PATH
-                API_LLM: $UI_API_LLM
-                API_INDEXER: $UI_API_INDEXER
-                VARIANT: $UI_VARIANT
-                TEXT_GENERATION: $TEXT_GENERATION_ADDR
-                ELASTIC_INDEX: $ELASTIC_INDEX
-        ports:
-            - $LISTEN_UI:3000
-            - 127.0.0.1:9229:9229
-        networks:
-            - dave_net
-        environment:
-            ACCESS_USERNAME: $UI_ACCESS_USERNAME
-            ACCESS_PASSWORD: $UI_ACCESS_PASSWORD
-            API_BASE_URI: ${PIPELINE_ADDRESS}/api
-            API_USERNAME: ""
-            API_PASSWORD: ""
-            NEXTAUTH_SECRET: $UI_NEXTAUTH_SECRET
-            NEXTAUTH_URL: $UI_NEXTAUTH_URL
-            NEXT_PUBLIC_BASE_PATH: $UI_NEXT_PUBLIC_BASE_PATH
-            NEXT_PUBLIC_FULL_PATH: $UI_NEXT_PUBLIC_FULL_PATH
-            API_LLM: $UI_API_LLM
-            API_INDEXER: $UI_API_INDEXER
-            VARIANT: $UI_VARIANT
-            TEXT_GENERATION: $TEXT_GENERATION_ADDR
-            HOST: host.docker.internal
-            ELASTIC_INDEX: $ELASTIC_INDEX
-        extra_hosts:
-            - "host.docker.internal:host-gateway"
-        volumes:
-            - ./frontend/modules:/app/modules
-            - ./frontend/server:/app/server
-            - ./frontend/pages:/app/pages
-            - ./frontend/components:/app/components
-            - ./frontend/lib:/app/lib
-            - ./frontend/package.json:/app/package.json
+  ui:
+    restart: $RESTART_POLICY
+    build:
+      context: ./frontend
+      args:
+        ACCESS_USERNAME: $UI_ACCESS_USERNAME
+        ACCESS_PASSWORD: $UI_ACCESS_PASSWORD
+        API_BASE_URI: ${PIPELINE_ADDRESS}/api
+        API_USERNAME: ""
+        API_PASSWORD: ""
+        NEXTAUTH_SECRET: $UI_NEXTAUTH_SECRET
+        NEXTAUTH_URL: $UI_NEXTAUTH_URL
+        NEXT_PUBLIC_BASE_PATH: $UI_NEXT_PUBLIC_BASE_PATH
+        NEXT_PUBLIC_FULL_PATH: $UI_NEXT_PUBLIC_FULL_PATH
+        API_LLM: $UI_API_LLM
+        API_INDEXER: $UI_API_INDEXER
+        VARIANT: $UI_VARIANT
+        TEXT_GENERATION: $TEXT_GENERATION_ADDR
+        ELASTIC_INDEX: $ELASTIC_INDEX
+    ports:
+      - $LISTEN_UI:3000
+      - 127.0.0.1:9229:9229
+    networks:
+      - dave_net
+    environment:
+      ACCESS_USERNAME: $UI_ACCESS_USERNAME
+      ACCESS_PASSWORD: $UI_ACCESS_PASSWORD
+      API_BASE_URI: ${PIPELINE_ADDRESS}/api
+      API_USERNAME: ""
+      API_PASSWORD: ""
+      NEXTAUTH_SECRET: $UI_NEXTAUTH_SECRET
+      NEXTAUTH_URL: $UI_NEXTAUTH_URL
+      NEXT_PUBLIC_BASE_PATH: $UI_NEXT_PUBLIC_BASE_PATH
+      NEXT_PUBLIC_FULL_PATH: $UI_NEXT_PUBLIC_FULL_PATH
+      API_LLM: $UI_API_LLM
+      API_INDEXER: $UI_API_INDEXER
+      VARIANT: $UI_VARIANT
+      TEXT_GENERATION: $TEXT_GENERATION_ADDR
+      HOST: host.docker.internal
+      ELASTIC_INDEX: $ELASTIC_INDEX
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./frontend/modules:/app/modules
+      - ./frontend/server:/app/server
+      - ./frontend/pages:/app/pages
+      - ./frontend/components:/app/components
+      - ./frontend/lib:/app/lib
+      - ./frontend/package.json:/app/package.json
 
-    text-generation:
-        build:
-            context: ./backend/text-generation
-            dockerfile: Dockerfile
-        environment:
-            - HOST=0.0.0.0
-            - TEXT_GENERATION_ADDR=${TEXT_GENERATION_ADDR:-http://localhost:8000}
-            - TEXT_GENERATION_KEY=${TEXT_GENERATION_KEY:-your-key}
-            - MODEL_NAME=${MODEL_NAME:-default-model}
-        ports:
-            - 7862:7862
-            - 8000:8000
-        networks:
-            - dave_net
-        volumes:
-            - ./models/text-generation:/workspace/models
-            - /mnt/data:/models
+  text-generation:
+    build:
+      context: ./backend/text-generation
+      dockerfile: Dockerfile
+    environment:
+      - HOST=0.0.0.0
+      - TEXT_GENERATION_ADDR=${TEXT_GENERATION_ADDR:-http://localhost:8000}
+      - TEXT_GENERATION_KEY=${TEXT_GENERATION_KEY:-your-key}
+      - MODEL_NAME=${MODEL_NAME:-default-model}
+    ports:
+      - 7862:7862
+      - 8000:8000
+    networks:
+      - dave_net
+    volumes:
+      - ./models/text-generation:/workspace/models
+      - /mnt/data:/models
 
-    es:
-        image: docker.elastic.co/elasticsearch/elasticsearch:8.13.3
-        restart: $RESTART_POLICY
-        environment:
-            - xpack.security.enabled=false
-            ### Avoid test failures due to small disks. NOT SUITABLE FOR PRODUCTION.
-            - cluster.routing.allocation.disk.threshold_enabled=false
-            - cluster.routing.allocation.disk.watermark.low=3mb
-            - cluster.routing.allocation.disk.watermark.high=2mb
-            - cluster.routing.allocation.disk.watermark.flood_stage=1mb
-            - cluster.info.update.interval=1m
-            ###
-            - discovery.type=single-node
-            - ES_JAVA_OPTS=-Xms4096m -Xmx4096m
-            - http.max_content_length=200mb
-        networks:
-            - dave_net
-        ports:
-            - 9200:9200
-        volumes:
-            - ./elasticsearch/data:/usr/share/elasticsearch/data
+  es:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.3
+    restart: $RESTART_POLICY
+    environment:
+      - xpack.security.enabled=false
+      ### Avoid test failures due to small disks. NOT SUITABLE FOR PRODUCTION.
+      - cluster.routing.allocation.disk.threshold_enabled=false
+      - cluster.routing.allocation.disk.watermark.low=3mb
+      - cluster.routing.allocation.disk.watermark.high=2mb
+      - cluster.routing.allocation.disk.watermark.flood_stage=1mb
+      - cluster.info.update.interval=1m
+      ###
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms4096m -Xmx4096m
+      - http.max_content_length=200mb
+    networks:
+      - dave_net
+    ports:
+      - 9200:9200
+    volumes:
+      - ./elasticsearch/data:/usr/share/elasticsearch/data
 
-    qavectorizer:
-        build:
-            context: ./backend/qavectorizer
-            dockerfile: Dockerfile
-        depends_on:
-            - es
-        restart: $RESTART_POLICY
-        deploy:
-            resources:
-                reservations:
-                    devices:
-                        - driver: nvidia
-                          count: 1
-                          capabilities: [gpu]
-        environment:
-            - HOST_BASE_URL=${HOST_BASE_URL}
-            - INDEXER_SERVER_PORT=7863
-            - DOCS_PORT=${DOCS_PORT}
-            - CHROMA_PORT=${CHROMA_PORT}
-            - ELASTIC_PORT=${ELASTIC_PORT}
-            - SENTENCE_TRANSFORMER_EMBEDDING_MODEL=${SENTENCE_TRANSFORMER_EMBEDDING_MODEL}
-            - SENTENCE_TRANSFORMER_DEVICE=${SENTENCE_TRANSFORMER_DEVICE}
-            - OGG2NAME_INDEX=${OGG2NAME_INDEX}
-            - NVIDIA_VISIBLE_DEVICES=all
-        ports:
-            - ${QAVECTORIZER_ADDR}:7863
-        networks:
-            - dave_net
-        volumes:
-            - ./backend/qavectorizer/src:/workspace
-            - ./backend/models:/root/models
-            - ./backend/models/qavectorizer:/root/.cache/huggingface
+  qavectorizer:
+    build:
+      context: ./backend/qavectorizer
+      dockerfile: Dockerfile
+    # depends_on:
+    #   - es
+    mem_reservation: 5g # Soft limit - guaranteed memory
+    shm_size: 2g
+    restart: $RESTART_POLICY
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    environment:
+      - HOST_BASE_URL=${HOST_BASE_URL}
+      - INDEXER_SERVER_PORT=7863
+      - DOCS_PORT=${DOCS_PORT}
+      - CHROMA_PORT=${CHROMA_PORT}
+      - ELASTIC_PORT=${ELASTIC_PORT}
+      - SENTENCE_TRANSFORMER_EMBEDDING_MODEL=${SENTENCE_TRANSFORMER_EMBEDDING_MODEL}
+      - SENTENCE_TRANSFORMER_DEVICE=${SENTENCE_TRANSFORMER_DEVICE}
+      - OGG2NAME_INDEX=${OGG2NAME_INDEX}
+      # NVIDIA_VISIBLE_DEVICES removed - auto-detection will handle GPU availability
+    ports:
+      - ${QAVECTORIZER_ADDR}:7863
+    networks:
+      - dave_net
+    volumes:
+      - ./backend/qavectorizer/src:/workspace
+      - ./backend/models:/root/models
+      - ./backend/models/qavectorizer:/root/.cache/huggingface
 networks:
-    dave_net:
-        driver: bridge
+  dave_net:
+    driver: bridge
