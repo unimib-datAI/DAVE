@@ -62,17 +62,19 @@ const CollectionSelector = () => {
           }
         }
       },
-    }
+    },
   );
 
   const handleCollectionSelect = (key: string | number) => {
+    console.log('collection id ', key);
     if (key === 'manage') {
       router.push('/collections');
       return;
     }
-
+    console.log('*** searching for collection', key);
     const selected = collections.find((c) => c.id === key);
     if (selected) {
+      console.log('*** found collection', key, selected);
       setActiveCollection(selected);
     }
   };

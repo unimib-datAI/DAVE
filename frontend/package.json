@@ -46,6 +46,7 @@
     "next": "12.1.4",
     "next-auth": "^4.6.1",
     "nextjs-progressbar": "^0.0.14",
+    "openai": "^6.10.0",
     "polished": "^4.1.4",
     "react": "18.0.0",
     "react-beautiful-dnd": "^13.1.1",

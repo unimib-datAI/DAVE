@@ -26,6 +26,7 @@ import {
 import { current } from 'immer';
 import { Radio } from 'antd';
 import RateConversation from '@/components/RateConversation/RateConversation';
+import { activeCollectionAtom } from '@/atoms/collection';
 
 type Form = GenerateOptions & {
   message: string;
@@ -94,20 +95,21 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
           isDoneStreaming: true,
         },
       ],
-    }
+    },
   );
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
+  const [activeCollection] = useAtom(activeCollectionAtom);
   const [selectedFilters] = useAtom(selectedFiltersAtom);
 
   // Parse predefined questions from environment variable
   const predefinedQuestions =
     typeof process.env.NEXT_PUBLIC_QUESTIONS === 'string'
       ? process.env.NEXT_PUBLIC_QUESTIONS.split('-|').filter(
-          (q) => q.trim() !== ''
+          (q) => q.trim() !== '',
         )
       : [];
   const [conversationRated, setConversationRated] = useAtom(
-    conversationRatedAtom
+    conversationRatedAtom,
   );
   const mostSimilarDocumentsMutation = useMutation([
     'search.mostSimilarDocuments',
@@ -140,6 +142,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
   const fieldForceRag = register('force_rag');
 
   const handleFormSubmit = async (formValues: Form) => {
+    console.log('*** form submit collection id ***', activeCollection);
     if (formValues.message === '') {
       return;
     }
@@ -155,8 +158,8 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
             (doc) =>
               Array.isArray(doc.annotations) &&
               doc.annotations.some((ann: any) =>
-                selectedFilters.includes(ann.id_ER)
-              )
+                selectedFilters.includes(ann.id_ER),
+              ),
           )
           .map((doc) => doc.id.toString());
       } else {
@@ -176,20 +179,16 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     //   'aaf5b3db91bbee9b924bb43b5155b8d83ea351cf680219871cc163b4efec16b8',
     //   '6256c9c52e31f2e5967d457aa9e3dda502cb6cd7b8bb9df6015862ef9f9cd97f',
     // ];
-    console.log('filterIds', filterIds);
+    console.log('active collection id before mutation', activeCollection);
     const context = useDocumentContext
       ? await mostSimilarDocumentsMutation.mutateAsync({
           query: formValues.message,
           filter_ids: filterIds,
           retrievalMethod: formValues.retrievalMethod,
           force_rag: formValues.force_rag,
+          collectionId: activeCollection ? activeCollection.id : null,
         })
       : undefined;
-    console.log('context', context[0]);
-    console.log(
-      'context that will be sent',
-      context.map((doc) => ({ ...doc.chunks, full_docs: doc.full_docs }))
-    );
     appendMessage({ ...formValues, context, devMode });
     setValue({
       message: '',
@@ -199,8 +198,8 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
   const chatState = mostSimilarDocumentsMutation.isLoading
     ? 'searching'
     : isStreaming
-    ? 'generating'
-    : 'idle';
+      ? 'generating'
+      : 'idle';
 
   return (
     <div className="flex flex-row flex-grow min-h-0 overflow-hidden">
@@ -270,7 +269,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                     // Create a new object for setting value
                     setValue({
                       useCurrentDocumentContext: Boolean(
-                        newstate.target.checked
+                        newstate.target.checked,
                       ),
                     });
                   }}
@@ -345,7 +344,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                             setValue({ message: value });
                             // Focus on the input field after selecting a question
                             const inputField = document.querySelector(
-                              'input[name="message"]'
+                              'input[name="message"]',
                             );
                             if (inputField) {
                               (inputField as HTMLInputElement).focus();

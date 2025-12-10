@@ -1,3 +1,4 @@
+import { activeCollectionAtom } from '@/atoms/collection';
 import { DocumentWithChunk } from '@/server/routers/search';
 import { chatHistoryAtom, conversationRatedAtom } from '@/utils/atoms';
 import { getPromptAndMessage } from '@/utils/textGeneration';
@@ -30,8 +31,9 @@ const defaultSystemPropmt =
   "Sei un assistente che parla ITALIANO o INGLESE, scegli in base alla lingua della DOMANDA e del CONTESTO: se la domanda è formulata in INGLESE rispondi in INGLESE, se è formulata in ITALIANO rispondi in ITALIANO. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio. Se non conosci la risposta, limitati a dire che non lo sai.";
 function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
   const [chatHistory, setChatHistory] = useAtom(chatHistoryAtom);
+  const [activeCollection] = useAtom(activeCollectionAtom);
   const [conversationRated, setConversationRated] = useAtom(
-    conversationRatedAtom
+    conversationRatedAtom,
   );
 
   // Initialize messages from chat history or initial messages
@@ -71,7 +73,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           (item) =>
             `Nome Documento ${item.title} - Contenuto: ${item.chunks
               .map((chunk) => chunk.text)
-              .join(' ')}`
+              .join(' ')}`,
         )
       : '';
     let content = '';
@@ -115,7 +117,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
         top_p: Array.isArray(options.top_p) ? options.top_p[0] : options.top_p,
         top_k: Array.isArray(options.top_k) ? options.top_k[0] : options.top_k,
         token_repetition_penalty_max: Array.isArray(
-          options.token_repetition_penalty_max
+          options.token_repetition_penalty_max,
         )
           ? options.token_repetition_penalty_max[0]
           : options.token_repetition_penalty_max,
@@ -135,7 +137,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       });
       console.log(
         'messages that will be sent, formatted and stripped',
-        apiMessages
+        apiMessages,
       );
 
       // Call API through our server-side proxy endpoint
@@ -149,6 +151,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
         body: JSON.stringify({
           ...normalizedOptions,
           messages: apiMessages,
+          collectionId: activeCollection,
         }),
       });
 
