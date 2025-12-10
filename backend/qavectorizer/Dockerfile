@@ -1,23 +1,22 @@
-FROM pytorch/pytorch:2.4.1-cuda12.4-cudnn9-runtime 
+FROM python:3.11-slim
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    TORCH_CUDA_ARCH_LIST="Pascal;Volta;Turing" \
-    CUDA_HOME=/usr/local/cuda \
-    PATH=$CUDA_HOME/bin:$PATH
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
 
 WORKDIR /workspace
 
-# RUN apt-get update && apt-get install -y --no-install-recommends wget libxml2-dev gnupg2 gcc g++ software-properties-common ninja-build \
-#     && wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin \
-#     && mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600 \
-#     && apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub \
-#     && add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /" \
-#     && apt-get update \
-#     && apt-get install -y --no-install-recommends cuda-toolkit-12-4 \
-#     && rm -rf /var/lib/apt/lists/*
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY ./src ./
 
+# Install PyTorch CPU version (compatible with macOS/no CUDA)
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Install other requirements
 RUN pip install --no-cache-dir -r ./requirements.txt
 
 EXPOSE ${INDEXER_SERVER_PORT}
