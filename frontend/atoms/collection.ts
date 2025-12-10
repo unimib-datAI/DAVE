@@ -1,4 +1,5 @@
 import { atom } from 'jotai';
+import { atomWithStorage } from 'jotai/utils';
 
 export interface Collection {
   id: string;
@@ -9,8 +10,11 @@ export interface Collection {
   updatedAt: string;
 }
 
-// Active collection atom
-export const activeCollectionAtom = atom<Collection | null>(null);
+// Active collection atom with localStorage persistence
+export const activeCollectionAtom = atomWithStorage<Collection | null>(
+  'activeCollection',
+  null,
+);
 
 // Collections list atom
 export const collectionsAtom = atom<Collection[]>([]);

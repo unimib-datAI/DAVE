@@ -97,10 +97,9 @@ export type DocumentWithChunk = {
 };
 
 const processResponseMostSImilartDocuments = (
-  docs: GetSimilarDocumentResponse
+  docs: GetSimilarDocumentResponse,
 ): DocumentWithChunk[] => {
   return docs.map((d) => {
-    console.log('most similar docs', d.chunks);
     return {
       full_docs: d.full_docs,
       id: d.doc.id,
@@ -124,7 +123,7 @@ async function rateTheConversation(conversation: any, rating: number) {
           chatState: conversation,
           rateValue: rating,
         }),
-      }
+      },
     );
     let result = await res.json();
     return result;
@@ -140,7 +139,7 @@ async function rateTheConversation(conversation: any, rating: number) {
 async function addAnnotationsToDocument(
   indexName: string,
   documentId: string,
-  mentions: any[]
+  mentions: any[],
 ): Promise<AddAnnotationsResponse> {
   try {
     let index = process.env.ELASTIC_INDEX;
@@ -203,10 +202,7 @@ export const search = createRouter()
     }),
     resolve: async ({ input }) => {
       let index = process.env.ELASTIC_INDEX;
-      console.log(
-        'calling ',
-        `${process.env.API_INDEXER}/chroma/collection/${index}/query`
-      );
+      console.log('*** most similar collection id ***', input.collectionId);
       // forward collectionId (if provided) to the vector/search service so it can restrict by collection
       const documents = (await fetch(
         `${process.env.API_INDEXER}/chroma/collection/${index}/query`,
@@ -222,7 +218,7 @@ export const search = createRouter()
             force_rag: input.force_rag,
             collectionId: input.collectionId,
           }),
-        }
+        },
       ).then((r) => r.json())) as GetSimilarDocumentResponse;
 
       return processResponseMostSImilartDocuments(documents);
@@ -235,13 +231,13 @@ export const search = createRouter()
         z.object({
           value: z.string(),
           type: z.string(),
-        })
+        }),
       ),
       annotations: z.array(
         z.object({
           value: z.string(),
           type: z.string(),
-        })
+        }),
       ),
       limit: z.number().min(1).max(100).nullish(),
       cursor: z.number().nullish(),
@@ -249,11 +245,6 @@ export const search = createRouter()
     }),
     resolve: async ({ input }) => {
       let index = process.env.ELASTIC_INDEX;
-      console.log(
-        'index',
-        index,
-        `${process.env.API_INDEXER}/elastic/index/${index}/query`
-      );
       // The body spreads input so collectionId (if provided) will be forwarded to the indexer
       let string = JSON.stringify({
         ...input,
@@ -272,8 +263,9 @@ export const search = createRouter()
             ...input,
             n_facets: 20,
             page: input.cursor || 1,
+            collection_id: input.collectionId,
           }),
-        }
+        },
       ).then((r) => r.json());
 
       return res as FacetedQueryOutput;
@@ -303,7 +295,7 @@ export const search = createRouter()
           is_linked: z.boolean().optional(),
           display_name: z.string().optional(),
           to_delete: z.boolean().optional(),
-        })
+        }),
       ),
     }),
     resolve: async ({ input }) => {

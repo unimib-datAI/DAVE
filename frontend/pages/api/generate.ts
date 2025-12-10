@@ -1,16 +1,19 @@
 import { NextApiRequest, NextApiResponse } from 'next';
+import OpenAI from 'openai';
 
 /**
- * Server-side proxy for text generation
- * This endpoint simply proxies requests to the text generation server
- * with proper streaming support
+ * Server-side proxy for text generation using OpenAI-compatible API
+ * This endpoint uses the OpenAI library to communicate with a local
+ * OpenAI-compatible server with proper streaming support
  */
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== 'POST') {
     res.status(405).json({ message: 'Method Not Allowed' });
     return;
   }
+
   console.log('request', req.body);
+
   try {
     // Set appropriate headers for streaming
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -19,40 +22,90 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     res.setHeader('X-Accel-Buffering', 'no'); // Prevents proxy buffering
     res.setHeader('Transfer-Encoding', 'chunked');
 
-    // Get the text generation server URL from environment variable
-    console.log('text gen address', process.env.API_LLM);
-    const textGenerationUrl =
-      `${process.env.API_LLM}/generate` || 'http://10.0.0.108:7862/generate';
+    // Get the base URL for the OpenAI-compatible server
+    const baseURL = process.env.API_LLM || 'http://localhost:8000/v1';
 
-    // Forward the request to the text generation server
-    const response = await fetch(textGenerationUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(req.body),
+    console.log('OpenAI-compatible server address:', baseURL);
+
+    // Initialize OpenAI client with custom base URL
+    const openai = new OpenAI({
+      baseURL: baseURL,
+      apiKey: 'dummy-key', // Most local servers don't require a real API key
     });
 
-    if (!response.ok) {
-      console.error(
-        `Text generation server responded with status: ${response.status}`
-      );
-      res.status(response.status).json({
-        message: `Text generation server error: ${response.statusText}`,
+    // Extract parameters from request body
+    const {
+      messages,
+      prompt,
+      max_tokens = 1000,
+      temperature = 0.7,
+      top_p = 0.9,
+      model = 'phi4-mini',
+      ...otherParams
+    } = req.body;
+    let rawMessages = messages;
+    if (!rawMessages && prompt) {
+      rawMessages = [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ];
+    }
+    if (!rawMessages || rawMessages.length === 0) {
+      throw new Error('No messages or prompt provided');
+    }
+
+    // Clean and normalize messages
+    const chatMessages = rawMessages
+      .map((msg: any) => ({
+        role: msg.role,
+        // Handle both 'content' and 'usrMessage' fields
+        content: msg.content || msg.usrMessage || '',
+      }))
+      .filter((msg: any) => {
+        // Filter out messages with empty content or invalid roles
+        return (
+          msg.content &&
+          msg.content.trim() !== '' &&
+          (msg.role === 'user' ||
+            msg.role === 'assistant' ||
+            msg.role === 'system')
+        );
       });
-      return;
+
+    if (chatMessages.length === 0) {
+      throw new Error('No valid messages after filtering');
     }
 
-    if (!response.body) {
-      throw new Error('Response body is null');
+    // Create streaming completion
+    const stream = await openai.chat.completions.create({
+      model: model,
+      messages: chatMessages,
+      max_tokens: max_tokens,
+      temperature: temperature,
+      top_p: top_p,
+      stream: true,
+      ...otherParams,
+    });
+
+    // Stream the response to the client
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content || '';
+
+      if (content) {
+        // Write each chunk as it arrives
+        res.write(content);
+
+        // Force immediate sending of the chunk without buffering
+        if (typeof (res as any).flush === 'function') {
+          (res as any).flush();
+        }
+      }
     }
 
-    // Get the reader from the response body
-    const reader = response.body.getReader();
-
-    // Stream the response directly to the client
-    // This is important for proper streaming behavior
-    await streamResponse(reader, res);
+    // End the response when done
+    res.end();
   } catch (error) {
     console.error('Error in generate API:', error);
     if (!res.writableEnded) {
@@ -64,42 +117,6 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     }
   }
 };
-
-/**
- * Streams data from a ReadableStreamDefaultReader to an HTTP response
- */
-async function streamResponse(
-  reader: ReadableStreamDefaultReader<Uint8Array>,
-  res: NextApiResponse
-) {
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        break;
-      }
-
-      // Write each chunk as it arrives
-      // This is crucial for streaming - sending chunks immediately
-      res.write(value);
-
-      // Force immediate sending of the chunk without buffering
-      // This ensures true streaming behavior
-      if (typeof (res as any).flush === 'function') {
-        (res as any).flush();
-      }
-    }
-
-    // End the response when done
-    res.end();
-  } catch (error) {
-    console.error('Error streaming response:', error);
-    if (!res.writableEnded) {
-      res.end();
-    }
-  }
-}
 
 export default handler;
 
