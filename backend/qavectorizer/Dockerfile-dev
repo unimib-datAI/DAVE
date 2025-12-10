@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /workspace
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install
+COPY ./src/requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install PyTorch CPU version (compatible with macOS/no CUDA)
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+EXPOSE ${INDEXER_SERVER_PORT}
+
+# Use uvicorn with reload for hot reloading
+CMD uvicorn app:app --host 0.0.0.0 --port ${INDEXER_SERVER_PORT} --reload
