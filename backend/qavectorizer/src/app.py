@@ -40,6 +40,20 @@ def get_settings():
     return AppSettings()
 
 
+def get_device():
+    """
+    Automatically detect and return the appropriate device for model inference.
+    Returns 'cuda' if CUDA is available, otherwise 'cpu'.
+    """
+    if torch.cuda.is_available():
+        device = "cuda"
+        logging.info(f"CUDA is available. Using GPU: {torch.cuda.get_device_name(0)}")
+    else:
+        device = "cpu"
+        logging.info("CUDA is not available. Using CPU for inference.")
+    return device
+
+
 # Setup FastAPI with comprehensive API documentation:
 app = FastAPI(
     title="QA Vectorizer API",
@@ -486,7 +500,6 @@ class CustomJSONResponse(JSONResponse):
 async def query_collection(
     collection_name: str,
     req: QueryCollectionRquest,
-    x_collection_id: Optional[str] = Header(None, alias="X-Collection-Id"),
 ):
     embeddings = []
     with torch.no_grad():
@@ -500,8 +513,6 @@ async def query_collection(
     collection_id = None
     if getattr(req, "collectionId", None):
         collection_id = req.collectionId
-    elif x_collection_id:
-        collection_id = x_collection_id
 
     # GREATLY increase k when filtering to a single document
     if hasattr(req, "filter_ids") and len(req.filter_ids) == 1:
@@ -886,10 +897,12 @@ async def query_collection(
             doc_chunks_id_map[doc_id].append(temp_chunk)
         else:
             doc_chunks_id_map[doc_id] = [temp_chunk]
-
-    print(
-        f"Retrieved {len(doc_chunks_id_map.get(list(doc_chunks_id_map.keys())[0] if doc_chunks_id_map else [], []))} chunks for the document"
-    )
+    if doc_chunks_id_map:
+        first_doc_chunks = next(iter(doc_chunks_id_map.values()))
+        retrieved_chunks = len(first_doc_chunks)
+    else:
+        retrieved_chunks = 0
+    print(f"Retrieved {retrieved_chunks} chunks for the document")
 
     full_docs = []
 
@@ -1387,6 +1400,7 @@ class QueryElasticIndexRequest(BaseModel):
     n_facets: int = 20
     page: int = 1
     documents_per_page: int = 20
+    collection_id: str
 
     class Config:
         json_schema_extra = {
@@ -1421,15 +1435,27 @@ async def query_elastic_index(
     req: QueryElasticIndexRequest,
 ):
     from_offset = (req.page - 1) * req.documents_per_page
-
+    print(f"requested collection ID: {req.collection_id}")
+    # Initialize with empty must array
     query = {
         "bool": {
-            "must": [{"query_string": {"query": req.text, "default_field": "text"}}],
+            "must": [],
             "filter": {"bool": {"should": []}},
         },
     }
-    if req.text == "" or req.text == None or req.text == " ":
-        query["bool"]["must"] = [{"match_all": {}}]
+
+    # Add text query or match_all
+    if req.text and req.text.strip():
+        query["bool"]["must"].append(
+            {"query_string": {"query": req.text, "default_field": "text"}}
+        )
+    else:
+        query["bool"]["must"].append({"match_all": {}})
+
+    # Add collection filter if provided
+    if req.collection_id:
+        query["bool"]["must"].append({"term": {"collectionId": req.collection_id}})
+
     # print("annotations", req.annotations)
     if req.annotations != None and len(req.annotations) > 0:
         for annotation in req.annotations:
@@ -1472,7 +1498,7 @@ async def query_elastic_index(
             )
     # get all docs if req.text is empty
     # if (req.text == "" or req.text == None or req.text == " ") and (req.metadata == None or len(req.metadata) == 0) and (req.annotations == None or len(req.annotations) == 0):
-
+    print(query)
     search_res = es_client.search(
         index=index_name,
         size=20,
@@ -1493,6 +1519,7 @@ async def query_elastic_index(
         total_hits % req.documents_per_page > 0
     ):  # if there is a remainder, add one more page
         num_pages += 1
+    print(f"length of results: {len(hits)}")
     return {
         "hits": hits,
         "facets": {"annotations": annotations_facets, "metadata": metadata_facets},
@@ -1643,104 +1670,107 @@ def index_document_with_processing(
         )
 
 
-if __name__ == "__main__":
-    settings = get_settings()
-    print(settings.dict())
-    logger = logging.getLogger(__name__)
+settings = get_settings()
+print(settings.dict())
+logger = logging.getLogger(__name__)
 
-    # if not os.getenv("ENVIRONMENT", "production") == "dev":
-    model = SentenceTransformer(
-        environ.get(
-            "SENTENCE_TRANSFORMER_EMBEDDING_MODEL", "Alibaba-NLP/gte-multilingual-base"
-        ),
-        device="cuda",
-        trust_remote_code=True,
-    )
-    model = model.to(environ.get("SENTENCE_TRANSFORMER_DEVICE", "cuda"))
-    print("model on device", model.device)
-    model = model.eval()
-    tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3.5-mini-instruct")
+# if not os.getenv("ENVIRONMENT", "production") == "dev":
+# Automatically detect the best device (CUDA or CPU)
+device = get_device()
+print(f"Available device {device}")
+model = SentenceTransformer(
+    environ.get(
+        "SENTENCE_TRANSFORMER_EMBEDDING_MODEL", "Alibaba-NLP/gte-multilingual-base"
+    ),
+    device=device,
+    trust_remote_code=True,
+)
+# Override with environment variable if specified, otherwise use auto-detected device
+target_device = environ.get("SENTENCE_TRANSFORMER_DEVICE", device)
+print(f"Model loaded on device: {model.device}")
+model = model.eval()
+tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3.5-mini-instruct")
 
-    # Print each collection
-    # for collection in collections:
-    #     print(collection)
-    print(
-        "starting es client",
+# Print each collection
+# for collection in collections:
+#     print(collection)
+print(
+    "starting es client",
+    {
+        "host": "localhost",
+        "scheme": "http",
+        "port": 9201,
+    },
+)
+es_client = Elasticsearch(
+    hosts=[
         {
-            "host": "localhost",
+            "host": "host.docker.internal",
             "scheme": "http",
             "port": 9201,
-        },
-    )
-    es_client = Elasticsearch(
-        hosts=[
-            {
-                "host": "10.0.0.108",
-                "scheme": "http",
-                "port": 9201,
-            }
-        ],
-        request_timeout=60,
-        # headers={
-        #     "accept": "application/vnd.elasticsearch+json; compatible-with=8",
-        #     "content_type": "application/vnd.elasticsearch+json; compatible-with=8",
-        # },
-    )
+        }
+    ],
+    request_timeout=60,
+    # headers={
+    #     "accept": "application/vnd.elasticsearch+json; compatible-with=8",
+    #     "content_type": "application/vnd.elasticsearch+json; compatible-with=8",
+    # },
+)
 
-    # Create retrievers based on .env pipeline addresses and docker-compose UI elastic indexes
-    retrievers = {}
-    retrievers["batini"] = DocumentRetriever(
-        url=environ.get("PIPELINE_ADDRESS", "http://10.0.0.108:3001") + "/api/document"
-    )
-    retrievers["bologna_renzo_matched_1"] = DocumentRetriever(
-        url=environ.get("DEMO_PIPELINE_ADDRESS", "http://10.0.0.108:3002")
-        + "/api/document"
-    )
-    retrievers["sperimentazione"] = DocumentRetriever(
-        url=environ.get("SPERIMENTAZIONE_PIPELINE_ADDRESS", "http://10.0.0.108:3003")
-        + "/api/document"
-    )
-    retrievers["indagini"] = DocumentRetriever(
-        url=environ.get("INDAGINI_PIPELINE_ADDRESS", "http://10.0.0.108:3004")
-        + "/api/document"
-    )
-    retrievers["mirko"] = DocumentRetriever(
-        url=environ.get("MIRKO_PIPELINE_ADDRESS", "http://10.0.0.108:3005")
-        + "/api/document"
-    )
-    retrievers["doc_eng_1"] = DocumentRetriever(
-        url=environ.get("RENZO_PIPELINE_ADDRESS", "http://10.0.0.108:3006")
-        + "/api/document"
-    )
-    retrievers["messages"] = DocumentRetriever(
-        url=environ.get("MESSAGES_PIPELINE_ADDRESS", "http://10.0.0.108:3007")
-        + "/api/document"
-    )
-    retrievers["eu"] = DocumentRetriever(
-        url=environ.get("EU_PIPELINE_ADDRESS", "http://10.0.0.108:3008")
-        + "/api/document"
-    )
-    retrievers["eu_v2"] = DocumentRetriever(
-        url=environ.get("EU_V2_PIPELINE_ADDRESS", "http://10.0.0.108:3009")
-        + "/api/document"
-    )
-    retrievers["anonymization"] = DocumentRetriever(
-        url=environ.get("ANONYMIZATION_PIPELINE_ADDRESS", "http://10.0.0.108:3010")
-        + "/api/document"
-    )
-    retrievers["anonymized"] = DocumentRetriever(
-        url=environ.get("ANONYMIZATION_PIPELINE_ADDRESS", "http://10.0.0.108:3010")
-        + "/api/document"
-    )
-    retrievers["eu_anonymized"] = DocumentRetriever(
-        url="http://10.0.0.108:3011/api/document"
-    )
-    retriever = retrievers["batini"]  # default retriever
+# Create retrievers based on .env pipeline addresses and docker-compose UI elastic indexes
+retrievers = {}
+retrievers["batini"] = DocumentRetriever(
+    url=environ.get("PIPELINE_ADDRESS", "http://10.0.0.108:3001") + "/api/document"
+)
+retrievers["bologna_renzo_matched_1"] = DocumentRetriever(
+    url=environ.get("DEMO_PIPELINE_ADDRESS", "http://10.0.0.108:3002") + "/api/document"
+)
+retrievers["sperimentazione"] = DocumentRetriever(
+    url=environ.get("SPERIMENTAZIONE_PIPELINE_ADDRESS", "http://10.0.0.108:3003")
+    + "/api/document"
+)
+retrievers["indagini"] = DocumentRetriever(
+    url=environ.get("INDAGINI_PIPELINE_ADDRESS", "http://10.0.0.108:3004")
+    + "/api/document"
+)
+retrievers["mirko"] = DocumentRetriever(
+    url=environ.get("MIRKO_PIPELINE_ADDRESS", "http://10.0.0.108:3005")
+    + "/api/document"
+)
+retrievers["doc_eng_1"] = DocumentRetriever(
+    url=environ.get("RENZO_PIPELINE_ADDRESS", "http://10.0.0.108:3006")
+    + "/api/document"
+)
+retrievers["messages"] = DocumentRetriever(
+    url=environ.get("MESSAGES_PIPELINE_ADDRESS", "http://10.0.0.108:3007")
+    + "/api/document"
+)
+retrievers["eu"] = DocumentRetriever(
+    url=environ.get("EU_PIPELINE_ADDRESS", "http://10.0.0.108:3008") + "/api/document"
+)
+retrievers["eu_v2"] = DocumentRetriever(
+    url=environ.get("EU_V2_PIPELINE_ADDRESS", "http://10.0.0.108:3009")
+    + "/api/document"
+)
+retrievers["anonymization"] = DocumentRetriever(
+    url=environ.get("ANONYMIZATION_PIPELINE_ADDRESS", "http://documents:3001")
+    + "/api/document"
+)
+retrievers["anonymized"] = DocumentRetriever(
+    url=environ.get("ANONYMIZATION_PIPELINE_ADDRESS", "http://documents:3001")
+    + "/api/document"
+)
+retrievers["eu_anonymized"] = DocumentRetriever(
+    url="http://10.0.0.108:3011/api/document"
+)
+retriever = retrievers["batini"]  # default retriever
 
-    # if not os.getenv("ENVIRONMENT", "production") == "dev":
-    #     with open(environ.get("OGG2NAME_INDEX"), "r") as fd:
-    #         ogg2name_index = json.load(fd)
+# if not os.getenv("ENVIRONMENT", "production") == "dev":
+#     with open(environ.get("OGG2NAME_INDEX"), "r") as fd:
+#         ogg2name_index = json.load(fd)
 
-    # [start fastapi]:
-    _PORT = int(settings.indexer_server_port)
+# [start fastapi]:
+_PORT = int(settings.indexer_server_port)
+
+if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=_PORT)

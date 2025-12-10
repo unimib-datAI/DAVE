@@ -1,21 +1,30 @@
-from sentence_transformers import SentenceTransformer
-from chunker import DocumentChunker
-from actions import (
-    index_chroma_document,
-    create_chroma_collection,
-    index_elastic_document,
-    create_elastic_index,
-)
-from utils import anonymize
-import torch
-from os import environ
 import json
+import logging
+from os import environ
+
+import torch
+from actions import (
+    create_chroma_collection,
+    create_elastic_index,
+    index_chroma_document,
+    index_elastic_document,
+)
+from chunker import DocumentChunker
+from sentence_transformers import SentenceTransformer
+from utils import anonymize
 
 
 class ChromaIndexer:
     def __init__(self, embedding_model: str, chunk_size: int, chunk_overlap: int):
+        # Automatically detect CUDA availability
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        if device == "cpu":
+            logging.info("CUDA not available in ChromaIndexer, using CPU")
+        else:
+            logging.info(f"Using GPU in ChromaIndexer: {torch.cuda.get_device_name(0)}")
+
         self.embedding_model = SentenceTransformer(embedding_model)
-        self.embedding_model.to("cuda")
+        self.embedding_model.to(device)
         self.embedding_model.eval()
 
         self.chunker = DocumentChunker(
@@ -56,7 +65,7 @@ class ChromaIndexer:
 class ElasticsearchIndexer:
     def __init__(self, anonymize_type=[]):
         self.anonymize_type = anonymize_type
-        with open(environ.get('OGG2NAME_INDEX'), 'r') as fd:
+        with open(environ.get("OGG2NAME_INDEX"), "r") as fd:
             self.ogg2name_index = json.load(fd)
 
     def create_index(self, name: str):
@@ -65,10 +74,10 @@ class ElasticsearchIndexer:
     def ogg2name(self, ogg):
         found = self.ogg2name_index.get(str(ogg))
         if found:
-            return '{}/{}'.format(found['desc_materia'], found['desc_oggetto'])
+            return "{}/{}".format(found["desc_materia"], found["desc_oggetto"])
         else:
-            print('UNKNWOWN Metadata for codice oggetto', str(ogg))
-            return 'Codice Oggetto {}'.format(ogg)
+            print("UNKNWOWN Metadata for codice oggetto", str(ogg))
+            return "Codice Oggetto {}".format(ogg)
 
     def tipodoc2name(self, tipo):
         # TODO
@@ -77,17 +86,36 @@ class ElasticsearchIndexer:
         else:
             return tipo
 
-
     def index(self, index: str, doc: dict):
         METADATA_MAP = {
-            'annosentenza': lambda x: {'type': 'Anno Sentenza', 'value': x, "display_name": str(x)},
-            'annoruolo': lambda x: {'type': 'Anno Ruolo', 'value': x, "display_name": str(x)},
-            'codiceoggetto': lambda x: {'type': 'Codice Oggetto', 'value': self.ogg2name(x), "display_name": str(self.ogg2name(x))},
+            "annosentenza": lambda x: {
+                "type": "Anno Sentenza",
+                "value": x,
+                "display_name": str(x),
+            },
+            "annoruolo": lambda x: {
+                "type": "Anno Ruolo",
+                "value": x,
+                "display_name": str(x),
+            },
+            "codiceoggetto": lambda x: {
+                "type": "Codice Oggetto",
+                "value": self.ogg2name(x),
+                "display_name": str(self.ogg2name(x)),
+            },
             # 'parte': lambda x: {'type': 'Parte', 'value': x, "display_name": str(anonymize(x))},
             # 'controparte': lambda x: {'type': 'Controparte', 'value': x, "display_name": str(anonymize(x))},
-            'nomegiudice': lambda x: {'type': 'Nome Giudice', 'value': x, "display_name": str(x)},
-            'tipodocumento': lambda x: {'type': 'Tipo Documento', 'value': self.tipodoc2name(x), "display_name": str(self.tipodoc2name(x))},
-            }
+            "nomegiudice": lambda x: {
+                "type": "Nome Giudice",
+                "value": x,
+                "display_name": str(x),
+            },
+            "tipodocumento": lambda x: {
+                "type": "Tipo Documento",
+                "value": self.tipodoc2name(x),
+                "display_name": str(self.tipodoc2name(x)),
+            },
+        }
 
         annotations = [
             {
@@ -98,15 +126,22 @@ class ElasticsearchIndexer:
                 "end": 0,
                 "type": cluster["type"],
                 "mention": cluster["title"],
-                "is_linked": cluster.get('url') and 'wikipedia.org' in cluster['url'],
+                "is_linked": cluster.get("url") and "wikipedia.org" in cluster["url"],
                 # this is temporary, there will be a display name directly in the annotaion object
-                "display_name": anonymize(cluster["title"]) if cluster['type'] in self.anonymize_type else cluster['title'],
-                "anonymize": cluster['type'] in self.anonymize_type,
-            } for cluster in doc['features']['clusters']['entities_consolidated'] #\
-                # if cluster["type"] not in ['parte', 'controparte']
+                "display_name": anonymize(cluster["title"])
+                if cluster["type"] in self.anonymize_type
+                else cluster["title"],
+                "anonymize": cluster["type"] in self.anonymize_type,
+            }
+            for cluster in doc["features"]["clusters"]["entities_consolidated"]  # \
+            # if cluster["type"] not in ['parte', 'controparte']
         ]
 
-        metadata = [METADATA_MAP[mk](mv) for mk, mv in doc['features'].items() if mk in METADATA_MAP]
+        metadata = [
+            METADATA_MAP[mk](mv)
+            for mk, mv in doc["features"].items()
+            if mk in METADATA_MAP
+        ]
 
         elastic_doc = {
             "mongo_id": doc["id"],
