@@ -1,0 +1,34 @@
+# Use node alpine as it's a small node image
+FROM node:18-alpine
+
+ARG ACCESS_USERNAME
+ARG ACCESS_PASSWORD
+ARG API_BASE_URI
+ARG API_USERNAME
+ARG API_PASSWORD
+ARG NEXTAUTH_SECRET
+ARG NEXTAUTH_URL
+ARG NEXT_PUBLIC_BASE_PATH
+
+RUN npm install -g pnpm
+
+# Create the directory on the node image
+# where our Next.js app will live
+RUN mkdir -p /app
+
+# Set /app as the working directory
+WORKDIR /app
+
+# Copy package files for dependency installation
+COPY package.json pnpm-lock.yaml* package-lock.json* /app/
+
+# Install dependencies in /app
+RUN pnpm install
+
+# Don't copy source files - they will be mounted as volumes
+# This ensures hot reload works properly
+
+# Ensure port 3000 is accessible to our system
+EXPOSE 3000
+
+CMD ["pnpm", "dev"]
