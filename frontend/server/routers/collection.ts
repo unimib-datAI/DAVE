@@ -2,9 +2,15 @@ import { z } from 'zod';
 import { createRouter } from '../context';
 import { TRPCError } from '@trpc/server';
 import fetchJson from '@/lib/fetchJson';
+import { TRPCClientError } from '@trpc/react';
+import { AnyCnameRecord } from 'dns';
 
 const baseURL = `${process.env.API_BASE_URI}`;
-
+export type collectionDocInfo = {
+  name: string;
+  preview?: string;
+  id: string;
+};
 export type Collection = {
   id: string;
   name: string;
@@ -89,7 +95,31 @@ export const collections = createRouter()
       }
     },
   })
-
+  .query('getCollectionInfo', {
+    input: z.object({
+      id: z.string(),
+      token: z.string().optional(),
+    }),
+    async resolve({ input }) {
+      const { id, token } = input;
+      try {
+        const result = await fetchJson<any, collectionDocInfo[]>(
+          `${baseURL}/collection/collectioninfo/${id}`,
+          {
+            headers: {
+              Authorization: getJWTHeader(token),
+            },
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: error.status === 404 ? 'NOT_FOUND' : 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to fetch collection info',
+        });
+      }
+    },
+  })
   // Create a new collection
   .mutation('create', {
     input: z.object({
