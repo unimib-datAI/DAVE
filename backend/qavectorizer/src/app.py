@@ -1229,6 +1229,26 @@ def index_elastic_document(req: IndexElasticDocumentRequest, index_name: str):
     return index_elastic_document_raw(req.doc, index_name)
 
 
+@app.delete(
+    "/elastic/index/{index_name}/doc/{doc_id}",
+    tags=["Elasticsearch Documents"],
+    summary="Delete a document by ID",
+    description="Delete a specific document from an Elasticsearch index by its document ID.",
+    response_description="Deletion confirmation",
+)
+def delete_elastic_document(index_name: str, doc_id: str):
+    try:
+        response = es_client.delete_by_query(
+            index=index_name, body={"query": {"term": {"id": doc_id}}}
+        )
+        return {"deleted": response["deleted"]}
+    except Exception as e:
+        logging.error(f"Error deleting document {doc_id} from index {index_name}: {e}")
+        raise HTTPException(
+            status_code=404, detail=f"Document {doc_id} not found in index {index_name}"
+        )
+
+
 def ogg2name(ogg):
     return ogg2name_index.get(ogg, "UNKNOWN")
 
