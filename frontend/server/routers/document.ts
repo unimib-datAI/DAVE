@@ -234,7 +234,33 @@ export const documents = createRouter()
       return moveRes;
     },
   })
-
+  .mutation('deleteDocument', {
+    input: z.object({ docId: z.string() }),
+    resolve: async ({ input }) => {
+      const { docId } = input;
+      try {
+        return fetchJson<any, AnnotationSet<EntityAnnotation>[]>(
+          `${baseURL}/document/${docId}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: getAuthHeader(),
+            },
+            body: {
+              elasticIndex: process.env.ELASTIC_INDEX,
+            },
+          }
+        );
+      } catch (error: any) {
+        throw new TRPCError({
+          code: error.status === 402 ? 'UNAUTHORIZED' : 'INTERNAL_SERVER_ERROR',
+          message: `Failed to delete document: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        });
+      }
+    },
+  })
   .mutation('deleteAnnotationSet', {
     input: z.object({
       docId: z.string(),

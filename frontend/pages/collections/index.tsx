@@ -265,62 +265,83 @@ const Collections: NextPage = () => {
           </Card>
         ) : (
           collections.map((collection) => (
-            <CollectionCard key={collection.id}>
-              <CardHeader>
-                <div>
-                  <Text h4 css={{ margin: 0 }}>
-                    {collection.name}
-                  </Text>
-                  {collection.ownerId === session?.user?.userId && (
-                    <Text size={12} color="$gray600" css={{ marginTop: '4px' }}>
-                      Owner
+            <div
+              key={collection.id}
+              onClick={() => {
+                console.log('clicked collection', collection.id);
+                router.push(`/collections/${collection.id}`);
+              }}
+            >
+              <CollectionCard style={{ cursor: 'pointer' }}>
+                <CardHeader>
+                  <div>
+                    <Text h4 css={{ margin: 0 }}>
+                      {collection.name}
                     </Text>
-                  )}
-                </div>
-                <Actions>
-                  <IconBtn onClick={() => handleEdit(collection)} title="Edit">
-                    <EditIcon size={18} />
-                  </IconBtn>
-                  {collection.ownerId === session?.user?.userId && (
-                    <IconBtn
-                      onClick={() => handleDelete(collection.id)}
-                      title="Delete"
-                      style={{ color: '#ef4444' }}
-                    >
-                      <TrashIcon size={18} />
-                    </IconBtn>
-                  )}
-                </Actions>
-              </CardHeader>
-              <CardContent>
-                {collection.allowedUserIds &&
-                  collection.allowedUserIds.length > 0 && (
-                    <div>
+                    {collection.ownerId === session?.user?.userId && (
                       <Text
-                        size={13}
+                        size={12}
                         color="$gray600"
-                        css={{ marginBottom: '8px' }}
+                        css={{ marginTop: '4px' }}
                       >
-                        Shared with:
+                        Owner
                       </Text>
-                      <div
-                        style={{
-                          display: 'flex',
-                          gap: '6px',
-                          flexWrap: 'wrap',
+                    )}
+                  </div>
+                  <Actions>
+                    <IconBtn
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(collection);
+                      }}
+                      title="Edit"
+                    >
+                      <EditIcon size={18} />
+                    </IconBtn>
+                    {collection.ownerId === session?.user?.userId && (
+                      <IconBtn
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(collection.id);
                         }}
+                        title="Delete"
+                        style={{ color: '#ef4444' }}
                       >
-                        {collection.allowedUserIds.map((userId) => (
-                          <UserBadge key={userId}>
-                            <UsersIcon size={12} />
-                            {getUserName(userId)}
-                          </UserBadge>
-                        ))}
+                        <TrashIcon size={18} />
+                      </IconBtn>
+                    )}
+                  </Actions>
+                </CardHeader>
+                <CardContent>
+                  {collection.allowedUserIds &&
+                    collection.allowedUserIds.length > 0 && (
+                      <div>
+                        <Text
+                          size={13}
+                          color="$gray600"
+                          css={{ marginBottom: '8px' }}
+                        >
+                          Shared with:
+                        </Text>
+                        <div
+                          style={{
+                            display: 'flex',
+                            gap: '6px',
+                            flexWrap: 'wrap',
+                          }}
+                        >
+                          {collection.allowedUserIds.map((userId) => (
+                            <UserBadge key={userId}>
+                              <UsersIcon size={12} />
+                              {getUserName(userId)}
+                            </UserBadge>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-              </CardContent>
-            </CollectionCard>
+                    )}
+                </CardContent>
+              </CollectionCard>
+            </div>
           ))
         )}
 
