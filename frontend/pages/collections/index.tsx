@@ -141,7 +141,7 @@ const Collections: NextPage = () => {
     },
   });
 
-  const { data: usersData } = useQuery(['collection.getAllUsers', { token }], {
+  const { data: usersData } = useQuery(['user.getAllUsers', { token }], {
     enabled: tokenAvailable,
     onSuccess: (data) => {
       if (data) {

@@ -4,12 +4,16 @@ import { Button, Container, Loading, Table, Text } from '@nextui-org/react';
 import { NextPage } from 'next';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { FiArrowLeft } from '@react-icons/all-files/fi/FiArrowLeft';
 import styled from '@emotion/styled';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { FiTrash2 } from '@react-icons/all-files/fi/FiTrash2';
 import { message, notification, Popconfirm } from 'antd';
+import { useAtom } from 'jotai';
+import { activeCollectionAtom, collectionsAtom } from '@/atoms/collection';
+import { UploadDocumentsModal } from '@/components/UploadDocumentsModal';
+import { uploadModalOpenAtom } from '@/atoms/upload';
 const Header = styled.div`
   display: flex;
   flex-direction: column;
@@ -18,12 +22,29 @@ const Header = styled.div`
   margin-top: 25px;
   margin-bottom: 0px;
 `;
+const Chip = styled.span({
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  padding: '5px 15px',
+  borderRadius: 9999,
+  backgroundColor: '#e8f2ff', // soft background
+  color: '#0366d6', // accent text color
+  fontWeight: 600,
+  fontSize: '25px',
+  border: '1px solid rgba(3,102,214,0.12)',
+  lineHeight: 1,
+});
 const Collection: NextPage = () => {
   const router = useRouter();
   const { data: session, status } = useSession();
   const id = router.query.id as string | undefined;
   const utils = useContext();
   const enabled = Boolean(id && session?.accessToken);
+  const [allCollections] = useAtom(collectionsAtom);
+  const [, setUploadModalOpen] = useAtom(uploadModalOpenAtom);
+
+  const [currentCollectionName, setCurrentCollectionName] = useState(null);
   // delete mutation with onSuccess that updates cache locally
   const deleteDocumentMutation = useMutation(['document.deleteDocument'], {
     onSuccess: (_result, variables) => {
@@ -45,7 +66,7 @@ const Collection: NextPage = () => {
       message.error('Error deleting the document');
     },
   });
-  const { data, isLoading } = useQuery(
+  const { data, isLoading, refetch } = useQuery(
     [
       'collection.getCollectionInfo',
       { id: id ?? '', token: session?.accessToken },
@@ -62,10 +83,11 @@ const Collection: NextPage = () => {
     }
   }
   useEffect(() => {
-    if (data) {
-      console.log('received collection info data', data);
+    if (allCollections && id) {
+      const currentCol = allCollections.find((coll) => coll.id === id);
+      if (currentCol) setCurrentCollectionName(currentCol.name);
     }
-  }, [data]);
+  }, [allCollections, id]);
   if (status === 'loading' || isLoading) {
     return (
       <ToolbarLayout>
@@ -88,7 +110,13 @@ const Collection: NextPage = () => {
             {' '}
             Back to collections{' '}
           </Button>
-          <Text h2>Collection documents</Text>
+          <Text h2>
+            Collection{' '}
+            <Chip aria-label="collection-name">
+              {currentCollectionName || 'untitled'}
+            </Chip>{' '}
+            documents
+          </Text>
         </Header>
         <Table
           aria-label="Collection documents"
@@ -141,6 +169,13 @@ const Collection: NextPage = () => {
             ))}
           </Table.Body>
         </Table>
+        <UploadDocumentsModal />
+        <Button
+          style={{ zIndex: 1, backgroundColor: '#0070f3', marginTop: 15 }}
+          onPress={() => setUploadModalOpen(true)}
+        >
+          Upload annotated documents
+        </Button>
       </Container>
     </ToolbarLayout>
   );
