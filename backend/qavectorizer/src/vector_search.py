@@ -44,6 +44,7 @@ Usage Example:
     ```
 """
 
+from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
 import torch
@@ -112,6 +113,7 @@ class VectorSearch:
             List of document results with chunks and metadata
         """
         # Generate embeddings
+        print(f"RECEIVED FILTER IDS {filter_ids}")
         embeddings = []
         with torch.no_grad():
             embeddings = self.model.encode(query)
@@ -186,26 +188,68 @@ class VectorSearch:
         print(f"Will gather top {chunks_to_gather} chunks")
 
         # Gather top chunks
-        doc_chunks_id_map = {}
-        for chunk in final_ranking[:chunks_to_gather]:
-            doc_id = chunk[0][0]
-            chunk_text = chunk[0][1]
-            chunk_text_anonymized = chunk[0][2]
-            temp_chunk = {
-                "id": doc_id,
-                "text": chunk_text,
-                "text_anonymized": chunk_text_anonymized,
-                "metadata": {"doc_id": doc_id, "chunk_size": len(chunk_text)},
-            }
-            if doc_id in doc_chunks_id_map:
-                doc_chunks_id_map[doc_id].append(temp_chunk)
-            else:
-                doc_chunks_id_map[doc_id] = [temp_chunk]
+        if filter_ids and len(filter_ids) == 1:
+            # Single document mode: gather all top chunks (may be from one doc)
+            doc_chunks_id_map = {}
+            for chunk in final_ranking[:chunks_to_gather]:
+                doc_id = chunk[0][0]
+                chunk_text = chunk[0][1]
+                chunk_text_anonymized = chunk[0][2]
+                temp_chunk = {
+                    "id": doc_id,
+                    "text": chunk_text,
+                    "text_anonymized": chunk_text_anonymized,
+                    "metadata": {"doc_id": doc_id, "chunk_size": len(chunk_text)},
+                }
+                if doc_id in doc_chunks_id_map:
+                    doc_chunks_id_map[doc_id].append(temp_chunk)
+                else:
+                    doc_chunks_id_map[doc_id] = [temp_chunk]
+        else:
+            # Multi document mode: diversify across documents
+            doc_chunk_scores = defaultdict(list)
+            for item in final_ranking:
+                chunk_id, score = item
+                doc_id = chunk_id[0]
+                doc_chunk_scores[doc_id].append((score, chunk_id))
 
-        retrieved_chunks = (
-            len(next(iter(doc_chunks_id_map.values()))) if doc_chunks_id_map else 0
-        )
-        print(f"Retrieved {retrieved_chunks} chunks for the document")
+            # Sort documents by their highest chunk score
+            sorted_docs = sorted(
+                doc_chunk_scores.items(),
+                key=lambda x: max(s for s, _ in x[1]),
+                reverse=True,
+            )
+
+            # Take top 5 documents, and from each, take top 5 chunks
+            selected_chunks = []
+            max_docs = 5
+            max_chunks_per_doc = 5
+            for doc_id, chunks in sorted_docs[:max_docs]:
+                top_chunks = sorted(chunks, key=lambda x: x[0], reverse=True)[
+                    :max_chunks_per_doc
+                ]
+                selected_chunks.extend(top_chunks)
+
+            # Build doc_chunks_id_map from selected_chunks
+            doc_chunks_id_map = {}
+            for score, chunk_id in selected_chunks:
+                doc_id = chunk_id[0]
+                chunk_text = chunk_id[1]
+                chunk_text_anonymized = chunk_id[2]
+                temp_chunk = {
+                    "id": doc_id,
+                    "text": chunk_text,
+                    "text_anonymized": chunk_text_anonymized,
+                    "metadata": {"doc_id": doc_id, "chunk_size": len(chunk_text)},
+                }
+                if doc_id in doc_chunks_id_map:
+                    doc_chunks_id_map[doc_id].append(temp_chunk)
+                else:
+                    doc_chunks_id_map[doc_id] = [temp_chunk]
+
+        num_docs = len(doc_chunks_id_map)
+        total_chunks = sum(len(chunks) for chunks in doc_chunks_id_map.values())
+        print(f"Retrieved {total_chunks} chunks from {num_docs} documents")
 
         # Retrieve full documents
         doc_ids = list(doc_chunks_id_map.keys())
@@ -284,6 +328,7 @@ class VectorSearch:
                     "must": [
                         {"terms": {"id": filter_ids}},
                         {"term": {"collectionId": collection_id}},
+                        {"term": {"collectionId.keyword": collection_id}},
                     ]
                 }
             }
@@ -331,6 +376,7 @@ class VectorSearch:
 
         if collection_id:
             query["knn"]["filter"] = {"term": {"collectionId": collection_id}}
+            query["knn"]["filter"] = {"term": {"collectionId.keyword": collection_id}}
 
         return query
 
@@ -347,7 +393,12 @@ class VectorSearch:
 
         if collection_id:
             fulltext_filter_list.append({"term": {"collectionId": collection_id}})
-
+            fulltext_filter_list.append(
+                {"term": {"collectionId.keyword": collection_id}}
+            )
+            fulltext_filter_list.append(
+                {"term": {"collectionId.keyword": collection_id}}
+            )
         return {
             "_source": ["id"],
             "query": {
@@ -404,6 +455,7 @@ class VectorSearch:
                 "query": {
                     "bool": {
                         "filter": [{"term": {"collectionId": collection_id}}],
+                        "filter": [{"term": {"collectionId.keyword": collection_id}}],
                         "must": nested_query,
                     }
                 },
