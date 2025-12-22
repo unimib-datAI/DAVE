@@ -274,7 +274,7 @@ export const DocumentController = {
     //delete all annotations referenced to the annotation sets of the documents
     await Annotation.deleteMany({ annotationSetId: { $in: annSetsIds } });
     //delete all annotationSets
-    await AnnotationSet.deleteMany({ collectionId });
+    await AnnotationSet.deleteMany({ docId: { $in: docIds } });
     //delete all docs
     await Document.deleteMany({ collectionId });
     // Delete docs from elastic index
