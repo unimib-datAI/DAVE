@@ -237,14 +237,26 @@ export default (app) => {
    */
   route.delete(
     "/:id",
+    validateRequest({
+      req: {
+        body: z.object({
+          elasticIndex: z.string(),
+        }),
+      },
+    }),
     asyncRoute(async (req, res) => {
       const { id } = req.params;
+      const { elasticIndex } = req.body;
       const userId = req.user?.sub;
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
 
-      const collection = await CollectionController.delete(id, userId);
+      const collection = await CollectionController.delete(
+        id,
+        userId,
+        elasticIndex,
+      );
       return res.json({ message: "Collection deleted", collection });
     }),
   );

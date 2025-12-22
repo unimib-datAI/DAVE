@@ -650,6 +650,7 @@ export default (app) => {
       req: {
         body: z.object({
           text: z.string(),
+          collectionId: z.string(),
           annotation_sets: z.object(),
           preview: z.string().optional(),
           name: z.string().optional(),
@@ -670,17 +671,35 @@ export default (app) => {
         console.log(
           `Attempting to index document to Elasticsearch: ${indexUrl}`,
         );
-        console.log("Document data:", {
-          name: req.body.name,
-          text_length: req.body.text?.length,
-          annotation_sets: req.body.annotation_sets
-            ? Object.keys(req.body.annotation_sets)
-            : [],
-          has_entities:
-            req.body.annotation_sets?.entities_?.annotations?.length || 0,
-        });
+
         try {
-          const response = await axios.post(indexUrl, req.body);
+          // Fetch the full document with annotation sets for de-anonymization
+          const fullDocument = await getDocumentById(
+            doc.id,
+            true,
+            false,
+            false,
+          );
+
+          // De-anonymize the document for generation context
+          const deAnonymizedDoc = await decode(fullDocument);
+          console.log("Document de-anonymized for Elasticsearch indexing");
+
+          // Prepare payload with both anonymized and de-anonymized versions
+          const elasticPayload = {
+            id: doc.id, // Ensure id is included
+            text: req.body.text, // Anonymized text
+            text_deanonymized: deAnonymizedDoc.text, // De-anonymized text for generation
+            collectionId: req.body.collectionId,
+            annotation_sets: req.body.annotation_sets, // Keep annotations anonymized
+            preview: req.body.preview, // Keep preview anonymized
+            name: req.body.name,
+            features: req.body.features,
+            offset_type: req.body.offset_type,
+          };
+
+          console.log("Sending to Elasticsearch with both versions");
+          const response = await axios.post(indexUrl, elasticPayload);
           console.log("Elasticsearch indexing successful:", response.data);
         } catch (error) {
           console.error("Error posting to Elasticsearch:", error.message);
@@ -694,7 +713,7 @@ export default (app) => {
           );
         }
       }
-      return res.json(doc).status(200);
+      return res.status(200).json(doc);
     }),
   );
 
