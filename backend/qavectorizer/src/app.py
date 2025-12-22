@@ -993,6 +993,9 @@ async def query_elastic_index(
     # Add collection filter if provided
     if req.collection_id:
         query["bool"]["must"].append({"term": {"collectionId": req.collection_id}})
+        query["bool"]["must"].append(
+            {"term": {"collectionId.keyword": req.collection_id}}
+        )
 
     # print("annotations", req.annotations)
     if req.annotations != None and len(req.annotations) > 0:
@@ -1255,9 +1258,9 @@ print(
 es_client = Elasticsearch(
     hosts=[
         {
-            "host": "host.docker.internal",
+            "host": "es",
             "scheme": "http",
-            "port": 9201,
+            "port": 9200,
         }
     ],
     request_timeout=60,
