@@ -15,6 +15,7 @@ import {
   Spacer,
   Grid,
 } from '@nextui-org/react';
+import { Popconfirm } from 'antd';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import { FiEdit2 as EditIcon } from '@react-icons/all-files/fi/FiEdit2';
 import { FiTrash2 as TrashIcon } from '@react-icons/all-files/fi/FiTrash2';
@@ -195,10 +196,9 @@ const Collections: NextPage = () => {
   };
 
   const handleDelete = async (collectionId: string) => {
-    if (!confirm('Are you sure you want to delete this collection?')) return;
-
     deleteMutation.mutate({
       id: collectionId,
+      token: session?.accessToken,
     });
   };
 
@@ -299,16 +299,27 @@ const Collections: NextPage = () => {
                       <EditIcon size={18} />
                     </IconBtn>
                     {collection.ownerId === session?.user?.userId && (
-                      <IconBtn
-                        onClick={(e) => {
-                          e.stopPropagation();
+                      <Popconfirm
+                        title="Delete Collection"
+                        description="Are you sure you want to delete this collection?"
+                        onConfirm={(e) => {
+                          e?.stopPropagation();
                           handleDelete(collection.id);
                         }}
-                        title="Delete"
-                        style={{ color: '#ef4444' }}
+                        onCancel={(e) => e?.stopPropagation()}
+                        okText="Yes"
+                        cancelText="No"
                       >
-                        <TrashIcon size={18} />
-                      </IconBtn>
+                        <IconBtn
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          title="Delete"
+                          style={{ color: '#ef4444' }}
+                        >
+                          <TrashIcon size={18} />
+                        </IconBtn>
+                      </Popconfirm>
                     )}
                   </Actions>
                 </CardHeader>
