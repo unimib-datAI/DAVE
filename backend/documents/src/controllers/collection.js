@@ -2,6 +2,7 @@ import { Collection } from "../models/collection";
 import { Document } from "../models/document";
 import { User } from "../models/user";
 import crypto from "crypto";
+import { DocumentController } from "./document";
 
 export const CollectionController = {
   /**
@@ -78,7 +79,7 @@ export const CollectionController = {
   /**
    * Delete a collection
    */
-  async delete(collectionId, userId) {
+  async delete(collectionId, userId, elasticIndex) {
     const collection = await Collection.findOne({ id: collectionId });
 
     if (!collection) {
@@ -89,7 +90,12 @@ export const CollectionController = {
     if (collection.ownerId !== userId) {
       throw new Error("Only the owner can delete this collection");
     }
-
+    //delete all docs referenced to the collection
+    await DocumentController.deleteDocumentsByCollectionId(
+      collectionId,
+      userId,
+      elasticIndex,
+    );
     await Collection.deleteOne({ id: collectionId });
     return collection;
   },
