@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
+import { executeMultiAgent } from '@/lib/multiAgent';
 
 /**
  * Server-side proxy for text generation using OpenAI-compatible API
@@ -41,6 +42,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       temperature = 0.7,
       top_p = 0.9,
       model = 'phi4-mini',
+      useMultiAgent = false,
       ...otherParams
     } = req.body;
     let rawMessages = messages;
@@ -78,34 +80,65 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       throw new Error('No valid messages after filtering');
     }
 
-    // Create streaming completion
-    const stream = await openai.chat.completions.create({
-      model: model,
-      messages: chatMessages,
-      max_tokens: max_tokens,
-      temperature: temperature,
-      top_p: top_p,
-      stream: true,
-      ...otherParams,
-    });
+    // Check if multi-agent system should be used
+    if (useMultiAgent) {
+      console.log('[API] Using Multi-Agent System');
 
-    // Stream the response to the client
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content || '';
+      // Execute multi-agent system with streaming
+      await executeMultiAgent(
+        chatMessages,
+        {
+          baseURL: baseURL,
+          apiKey: 'dummy-key',
+          model: model,
+          temperature: temperature,
+          max_tokens: max_tokens,
+        },
+        (chunk: string) => {
+          // Stream each chunk to the client
+          res.write(chunk);
 
-      if (content) {
-        // Write each chunk as it arrives
-        res.write(content);
+          // Force immediate sending of the chunk without buffering
+          if (typeof (res as any).flush === 'function') {
+            (res as any).flush();
+          }
+        }
+      );
 
-        // Force immediate sending of the chunk without buffering
-        if (typeof (res as any).flush === 'function') {
-          (res as any).flush();
+      // End the response when done
+      res.end();
+    } else {
+      console.log('[API] Using Standard Generation');
+
+      // Create streaming completion
+      const stream = await openai.chat.completions.create({
+        model: model,
+        messages: chatMessages,
+        max_tokens: max_tokens,
+        temperature: temperature,
+        top_p: top_p,
+        stream: true,
+        ...otherParams,
+      });
+
+      // Stream the response to the client
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content || '';
+
+        if (content) {
+          // Write each chunk as it arrives
+          res.write(content);
+
+          // Force immediate sending of the chunk without buffering
+          if (typeof (res as any).flush === 'function') {
+            (res as any).flush();
+          }
         }
       }
-    }
 
-    // End the response when done
-    res.end();
+      // End the response when done
+      res.end();
+    }
   } catch (error) {
     console.error('Error in generate API:', error);
     if (!res.writableEnded) {

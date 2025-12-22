@@ -18,6 +18,7 @@ type GetSimilarDocument = {
     distance: number;
     metadata: { doc_id: string; chunk_size: number };
     text: string;
+    text_anonymized?: string;
   }[];
 };
 
@@ -87,6 +88,7 @@ export type DocumentChunk = {
     chunk_size: number;
   };
   text: string;
+  text_anonymized?: string;
 };
 
 export type DocumentWithChunk = {
@@ -94,10 +96,11 @@ export type DocumentWithChunk = {
   title: string;
   preview: string;
   chunks: DocumentChunk[];
+  full_docs?: boolean;
 };
 
 const processResponseMostSImilartDocuments = (
-  docs: GetSimilarDocumentResponse,
+  docs: GetSimilarDocumentResponse
 ): DocumentWithChunk[] => {
   return docs.map((d) => {
     return {
@@ -123,7 +126,7 @@ async function rateTheConversation(conversation: any, rating: number) {
           chatState: conversation,
           rateValue: rating,
         }),
-      },
+      }
     );
     let result = await res.json();
     return result;
@@ -139,7 +142,7 @@ async function rateTheConversation(conversation: any, rating: number) {
 async function addAnnotationsToDocument(
   indexName: string,
   documentId: string,
-  mentions: any[],
+  mentions: any[]
 ): Promise<AddAnnotationsResponse> {
   try {
     let index = process.env.ELASTIC_INDEX;
@@ -218,7 +221,7 @@ export const search = createRouter()
             force_rag: input.force_rag,
             collectionId: input.collectionId,
           }),
-        },
+        }
       ).then((r) => r.json())) as GetSimilarDocumentResponse;
 
       return processResponseMostSImilartDocuments(documents);
@@ -231,13 +234,13 @@ export const search = createRouter()
         z.object({
           value: z.string(),
           type: z.string(),
-        }),
+        })
       ),
       annotations: z.array(
         z.object({
           value: z.string(),
           type: z.string(),
-        }),
+        })
       ),
       limit: z.number().min(1).max(100).nullish(),
       cursor: z.number().nullish(),
@@ -265,7 +268,7 @@ export const search = createRouter()
             page: input.cursor || 1,
             collection_id: input.collectionId,
           }),
-        },
+        }
       ).then((r) => r.json());
 
       return res as FacetedQueryOutput;
@@ -295,7 +298,7 @@ export const search = createRouter()
           is_linked: z.boolean().optional(),
           display_name: z.string().optional(),
           to_delete: z.boolean().optional(),
-        }),
+        })
       ),
     }),
     resolve: async ({ input }) => {
