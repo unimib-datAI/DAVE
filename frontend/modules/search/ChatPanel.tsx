@@ -34,6 +34,7 @@ type Form = GenerateOptions & {
   useDocumentContext: boolean;
   useCurrentDocumentContext: boolean;
   force_rag: boolean;
+  useMultiAgent: boolean;
 };
 
 function urlToPathArray(url: string) {
@@ -95,7 +96,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
           isDoneStreaming: true,
         },
       ],
-    },
+    }
   );
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const [activeCollection] = useAtom(activeCollectionAtom);
@@ -105,11 +106,11 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
   const predefinedQuestions =
     typeof process.env.NEXT_PUBLIC_QUESTIONS === 'string'
       ? process.env.NEXT_PUBLIC_QUESTIONS.split('-|').filter(
-          (q) => q.trim() !== '',
+          (q) => q.trim() !== ''
         )
       : [];
   const [conversationRated, setConversationRated] = useAtom(
-    conversationRatedAtom,
+    conversationRatedAtom
   );
   const mostSimilarDocumentsMutation = useMutation([
     'search.mostSimilarDocuments',
@@ -129,6 +130,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     useCurrentDocumentContext: false,
     top_k: 40,
     force_rag: false,
+    useMultiAgent: false,
   });
 
   const fieldTemperature = register('temperature');
@@ -140,6 +142,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
   const fieldRetrievalMethod = register('retrievalMethod');
   const useCurrentDocumentContext = register('useCurrentDocumentContext');
   const fieldForceRag = register('force_rag');
+  const fieldUseMultiAgent = register('useMultiAgent');
 
   const handleFormSubmit = async (formValues: Form) => {
     console.log('*** form submit collection id ***', activeCollection);
@@ -158,8 +161,8 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
             (doc) =>
               Array.isArray(doc.annotations) &&
               doc.annotations.some((ann: any) =>
-                selectedFilters.includes(ann.id_ER),
-              ),
+                selectedFilters.includes(ann.id_ER)
+              )
           )
           .map((doc) => doc.id.toString());
       } else {
@@ -198,8 +201,8 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
   const chatState = mostSimilarDocumentsMutation.isLoading
     ? 'searching'
     : isStreaming
-      ? 'generating'
-      : 'idle';
+    ? 'generating'
+    : 'idle';
 
   return (
     <div className="flex flex-row flex-grow min-h-0 overflow-hidden">
@@ -269,7 +272,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                     // Create a new object for setting value
                     setValue({
                       useCurrentDocumentContext: Boolean(
-                        newstate.target.checked,
+                        newstate.target.checked
                       ),
                     });
                   }}
@@ -344,7 +347,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                             setValue({ message: value });
                             // Focus on the input field after selecting a question
                             const inputField = document.querySelector(
-                              'input[name="message"]',
+                              'input[name="message"]'
                             );
                             if (inputField) {
                               (inputField as HTMLInputElement).focus();
@@ -525,6 +528,28 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
                         Force RAG
+                      </label>
+                    </div>
+                  </Tooltip>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <Tooltip
+                    className="w-full"
+                    color="invert"
+                    placement="left"
+                    content="Enable Multi-Agent System for enhanced responses using specialized AI agents (Researcher, Writer, Reviewer)"
+                  >
+                    <div className="flex flex-row items-center gap-2 w-full">
+                      <Checkbox
+                        id="use-multi-agent"
+                        checked={fieldUseMultiAgent.value}
+                        onCheckedChange={fieldUseMultiAgent.onChange}
+                      />
+                      <label
+                        htmlFor="use-multi-agent"
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                      >
+                        Use Multi-Agent System
                       </label>
                     </div>
                   </Tooltip>

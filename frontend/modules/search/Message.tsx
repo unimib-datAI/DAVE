@@ -172,14 +172,20 @@ const Message = ({
                               <Tooltip
                                 content={
                                   <div className="max-w-xs">
-                                    {chunk.text || ''}
+                                    {chunk.text_anonymized || chunk.text || ''}
                                   </div>
                                 }
                                 key={`${chunk.id || ''}-${chunkIndex}`}
                               >
                                 <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
-                                  {chunk.text ? chunk.text.slice(0, 50) : ''}
-                                  {chunk.text && chunk.text.length > 50
+                                  {chunk.text_anonymized || chunk.text
+                                    ? (
+                                        chunk.text_anonymized || chunk.text
+                                      ).slice(0, 50)
+                                    : ''}
+                                  {(chunk.text_anonymized || chunk.text) &&
+                                  (chunk.text_anonymized || chunk.text).length >
+                                    50
                                     ? '...'
                                     : ''}
                                 </div>
