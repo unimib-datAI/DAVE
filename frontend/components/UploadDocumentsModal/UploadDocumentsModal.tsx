@@ -7,6 +7,9 @@ import styled from '@emotion/styled';
 import { FiUpload } from '@react-icons/all-files/fi/FiUpload';
 import { FiX } from '@react-icons/all-files/fi/FiX';
 import * as Tabs from '@radix-ui/react-tabs';
+import { activeCollectionAtom } from '@/atoms/collection';
+import { message } from 'antd';
+import { useSession } from 'next-auth/react';
 
 const UploadContainer = styled.div({
   display: 'flex',
@@ -104,10 +107,18 @@ const ErrorItem = styled.div({
   fontSize: '0.875rem',
   color: '#c00',
 });
-
-export const UploadDocumentsModal = () => {
+interface props {
+  collectionId?: string;
+  doneUploading?: Function;
+}
+export const UploadDocumentsModal = ({
+  collectionId,
+  doneUploading,
+}: props) => {
   const [isOpen, setIsOpen] = useAtom(uploadModalOpenAtom);
+  const { data: session, status } = useSession();
   const [uploadProgress, setUploadProgress] = useAtom(uploadProgressAtom);
+  const [activeCollection] = useAtom(activeCollectionAtom);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [activeTab, setActiveTab] = useState<'json' | 'txt'>('json');
@@ -167,7 +178,10 @@ export const UploadDocumentsModal = () => {
 
   const handleUploadJSON = async () => {
     if (selectedFiles.length === 0) return;
-
+    if (activeCollection === undefined || activeCollection === null) {
+      message.error('No active collection to upload the documents to');
+      return;
+    }
     setUploadProgress({
       total: selectedFiles.length,
       completed: 0,
@@ -185,16 +199,20 @@ export const UploadDocumentsModal = () => {
       try {
         const content = await file.text();
         const jsonData = JSON.parse(content);
+        if (activeCollection.id) {
+          console.log('access token', session?.accesstoken);
+          await createDocumentMutation.mutateAsync({
+            document: jsonData,
+            collectionId: collectionId || activeCollection?.id,
+            token: session?.accessToken,
+          });
 
-        await createDocumentMutation.mutateAsync({
-          document: jsonData,
-        });
-
-        completed++;
-        setUploadProgress((prev) => ({
-          ...prev,
-          completed,
-        }));
+          completed++;
+          setUploadProgress((prev) => ({
+            ...prev,
+            completed,
+          }));
+        }
       } catch (error) {
         failed++;
         const errorMessage =
@@ -225,6 +243,10 @@ export const UploadDocumentsModal = () => {
     if (failed === 0) {
       setTimeout(() => {
         handleClose();
+        if (doneUploading) {
+          console.log('calling done uploading');
+          doneUploading();
+        }
       }, 1500);
     }
   };
@@ -252,6 +274,8 @@ export const UploadDocumentsModal = () => {
         await annotateAndUploadMutation.mutateAsync({
           text,
           name: file.name.replace('.txt', ''),
+          collectionId: collectionId || activeCollection?.id,
+          token: session?.accessToken,
         });
 
         completed++;
@@ -302,6 +326,11 @@ export const UploadDocumentsModal = () => {
   };
 
   const handleClose = () => {
+    if (doneUploading) {
+      console.log('calling done uploadgin');
+      doneUploading();
+    }
+
     if (!uploadProgress.isUploading) {
       setIsOpen(false);
       setSelectedFiles([]);

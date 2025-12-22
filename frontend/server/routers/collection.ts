@@ -203,6 +203,8 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { id, token } = input;
       try {
+        const elasticIndex = process.env.ELASTIC_INDEX;
+
         const result = await fetchJson<
           any,
           { message: string; collection: Collection }
@@ -210,6 +212,9 @@ export const collections = createRouter()
           method: 'DELETE',
           headers: {
             Authorization: getJWTHeader(token),
+          },
+          body: {
+            elasticIndex,
           },
         });
         return result;

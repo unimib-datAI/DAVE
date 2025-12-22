@@ -169,7 +169,7 @@ const Collection: NextPage = () => {
             ))}
           </Table.Body>
         </Table>
-        <UploadDocumentsModal />
+        <UploadDocumentsModal doneUploading={refetch} collectionId={id} />
         <Button
           style={{ zIndex: 1, backgroundColor: '#0070f3', marginTop: 15 }}
           onPress={() => setUploadModalOpen(true)}

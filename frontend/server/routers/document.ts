@@ -7,6 +7,7 @@ import { Annotation } from '@/lib/ner/core/types';
 import fs from 'fs';
 import path from 'path';
 import base from '@/components/TranslationProvider/translations/base';
+import { getJWTHeader } from '@/utils/trpc';
 
 export type Document = {
   _id: string;
@@ -363,20 +364,23 @@ export const documents = createRouter()
         features: z.record(z.string(), z.any()).optional(),
         offset_type: z.string().optional(),
       }),
+      collectionId: z.string(),
+      token: z.string(),
     }),
     resolve: async ({ input }) => {
-      const { document } = input;
+      const { document, collectionId, token } = input;
       const elasticIndex = process.env.ELASTIC_INDEX;
 
       try {
         const result = await fetchJson<any, any>(`${baseURL}/document`, {
           method: 'POST',
           headers: {
-            Authorization: getAuthHeader(),
+            Authorization: getJWTHeader(token),
             'Content-Type': 'application/json',
           },
           body: {
             ...document,
+            collectionId,
             elasticIndex,
           },
         });
@@ -492,10 +496,12 @@ export const documents = createRouter()
   .mutation('annotateAndUpload', {
     input: z.object({
       text: z.string(),
+      collectionId: z.string(),
       name: z.string().optional(),
+      token: z.string(),
     }),
     resolve: async ({ input }) => {
-      const { text, name } = input;
+      const { text, name, collectionId, token } = input;
       const spacynerURL =
         process.env.ANNOTATION_SPACYNER_URL ||
         'http://spacyner:80/api/spacyner';
@@ -525,7 +531,7 @@ export const documents = createRouter()
           annotation_sets: {},
         };
 
-        console.log('Step 1: Calling spacyner...');
+        console.log('Step 1: Calling spacyner...', spacynerURL);
         // Step 2: SpaCy NER
         const spacynerRes = await fetchJson<any, any>(spacynerURL, {
           method: 'POST',
@@ -614,12 +620,13 @@ export const documents = createRouter()
           name: name || 'Untitled Document',
           preview: text.substring(0, 200) + (text.length > 200 ? '...' : ''),
           elasticIndex,
+          collectionId,
         };
 
         const result = await fetchJson<any, any>(`${baseURL}/document`, {
           method: 'POST',
           headers: {
-            Authorization: getAuthHeader(),
+            Authorization: getJWTHeader(token),
             'Content-Type': 'application/json',
           },
           body: documentToUpload,
