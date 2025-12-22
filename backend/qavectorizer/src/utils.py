@@ -71,8 +71,11 @@ def collect_chunk_ranks(response):
         doc_id = hit["_source"]["id"]
         if "inner_hits" in hit and "chunks.vectors" in hit["inner_hits"]:
             for chunk_hit in hit["inner_hits"]["chunks.vectors"]["hits"]["hits"]:
-                chunk_id = chunk_hit["fields"]["chunks"][0]["vectors"][0]["text"][0]
-                combined_id = (doc_id, chunk_id)
+                chunk_text = chunk_hit["fields"]["chunks"][0]["vectors"][0]["text"][0]
+                chunk_text_anonymized = chunk_hit["fields"]["chunks"][0]["vectors"][
+                    0
+                ].get("text_anonymized", [chunk_text])[0]
+                combined_id = (doc_id, chunk_text, chunk_text_anonymized)
                 ranks[combined_id] = temp_rank  # Avoid division by zero
                 temp_rank += 1
     return ranks
@@ -85,8 +88,11 @@ def collect_chunk_ranks_full_text(response):
         doc_id = hit["_source"]["id"]
         if "inner_hits" in hit and "chunks" in hit["inner_hits"]:
             for chunk_hit in hit["inner_hits"]["chunks"]["hits"]["hits"]:
-                chunk_id = chunk_hit["fields"]["chunks"][0]["vectors"][0]["text"][0]
-                combined_id = (doc_id, chunk_id)
+                chunk_text = chunk_hit["fields"]["chunks"][0]["vectors"][0]["text"][0]
+                chunk_text_anonymized = chunk_hit["fields"]["chunks"][0]["vectors"][
+                    0
+                ].get("text_anonymized", [chunk_text])[0]
+                combined_id = (doc_id, chunk_text, chunk_text_anonymized)
                 ranks[combined_id] = temp_rank  # Avoid division by zero
                 temp_rank += 1
     return ranks

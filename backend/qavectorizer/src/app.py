@@ -29,6 +29,7 @@ from utils import (
     get_hits,
     group_facets,
 )
+from vector_search import VectorSearch
 
 from elasticsearch import Elasticsearch
 
@@ -438,21 +439,26 @@ class IndexElasticDocumentWithProcessingRequest(BaseModel):
     """Request model for indexing a document with full processing (annotations, chunking, embeddings)"""
 
     text: str
+    id: str
+    collectionId: str
     annotation_sets: Optional[dict] = None
     preview: Optional[str] = None
     name: Optional[str] = None
     features: Optional[dict] = None
     offset_type: Optional[str] = None
+    text_deanonymized: Optional[str] = None
 
     class Config:
         json_schema_extra = {
             "example": {
                 "text": "This is the full text of the legal document...",
+                "collectionId": "collection id",
                 "name": "Document Title",
                 "preview": "This is a preview...",
                 "annotation_sets": {},
                 "features": {},
                 "offset_type": "character",
+                "text_deanonymized": "This is the de-anonymized text...",
             }
         }
 
@@ -501,510 +507,22 @@ async def query_collection(
     collection_name: str,
     req: QueryCollectionRquest,
 ):
-    embeddings = []
-    with torch.no_grad():
-        # create embeddings for the query
-        embeddings = model.encode(req.query)
-    embeddings = embeddings.tolist()
-    query_body = None
-    query_full_text = None
-
     # Prefer collectionId in JSON body, fallback to X-Collection-Id header
     collection_id = None
     if getattr(req, "collectionId", None):
         collection_id = req.collectionId
 
-    # GREATLY increase k when filtering to a single document
-    if hasattr(req, "filter_ids") and len(req.filter_ids) == 1:
-        knn_k = 100  # Increased from 15 to 100 for single documents
-        chunks_to_gather = 80  # Increased from 30 to 80
-        inner_hits_size = 100  # Size for inner hits in nested queries
-        print(
-            f"SINGLE DOCUMENT MODE: knn_k={knn_k}, chunks_to_gather={chunks_to_gather}"
-        )
-    else:
-        knn_k = 25
-        chunks_to_gather = 25
-        inner_hits_size = 30
-        print(
-            f"MULTI DOCUMENT MODE: knn_k={knn_k}, chunks_to_gather={chunks_to_gather}"
-        )
-
-    if hasattr(req, "filter_ids") and len(req.filter_ids) > 0:
-        # Build a terms filter for doc ids
-        filter_terms = [doc_id for doc_id in req.filter_ids]
-
-        # Build the base knn filter. If a collection_id is provided, add a must-term on collectionId.
-        if collection_id:
-            query_body = {
-                "knn": {
-                    "inner_hits": {
-                        "_source": False,
-                        "fields": ["chunks.vectors.text", "_score"],
-                        "size": knn_k,
-                    },
-                    "field": "chunks.vectors.predicted_value",
-                    "query_vector": embeddings,
-                    "k": knn_k,
-                    "num_candidates": 1000,
-                    # Use a bool filter to combine id terms and collectionId term
-                    "filter": {
-                        "bool": {
-                            "must": [
-                                {"terms": {"id": filter_terms}},
-                                {"term": {"collectionId": collection_id}},
-                            ]
-                        }
-                    },
-                },
-            }
-        else:
-            query_body = {
-                "knn": {
-                    "inner_hits": {
-                        "_source": False,
-                        "fields": ["chunks.vectors.text", "_score"],
-                        "size": knn_k,
-                    },
-                    "field": "chunks.vectors.predicted_value",
-                    "query_vector": embeddings,
-                    "k": knn_k,
-                    "num_candidates": 1000,
-                    "filter": {"terms": {"id": filter_terms}},
-                },
-            }
-
-        # excludes ner entities search if specified in retrieval method
-        should_query = (
-            [
-                {
-                    "match": {
-                        "chunks.vectors.text": req.query,
-                    }
-                },
-            ]
-            if req.retrievalMethod == "hibrid_no_ner"
-            else [
-                {"match": {"chunks.vectors.text": req.query}},
-                {
-                    "match": {
-                        "chunks.vectors.entities": req.query,
-                    }
-                },
-            ]
-        )
-
-        # Build the boolean filter for the full-text nested query; include collectionId term when provided
-        fulltext_filter_list = [
-            {"terms": {"id": [doc_id for doc_id in req.filter_ids]}}
-        ]
-        if collection_id:
-            fulltext_filter_list.append({"term": {"collectionId": collection_id}})
-
-        q = {
-            "_source": True,
-            "query": {
-                "bool": {
-                    "filter": fulltext_filter_list,
-                    "must": [
-                        {
-                            "nested": {
-                                "path": "chunks",
-                                "query": {
-                                    "nested": {
-                                        "path": "chunks.vectors",
-                                        "query": {
-                                            "bool": {
-                                                "should": should_query,
-                                            }
-                                        },
-                                    }
-                                },
-                                "inner_hits": {
-                                    "_source": False,
-                                    "fields": ["chunks.vectors.text", "_score"],
-                                    "size": inner_hits_size,  # Increase inner hits size
-                                },
-                            }
-                        }
-                    ],
-                },
-            },
-        }
-        query_full_text = {
-            "_source": ["id"],
-            "query": {
-                "nested": {
-                    "path": "chunks.vectors",
-                    "query": {
-                        "bool": {
-                            "must": [
-                                {"bool": {"should": should_query}},
-                                {
-                                    "terms": {
-                                        "id": [doc_id for doc_id in req.filter_ids]
-                                    }
-                                },
-                            ]
-                        }
-                    },
-                    "inner_hits": {
-                        "_source": False,
-                        "fields": ["chunks.vectors.text", "_score"],
-                        "size": inner_hits_size,  # Increase here as well
-                    },
-                },
-            },
-        }
-        # If collection_id present, wrap the full text result set with an additional top-level filter by collection_id
-        if collection_id:
-            # Adjust query_full_text to include collectionId at top-level filter (so hits are limited by collection)
-            query_full_text = {
-                "_source": ["id"],
-                "query": {
-                    "bool": {
-                        "filter": [{"term": {"collectionId": collection_id}}],
-                        "must": query_full_text["query"],
-                    }
-                },
-                "inner_hits": query_full_text.get("inner_hits", {}),
-            }
-
-    else:
-        # Base knn query for no explicit filter_ids. If collectionId provided, attach it as a filter inside knn.
-        if collection_id:
-            query_body = {
-                "_source": ["id"],
-                "knn": {
-                    "inner_hits": {
-                        "_source": False,
-                        "fields": ["chunks.vectors.text", "_score"],
-                        "size": knn_k,
-                    },
-                    "field": "chunks.vectors.predicted_value",
-                    "query_vector": embeddings,
-                    "k": knn_k,
-                    # Add filter by collectionId for global search
-                    "filter": {"term": {"collectionId": collection_id}},
-                },
-            }
-        else:
-            query_body = {
-                "_source": ["id"],
-                "knn": {
-                    "inner_hits": {
-                        "_source": False,
-                        "fields": ["chunks.vectors.text", "_score"],
-                        "size": knn_k,  # Add size parameter
-                    },
-                    "field": "chunks.vectors.predicted_value",
-                    "query_vector": embeddings,
-                    "k": knn_k,
-                },
-            }
-
-        # excludes ner entities search if specified in retrieval method
-        should_query = (
-            [
-                {"match": {"chunks.vectors.text": req.query}},
-            ]
-            if req.retrievalMethod == "hibrid_no_ner"
-            else [
-                {
-                    "match": {
-                        "chunks.vectors.text": req.query,
-                    }
-                },
-                {
-                    "match": {
-                        "chunks.vectors.entities": req.query,
-                    }
-                },
-            ]
-        )
-
-        # Build the main 'q' full-text query; if collectionId provided, include it in the top-level bool filter.
-        if collection_id:
-            q = {
-                "_source": True,
-                "query": {
-                    "bool": {
-                        "filter": [{"term": {"collectionId": collection_id}}],
-                        "must": [
-                            {
-                                "nested": {
-                                    "path": "chunks",
-                                    "query": {
-                                        "nested": {
-                                            "path": "chunks.vectors",
-                                            "query": {
-                                                "bool": {
-                                                    "should": should_query,
-                                                }
-                                            },
-                                        }
-                                    },
-                                    "inner_hits": {
-                                        "_source": False,
-                                        "fields": ["chunks.vectors.text", "_score"],
-                                        "size": inner_hits_size,
-                                    },
-                                }
-                            }
-                        ],
-                    },
-                },
-            }
-            query_full_text = {
-                "_source": ["id"],
-                "query": {
-                    "bool": {
-                        "filter": [{"term": {"collectionId": collection_id}}],
-                        "must": {
-                            "nested": {
-                                "path": "chunks.vectors",
-                                "query": {"bool": {"should": should_query}},
-                                "inner_hits": {
-                                    "_source": False,
-                                    "fields": ["chunks.vectors.text", "_score"],
-                                    "size": inner_hits_size,
-                                },
-                            }
-                        },
-                    }
-                },
-            }
-        else:
-            q = {
-                "_source": True,
-                "query": {
-                    "bool": {
-                        "must": [
-                            {
-                                "nested": {
-                                    "path": "chunks",
-                                    "query": {
-                                        "nested": {
-                                            "path": "chunks.vectors",
-                                            "query": {
-                                                "bool": {
-                                                    "should": should_query,
-                                                }
-                                            },
-                                        }
-                                    },
-                                    "inner_hits": {
-                                        "_source": False,
-                                        "fields": ["chunks.vectors.text", "_score"],
-                                        "size": inner_hits_size,
-                                    },
-                                }
-                            }
-                        ],
-                    },
-                },
-            }
-            query_full_text = {
-                "_source": ["id"],
-                "query": {
-                    "nested": {
-                        "path": "chunks.vectors",
-                        "query": {"bool": {"should": should_query}},
-                        "inner_hits": {
-                            "_source": False,
-                            "fields": ["chunks.vectors.text", "_score"],
-                            "size": inner_hits_size,
-                        },
-                    },
-                },
-            }
-
-        # collection_id has already been applied above (either from request body or X-Collection-Id header),
-        # so no additional post-processing is required here.
-
-    results = (
-        es_client.search(index=collection_name, body=query_body)
-        if req.retrievalMethod == "full"
-        or req.retrievalMethod == "dense"
-        or req.retrievalMethod == "hibrid_no_ner"
-        else []
+    # Delegate to VectorSearch class
+    doc_results = vector_search.search(
+        collection_name=collection_name,
+        query=req.query,
+        retrieval_method=req.retrievalMethod,
+        filter_ids=req.filter_ids if hasattr(req, "filter_ids") else None,
+        collection_id=collection_id,
+        force_rag=req.force_rag if hasattr(req, "force_rag") else False,
+        collect_chunk_ranks_fn=collect_chunk_ranks,
+        collect_chunk_ranks_full_text_fn=collect_chunk_ranks_full_text,
     )
-
-    # debug print statement for checking correct retrieval mode
-    if (
-        req.retrievalMethod != "full"
-        and req.retrievalMethod != "hibrid_no_ner"
-        and req.retrievalMethod != "dense"
-    ):
-        print("results")
-
-    # debug print statement for checking correct retrieval mode
-    response_full_text = (
-        es_client.search(index=collection_name, body=q)
-        if req.retrievalMethod == "full"
-        or req.retrievalMethod == "hibrid_no_ner"
-        or req.retrievalMethod == "full-text"
-        else []
-    )
-    if (
-        req.retrievalMethod != "full"
-        and req.retrievalMethod != "hibrid_no_ner"
-        and req.retrievalMethod != "full-text"
-    ):
-        print("response_full_text")
-    del embeddings
-
-    # Get chunk-level ranks for both searches
-    vector_ranks = collect_chunk_ranks(results) if len(results) > 0 else {}
-    full_text_ranks = (
-        collect_chunk_ranks_full_text(response_full_text)
-        if len(response_full_text) > 0
-        else {}
-    )
-
-    # RRF Parameters - increased for single documents
-    rrf_k = 100 if (hasattr(req, "filter_ids") and len(req.filter_ids) == 1) else 60
-
-    # Combine ranks using RRF at the chunk level
-    combined_scores = {}
-    all_chunk_ids = set(vector_ranks.keys()).union(full_text_ranks.keys())
-
-    for chunk_id in all_chunk_ids:
-        rank_vector = vector_ranks.get(chunk_id, float("inf"))
-        rank_full_text = full_text_ranks.get(chunk_id, float("inf"))
-        combined_scores[chunk_id] = (1 / (rrf_k + rank_vector)) + (
-            1 / (rrf_k + rank_full_text)
-        )
-
-    # Sort chunks by combined RRF scores
-    final_ranking = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
-
-    # DEBUG: Print ranking information
-    print(f"Final ranking contains {len(final_ranking)} chunks")
-    print(f"Will gather top {chunks_to_gather} chunks")
-
-    doc_chunks_id_map = {}
-
-    # Use the dynamically set chunks_to_gather value
-    for chunk in final_ranking[:chunks_to_gather]:
-        doc_id = chunk[0][0]
-        temp_chunk = {
-            "id": doc_id,
-            "text": chunk[0][1],
-            "metadata": {"doc_id": doc_id, "chunk_size": len(chunk[0][1])},
-        }
-        if doc_id in doc_chunks_id_map:
-            doc_chunks_id_map[doc_id].append(temp_chunk)
-        else:
-            doc_chunks_id_map[doc_id] = [temp_chunk]
-    if doc_chunks_id_map:
-        first_doc_chunks = next(iter(doc_chunks_id_map.values()))
-        retrieved_chunks = len(first_doc_chunks)
-    else:
-        retrieved_chunks = 0
-    print(f"Retrieved {retrieved_chunks} chunks for the document")
-
-    full_docs = []
-
-    # get full documents from db
-    doc_ids = list(doc_chunks_id_map.keys())
-    current_retriever = retrievers.get(collection_name, retriever)
-    print(f"current retriever {current_retriever}")
-    for doc_id in doc_ids:
-        d = current_retriever.retrieve(doc_id)
-
-        # d = requests.get(
-        #     "http://"
-        #     + settings.host_base_url
-        #     + ":"
-        #     + settings.docs_port
-        #     + "/api/mongo/document/"
-        #     + str(doc_id)
-        # ).json()
-        if "error" in d:
-            print("Error retrieving document", d["error"])
-            continue
-        full_docs.append(d)
-        print(f"current id {d.keys()}")
-
-    doc_results = []
-    full_docs_keywords = [
-        "estrai",
-        "riassumi",
-    ]
-
-    full_docs_flag = (
-        True
-        if any(keyword in req.query.lower() for keyword in full_docs_keywords)
-        else False
-    )
-
-    # If force_rag is True, skip all full document checks and always return chunks
-    if req.force_rag:
-        print("FORCE RAG ENABLED")
-        for doc in full_docs:
-            doc_results.append(
-                {"doc": doc, "chunks": doc_chunks_id_map[doc["id"]], "full_docs": False}
-            )
-        return doc_results
-
-    # Otherwise, continue with regular logic for single document case
-    if len(req.filter_ids) == 1:
-        tokens = tokenizer.tokenize(full_docs[0]["text"])
-
-        print(f"Number of tokens: {len(tokens)}")
-        if len(tokens) < 18000:
-            # Even though the document is small, return the gathered chunks
-            # instead of the full document to provide better retrieval context
-            doc_results.append(
-                {
-                    "full_docs": False,
-                    "doc": full_docs[0],
-                    "chunks": doc_chunks_id_map[full_docs[0]["id"]],
-                }
-            )
-            return doc_results
-
-    # Regular logic for full_docs_flag
-    if full_docs_flag:
-        token_count = 0
-        for doc in full_docs:
-            tokens = tokenizer.tokenize(doc["text"])
-            token_count += len(tokens)
-        if token_count <= 18000:
-            for doc in full_docs:
-                temp_chunk = {
-                    "id": doc["id"],
-                    "text": doc["text"],
-                    "metadata": {
-                        "doc_id": doc["id"],
-                        "chunk_size": len(doc["text"]),
-                    },
-                }
-                doc_results.append(
-                    {
-                        "full_docs": True,
-                        "doc": doc,
-                        "chunks": [temp_chunk],
-                    }
-                )
-            return doc_results
-        else:
-            for doc in full_docs:
-                doc_results.append(
-                    {
-                        "doc": doc,
-                        "chunks": doc_chunks_id_map[doc["id"]],
-                        "full_docs": False,
-                    }
-                )
-            return doc_results
-
-    # Default case - return chunked documents
-    for doc in full_docs:
-        doc_results.append(
-            {"doc": doc, "chunks": doc_chunks_id_map[doc["id"]], "full_docs": False}
-        )
 
     return doc_results
 
@@ -1593,20 +1111,23 @@ def index_document_with_processing(
         print(f"Document name: {req.name}")
         print(f"Text length: {len(req.text) if req.text else 0}")
         print(f"Has annotation_sets: {req.annotation_sets is not None}")
-
+        print(f"Has collection id {req.collectionId}")
+        print(f"Has de-anonymized text: {req.text_deanonymized is not None}")
         # Prepare the document
         file_object = {
+            "id": req.id,
             "text": req.text,
             "annotation_sets": req.annotation_sets,
             "preview": req.preview,
             "name": req.name,
             "features": req.features,
             "offset_type": req.offset_type,
+            "collectionId": req.collectionId,
         }
 
         # Generate document ID
-        file_object["id"] = get_string_hash(file_object["text"])
-        print(f"Generated document ID: {file_object['id']}")
+        # file_object["id"] = get_string_hash(file_object["text"])
+        # print(f"Generated document ID: {file_object['id']}")
 
         # Process annotations
         annotations = []
@@ -1643,25 +1164,34 @@ def index_document_with_processing(
             index_settings = get_index_settings()
             es_client.indices.create(index=elastic_index, **index_settings)
 
-        # Chunk and embed
+        # Chunk and embed - use de-anonymized text for embeddings if available
+        text_for_chunking = req.text_deanonymized if req.text_deanonymized else req.text
+
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=500,
             chunk_overlap=100,
             length_function=len,
         )
-        chunks = text_splitter.split_text(file_object["text"])
+        chunks = text_splitter.split_text(text_for_chunking)
+
+        # Also chunk the anonymized text for preview purposes
+        chunks_anonymized = text_splitter.split_text(file_object["text"])
 
         if chunks:
             embeddings = model.encode(chunks, show_progress_bar=False)
 
             passages_body = []
-            for emb, chunk in zip(embeddings, chunks):
-                # For simplicity, entities are empty as in notebook
+            for i, (emb, chunk) in enumerate(zip(embeddings, chunks)):
+                # Store both anonymized and de-anonymized versions
+                chunk_anonymized = (
+                    chunks_anonymized[i] if i < len(chunks_anonymized) else chunk
+                )
                 passages_body.append(
                     {
                         "vectors": {
                             "predicted_value": emb.tolist(),
-                            "text": chunk,
+                            "text": chunk,  # De-anonymized text for generation
+                            "text_anonymized": chunk_anonymized,  # Anonymized text for preview
                             "entities": "",
                         }
                     }
@@ -1784,6 +1314,15 @@ retrievers["eu_anonymized"] = DocumentRetriever(
     url="http://10.0.0.108:3011/api/document"
 )
 retriever = retrievers["batini"]  # default retriever
+
+# Initialize VectorSearch
+vector_search = VectorSearch(
+    model=model,
+    es_client=es_client,
+    tokenizer=tokenizer,
+    retrievers=retrievers,
+    default_retriever=retriever,
+)
 
 # if not os.getenv("ENVIRONMENT", "production") == "dev":
 #     with open(environ.get("OGG2NAME_INDEX"), "r") as fd:
