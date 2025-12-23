@@ -1066,107 +1066,12 @@ async def query_elastic_index(
     except Exception:
         total_hits = 0
 
-    # If zero hits and a collection filter was provided, run diagnostics to determine whether
-    # the problem is the collectionId field mapping (text vs keyword) and try a fallback search
+    # If zero hits and a collection filter was provided, do not attempt any fallbacks.
+    # Keep behavior strict: respect the requested collection_id and simply log the condition.
     if total_hits == 0 and getattr(req, "collection_id", None):
         logging.warning(
-            f"Elastic search returned 0 hits for index='{index_name}', collection_id='{req.collection_id}'. Running diagnostics and fallback..."
+            f"Elastic search returned 0 hits for index='{index_name}', collection_id='{req.collection_id}'. No fallbacks will be performed."
         )
-        try:
-            # Check exact match against collectionId.keyword
-            diag_kw = {"term": {"collectionId.keyword": req.collection_id}}
-            diag_res_kw = es_client.search(index=index_name, size=0, query=diag_kw)
-            count_kw = diag_res_kw.get("hits", {}).get("total", {}).get("value", 0)
-        except Exception as e:
-            logging.error(f"Diagnostic (keyword) query failed: {e}")
-            count_kw = None
-
-        try:
-            # Check term against collectionId (in case it was indexed as text)
-            diag_text = {"term": {"collectionId": req.collection_id}}
-            diag_res_text = es_client.search(index=index_name, size=0, query=diag_text)
-            count_text = diag_res_text.get("hits", {}).get("total", {}).get("value", 0)
-        except Exception as e:
-            logging.error(f"Diagnostic (text) query failed: {e}")
-            count_text = None
-
-        try:
-            # Check how many documents exist in the index as a whole
-            diag_all = {"match_all": {}}
-            diag_res_all = es_client.search(index=index_name, size=0, query=diag_all)
-            count_all = diag_res_all.get("hits", {}).get("total", {}).get("value", 0)
-        except Exception as e:
-            logging.error(f"Diagnostic (match_all) query failed: {e}")
-            count_all = None
-
-        logging.warning(
-            f"Collection diagnostics for index='{index_name}': collectionId.keyword_count={count_kw}, collectionId_text_count={count_text}, total_docs_in_index={count_all}"
-        )
-
-        # Fallback strategy:
-        # 1) If diagnostics indicate documents match on collectionId as text (count_text > 0) but not on keyword,
-        #    retry the same query replacing the collection-keyword constraint with a match_phrase on collectionId.
-        # 2) If that still yields zero, perform a relaxed search without the collection filter to return broader results.
-        try:
-            # Attempt match_phrase fallback when keyword appears empty but text has matches
-            if (count_kw == 0 or count_kw is None) and (count_text and count_text > 0):
-                fallback_query = query.copy()
-                # remove collection-specific must entries from the fallback query's must list
-                fallback_must = []
-                for m in fallback_query.get("bool", {}).get("must", []):
-                    # skip known collection filters (term on collectionId / collectionId.keyword or a bool/should containing them)
-                    if isinstance(m, dict) and (
-                        (
-                            "term" in m
-                            and (
-                                "collectionId" in m["term"]
-                                or "collectionId.keyword" in m["term"]
-                            )
-                        )
-                        or (
-                            "bool" in m
-                            and isinstance(m["bool"], dict)
-                            and any(
-                                isinstance(x, dict)
-                                and (
-                                    "collectionId" in x.get("term", {})
-                                    or "collectionId.keyword" in x.get("term", {})
-                                )
-                                for x in m["bool"].get("should", [])
-                            )
-                        )
-                    ):
-                        continue
-                    fallback_must.append(m)
-                fallback_query["bool"]["must"] = fallback_must
-                # add a match_phrase constraint on collectionId (text fallback)
-                fallback_query["bool"]["must"].append(
-                    {"match_phrase": {"collectionId": req.collection_id}}
-                )
-
-                logging.warning(
-                    "Retrying search using collectionId as text (match_phrase) fallback"
-                )
-                retry_res = es_client.search(
-                    index=index_name,
-                    size=20,
-                    source_excludes=["chunks", "annotation_sets"],
-                    from_=from_offset,
-                    query=fallback_query,
-                )
-                retry_hits = retry_res.get("hits", {}).get("total", {}).get("value", 0)
-                logging.warning(f"Fallback (text) search returned {retry_hits} hits")
-                if retry_hits > 0:
-                    search_res = retry_res
-                    total_hits = retry_hits
-
-            # Note: relaxed fallback (search without collection filter) removed to
-            # ensure queries always respect the requested collection_id. If a
-            # match_phrase fallback is required for collectionId mappings it is
-            # handled above; we do not perform a fully relaxed search that
-            # returns documents from other collections.
-        except Exception as e:
-            logging.error(f"Error during fallback searches: {e}")
 
     hits = get_hits(search_res)
 
