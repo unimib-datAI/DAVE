@@ -1160,40 +1160,11 @@ async def query_elastic_index(
                     search_res = retry_res
                     total_hits = retry_hits
 
-            # If still zero, try a relaxed query without any collection filter
-            if total_hits == 0:
-                logging.warning(
-                    "Retrying search without collection filter (relaxed search)"
-                )
-                relaxed_query = {
-                    "bool": {
-                        "must": [],
-                        "filter": query.get("bool", {}).get(
-                            "filter", {"bool": {"should": []}}
-                        ),
-                    }
-                }
-                if req.text and req.text.strip():
-                    relaxed_query["bool"]["must"].append(
-                        {"query_string": {"query": req.text, "default_field": "text"}}
-                    )
-                else:
-                    relaxed_query["bool"]["must"].append({"match_all": {}})
-
-                retry_res2 = es_client.search(
-                    index=index_name,
-                    size=20,
-                    source_excludes=["chunks", "annotation_sets"],
-                    from_=from_offset,
-                    query=relaxed_query,
-                )
-                retry2_hits = (
-                    retry_res2.get("hits", {}).get("total", {}).get("value", 0)
-                )
-                logging.warning(f"Relaxed search returned {retry2_hits} hits")
-                if retry2_hits > 0:
-                    search_res = retry_res2
-                    total_hits = retry2_hits
+            # Note: relaxed fallback (search without collection filter) removed to
+            # ensure queries always respect the requested collection_id. If a
+            # match_phrase fallback is required for collectionId mappings it is
+            # handled above; we do not perform a fully relaxed search that
+            # returns documents from other collections.
         except Exception as e:
             logging.error(f"Error during fallback searches: {e}")
 
