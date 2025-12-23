@@ -23,71 +23,12 @@ from transformers import AutoTokenizer
 from utils import (
     collect_chunk_ranks,
     collect_chunk_ranks_full_text,
+    get_facets_annotations,
+    get_facets_annotations_no_agg,
+    get_facets_metadata,
     get_hits,
     group_facets,
 )
-
-
-def get_facets_annotations(search_res):
-    def convert_annotation_bucket(bucket):
-        return {
-            "key": bucket["key"],
-            "n_children": len(bucket["mentions"]["buckets"]),
-            "doc_count": bucket["doc_count"],
-            "children": sorted(
-                [
-                    {
-                        "key": child["key"],
-                        "display_name": child["top_hits"]["hits"]["hits"][0]["_source"][
-                            "annotations"
-                        ][0]["display_name"]
-                        or child["key"],
-                        "doc_count": child["doc_count"],
-                        "ids_ER": [
-                            child["top_hits"]["hits"]["hits"][0]["_source"][
-                                "annotations"
-                            ][0]["id_ER"]
-                        ],
-                    }
-                    for child in bucket["mentions"]["buckets"]
-                ],
-                key=lambda x: x["doc_count"],
-                reverse=True,
-            ),
-        }
-
-    return [
-        convert_annotation_bucket(bucket)
-        for bucket in search_res["aggregations"]["annotations_agg"]["types"]["buckets"]
-    ]
-
-
-def get_facets_metadata_agg(search_res):
-    def convert_metadata_bucket(bucket):
-        return {
-            "key": bucket["key"],
-            "n_children": len(bucket["values"]["buckets"]),
-            "doc_count": bucket["doc_count"],
-            "children": sorted(
-                [
-                    {
-                        "key": child["key"],
-                        "display_name": child["key"],
-                        "doc_count": child["doc_count"],
-                    }
-                    for child in bucket["values"]["buckets"]
-                ],
-                key=lambda x: x["doc_count"],
-                reverse=True,
-            ),
-        }
-
-    return [
-        convert_metadata_bucket(bucket)
-        for bucket in search_res["aggregations"]["metadata_agg"]["types"]["buckets"]
-    ]
-
-
 from vector_search import VectorSearch
 
 from elasticsearch import Elasticsearch
@@ -1041,83 +982,6 @@ async def query_elastic_index(
         },
     }
 
-    # Define aggregations for facets.
-    # When a collection_id is provided, we restrict aggregations to that collection
-    # by wrapping each aggregation in a filter aggregation. We keep the same
-    # sub-aggregation names (e.g. `types`) so downstream facet parsing code
-    # (which expects `aggregations.annotations_agg.types` and
-    # `aggregations.metadata_agg.types`) continues to work unchanged.
-    base_annotations_agg = {
-        "nested": {"path": "annotations"},
-        "aggs": {
-            "types": {
-                "terms": {"field": "annotations.type"},
-                "aggs": {
-                    "mentions": {
-                        "terms": {"field": "annotations.mention"},
-                        "aggs": {
-                            "top_hits": {
-                                "size": 1,
-                                "_source": [
-                                    "annotations.id_ER",
-                                    "annotations.display_name",
-                                ],
-                            }
-                        },
-                    }
-                },
-            }
-        },
-    }
-    base_metadata_agg = {
-        "nested": {"path": "metadata"},
-        "aggs": {
-            "types": {
-                "terms": {"field": "metadata.type"},
-                "aggs": {"values": {"terms": {"field": "metadata.value"}}},
-            }
-        },
-    }
-
-    if req.collection_id:
-        # tolerant collection filter: try keyword exact match first, fallback to phrase match
-        collection_filter = {
-            "bool": {
-                "should": [
-                    {"term": {"collectionId.keyword": req.collection_id}},
-                    {"match_phrase": {"collectionId": req.collection_id}},
-                ],
-                "minimum_should_match": 1,
-            }
-        }
-
-        aggs = {
-            "annotations_agg": {
-                "filter": collection_filter,
-                "aggs": {
-                    # keep the same 'types' name but include the nested aggregator under it
-                    "types": {
-                        "nested": base_annotations_agg["nested"],
-                        "aggs": base_annotations_agg["aggs"],
-                    }
-                },
-            },
-            "metadata_agg": {
-                "filter": collection_filter,
-                "aggs": {
-                    "types": {
-                        "nested": base_metadata_agg["nested"],
-                        "aggs": base_metadata_agg["aggs"],
-                    }
-                },
-            },
-        }
-    else:
-        aggs = {
-            "annotations_agg": base_annotations_agg,
-            "metadata_agg": base_metadata_agg,
-        }
-
     # Add text query or match_all
     if req.text and req.text.strip():
         query["bool"]["must"].append(
@@ -1191,7 +1055,6 @@ async def query_elastic_index(
             source_excludes=["chunks", "annotation_sets"],
             from_=from_offset,
             query=query,
-            aggs=aggs,
         )
     except Exception as e:
         logging.error(f"Error executing main ES search: {e}")
@@ -1290,7 +1153,6 @@ async def query_elastic_index(
                     source_excludes=["chunks", "annotation_sets"],
                     from_=from_offset,
                     query=fallback_query,
-                    aggs=aggs,
                 )
                 retry_hits = retry_res.get("hits", {}).get("total", {}).get("value", 0)
                 logging.warning(f"Fallback (text) search returned {retry_hits} hits")
@@ -1324,7 +1186,6 @@ async def query_elastic_index(
                     source_excludes=["chunks", "annotation_sets"],
                     from_=from_offset,
                     query=relaxed_query,
-                    aggs=aggs,
                 )
                 retry2_hits = (
                     retry_res2.get("hits", {}).get("total", {}).get("value", 0)
@@ -1338,71 +1199,9 @@ async def query_elastic_index(
 
     hits = get_hits(search_res)
 
-    # Compute facets restricted to the requested collection when collection_id is provided.
-    # This prevents facets from reflecting documents in other collections when the main
-    # search may have fallen back to a relaxed query.
-    facet_search_res = search_res
-    if getattr(req, "collection_id", None):
-        try:
-            import copy
-
-            # Deep-copy the main query to preserve it
-            facet_query = copy.deepcopy(query)
-
-            # Ensure a collection constraint is present in the must clause
-            coll_clause = {
-                "bool": {
-                    "should": [
-                        {"term": {"collectionId.keyword": req.collection_id}},
-                        {"match_phrase": {"collectionId": req.collection_id}},
-                    ],
-                    "minimum_should_match": 1,
-                }
-            }
-
-            must_list = facet_query.get("bool", {}).get("must", [])
-            found = False
-            for m in must_list:
-                if isinstance(m, dict):
-                    # direct term on collectionId or collectionId.keyword
-                    if "term" in m and (
-                        "collectionId.keyword" in m.get("term", {})
-                        or "collectionId" in m.get("term", {})
-                    ):
-                        found = True
-                        break
-                    # bool/should containing collectionId terms
-                    if "bool" in m and isinstance(m["bool"], dict):
-                        for x in m["bool"].get("should", []):
-                            if isinstance(x, dict) and (
-                                "collectionId" in x.get("term", {})
-                                or "collectionId.keyword" in x.get("term", {})
-                            ):
-                                found = True
-                                break
-                if found:
-                    break
-
-            if not found:
-                facet_query.setdefault("bool", {}).setdefault("must", []).append(
-                    coll_clause
-                )
-
-            # Run aggregation-only search constrained to the collection
-            facet_search_res = es_client.search(
-                index=index_name,
-                size=0,
-                source_excludes=["chunks", "annotation_sets"],
-                query=facet_query,
-                aggs=aggs,
-            )
-        except Exception as e:
-            logging.error(f"Error computing collection-restricted facets: {e}")
-            facet_search_res = search_res
-
-    annotations_facets = get_facets_annotations(facet_search_res)
+    annotations_facets = get_facets_annotations_no_agg(search_res)
     annotations_facets = group_facets(annotations_facets)
-    metadata_facets = get_facets_metadata_agg(facet_search_res)
+    metadata_facets = get_facets_metadata(search_res)
     total_hits = search_res["hits"]["total"]["value"]
 
     num_pages = total_hits // req.documents_per_page
