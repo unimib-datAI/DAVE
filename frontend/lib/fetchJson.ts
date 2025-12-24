@@ -1,5 +1,6 @@
 export type FetchRequestInit<BODY = any> = Omit<RequestInit, 'body'> & {
   body?: BODY;
+  timeout?: number;
 };
 
 export default async function fetchJson<BODY = any, JSON = unknown>(
@@ -79,24 +80,34 @@ export default async function fetchJson<BODY = any, JSON = unknown>(
     },
     ...(bodyToSend !== undefined ? { body: bodyToSend } : {}),
   };
-
-  const response = await fetch(input, composeInit);
-
-  // if the server replies, there's always some data in json
-  // if there's a network error, it will throw at the previous line
-  const data = await response.json();
-
-  // response.ok is true when res.status is 2xx
-  // https://developer.mozilla.org/en-US/docs/Web/API/Response/ok
-  if (response.ok) {
-    return data;
+  let abortController: AbortController | undefined;
+  let timeoutId: NodeJS.Timeout | undefined;
+  if (init?.timeout) {
+    abortController = new AbortController();
+    timeoutId = setTimeout(() => abortController?.abort(), init.timeout);
+    composeInit.signal = abortController.signal;
   }
+  try {
+    const response = await fetch(input, composeInit);
 
-  throw new FetchError({
-    message: response.statusText,
-    response,
-    data,
-  });
+    // if the server replies, there's always some data in json
+    // if there's a network error, it will throw at the previous line
+    const data = await response.json();
+
+    // response.ok is true when res.status is 2xx
+    // https://developer.mozilla.org/en-US/docs/Web/API/Response/ok
+    if (response.ok) {
+      return data;
+    }
+
+    throw new FetchError({
+      message: response.statusText,
+      response,
+      data,
+    });
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
 }
 
 export class FetchError extends Error {
