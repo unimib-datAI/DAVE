@@ -383,7 +383,7 @@ export const documents = createRouter()
             collectionId,
             elasticIndex,
           },
-          timeout: 300000,
+          timeout: 600000,
         });
 
         return result;
