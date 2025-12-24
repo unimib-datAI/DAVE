@@ -136,8 +136,6 @@ services:
       dockerfile: Dockerfile
     # depends_on:
     #   - es
-    mem_reservation: 5g # Soft limit - guaranteed memory
-    shm_size: 2g
     restart: $RESTART_POLICY
     deploy:
       resources:
