@@ -20,6 +20,7 @@ import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import { FiEdit2 as EditIcon } from '@react-icons/all-files/fi/FiEdit2';
 import { FiTrash2 as TrashIcon } from '@react-icons/all-files/fi/FiTrash2';
 import { FiUsers as UsersIcon } from '@react-icons/all-files/fi/FiUsers';
+import { FiDownload } from '@react-icons/all-files/fi/FiDownload';
 import { useAtom } from 'jotai';
 import {
   collectionsAtom,
@@ -176,6 +177,30 @@ const Collections: NextPage = () => {
     },
   });
 
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  const { data: downloadData, isLoading: isDownloading } = useQuery(
+    ['collection.download', { id: downloadingId || '', token }],
+    {
+      enabled: !!downloadingId && tokenAvailable,
+      onSuccess: (data) => {
+        if (data) {
+          const blob = new Blob(
+            [Uint8Array.from(atob(data.data), (c) => c.charCodeAt(0))],
+            { type: 'application/zip' }
+          );
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = data.filename;
+          a.click();
+          window.URL.revokeObjectURL(url);
+          setDownloadingId(null);
+        }
+      },
+    }
+  );
+
   useEffect(() => {
     setLoading(collectionsLoading);
   }, [collectionsLoading]);
@@ -200,6 +225,10 @@ const Collections: NextPage = () => {
       id: collectionId,
       token: session?.accessToken,
     });
+  };
+
+  const handleDownload = (collection: Collection) => {
+    setDownloadingId(collection.id);
   };
 
   const handleSubmit = async () => {
@@ -289,6 +318,22 @@ const Collections: NextPage = () => {
                     )}
                   </div>
                   <Actions>
+                    <IconBtn
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(collection);
+                      }}
+                      title="Download"
+                      disabled={
+                        isDownloading && downloadingId === collection.id
+                      }
+                    >
+                      {isDownloading && downloadingId === collection.id ? (
+                        <Loading size="xs" />
+                      ) : (
+                        <FiDownload size={18} />
+                      )}
+                    </IconBtn>
                     <IconBtn
                       onClick={(e) => {
                         e.stopPropagation();
