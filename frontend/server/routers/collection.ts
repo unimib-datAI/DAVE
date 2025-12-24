@@ -269,4 +269,40 @@ export const collections = createRouter()
         });
       }
     },
+  })
+
+  // Download collection as zip
+  .query('download', {
+    input: z.object({
+      id: z.string(),
+      token: z.string().optional(),
+    }),
+    async resolve({ input }) {
+      const { id, token } = input;
+      try {
+        const response = await fetch(`${baseURL}/collection/${id}/download`, {
+          headers: {
+            Authorization: getJWTHeader(token),
+          },
+        });
+        if (!response.ok) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to download collection',
+          });
+        }
+        const buffer = await response.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+        const contentDisposition = response.headers.get('content-disposition');
+        const filename = contentDisposition
+          ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+          : `${id}.zip`;
+        return { data: base64, filename };
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to download collection',
+        });
+      }
+    },
   });
