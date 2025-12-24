@@ -3,6 +3,7 @@ import { asyncRoute } from "../utils/async-route";
 import { CollectionController } from "../controllers/collection";
 import { validateRequest } from "zod-express-middleware";
 import { z } from "zod";
+import archiver from "archiver";
 
 const route = Router();
 
@@ -103,7 +104,48 @@ export default (app) => {
       return res.json(collection);
     }),
   );
+  route.get(
+    "/:id/download",
+    asyncRoute(async (req, res) => {
+      const { id } = req.params;
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
+      // Check access
+      const hasAccess = await CollectionController.hasAccess(id, userId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      const collection = await CollectionController.findById(id);
+      if (!collection) {
+        return res.status(404).json({ message: "Collection not found" });
+      }
+      let fullDocuments = await CollectionController.getAllDocuments(id);
+      const zipFileName = `${collection.name.replace(/[^a-zA-Z0-9]/g, "_")}.zip`;
+      //setting headers for response
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${zipFileName}"`,
+      );
+      const zipArchive = archiver("zip", {
+        zlib: { level: 9 },
+      });
+      zipArchive.on("error", (err) => {
+        throw err;
+      });
 
+      //pipe archive stream to response
+      zipArchive.pipe(res);
+
+      fullDocuments.forEach((doc) => {
+        const filename = `${doc.name || doc.id}.json`;
+        zipArchive.append(JSON.stringify(doc, null, 2), { name: filename });
+      });
+      await zipArchive.finalize();
+    }),
+  );
   /**
    * @swagger
    * /api/collection:

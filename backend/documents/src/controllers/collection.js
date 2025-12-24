@@ -118,4 +118,19 @@ export const CollectionController = {
     const users = await User.find({}, { userId: 1, email: 1, name: 1 }).lean();
     return users;
   },
+  /**
+   *
+   * @param {String} collectionId
+   */
+  async getAllDocuments(collectionId) {
+    let tempDoc = await Document.find({ collectionId }).lean();
+    if (!tempDoc) {
+      throw new Error("Collection not found");
+    }
+    let fullDocsPromises = tempDoc.map(async (doc) => {
+      return await DocumentController.getFullDocById(doc.id);
+    });
+    let fullDocs = await Promise.all(fullDocsPromises);
+    return fullDocs;
+  },
 };

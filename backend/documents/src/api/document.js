@@ -108,167 +108,6 @@ export default (app) => {
   );
 
   /**
-   * Get document helper function
-   *
-   * anonymous: delete any reference to the database (they may be useful for updating the doc)
-   */
-  async function getDocumentById(
-    id,
-    anonymous = false,
-    clusters = false,
-    deAnonimize = false,
-  ) {
-    const document = await DocumentController.findOne(id);
-    console.log("doc found", document.text.substring(0, 200));
-    // convert annotation_sets from list to object
-    var new_sets = {};
-    for (const annset of document.annotation_sets) {
-      // delete annset._id;
-
-      // deduplicate sections
-      if (annset.name === "Sections") {
-        const new_anns = [];
-        let prev_ann = {};
-
-        annset.annotations.sort((a, b) => a.start - b.start);
-
-        annset.annotations.forEach((ann) => {
-          if (ann.type === prev_ann.type) {
-            // found duplicate
-            if (ann.end >= prev_ann.end) {
-              new_anns.push(ann);
-            } else {
-              new_anns.push(prev_ann);
-            }
-          } else if (Object.keys(prev_ann).length !== 0) {
-            new_anns.push(prev_ann);
-          }
-          prev_ann = ann;
-        });
-        // possible outcomes: 1) prev_ann is a duplicated and a better ann has been already added
-        // 2) prev_ann is not a duplicated and the last ann is of a different type
-        if (new_anns[new_anns.length - 1].type !== prev_ann.type) {
-          // in case of 2)
-          new_anns.push(prev_ann);
-        }
-
-        annset.annotations = new_anns;
-      }
-
-      // add mention to annotations features
-      if (annset.name.startsWith("entities")) {
-        console.log("*** processing entities annset ***");
-        for (const annot of annset.annotations) {
-          if (!("features" in annot)) {
-            annot.features = {};
-          }
-          if (!("mention" in annot.features)) {
-            // console.log(
-            //     `Adding mention ${document.text.substring(
-            //         annot.start,
-            //         annot.end + 2,
-            //     )} `,
-            // );
-            annot.features.mention = document.text.substring(
-              annot.start,
-              annot.end + 1,
-            );
-          }
-          // workaround for issue 1 // TODO remove
-          if (typeof annot.id === "string" || annot.id instanceof String) {
-            annot.id = parseInt(annot.id);
-          }
-        }
-      }
-
-      // WORKAROUND anonymize preview TODO resolve
-      if (annset.name.startsWith("entities_consolidated")) {
-        for (const annot of annset.annotations) {
-          if (
-            ["persona", "parte", "controparte", "luogo", "altro"].includes(
-              annot.type,
-            ) &&
-            annot.start < document.preview.length
-          ) {
-            var end = 0;
-            if (annot.end >= document.preview.length) {
-              end = document.preview.length - 1;
-            } else {
-              end = annot.end;
-            }
-            document.preview =
-              document.preview.substring(0, annot.start) +
-              "*".repeat(end - annot.start) +
-              document.preview.substring(end);
-          }
-        }
-      }
-      // WORKAROUND codici fiscali
-      const regexPattern = /[A-Za-z0-9]{16}/;
-
-      document.preview = document.preview.replace(regexPattern, (match) =>
-        "*".repeat(match.length),
-      );
-
-      for (const annot of annset.annotations) {
-        // workaround for issue 1 // TODO remove
-        if (typeof annot.id === "string" || annot.id instanceof String) {
-          annot.id = parseInt(annot.id);
-        }
-      }
-
-      if (anonymous) {
-        delete annset["_id"];
-        delete annset["__v"];
-        delete annset["docId"];
-        for (const annot of annset.annotations) {
-          // remove references to db
-          delete annot["_id"];
-          delete annot["__v"];
-          delete annot["annotationSetId"];
-        }
-      }
-
-      // ensure annset is sorted
-      annset.annotations.sort((a, b) => a.start - b.start);
-
-      new_sets[annset.name] = annset;
-    }
-    document.annotation_sets = new_sets;
-
-    if (anonymous) {
-      delete document["_id"];
-      delete document["__v"];
-      if ("features" in document) {
-        if ("save" in document["features"]) {
-          delete document["features"]["save"];
-        }
-        if ("reannotate" in document["features"]) {
-          delete document["features"]["reannotate"];
-        }
-      }
-    }
-
-    if (!clusters && document.features && document.features.clusters) {
-      for (const [annset_name, annset_clusters] of Object.entries(
-        document.features.clusters,
-      )) {
-        for (let i = 0; i < annset_clusters.length; i++) {
-          delete annset_clusters[i]["center"];
-        }
-      }
-    }
-    if (deAnonimize) {
-      let doc = await decode(document);
-      console.log("doc decoded", doc.text.substring(0, 200));
-
-      return doc;
-    }
-
-    return document;
-  }
-
-  /**
    * @swagger
    * /api/document/{id}/{deAnonimize}:
    *   get:
@@ -305,7 +144,7 @@ export default (app) => {
       const { id, deAnonimize } = req.params;
       const parsedDeAnonimize = deAnonimize === "true";
       console.log("doc id", id, parsedDeAnonimize);
-      const document = await getDocumentById(
+      const document = await DocumentController.getFullDocById(
         id,
         true,
         false,
@@ -358,7 +197,7 @@ export default (app) => {
     asyncRoute(async (req, res, next) => {
       const { id } = req.params;
       console.log("doc id", id);
-      const document = await getDocumentById(id);
+      const document = await DocumentController.getFullDocById(id);
 
       const { entities, annotationSet, sourceCluster, destinationCluster } =
         req.body;
@@ -395,7 +234,7 @@ export default (app) => {
         clusters,
       );
 
-      let doc = await getDocumentById(id);
+      let doc = await DocumentController.getFullDocById(id);
       console.log("doc", doc.features.clusters[annotationSet]);
       return res.json(doc).status(200);
       //   let entObjects = [];
@@ -431,7 +270,7 @@ export default (app) => {
     asyncRoute(async (req, res, next) => {
       const { id } = req.params;
 
-      const document = await getDocumentById(id, true);
+      const document = await DocumentController.getFullDocById(id, true);
 
       return res.json(document).status(200);
     }),
@@ -464,7 +303,7 @@ export default (app) => {
     asyncRoute(async (req, res, next) => {
       const { id } = req.params;
 
-      const document = await getDocumentById(id, false, true);
+      const document = await DocumentController.getFullDocById(id, false, true);
 
       return res.json(document).status(200);
     }),
@@ -674,7 +513,7 @@ export default (app) => {
 
         try {
           // Fetch the full document with annotation sets for de-anonymization
-          const fullDocument = await getDocumentById(
+          const fullDocument = await DocumentController.getFullDocById(
             doc.id,
             true,
             false,
