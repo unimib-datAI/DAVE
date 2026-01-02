@@ -1,6 +1,6 @@
 import { useText } from '@/components';
 import styled from '@emotion/styled';
-import { Text } from "@heroui/react";
+
 import {
   selectDocumentClusters,
   useSelector,
@@ -35,22 +35,28 @@ const SidebarClusters = () => {
   const [isOpen, setIsOpen] = useState(false);
   const clusterGroups = useSelector(selectDocumentClusters);
   const [clusterGroupsState, setClusterGroupsState] = useState(clusterGroups);
-  
+
   // Update local state when selector value changes
   useEffect(() => {
     setClusterGroupsState(clusterGroups);
   }, [clusterGroups]);
-  
+
   console.log('groups', clusterGroups, typeof clusterGroups);
   return clusterGroups ? (
     <Container>
       <ContentTitle>
-        <Text b>{t('leftSidebar.clustersContent.title')}</Text>
-        <Text
-          css={{ fontSize: '14px', lineHeight: '1', color: 'rgba(0,0,0,0.5)' }}
+        <span style={{ fontWeight: 'bold' }}>
+          {t('leftSidebar.clustersContent.title')}
+        </span>
+        <span
+          style={{
+            fontSize: '14px',
+            lineHeight: '1',
+            color: 'rgba(0,0,0,0.5)',
+          }}
         >
           {t('leftSidebar.clustersContent.description')}
-        </Text>
+        </span>
       </ContentTitle>
       {clusterGroupsState && (
         <>

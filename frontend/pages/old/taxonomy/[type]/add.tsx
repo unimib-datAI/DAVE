@@ -5,7 +5,7 @@ import NodeManagement, { NodeManagementFormState } from "@/modules/taxonomy/Node
 import TaxonomyProvider from "@/modules/taxonomy/TaxonomyProvider";
 import { NextPageWithLayout } from "@/pages/_app";
 import styled from "@emotion/styled";
-import { Button, Text } from "@heroui/react";
+import { Button} from "@heroui/react";
 import { ReactElement, ReactNode, useState } from "react";
 import { FiPlus } from "@react-icons/all-files/fi/FiPlus";
 import Link from "next/link";

@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Loading } from "@heroui/react";
+import { Spinner } from '@heroui/react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { SearchIcon, ArrowRight } from 'lucide-react';
 import { HTMLAttributes, forwardRef, useState } from 'react';
@@ -25,7 +25,7 @@ const Searchbar = forwardRef<HTMLInputElement, SearchbarProps>((props, ref) => {
       </AnimatePresence>
       <div
         className={cn(
-          'flex flex-row items-center border-[1px] border-solid  border-slate-200 rounded-full py-1 px-3 w-full gap-4 bg-background',
+          'flex flex-row items-center border-[1px] border-solid  border-slate-200 rounded-full py-1 px-3 w-full gap-4 bg-background'
         )}
       >
         <SearchIcon />
@@ -43,11 +43,11 @@ const Searchbar = forwardRef<HTMLInputElement, SearchbarProps>((props, ref) => {
             'flex flex-col items-center justify-center bg-slate-950 text-white border-none rounded-full h-9 w-9 cursor-pointer transition-all',
             {
               'opacity-20': !focused,
-            },
+            }
           )}
         >
           {props.loading ? (
-            <Loading color="currentColor" size="sm" />
+            <Spinner color="current" size="sm" />
           ) : (
             <ArrowRight />
           )}

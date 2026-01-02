@@ -2,7 +2,6 @@ import { useText } from '@/components';
 import { getAllNodeData, getNodesPath } from '@/components/Tree';
 import { Cluster, EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Text } from "@heroui/react";
 import { darken } from 'polished';
 import { useEffect, useMemo } from 'react';
 import {
@@ -81,10 +80,10 @@ const ClusterCard = ({
     <>
       {mentions.length > 0 && (
         <ClusterContainer selected={selected} onClick={onClick}>
-          <Text
+          <span
             title={title}
-            b
-            css={{
+            style={{
+              fontWeight: 'bold',
               textAlign: 'start',
               width: '100%',
               whiteSpace: 'nowrap',
@@ -93,10 +92,10 @@ const ClusterCard = ({
             }}
           >
             {title}
-          </Text>
-          <Text size="12px">
+          </span>
+          <span style={{ fontSize: '12px' }}>
             {t('leftSidebar.clustersContent.mentions', { n: mentions.length })}
-          </Text>
+          </span>
           {selected && (
             <ClusterMentionsList
               mentions={mentions}

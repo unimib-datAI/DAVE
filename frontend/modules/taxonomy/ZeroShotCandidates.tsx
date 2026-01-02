@@ -1,7 +1,7 @@
 import { useParam } from "@/hooks";
 import { Candidate } from "@/server/routers/taxonomy";
 import styled from "@emotion/styled";
-import { Button, Text } from "@heroui/react";
+import { Button} from "@heroui/react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";

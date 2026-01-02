@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { Table, styled as styledNext, Text } from "@heroui/react";
+import { Table, styled as styledNext} from "@heroui/react";
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import DocumentCard from "./DocumentCard";

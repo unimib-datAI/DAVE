@@ -4,7 +4,7 @@ import {
   EntityAnnotation,
 } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Text } from "@heroui/react";
+
 import { darken } from 'polished';
 import { useMemo, useCallback } from 'react';
 import {
@@ -90,7 +90,13 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
   }, [annotation]);
 
   return (
-    <Text size={14} css={{ fontStyle: 'italic', color: 'rgba(0,0,0,0.7)' }}>
+    <span
+      style={{
+        fontSize: '14px',
+        fontStyle: 'italic',
+        color: 'rgba(0,0,0,0.7)',
+      }}
+    >
       <span>
         {context.contextLeft === ''
           ? `${context.contextLeft}`
@@ -109,7 +115,7 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
           ? `${context.contextRight}`
           : `${context.contextRight}..."`}
       </span>
-    </Text>
+    </span>
   );
 };
 

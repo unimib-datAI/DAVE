@@ -1,6 +1,6 @@
 import { Candidate } from "@/server/routers/taxonomy";
 import styled from "@emotion/styled";
-import { Tooltip, Checkbox, Text } from "@heroui/react";
+import { Tooltip, Checkbox} from "@heroui/react";
 import { FiChevronDown } from "@react-icons/all-files/fi/FiChevronDown";
 import Link from "next/link";
 import { useMemo, useState, MouseEvent } from "react";

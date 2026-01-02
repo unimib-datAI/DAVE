@@ -1,7 +1,7 @@
 import { Source, SourceDoc } from "@/server/routers/review";
 import { useQuery } from "@/utils/trpc";
 import styled from "@emotion/styled";
-import { Row, Text } from "@heroui/react";
+import { Row} from "@heroui/react";
 import { FiFile } from "@react-icons/all-files/fi/FiFile";
 import { FiCheck } from "@react-icons/all-files/fi/FiCheck";
 import { FiChevronLeft } from "@react-icons/all-files/fi/FiChevronLeft";

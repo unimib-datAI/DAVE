@@ -1,6 +1,5 @@
 import { useText } from '@/components';
 import styled from '@emotion/styled';
-import { Text } from "@heroui/react";
 import { selectDocumentData, useSelector } from '../DocumentProvider/selectors';
 import { createObjectFromJson } from '@/utils/shared';
 import { DocumentMetadataFeatures } from '../DocumentProvider/types';
@@ -38,12 +37,18 @@ const SidebarMetadata = () => {
   return documentData ? (
     <Container>
       <ContentTitle>
-        <Text b>{t('leftSidebar.metadataContent.title')}</Text>
-        <Text
-          css={{ fontSize: '14px', lineHeight: '1', color: 'rgba(0,0,0,0.5)' }}
+        <span style={{ fontWeight: 'bold' }}>
+          {t('leftSidebar.metadataContent.title')}
+        </span>
+        <span
+          style={{
+            fontSize: '14px',
+            lineHeight: '1',
+            color: 'rgba(0,0,0,0.5)',
+          }}
         >
           {t('leftSidebar.metadataContent.description')}
-        </Text>
+        </span>
       </ContentTitle>
       <MetadataList features={features} />
     </Container>

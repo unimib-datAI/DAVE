@@ -1,5 +1,13 @@
 import useModal from '@/hooks/use-modal';
-import { Button, Grid, Modal, ModalProps, Text } from "@heroui/react";
+import {
+  Button,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  ModalProps,
+} from '@heroui/react';
 import { ReactNode, useCallback, useState } from 'react';
 
 type ConfirmationDialogProps = ModalProps & {
@@ -26,11 +34,14 @@ export function useConfirmationDialog<T>() {
 
   const [props, setProps] = useState<UseConfirmationDialogProps<T>>();
 
-  const setVisible = useCallback((params: SetVisibleParams<T>) => {
-    const { open, props } = params;
-    setVisibleProp(open);
-    if (props) setProps(props);
-  }, []);
+  const setVisible = useCallback(
+    (params: SetVisibleParams<T>) => {
+      const { open, props } = params;
+      setVisibleProp(open);
+      if (props) setProps(props);
+    },
+    [setVisibleProp]
+  );
 
   return {
     bindings: {
@@ -50,28 +61,33 @@ const ConfirmationDialog = ({
 }: ConfirmationDialogProps) => {
   return (
     <Modal {...props}>
-      <Modal.Header>
-        <Text b size={18}>
-          Confirm
-        </Text>
-      </Modal.Header>
-      <Modal.Body>
-        <Text>{content}</Text>
-      </Modal.Body>
-      <Modal.Footer>
-        <Grid.Container justify="space-between" alignContent="center">
-          <Grid>
-            <Button size="sm" light onClick={props.onClose}>
-              Cancel
-            </Button>
-          </Grid>
-          <Grid>
-            <Button size="sm" shadow color="error" onClick={onConfirm}>
-              Delete
-            </Button>
-          </Grid>
-        </Grid.Container>
-      </Modal.Footer>
+      <ModalContent>
+        {(onClose) => (
+          <>
+            <ModalHeader className="flex flex-col gap-1">
+              <span className="text-lg font-semibold">Confirm</span>
+            </ModalHeader>
+            <ModalBody>
+              <p>{content}</p>
+            </ModalBody>
+            <ModalFooter className="flex justify-between items-center">
+              <Button size="sm" variant="light" onPress={onClose}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                color="danger"
+                onPress={() => {
+                  onConfirm?.();
+                  onClose();
+                }}
+              >
+                Delete
+              </Button>
+            </ModalFooter>
+          </>
+        )}
+      </ModalContent>
     </Modal>
   );
 };

@@ -4,7 +4,7 @@ import { useForm, useInput, useQueryParam } from '@/hooks';
 import { useRouter } from 'next/router';
 import styled from '@emotion/styled';
 import { useMutation, useQuery } from '@/utils/trpc';
-import { Card, Input, Text, Spacer } from "@heroui/react";
+import { Card, Input, Spacer } from "@heroui/react";
 import { Button } from '@/components';
 import { FaRegUser } from '@react-icons/all-files/fa/FaRegUser';
 import { FaLock } from '@react-icons/all-files/fa/FaLock';

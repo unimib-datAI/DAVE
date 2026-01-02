@@ -1,15 +1,15 @@
-import { useText } from "@/components";
-import styled from "@emotion/styled";
-import { Input, useModal } from "@heroui/react";
+import { useText } from '@/components';
+import styled from '@emotion/styled';
+import { Input } from '@heroui/react';
 import { FaSistrix } from '@react-icons/all-files/fa/FaSistrix';
-import SearchModal from "./SearchModal";
+import SearchModal from './SearchModal';
+import useModal from '@/hooks/use-modal';
 
 const Container = styled.div({
   display: 'flex',
   flexDirection: 'row',
-  alignItems: 'center'
+  alignItems: 'center',
 });
-
 
 const ToolbarContent = () => {
   const t = useText('documents');
@@ -20,7 +20,7 @@ const ToolbarContent = () => {
       <Container>
         <Input
           css={{
-            minWidth: '400px'
+            minWidth: '400px',
           }}
           aria-label="Search documents"
           shadow={false}
@@ -32,7 +32,7 @@ const ToolbarContent = () => {
       </Container>
       <SearchModal {...bindings} />
     </>
-  )
+  );
 };
 
 export default ToolbarContent;

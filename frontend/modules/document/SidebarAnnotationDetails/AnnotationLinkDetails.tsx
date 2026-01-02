@@ -4,7 +4,7 @@ import {
   Candidate,
 } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Collapse, Link, Text } from "@heroui/react";
+import { Accordion, AccordionItem, Link } from '@heroui/react';
 import { useMemo } from 'react';
 
 type AnnotationLinkDetailsProps = {
@@ -48,38 +48,39 @@ const ListAdditionalCandidates = ({
   candidates,
 }: ListAdditionalCandidatesProps) => {
   return (
-    <Collapse
-      title={<Text size={15}>{`Altri candidati`}</Text>}
-      css={{
-        padding: 0,
-        '& > div:first-of-type': {
-          padding: '10px 0',
-        },
-      }}
-    >
-      <List>
-        {candidates.map((candidate, index) => (
-          <ListItemContainer key={candidate.url}>
-            <Text>{index + 1}.</Text>
-            <ListItemContent>
-              <Text>{candidate.title}</Text>
-              <Text
-                size={12}
-                css={{
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                <Link href={candidate.url} target="_blank">
-                  {candidate.url}
-                </Link>
-              </Text>
-            </ListItemContent>
-          </ListItemContainer>
-        ))}
-      </List>
-    </Collapse>
+    <Accordion>
+      <AccordionItem
+        key="additional-candidates"
+        title={<span style={{ fontSize: '15px' }}>{`Altri candidati`}</span>}
+        classNames={{
+          base: 'p-0',
+          title: 'py-2',
+        }}
+      >
+        <List>
+          {candidates.map((candidate, index) => (
+            <ListItemContainer key={candidate.url}>
+              <span>{index + 1}.</span>
+              <ListItemContent>
+                <span>{candidate.title}</span>
+                <span
+                  style={{
+                    fontSize: '12px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  <Link href={candidate.url} target="_blank">
+                    {candidate.url}
+                  </Link>
+                </span>
+              </ListItemContent>
+            </ListItemContainer>
+          ))}
+        </List>
+      </AccordionItem>
+    </Accordion>
   );
 };
 
@@ -121,26 +122,29 @@ const AnnotationLinkDetails = ({
 
   return (
     <Container>
-      <Text size={15} b>
+      <span style={{ fontSize: '15px', fontWeight: 'bold' }}>
         Informazioni Links
-      </Text>
+      </span>
       <Section>
         {isNil() ? (
-          <Text
-            blockquote
-            size={14}
-            css={{ padding: '10px', margin: '0', background: '#fdf7d5' }}
+          <blockquote
+            style={{
+              fontSize: '14px',
+              padding: '10px',
+              margin: '0',
+              background: '#fdf7d5',
+            }}
           >
             {`L'annotazione è stata riconsociuta come una nuova entità non presente nella base di conoscenza.`}
-          </Text>
+          </blockquote>
         ) : (
           <>
-            <Text>{annotationFeatures.title}</Text>
-            <Text size={12}>
+            <span>{annotationFeatures.title}</span>
+            <span style={{ fontSize: '12px' }}>
               <Link href={annotationFeatures.url} target="_blank">
                 {annotationFeatures.url}
               </Link>
-            </Text>
+            </span>
           </>
         )}
       </Section>

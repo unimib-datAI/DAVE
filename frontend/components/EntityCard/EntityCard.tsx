@@ -2,7 +2,7 @@ import { ChildNodeWithColor } from "@/components/Tree";
 import { EntityAnnotation } from "@/server/routers/document";
 import { useQuery } from "@/utils/trpc";
 import styled from "@emotion/styled";
-import { Grid, Image, Text } from "@heroui/react";
+import { Grid, Image} from "@heroui/react";
 import { useMemo } from "react";
 import { Button } from "../Button";
 import { Tag } from "../Tag";

@@ -6,7 +6,7 @@ import {
   selectCurrentAnnotationSetName,
 } from '../DocumentProvider/selectors';
 import { HiArrowLeft } from '@react-icons/all-files/hi/HiArrowLeft';
-import { Text } from "@heroui/react";
+
 import { IconButton, Button, useText } from '@/components';
 import Link from 'next/link';
 import { useMutation } from '@/utils/trpc';
@@ -961,17 +961,17 @@ const ToolbarContent = () => {
       <IconButton onClick={handleBack} as="a">
         <HiArrowLeft />
       </IconButton>
-      <Text
-        h4
-        css={{
+      <h4
+        style={{
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           maxWidth: '500px',
+          margin: 0,
         }}
       >
         {document.name}
-      </Text>
+      </h4>
       <div
         style={{
           display: 'flex',

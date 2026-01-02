@@ -1,24 +1,37 @@
-import styled from "@emotion/styled";
-import { ChangeEvent, HTMLAttributes, KeyboardEvent, PropsWithChildren, ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { selectCurrentEntities, useSelector } from "../ReviewProvider/selectors";
-import SearchModal from "./SearchModal";
-import Fuse from 'fuse.js'
-import ScrollArea from "../ReviewList/ScrollArea";
+import styled from '@emotion/styled';
+import {
+  ChangeEvent,
+  HTMLAttributes,
+  KeyboardEvent,
+  PropsWithChildren,
+  ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import {
+  selectCurrentEntities,
+  useSelector,
+} from '../ReviewProvider/selectors';
+import SearchModal from './SearchModal';
+import Fuse from 'fuse.js';
+import ScrollArea from '../ReviewList/ScrollArea';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
-import { motion } from "framer-motion";
-import { useDocumentEventListener, useWindowEventListener } from "@/hooks";
-import { useOnClickOutside } from "usehooks-ts";
-import { Virtualizer } from "@tanstack/react-virtual";
-import { Candidate } from "@/server/routers/document";
+import { motion } from 'framer-motion';
+import { useDocumentEventListener, useWindowEventListener } from '@/hooks';
+import { useOnClickOutside } from 'usehooks-ts';
+import { Virtualizer } from '@tanstack/react-virtual';
+import { Candidate } from '@/server/routers/document';
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
-import ShortcutButton from "@/components/ShortcutButton/ShortcutButton";
-import { Text } from "@heroui/react";
-import { createNewCandidate } from "../ReviewProvider/utils";
+import ShortcutButton from '@/components/ShortcutButton/ShortcutButton';
+
+import { createNewCandidate } from '../ReviewProvider/utils';
 
 const Container = styled.div({
   display: 'flex',
   width: '100%',
-  padding: '20px 0px'
+  padding: '20px 0px',
 });
 
 const SearchContainer = styled.div<{ active: boolean }>(({ active }) => ({
@@ -38,11 +51,11 @@ const SearchContainer = styled.div<{ active: boolean }>(({ active }) => ({
     boxShadow: 'rgba(0, 0, 0, 0.1) 0px 4px 12px',
   },
   '> svg': {
-    color: 'rgba(0,0,0,0.7)'
+    color: 'rgba(0,0,0,0.7)',
   },
   ...(active && {
-    boxShadow: 'rgba(0, 0, 0, 0.1) 0px 4px 12px'
-  })
+    boxShadow: 'rgba(0, 0, 0, 0.1) 0px 4px 12px',
+  }),
 }));
 
 const Input = styled.input<{ active: boolean }>(({ active }) => ({
@@ -51,14 +64,14 @@ const Input = styled.input<{ active: boolean }>(({ active }) => ({
   border: 'none',
   outline: 'none',
   background: 'transparent',
-  color: active ? 'rgba(0,0,0,1)' : 'rgba(0,0,0,0.6)'
+  color: active ? 'rgba(0,0,0,1)' : 'rgba(0,0,0,0.6)',
 }));
 
 const SearchModalContent = styled.div({
   display: 'flex',
   flexDirection: 'column',
-  height: '100%'
-})
+  height: '100%',
+});
 
 const ListItemContainer = styled.div<{ selected: boolean }>(({ selected }) => ({
   position: 'relative',
@@ -69,23 +82,34 @@ const ListItemContainer = styled.div<{ selected: boolean }>(({ selected }) => ({
   padding: '10px',
   opacity: selected ? 1 : 0.6,
   transition: 'opacity 200ms ease-in-out',
-  cursor: 'pointer'
+  cursor: 'pointer',
 }));
 
 const ShortcutButtonContainer = styled.div({
-  marginLeft: 'auto'
-})
+  marginLeft: 'auto',
+});
 
-type ListItemProps = HTMLAttributes<HTMLDivElement> & PropsWithChildren<{
-  selected: boolean;
-  Icon?: ReactNode;
-  shortcut?: string | string[];
-}>;
+type ListItemProps = HTMLAttributes<HTMLDivElement> &
+  PropsWithChildren<{
+    selected: boolean;
+    Icon?: ReactNode;
+    shortcut?: string | string[];
+  }>;
 
-const ListItem = ({ selected, Icon, children, shortcut, ...props }: ListItemProps) => {
+const ListItem = ({
+  selected,
+  Icon,
+  children,
+  shortcut,
+  ...props
+}: ListItemProps) => {
   return (
     <ListItemContainer selected={selected} {...props}>
-      {Icon && <IconContainer><FiPlus /></IconContainer>}
+      {Icon && (
+        <IconContainer>
+          <FiPlus />
+        </IconContainer>
+      )}
       {children}
       {selected && shortcut && shortcut.length > 0 && (
         <ShortcutButtonContainer>
@@ -94,13 +118,14 @@ const ListItem = ({ selected, Icon, children, shortcut, ...props }: ListItemProp
       )}
       {selected && (
         <SelectedArea
-          layoutId='box'
+          layoutId="box"
           initial={false}
-          transition={{ type: 'spring', stiffness: 1000, damping: 80 }} />
+          transition={{ type: 'spring', stiffness: 1000, damping: 80 }}
+        />
       )}
     </ListItemContainer>
-  )
-}
+  );
+};
 
 const NavigationShortcutsContainer = styled.div({
   display: 'flex',
@@ -112,7 +137,7 @@ const NavigationShortcutsContainer = styled.div({
   // opacity: 0.6,
   '*': {
     fontSize: '12px',
-  }
+  },
 });
 
 const NavigationShortcutsHeader = () => {
@@ -125,8 +150,8 @@ const NavigationShortcutsHeader = () => {
       <ShortcutButton shortcut="Esc" />
       <span>to cancel.</span>
     </NavigationShortcutsContainer>
-  )
-}
+  );
+};
 
 const Link = styled.a({
   fontSize: '12px',
@@ -135,16 +160,16 @@ const Link = styled.a({
   transition: 'color 200ms ease-in-out',
   '&:hover': {
     color: 'rgba(56, 141, 239, 1)',
-  }
-})
+  },
+});
 
 const SelectedArea = styled(motion.div)({
   position: 'absolute',
   background: 'rgba(0,0,0,0.05)',
   borderRadius: '10px',
   inset: 4,
-  zIndex: -1
-})
+  zIndex: -1,
+});
 
 const IconContainer = styled.div({
   display: 'flex',
@@ -158,23 +183,23 @@ const IconContainer = styled.div({
   width: 30,
   '> svg': {
     height: '20px',
-    width: '20px'
-  }
-})
+    width: '20px',
+  },
+});
 
 const Divider = styled.div({
   minHeight: '1px',
   width: '100%',
-  background: 'rgba(0,0,0,0.1)'
-})
+  background: 'rgba(0,0,0,0.1)',
+});
 
 const ItemContentContainer = styled.div({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'flex-start',
   minWidth: 0,
-  flexGrow: 1
-})
+  flexGrow: 1,
+});
 
 type SearchbarProps = HTMLAttributes<HTMLInputElement> & {
   active?: boolean;
@@ -182,11 +207,16 @@ type SearchbarProps = HTMLAttributes<HTMLInputElement> & {
   onItemSelected: (candidate: Candidate) => void;
   onOpen: () => void;
   onClose: () => void;
-}
+};
 
-
-
-const Searchbar = ({ value: searchKey, active, onChange, onClose, onOpen, onItemSelected }: SearchbarProps) => {
+const Searchbar = ({
+  value: searchKey,
+  active,
+  onChange,
+  onClose,
+  onOpen,
+  onItemSelected,
+}: SearchbarProps) => {
   const [selectedItem, setSelectedItem] = useState<number>(0);
   const entities = useSelector(selectCurrentEntities);
 
@@ -209,34 +239,38 @@ const Searchbar = ({ value: searchKey, active, onChange, onClose, onOpen, onItem
   useDocumentEventListener('keydown', (event) => {
     if (active) {
       switch (event.key) {
-        case 'ArrowUp': {
-          event.preventDefault();
-          setSelectedItem((index) => {
-            const newIndex = index > 0 ? index - 1 : 0;
-            refList.current?.scrollToIndex(newIndex + 1, {
-              align: 'end'
-            });
+        case 'ArrowUp':
+          {
+            event.preventDefault();
+            setSelectedItem((index) => {
+              const newIndex = index > 0 ? index - 1 : 0;
+              refList.current?.scrollToIndex(newIndex + 1, {
+                align: 'end',
+              });
 
-            return newIndex;
-          });
-        }
-          break;
-        case 'ArrowDown': {
-          event.preventDefault();
-          setSelectedItem((index) => {
-            const newIndex = index < currentEntities.length ? index + 1 : index;
-            refList.current?.scrollToIndex(newIndex + 1, {
-              align: 'end'
+              return newIndex;
             });
-
-            return newIndex;
-          });
-        }
+          }
           break;
-        case 'Enter': {
-          event.preventDefault();
-          selectItem();
-        }
+        case 'ArrowDown':
+          {
+            event.preventDefault();
+            setSelectedItem((index) => {
+              const newIndex =
+                index < currentEntities.length ? index + 1 : index;
+              refList.current?.scrollToIndex(newIndex + 1, {
+                align: 'end',
+              });
+
+              return newIndex;
+            });
+          }
+          break;
+        case 'Enter':
+          {
+            event.preventDefault();
+            selectItem();
+          }
           break;
         case 'Escape': {
           event.preventDefault();
@@ -244,28 +278,29 @@ const Searchbar = ({ value: searchKey, active, onChange, onClose, onOpen, onItem
         }
       }
     }
-  })
+  });
 
   const handleItemClick = () => {
     selectItem();
-  }
+  };
 
   const selectItem = () => {
     if (selectedItem > 0) {
       onItemSelected(currentEntities[selectedItem - 1]);
     } else {
       if (searchKey) {
-        onItemSelected(createNewCandidate({ title: searchKey, url: searchKey }));
+        onItemSelected(
+          createNewCandidate({ title: searchKey, url: searchKey })
+        );
       }
     }
     onClose();
-  }
-
+  };
 
   const handleInputFocus = () => {
     onOpen();
     setSelectedItem(0);
-  }
+  };
 
   const currentEntities = useMemo(() => {
     if (!searchKey || !active) {
@@ -273,8 +308,8 @@ const Searchbar = ({ value: searchKey, active, onChange, onClose, onOpen, onItem
     }
 
     const fuse = new Fuse(entities, {
-      keys: ['title']
-    })
+      keys: ['title'],
+    });
     const result = fuse.search(searchKey).map(({ item }) => item);
     return result;
   }, [entities, searchKey, active]);
@@ -290,10 +325,9 @@ const Searchbar = ({ value: searchKey, active, onChange, onClose, onOpen, onItem
           onFocus={handleInputFocus}
           value={searchKey}
           onChange={onChange}
-
         />
         <ShortcutButton shortcut={['\\']} />
-        <Text css={{ opacity: 0.6, fontSize: '12px' }}>or</Text>
+        <span style={{ opacity: 0.6, fontSize: '12px' }}>or</span>
         <ShortcutButton shortcut={['Ctrl', 'A']} />
         <SearchModal anchorRef={anchorRef} open={active}>
           <SearchModalContent>
@@ -302,10 +336,20 @@ const Searchbar = ({ value: searchKey, active, onChange, onClose, onOpen, onItem
               shortcut="Enter"
               selected={selectedItem === 0}
               onMouseMove={() => setSelectedItem(0)}
-              onClick={handleItemClick}>
+              onClick={handleItemClick}
+            >
               <ItemContentContainer>
-                <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', width: '100%' }}>
-                  {searchKey ? `Add "${searchKey}" as new entity...` : 'Add new entity'}
+                <span
+                  style={{
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    width: '100%',
+                  }}
+                >
+                  {searchKey
+                    ? `Add "${searchKey}" as new entity...`
+                    : 'Add new entity'}
                 </span>
               </ItemContentContainer>
             </ListItem>
@@ -318,10 +362,26 @@ const Searchbar = ({ value: searchKey, active, onChange, onClose, onOpen, onItem
                   selected={selectedItem === index + 1}
                   onMouseMove={() => setSelectedItem(index + 1)}
                   onClick={handleItemClick}
-                  shortcut="Enter">
+                  shortcut="Enter"
+                >
                   <ItemContentContainer>
-                    <span style={{ textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', width: '100%' }}>{item.title}</span>
-                    <Link target="_blank" href={item.url} onClick={(e) => e.stopPropagation()}>{item.url}</Link>
+                    <span
+                      style={{
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        width: '100%',
+                      }}
+                    >
+                      {item.title}
+                    </span>
+                    <Link
+                      target="_blank"
+                      href={item.url}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {item.url}
+                    </Link>
                   </ItemContentContainer>
                 </ListItem>
               ))}
@@ -332,7 +392,7 @@ const Searchbar = ({ value: searchKey, active, onChange, onClose, onOpen, onItem
         </SearchModal>
       </SearchContainer>
     </Container>
-  )
+  );
 };
 
 export default Searchbar;

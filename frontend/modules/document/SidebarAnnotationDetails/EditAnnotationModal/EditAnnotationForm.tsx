@@ -2,7 +2,7 @@ import { Flex, useText } from '@/components';
 import { useForm, useInput } from '@/hooks';
 import { Candidate, EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Button, Input, Modal, Text } from "@heroui/react";
+import { Button, Input, ModalBody, ModalFooter } from '@heroui/react';
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
 import { Dispatch, SetStateAction, useMemo } from 'react';
 import {
@@ -98,40 +98,45 @@ const EditAnnotationForm = ({
 
   return (
     <Form onSubmit={onSubmit(handleSubmit)}>
-      <Modal.Body css={{ padding: '0px 24px' }}>
+      <ModalBody className="px-6 py-0">
         <Flex direction="column" gap="10px">
           <Flex direction="column">
-            <Text size={20}>{t('modals.editAnnotation.context')}</Text>
+            <span style={{ fontSize: '20px' }}>
+              {t('modals.editAnnotation.context')}
+            </span>
             {text && <EntityContext text={text} annotation={tempAnn} />}
           </Flex>
           <Flex direction="column">
-            <Text size={20}>{t('modals.editAnnotation.type')}</Text>
-            <Text size={16} css={{ color: 'rgba(0,0,0,0.5)' }}>
+            <span style={{ fontSize: '20px' }}>
+              {t('modals.editAnnotation.type')}
+            </span>
+            <span style={{ fontSize: '16px', color: 'rgba(0,0,0,0.5)' }}>
               {t('modals.editAnnotation.typeDescription')}
-            </Text>
+            </span>
           </Flex>
           <SelectType {...register('types')} />
           {value.types.map((type, index) => (
             <Flex key={type} direction="row" alignItems="center" gap="5px">
-              <Text size={11} b>
+              <span style={{ fontSize: '11px', fontWeight: 'bold' }}>
                 {index + 1}.
-              </Text>
+              </span>
               <TypesHierarchy type={type} />
             </Flex>
           ))}
           <Flex direction="column">
-            <Text size={20}>{t('modals.editAnnotation.links')}</Text>
-            <Text size={16} css={{ color: 'rgba(0,0,0,0.5)' }}>
+            <span style={{ fontSize: '20px' }}>
+              {t('modals.editAnnotation.links')}
+            </span>
+            <span style={{ fontSize: '16px', color: 'rgba(0,0,0,0.5)' }}>
               {t('modals.editAnnotation.linksDescription')}
-            </Text>
+            </span>
           </Flex>
 
           <Input
             aria-label="Search link"
             placeholder={t('modals.editAnnotation.searchLink')}
-            shadow={false}
             {...searchBinds}
-            contentLeft={<FiSearch />}
+            startContent={<FiSearch />}
           />
           <AddLinkItem
             annotation={annotation}
@@ -143,26 +148,19 @@ const EditAnnotationForm = ({
             {...register('linkCandidate')}
           />
         </Flex>
-      </Modal.Body>
-      <Modal.Footer>
+      </ModalBody>
+      <ModalFooter>
         <Button
-          auto
-          flat
-          onClick={() => setVisible(false)}
-          css={{
-            background: 'rgba(0,0,0,0.1)',
-            color: 'rgba(0,0,0,0.6)',
-            '&:hover': {
-              background: 'rgba(0,0,0,0.15)',
-            },
-          }}
+          variant="flat"
+          onPress={() => setVisible(false)}
+          className="bg-gray-100 text-gray-600 hover:bg-gray-200"
         >
           {t('modals.editAnnotation.btnCancel')}
         </Button>
-        <Button type="submit" auto>
+        <Button type="submit" color="primary">
           {t('modals.editAnnotation.btnConfirm')}
         </Button>
-      </Modal.Footer>
+      </ModalFooter>
     </Form>
   );
 };

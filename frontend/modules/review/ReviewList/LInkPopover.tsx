@@ -46,7 +46,7 @@ const LinkPopover = ({ anchor }: LinkPopoverProps) => {
     //   {anchor && (
     // <Container
     //   anchor={anchor}
-    //   initial={{ opacity: 0, scale: 0.98, translateY: 10, }}
+    //   initial={{ opacity: 0, scale: 0.98, translateY: 10}}
     //   animate={{ opacity: 1, scale: 1, translateY: 0 }}
     //   transition={{ ease: "easeInOut", duration: 0.2 }}
     //   exit={{ opacity: 0, scale: 0.98, translateY: 10 }}>

@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { Card, Text } from "@heroui/react";
+import { Card} from "@heroui/react";
 import { ReactNode } from "react";
 
 type CardButtonProps = {

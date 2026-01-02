@@ -1,7 +1,7 @@
 import { Flex } from '@/components';
 import { Candidate } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Checkbox, Text, Link } from "@heroui/react";
+import { Checkbox, Link } from '@heroui/react';
 import { MouseEvent } from 'react';
 import { getCandidateId } from '../../DocumentProvider/utils';
 
@@ -47,10 +47,10 @@ const LinkItem = ({ candidate, selected, onClick }: LinkItemProps) => {
       />
       <LinkItemDetailsContainer>
         <Flex direction="row" gap="10px" alignItems="center">
-          <Text>{candidate.title}</Text>
-          {/* <Text size={12} css={{ color: 'rgba(0,0,0,0.7)' }}>
+          <span>{candidate.title}</span>
+          {/* <span style={{ fontSize: '12px', color: 'rgba(0,0,0,0.7)' }}>
             Score: {candidate.score.toFixed(2)}
-          </Text> */}
+          </span> */}
         </Flex>
         <Link href={candidate.url} target="_blank" css={{ fontSize: '12px' }}>
           {candidate.url}

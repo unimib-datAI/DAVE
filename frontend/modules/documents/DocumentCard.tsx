@@ -1,4 +1,4 @@
-import { Card, Col, Divider, Row, Text } from "@heroui/react";
+import { Card, Col, Divider, Row} from "@heroui/react";
 import Link from "next/link";
 import { FaFileAlt } from '@react-icons/all-files/fa/FaFileAlt'
 import styled from "@emotion/styled";

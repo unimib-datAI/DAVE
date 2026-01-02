@@ -3,7 +3,7 @@ import useDebounce from "@/hooks/use-debounce";
 import { GetPaginatedDocuments } from "@/server/routers/document";
 import { useQuery } from "@/utils/trpc";
 import styled from "@emotion/styled";
-import { Loading, Modal, Text } from "@heroui/react";
+import { Loading, Modal} from "@heroui/react";
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
 import { FiFile } from '@react-icons/all-files/fi/FiFile'
 import { FiArrowUpRight } from '@react-icons/all-files/fi/FiArrowUpRight'

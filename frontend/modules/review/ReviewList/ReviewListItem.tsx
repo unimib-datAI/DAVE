@@ -1,7 +1,7 @@
 import { Annotation } from "@/lib/ner/core/types";
 import { AdditionalAnnotationProps, Candidate, EntityAnnotation } from "@/server/routers/document";
 import styled from "@emotion/styled";
-import { Link, Text } from "@heroui/react";
+import { Link} from "@heroui/react";
 import { HTMLAttributes, MouseEvent, PropsWithChildren, useEffect, useMemo, useState } from "react";
 import { FiExternalLink } from '@react-icons/all-files/fi/FiExternalLink';
 import { keyframes } from "@emotion/react";
@@ -177,7 +177,7 @@ const ReviewListItem = ({
     const additionalTypes = types.slice(1, types.length);
     const typeLabel = `${firstType}${additionalTypes.length > 0 ? `+${additionalTypes.length}` : ''}`
     const firstPart = textProp.slice(0, startAnnRelativeOffset);
-    const hrefKey = annotation.features.mention.replace(/\s{1,}/g, '+').toLowerCase();
+    const hrefKey = annotation.features.mention.replace(/\s{1}/g, '+').toLowerCase();
     const href = `https://it.wikipedia.org/wiki/Special:Search?go=Go&search=${hrefKey}`
     const ann = (
       <Tag type={typeLabel} key={annotation.id} href={href}>

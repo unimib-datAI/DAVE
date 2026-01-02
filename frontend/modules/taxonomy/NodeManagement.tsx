@@ -4,7 +4,7 @@ import { FlatTreeNode } from "@/components/TreeSpecialization";
 import { useForm, useParam } from "@/hooks";
 import { ContentProps } from "@/pages/old/taxonomy";
 import styled from "@emotion/styled";
-import { Input, Text } from "@heroui/react";
+import { Input} from "@heroui/react";
 import { FocusEvent, useEffect, useRef, useState } from "react";
 import Description from "./Description";
 import { useSelector, useTaxonomyDispatch } from "./TaxonomyProvider/selectors";

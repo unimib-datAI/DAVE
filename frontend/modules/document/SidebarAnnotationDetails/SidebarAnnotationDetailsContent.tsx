@@ -1,5 +1,5 @@
 import styled from '@emotion/styled';
-import { Button, Col, Divider, Text } from "@heroui/react";
+import { Button, Divider } from '@heroui/react';
 import TextAnnotationDetails from './AnnotationTextDetails';
 import AnnotationLinkDetails from './AnnotationLinkDetails';
 import { EditAnnotationModal } from './EditAnnotationModal';
@@ -97,30 +97,30 @@ const AnnotationDetailsContent = ({ annotation }: AnnotationDetailsProps) => {
     <>
       <Container>
         <DetailsContainer>
-          <Col>
+          <div>
             <Flex
               direction="row"
               alignItems="center"
               justifyContent="space-between"
             >
-              <Text b size={18}>
+              <span style={{ fontWeight: 'bold', fontSize: '18px' }}>
                 {t('rightSidebar.title')}
-              </Text>
+              </span>
               <IconButton onClick={handleCloseClick}>
                 <FiX size={16} />
               </IconButton>
             </Flex>
 
-            <Text
-              css={{
+            <span
+              style={{
                 fontSize: '16px',
                 lineHeight: '1',
                 color: 'rgba(0,0,0,0.5)',
               }}
             >
               {t('rightSidebar.description')}
-            </Text>
-          </Col>
+            </span>
+          </div>
           <Divider />
           <TextAnnotationDetails text={text} annotation={annotation} />
           {/* <Divider /> */}

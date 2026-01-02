@@ -7,7 +7,7 @@ import {
   SelectedService,
   AnnotationSelectedServices,
 } from '@/atoms/annotationConfig';
-import { Card, Button, Input, Text, Spacer } from "@heroui/react";
+import { Card, Button, Input, Spacer } from "@heroui/react";
 import { Modal, Popconfirm, message } from 'antd';
 
 type ServiceRecord = {
