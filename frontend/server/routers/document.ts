@@ -213,6 +213,121 @@ export const documents = createRouter()
       return getDocuments(cursor, limit, q);
     },
   })
+  // Services CRUD via documents backend (requires a user JWT)
+  .query('getServices', {
+    input: z.object({
+      token: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      try {
+        const { token } = input;
+        const result = await fetchJson<any, any[]>(
+          `${baseURL}/document/services`,
+          {
+            headers: {
+              Authorization: getJWTHeader(token),
+            },
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to fetch services',
+        });
+      }
+    },
+  })
+  .mutation('createService', {
+    input: z.object({
+      name: z.string(),
+      uri: z.string(),
+      serviceType: z.string(),
+      description: z.string().optional(),
+      token: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      const { token, ...body } = input;
+      try {
+        const result = await fetchJson<any, any>(
+          `${baseURL}/document/services`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: getJWTHeader(token),
+              'Content-Type': 'application/json',
+            },
+            body,
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to create service',
+        });
+      }
+    },
+  })
+  .mutation('updateService', {
+    input: z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      uri: z.string().optional(),
+      serviceType: z.string().optional(),
+      description: z.string().optional(),
+      disabled: z.boolean().optional(),
+      token: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      const { token, id, ...body } = input;
+      try {
+        const result = await fetchJson<any, any>(
+          `${baseURL}/document/services/${id}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: getJWTHeader(token),
+              'Content-Type': 'application/json',
+            },
+            body,
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to update service',
+        });
+      }
+    },
+  })
+  .mutation('deleteService', {
+    input: z.object({
+      id: z.string(),
+      token: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      const { id, token } = input;
+      try {
+        const result = await fetchJson<any, any>(
+          `${baseURL}/document/services/${id}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: getJWTHeader(token),
+            },
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to delete service',
+        });
+      }
+    },
+  })
   .mutation('moveEntitiesToCluster', {
     input: z.object({
       id: z.string(),
@@ -500,13 +615,25 @@ export const documents = createRouter()
       collectionId: z.string(),
       name: z.string().optional(),
       token: z.string(),
+      // optional mapping slot -> { id?, name, uri? } coming from frontend selected services atom
+      selectedServices: z
+        .record(
+          z.object({
+            id: z.string().optional(),
+            name: z.string(),
+            uri: z.string().optional(),
+          })
+        )
+        .optional(),
     }),
     resolve: async ({ input }) => {
-      const { text, name, collectionId, token } = input;
-      const spacynerURL =
+      const { text, name, collectionId, token, selectedServices } = input;
+
+      // default fallback URLs (from env or built-in)
+      const defaultSpacyner =
         process.env.ANNOTATION_SPACYNER_URL ||
         'http://spacyner:80/api/spacyner';
-      const blinkURL =
+      const defaultBlink =
         process.env.ANNOTATION_BLINK_URL ||
         'http://biencoder:80/api/blink/biencoder/mention/doc';
       const indexerURL =
@@ -515,13 +642,39 @@ export const documents = createRouter()
       const nilpredictionURL =
         process.env.ANNOTATION_NILPREDICTION_URL ||
         'http://nilpredictor:80/api/nilprediction/doc';
-      const nilclusterURL =
+      const defaultNilcluster =
         process.env.ANNOTATION_NILCLUSTER_URL ||
         'http://clustering:80/api/clustering';
-      const consolidationURL =
+      const defaultConsolidation =
         process.env.ANNOTATION_CONSOLIDATION_URL ||
         'http://consolidation:80/api/consolidation';
       const elasticIndex = process.env.ELASTIC_INDEX;
+
+      // Helper: pick service URI from selectedServices for a slot, falling back to the provided default.
+      // selectedServices entries may either contain a concrete uri, or have a name like "DEFAULT-<TYPE>"
+      // when the frontend indicates fallbacks. We treat any non-empty uri as authoritative; otherwise use default.
+      const resolveUrlForSlot = (slot: string, fallbackUrl: string) => {
+        try {
+          if (!selectedServices) return fallbackUrl;
+          const entry = (selectedServices as Record<string, any>)[slot];
+          if (!entry) return fallbackUrl;
+          const uri = (entry.uri || '').trim();
+          if (uri) return uri;
+          // if no explicit uri provided, assume fallback (DEFAULT-<TYPE> or similar)
+          return fallbackUrl;
+        } catch (e) {
+          return fallbackUrl;
+        }
+      };
+
+      // Map pipeline slots to concrete service URLs (use selected services when provided, else env/default)
+      const spacynerURL = resolveUrlForSlot('NER', defaultSpacyner);
+      const blinkURL = resolveUrlForSlot('NEL', defaultBlink);
+      const nilclusterURL = resolveUrlForSlot('CLUSTERING', defaultNilcluster);
+      const consolidationURL = resolveUrlForSlot(
+        'CONSOLIDATION',
+        defaultConsolidation
+      );
 
       try {
         // Step 1: Create initial gatenlp Document
