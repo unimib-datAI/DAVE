@@ -145,6 +145,8 @@ class VectorSearch:
             knn_k=knn_k,
             inner_hits_size=inner_hits_size,
         )
+        print(f"DEBUG: Vector query body: {query_body}")
+        print(f"DEBUG: Full-text query body: {query_full_text}")
 
         # Execute searches
         results = []
@@ -152,21 +154,37 @@ class VectorSearch:
 
         if retrieval_method in ["full", "dense", "hibrid_no_ner"]:
             results = self.es_client.search(index=collection_name, body=query_body)
+            print(f"DEBUG: Vector search response hits: {len(results['hits']['hits'])}")
+            for hit in results["hits"]["hits"]:
+                if "inner_hits" in hit and "chunks.vectors" in hit["inner_hits"]:
+                    print(
+                        f"DEBUG: Vector inner_hits for doc {hit['_source']['id']}: {len(hit['inner_hits']['chunks.vectors']['hits']['hits'])}"
+                    )
 
         if retrieval_method in ["full", "hibrid_no_ner", "full-text"]:
             response_full_text = self.es_client.search(
                 index=collection_name, body=query_full_text
             )
+            print(
+                f"DEBUG: Full-text search response hits: {len(response_full_text['hits']['hits'])}"
+            )
+            for hit in response_full_text["hits"]["hits"]:
+                if "inner_hits" in hit and "chunks" in hit["inner_hits"]:
+                    print(
+                        f"DEBUG: Full-text inner_hits for doc {hit['_source']['id']}: {len(hit['inner_hits']['chunks']['hits']['hits'])}"
+                    )
 
         del embeddings
 
         # Combine results using RRF
         vector_ranks = collect_chunk_ranks_fn(results) if len(results) > 0 else {}
+        print(f"DEBUG: Vector ranks collected: {len(vector_ranks)}")
         full_text_ranks = (
             collect_chunk_ranks_full_text_fn(response_full_text)
             if len(response_full_text) > 0
             else {}
         )
+        print(f"DEBUG: Full-text ranks collected: {len(full_text_ranks)}")
 
         rrf_k = 50 if (filter_ids and len(filter_ids) == 1) else 30
 
@@ -327,7 +345,6 @@ class VectorSearch:
                 "bool": {
                     "must": [
                         {"terms": {"id": filter_ids}},
-                        {"term": {"collectionId": collection_id}},
                         {"term": {"collectionId.keyword": collection_id}},
                     ]
                 }
@@ -375,7 +392,6 @@ class VectorSearch:
         }
 
         if collection_id:
-            query["knn"]["filter"] = {"term": {"collectionId": collection_id}}
             query["knn"]["filter"] = {"term": {"collectionId.keyword": collection_id}}
 
         return query
@@ -392,10 +408,6 @@ class VectorSearch:
         fulltext_filter_list = [{"terms": {"id": filter_ids}}]
 
         if collection_id:
-            fulltext_filter_list.append({"term": {"collectionId": collection_id}})
-            fulltext_filter_list.append(
-                {"term": {"collectionId.keyword": collection_id}}
-            )
             fulltext_filter_list.append(
                 {"term": {"collectionId.keyword": collection_id}}
             )
@@ -454,7 +466,6 @@ class VectorSearch:
                 "_source": ["id"],
                 "query": {
                     "bool": {
-                        "filter": [{"term": {"collectionId": collection_id}}],
                         "filter": [{"term": {"collectionId.keyword": collection_id}}],
                         "must": nested_query,
                     }
