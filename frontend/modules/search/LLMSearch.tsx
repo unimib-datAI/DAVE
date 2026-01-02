@@ -1,4 +1,4 @@
-import { SwitchEvent, Tooltip, Switch, Button } from '@nextui-org/react';
+import { SwitchEvent, Tooltip, Switch, Button } from "@heroui/react";
 import { MessageSquareDashed, Code, X } from 'lucide-react';
 import { forwardRef, useState } from 'react';
 import { ChatPanel } from './ChatPanel';

@@ -3,7 +3,7 @@ import { useText } from "@/components";
 import { BaseSelect, Option } from "@/components/BaseSelect";
 import { useForm } from "@/hooks";
 import styled from "@emotion/styled";
-import { Button, Checkbox, Col, FormElement, Input, Modal, Text } from "@nextui-org/react"
+import { Button, Checkbox, Col, FormElement, Input, Modal, Text } from "@heroui/react"
 import { ChangeEvent, MouseEvent, useEffect, useMemo, useState } from "react";
 import { selectDocumentTaxonomy, useDocumentDispatch, useSelector } from "../DocumentProvider/selectors";
 import { ascend, ParentNode } from "../../../components/Tree";

@@ -1,5 +1,5 @@
 import useModal from '@/hooks/use-modal';
-import { Button, Grid, Modal, ModalProps, Text } from '@nextui-org/react';
+import { Button, Grid, Modal, ModalProps, Text } from "@heroui/react";
 import { ReactNode, useCallback, useState } from 'react';
 
 type ConfirmationDialogProps = ModalProps & {

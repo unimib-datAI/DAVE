@@ -1,6 +1,13 @@
 import { useEffect } from 'react';
 import { useAtom } from 'jotai';
-import { Dropdown, Text, Loading } from '@nextui-org/react';
+import {
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
+  Button,
+} from '@heroui/react';
+import { Spinner } from '@heroui/spinner';
 import {
   activeCollectionAtom,
   collectionsAtom,
@@ -83,7 +90,7 @@ const CollectionSelector = () => {
   if (status === 'loading' || isLoading) {
     return (
       <Container>
-        <Loading size="sm" />
+        <Spinner size="sm" />
       </Container>
     );
   }
@@ -98,37 +105,39 @@ const CollectionSelector = () => {
         activeCollection?.name
       ) : (
         <Dropdown>
-          <Dropdown.Button
-            flat
-            css={{
-              background: '$white',
-              border: '1px solid $gray300',
-              minWidth: '180px',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <FiFolder />
-              <Text size={14} weight="medium">
-                {activeCollection?.name || 'Select Collection'}
-              </Text>
-            </div>
-          </Dropdown.Button>
-          <Dropdown.Menu
+          <DropdownTrigger>
+            <Button
+              variant="flat"
+              style={{
+                background: '#FFFFFF',
+                border: '1px solid #E5E7EB',
+                minWidth: '180px',
+                justifyContent: 'space-between',
+              }}
+            >
+              <div
+                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <FiFolder />
+                <span style={{ fontSize: '14px', fontWeight: 500 }}>
+                  {activeCollection?.name || 'Select Collection'}
+                </span>
+              </div>
+            </Button>
+          </DropdownTrigger>
+          <DropdownMenu
             aria-label="Collection selection"
             selectionMode="single"
             selectedKeys={activeCollection ? [activeCollection.id] : []}
             onAction={handleCollectionSelect}
           >
             {collections.map((collection) => (
-              <Dropdown.Item key={collection.id}>
-                {collection.name}
-              </Dropdown.Item>
+              <DropdownItem key={collection.id}>{collection.name}</DropdownItem>
             ))}
-            <Dropdown.Item key="manage" withDivider icon={<FiPlus />}>
+            <DropdownItem key="manage" showDivider startContent={<FiPlus />}>
               Manage Collections
-            </Dropdown.Item>
-          </Dropdown.Menu>
+            </DropdownItem>
+          </DropdownMenu>
         </Dropdown>
       )}
     </Container>

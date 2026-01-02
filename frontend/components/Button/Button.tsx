@@ -1,21 +1,19 @@
-import { ButtonProps as NextUIButtonProps, Button as NextUIButton, Loading } from '@nextui-org/react';
+import {
+  ButtonProps as NextUIButtonProps,
+  Button as NextUIButton,
+  Spinner,
+} from '@heroui/react';
 
 type ButtonProps = NextUIButtonProps & {
   loading?: boolean;
-}
+};
 
-const Button = ({
-  loading,
-  children,
-  disabled,
-  ...props
-}: ButtonProps) => {
-
-  const isDisabled = loading ? true : disabled;
+const Button = ({ loading, children, isDisabled, ...props }: ButtonProps) => {
+  const disabled = loading ? true : isDisabled;
   return (
-    <NextUIButton disabled={isDisabled} {...props}>
-      {loading ? <Loading color="currentColor" size="sm" /> : children}
+    <NextUIButton isDisabled={disabled} {...props}>
+      {loading ? <Spinner color="current" size="sm" /> : children}
     </NextUIButton>
-  )
-}
+  );
+};
 export default Button;

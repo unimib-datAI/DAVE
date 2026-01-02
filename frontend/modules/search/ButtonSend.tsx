@@ -1,4 +1,4 @@
-import { ButtonProps as NextUIButtonProps, Button as NextUIButton, Loading } from '@nextui-org/react';
+import { ButtonProps as NextUIButtonProps, Button as NextUIButton, Loading } from "@heroui/react";
 
 
 type ButtonProps = NextUIButtonProps & {

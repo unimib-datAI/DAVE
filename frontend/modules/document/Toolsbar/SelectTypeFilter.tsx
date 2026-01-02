@@ -1,7 +1,7 @@
 import { BaseSelect, Option } from "@/components/BaseSelect";
 import { useSelector, useDocumentDispatch, selectActiveEntityAnnotations, selectDocumentTagTypeFilter, selectDocumentTaxonomy } from "../DocumentProvider/selectors";
 import { MouseEvent, useMemo } from "react";
-import { Checkbox } from "@nextui-org/react";
+import { Checkbox } from "@heroui/react";
 import { getAnnotationTypes } from "../DocumentProvider/utils";
 import { useViewIndex } from "../ViewProvider/ViewProvider";
 import { useText } from "@/components";

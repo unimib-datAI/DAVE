@@ -4,7 +4,7 @@ import {
   EntityAnnotation,
 } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Text } from '@nextui-org/react';
+import { Text } from "@heroui/react";
 import { darken } from 'polished';
 import { useMemo, useCallback } from 'react';
 import {

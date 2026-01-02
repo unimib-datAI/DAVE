@@ -5,7 +5,7 @@ import {
 import { getAnnotationTypes } from '@/modules/document/DocumentProvider/utils';
 import { EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Checkbox } from '@nextui-org/react';
+import { Checkbox } from "@heroui/react";
 import { useMemo, useState } from 'react';
 import { getNormalizedEntityType } from '@/modules/document/DocumentProvider/utils';
 

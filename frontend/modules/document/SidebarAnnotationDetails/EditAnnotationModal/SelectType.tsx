@@ -1,5 +1,5 @@
 import { BaseSelect, Option } from "@/components/BaseSelect";
-import { Checkbox } from "@nextui-org/react";
+import { Checkbox } from "@heroui/react";
 import { useState, useMemo, MouseEvent } from "react";
 import { selectDocumentTaxonomy, useSelector } from "../../DocumentProvider/selectors";
 

@@ -2,7 +2,7 @@ import { useText } from '@/components';
 import { getAllNodeData, getNodesPath } from '@/components/Tree';
 import { Cluster, EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Text } from '@nextui-org/react';
+import { Text } from "@heroui/react";
 import { darken } from 'polished';
 import { useEffect, useMemo } from 'react';
 import {

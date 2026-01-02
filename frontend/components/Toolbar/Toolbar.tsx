@@ -1,6 +1,6 @@
 import { useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
-import { Avatar, Card, Grid, Popover } from '@nextui-org/react';
+import { Avatar, Card, Grid, Popover } from "@heroui/react";
 import Link from 'next/link';
 import { Button } from '../Button';
 import { FaSignOutAlt } from '@react-icons/all-files/fa/FaSignOutAlt';

@@ -6,7 +6,7 @@ import {
   selectCurrentAnnotationSetName,
 } from '../DocumentProvider/selectors';
 import { HiArrowLeft } from '@react-icons/all-files/hi/HiArrowLeft';
-import { Text } from '@nextui-org/react';
+import { Text } from "@heroui/react";
 import { IconButton, Button, useText } from '@/components';
 import Link from 'next/link';
 import { useMutation } from '@/utils/trpc';

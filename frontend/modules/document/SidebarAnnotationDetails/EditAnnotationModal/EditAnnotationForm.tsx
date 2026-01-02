@@ -2,7 +2,7 @@ import { Flex, useText } from '@/components';
 import { useForm, useInput } from '@/hooks';
 import { Candidate, EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Button, Input, Modal, Text } from '@nextui-org/react';
+import { Button, Input, Modal, Text } from "@heroui/react";
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
 import { Dispatch, SetStateAction, useMemo } from 'react';
 import {

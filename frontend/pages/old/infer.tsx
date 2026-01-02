@@ -1,7 +1,7 @@
 import type { GetServerSideProps, GetStaticProps, NextPage } from 'next'
 import styled from '@emotion/styled'
 import { QueryText } from '@/modules/infer/QueryText'
-import { Text } from '@nextui-org/react'
+import { Text } from "@heroui/react"
 import { NextPageWithLayout } from '../_app'
 import { ReactElement } from 'react'
 import { Toolbar, useText } from '@/components'

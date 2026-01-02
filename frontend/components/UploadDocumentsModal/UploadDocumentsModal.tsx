@@ -1,4 +1,12 @@
-import { Modal, Text, Button, Progress } from '@nextui-org/react';
+import {
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Button,
+  Progress,
+} from '@heroui/react';
 import { useAtom } from 'jotai';
 import { uploadModalOpenAtom, uploadProgressAtom } from '@/atoms/upload';
 import { annotationSelectedServicesAtom } from '@/atoms/annotationConfig';
@@ -372,204 +380,231 @@ export const UploadDocumentsModal = ({
 
   return (
     <Modal
-      open={isOpen}
+      isOpen={isOpen}
       onClose={handleClose}
-      closeButton={!uploadProgress.isUploading}
+      isDismissable={!uploadProgress.isUploading}
     >
-      <Modal.Header>
-        <Text b size={18}>
-          Upload Documents
-        </Text>
-      </Modal.Header>
-      <Modal.Body>
-        <Tabs.Root value={activeTab} onValueChange={handleTabChange}>
-          <TabsList>
-            <TabsTrigger value="json">JSON Documents</TabsTrigger>
-            <TabsTrigger value="txt">Plain Text Documents</TabsTrigger>
-          </TabsList>
+      <ModalContent>
+        <ModalHeader>
+          <h2 style={{ fontSize: '18px', fontWeight: 'bold', margin: 0 }}>
+            Upload Documents
+          </h2>
+        </ModalHeader>
+        <ModalBody>
+          <Tabs.Root value={activeTab} onValueChange={handleTabChange}>
+            <TabsList>
+              <TabsTrigger value="json">JSON Documents</TabsTrigger>
+              <TabsTrigger value="txt">Plain Text Documents</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="json">
-            <UploadContainer>
-              {!uploadProgress.isUploading && uploadProgress.total === 0 && (
-                <>
-                  <FileInputLabel
-                    htmlFor="json-file-upload"
-                    isDragOver={isDragOver && activeTab === 'json'}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, 'json')}
-                  >
-                    <FiUpload size={32} />
-                    <Text css={{ marginTop: '0.5rem' }}>
-                      {isDragOver
-                        ? 'Drop files here'
-                        : 'Click to select or drag JSON files'}
-                    </Text>
-                    <Text
-                      size={12}
-                      css={{ color: '#888', marginTop: '0.25rem' }}
+            <TabsContent value="json">
+              <UploadContainer>
+                {!uploadProgress.isUploading && uploadProgress.total === 0 && (
+                  <>
+                    <FileInputLabel
+                      htmlFor="json-file-upload"
+                      isDragOver={isDragOver && activeTab === 'json'}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, 'json')}
                     >
-                      Upload pre-annotated JSON documents
-                    </Text>
-                  </FileInputLabel>
-                  <FileInput
-                    ref={fileInputRef}
-                    id="json-file-upload"
-                    type="file"
-                    accept=".json"
-                    multiple
-                    onChange={(e) => handleFileSelect(e, 'json')}
-                  />
-                </>
-              )}
+                      <FiUpload size={32} />
+                      <p style={{ marginTop: '0.5rem' }}>
+                        {isDragOver
+                          ? 'Drop files here'
+                          : 'Click to select or drag JSON files'}
+                      </p>
+                      <p
+                        style={{
+                          fontSize: '12px',
+                          color: '#888',
+                          marginTop: '0.25rem',
+                        }}
+                      >
+                        Upload pre-annotated JSON documents
+                      </p>
+                    </FileInputLabel>
+                    <FileInput
+                      ref={fileInputRef}
+                      id="json-file-upload"
+                      type="file"
+                      accept=".json"
+                      multiple
+                      onChange={(e) => handleFileSelect(e, 'json')}
+                    />
+                  </>
+                )}
 
-              {selectedFiles.length > 0 && !uploadProgress.isUploading && (
-                <FileList>
-                  <Text b size={14}>
-                    Selected Files ({selectedFiles.length})
-                  </Text>
-                  {selectedFiles.map((file, index) => (
-                    <FileItem key={index}>
-                      <Text size={14}>{file.name}</Text>
-                      <Button
-                        auto
-                        light
-                        size="xs"
-                        icon={<FiX />}
-                        onPress={() => handleRemoveFile(index)}
-                      />
-                    </FileItem>
-                  ))}
-                </FileList>
-              )}
-            </UploadContainer>
-          </TabsContent>
+                {selectedFiles.length > 0 && !uploadProgress.isUploading && (
+                  <FileList>
+                    <p style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                      Selected Files ({selectedFiles.length})
+                    </p>
+                    {selectedFiles.map((file, index) => (
+                      <FileItem key={index}>
+                        <span style={{ fontSize: '14px' }}>{file.name}</span>
+                        <Button
+                          variant="light"
+                          size="sm"
+                          isIconOnly
+                          onPress={() => handleRemoveFile(index)}
+                        >
+                          <FiX />
+                        </Button>
+                      </FileItem>
+                    ))}
+                  </FileList>
+                )}
+              </UploadContainer>
+            </TabsContent>
 
-          <TabsContent value="txt">
-            <UploadContainer>
-              {!uploadProgress.isUploading && uploadProgress.total === 0 && (
-                <>
-                  <FileInputLabel
-                    htmlFor="txt-file-upload"
-                    isDragOver={isDragOver && activeTab === 'txt'}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, 'txt')}
-                  >
-                    <FiUpload size={32} />
-                    <Text css={{ marginTop: '0.5rem' }}>
-                      {isDragOver
-                        ? 'Drop files here'
-                        : 'Click to select or drag TXT files'}
-                    </Text>
-                    <Text
-                      size={12}
-                      css={{ color: '#888', marginTop: '0.25rem' }}
+            <TabsContent value="txt">
+              <UploadContainer>
+                {!uploadProgress.isUploading && uploadProgress.total === 0 && (
+                  <>
+                    <FileInputLabel
+                      htmlFor="txt-file-upload"
+                      isDragOver={isDragOver && activeTab === 'txt'}
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, 'txt')}
                     >
-                      Files will be automatically annotated before upload
-                    </Text>
-                  </FileInputLabel>
-                  <FileInput
-                    ref={txtFileInputRef}
-                    id="txt-file-upload"
-                    type="file"
-                    accept=".txt"
-                    multiple
-                    onChange={(e) => handleFileSelect(e, 'txt')}
-                  />
-                </>
-              )}
+                      <FiUpload size={32} />
+                      <p style={{ marginTop: '0.5rem' }}>
+                        {isDragOver
+                          ? 'Drop files here'
+                          : 'Click to select or drag TXT files'}
+                      </p>
+                      <p
+                        style={{
+                          fontSize: '12px',
+                          color: '#888',
+                          marginTop: '0.25rem',
+                        }}
+                      >
+                        Files will be automatically annotated before upload
+                      </p>
+                    </FileInputLabel>
+                    <FileInput
+                      ref={txtFileInputRef}
+                      id="txt-file-upload"
+                      type="file"
+                      accept=".txt"
+                      multiple
+                      onChange={(e) => handleFileSelect(e, 'txt')}
+                    />
+                  </>
+                )}
 
-              {selectedFiles.length > 0 && !uploadProgress.isUploading && (
-                <FileList>
-                  <Text b size={14}>
-                    Selected Files ({selectedFiles.length})
-                  </Text>
-                  {selectedFiles.map((file, index) => (
-                    <FileItem key={index}>
-                      <Text size={14}>{file.name}</Text>
-                      <Button
-                        auto
-                        light
-                        size="xs"
-                        icon={<FiX />}
-                        onPress={() => handleRemoveFile(index)}
-                      />
-                    </FileItem>
-                  ))}
-                </FileList>
-              )}
-            </UploadContainer>
-          </TabsContent>
+                {selectedFiles.length > 0 && !uploadProgress.isUploading && (
+                  <FileList>
+                    <p style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                      Selected Files ({selectedFiles.length})
+                    </p>
+                    {selectedFiles.map((file, index) => (
+                      <FileItem key={index}>
+                        <span style={{ fontSize: '14px' }}>{file.name}</span>
+                        <Button
+                          variant="light"
+                          size="sm"
+                          isIconOnly
+                          onPress={() => handleRemoveFile(index)}
+                        >
+                          <FiX />
+                        </Button>
+                      </FileItem>
+                    ))}
+                  </FileList>
+                )}
+              </UploadContainer>
+            </TabsContent>
 
-          {uploadProgress.isUploading && (
-            <div>
-              <Text b size={14}>
-                {activeTab === 'txt'
-                  ? 'Annotating and uploading documents...'
-                  : 'Uploading documents...'}
-              </Text>
-              <Text size={12} css={{ marginTop: '0.5rem', color: '#666' }}>
-                {uploadProgress.completed} of {uploadProgress.total} completed
-                {uploadProgress.failed > 0 &&
-                  ` (${uploadProgress.failed} failed)`}
-              </Text>
-              <Progress
-                value={progressPercentage}
-                color="primary"
-                css={{ marginTop: '1rem' }}
-              />
-            </div>
-          )}
+            {uploadProgress.isUploading && (
+              <div>
+                <p style={{ fontSize: '14px', fontWeight: 'bold' }}>
+                  {activeTab === 'txt'
+                    ? 'Annotating and uploading documents...'
+                    : 'Uploading documents...'}
+                </p>
+                <p
+                  style={{
+                    fontSize: '12px',
+                    marginTop: '0.5rem',
+                    color: '#666',
+                  }}
+                >
+                  {uploadProgress.completed} of {uploadProgress.total} completed
+                  {uploadProgress.failed > 0 &&
+                    ` (${uploadProgress.failed} failed)`}
+                </p>
+                <Progress
+                  value={progressPercentage}
+                  color="primary"
+                  css={{ marginTop: '1rem' }}
+                />
+              </div>
+            )}
 
-          {!uploadProgress.isUploading && uploadProgress.total > 0 && (
-            <div>
-              <Text b size={14} css={{ color: '#0a0' }}>
-                Upload Complete!
-              </Text>
-              <Text size={12} css={{ marginTop: '0.5rem' }}>
-                Successfully uploaded {uploadProgress.completed} of{' '}
-                {uploadProgress.total} documents
-                {uploadProgress.failed > 0 &&
-                  ` (${uploadProgress.failed} failed)`}
-              </Text>
-            </div>
-          )}
+            {!uploadProgress.isUploading && uploadProgress.total > 0 && (
+              <div>
+                <p
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    color: '#0a0',
+                  }}
+                >
+                  Upload Complete!
+                </p>
+                <p style={{ fontSize: '12px', marginTop: '0.5rem' }}>
+                  Successfully uploaded {uploadProgress.completed} of{' '}
+                  {uploadProgress.total} documents
+                  {uploadProgress.failed > 0 &&
+                    ` (${uploadProgress.failed} failed)`}
+                </p>
+              </div>
+            )}
 
-          {uploadProgress.errors.length > 0 && (
-            <ErrorList>
-              <Text b size={14} css={{ color: '#c00' }}>
-                Errors:
-              </Text>
-              {uploadProgress.errors.map((error, index) => (
-                <ErrorItem key={index}>
-                  <strong>{error.fileName}:</strong> {error.error}
-                </ErrorItem>
-              ))}
-            </ErrorList>
-          )}
-        </Tabs.Root>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button
-          auto
-          flat
-          onPress={handleClose}
-          disabled={uploadProgress.isUploading}
-        >
-          {uploadProgress.isUploading ? 'Uploading...' : 'Close'}
-        </Button>
-        {selectedFiles.length > 0 && !uploadProgress.isUploading && (
+            {uploadProgress.errors.length > 0 && (
+              <ErrorList>
+                <p
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 'bold',
+                    color: '#c00',
+                  }}
+                >
+                  Errors:
+                </p>
+                {uploadProgress.errors.map((error, index) => (
+                  <ErrorItem key={index}>
+                    <strong>{error.fileName}:</strong> {error.error}
+                  </ErrorItem>
+                ))}
+              </ErrorList>
+            )}
+          </Tabs.Root>
+        </ModalBody>
+        <ModalFooter>
           <Button
-            auto
-            onPress={handleUpload}
+            variant="flat"
+            onPress={handleClose}
             disabled={uploadProgress.isUploading}
           >
-            Upload {selectedFiles.length} file
-            {selectedFiles.length !== 1 ? 's' : ''}
+            {uploadProgress.isUploading ? 'Uploading...' : 'Close'}
           </Button>
-        )}
-      </Modal.Footer>
+          {selectedFiles.length > 0 && !uploadProgress.isUploading && (
+            <Button
+              color="primary"
+              onPress={handleUpload}
+              disabled={uploadProgress.isUploading}
+            >
+              Upload {selectedFiles.length} file
+              {selectedFiles.length !== 1 ? 's' : ''}
+            </Button>
+          )}
+        </ModalFooter>
+      </ModalContent>
     </Modal>
   );
 };

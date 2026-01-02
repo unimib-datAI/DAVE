@@ -1,6 +1,6 @@
 import { ChildNodeWithColor } from "@/components/Tree";
 import styled from "@emotion/styled";
-import { CSS } from "@nextui-org/react";
+import { CSS } from "@heroui/react";
 import { darken } from "polished";
 
 type TagProps = {

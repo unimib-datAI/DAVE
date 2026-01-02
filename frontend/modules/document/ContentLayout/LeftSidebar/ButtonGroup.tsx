@@ -1,6 +1,6 @@
 import { IconButton, useText } from '@/components';
 import styled from '@emotion/styled';
-import { Tooltip } from '@nextui-org/react';
+import { Tooltip } from "@heroui/react";
 import { MouseEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { FiNavigation } from '@react-icons/all-files/fi/FiNavigation';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';

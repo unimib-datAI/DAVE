@@ -14,7 +14,7 @@ import {
   Loading,
   Spacer,
   Grid,
-} from '@nextui-org/react';
+} from "@heroui/react";
 import { Popconfirm } from 'antd';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import { FiEdit2 as EditIcon } from '@react-icons/all-files/fi/FiEdit2';

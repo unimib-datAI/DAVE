@@ -12,7 +12,7 @@ import { Virtualizer } from "@tanstack/react-virtual";
 import { Candidate } from "@/server/routers/document";
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
 import ShortcutButton from "@/components/ShortcutButton/ShortcutButton";
-import { Text } from "@nextui-org/react";
+import { Text } from "@heroui/react";
 import { createNewCandidate } from "../ReviewProvider/utils";
 
 const Container = styled.div({

@@ -14,7 +14,7 @@ import { MultiPane } from '@/components/MultiPane';
 import dynamic from 'next/dynamic';
 import withLocale from '@/components/TranslationProvider/withLocale';
 import { useRouter } from 'next/router';
-import { Progress } from '@nextui-org/react';
+import { Progress } from "@heroui/react";
 import { LLMButton } from '@/modules/search/LLMButton';
 
 const SidebarAnnotationDetails = dynamic(

@@ -7,7 +7,7 @@ import {
   SelectedService,
   AnnotationSelectedServices,
 } from '@/atoms/annotationConfig';
-import { Card, Button, Input, Text, Spacer } from '@nextui-org/react';
+import { Card, Button, Input, Text, Spacer } from "@heroui/react";
 import { Modal, Popconfirm, message } from 'antd';
 
 type ServiceRecord = {
@@ -256,7 +256,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     width: '100%',
                     padding: '8px 10px',
                     borderRadius: 6,
-                    border: '1px solid var(--nextui-colors-border)',
+                    border: '1px solid var(--heroui-colors-border)',
                     background: 'transparent',
                     boxSizing: 'border-box',
                   }}
@@ -326,7 +326,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                             padding: 12,
                             borderRadius: 8,
                             border: '1px solid rgba(0,0,0,0.04)',
-                            background: 'var(--nextui-colors-background)',
+                            background: 'var(--heroui-colors-background)',
                           }}
                         >
                           <div style={{ minWidth: 0, marginRight: 12 }}>
@@ -431,7 +431,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                   style={{
                     borderRadius: 8,
                     padding: 12,
-                    background: 'var(--nextui-colors-background)',
+                    background: 'var(--heroui-colors-background)',
                   }}
                 >
                   <div
@@ -489,7 +489,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                           width: '100%',
                           padding: '10px 12px',
                           borderRadius: 6,
-                          border: '1px solid var(--nextui-colors-border)',
+                          border: '1px solid var(--heroui-colors-border)',
                           background: 'transparent',
                         }}
                       >

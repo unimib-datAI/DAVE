@@ -4,7 +4,7 @@ import {
   Candidate,
 } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Collapse, Link, Text } from '@nextui-org/react';
+import { Collapse, Link, Text } from "@heroui/react";
 import { useMemo } from 'react';
 
 type AnnotationLinkDetailsProps = {

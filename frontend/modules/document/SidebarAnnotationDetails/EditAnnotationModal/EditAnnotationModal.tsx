@@ -1,6 +1,6 @@
 import { useText } from "@/components";
 import { useDraftState } from "@/hooks";
-import { ModalProps, Modal, Text } from "@nextui-org/react";
+import { ModalProps, Modal, Text } from "@heroui/react";
 import { selectCurrentEntity } from "../../DocumentProvider/selectors";
 import { useViewIndex } from "../../ViewProvider/ViewProvider";
 import EditAnnotationForm from "./EditAnnotationForm";

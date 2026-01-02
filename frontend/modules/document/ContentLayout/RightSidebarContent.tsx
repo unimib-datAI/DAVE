@@ -1,6 +1,6 @@
 import { SectionsList } from "@/components";
 import styled from "@emotion/styled"
-import { Text } from "@nextui-org/react";
+import { Text } from "@heroui/react";
 import { selectCurrentEntity, selectSectionsSidebar, useDocumentDispatch, useSelector } from "../DocumentProvider/selectors";
 // import { useDocumentCurrentEntity } from "../DocumentProvider/selectors";
 

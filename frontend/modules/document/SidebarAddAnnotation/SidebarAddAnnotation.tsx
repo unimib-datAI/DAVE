@@ -2,7 +2,7 @@ import { ConfirmationDialog, useConfirmationDialog, useText } from "@/components
 import useModal from "@/hooks/use-modal";
 import { isEmptyObject } from "@/utils/shared";
 import styled from "@emotion/styled";
-import { Divider, Text } from "@nextui-org/react";
+import { Divider, Text } from "@heroui/react";
 import { FiPlus } from "@react-icons/all-files/fi/FiPlus";
 import { FiUpload } from "@react-icons/all-files/fi/FiUpload";
 import { useEffect, useState } from "react";

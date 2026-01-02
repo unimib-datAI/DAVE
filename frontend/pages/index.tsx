@@ -1,7 +1,7 @@
 import { useForm } from '@/hooks';
 import { LLMButton } from '@/modules/search/LLMButton';
 import { Searchbar } from '@/modules/search/Searchbar';
-import { Button } from '@nextui-org/react';
+import { Button } from '@/components';
 import { useRouter } from 'next/router';
 import { UploadDocumentsModal } from '@/components/UploadDocumentsModal';
 import { UploadProgressIndicator } from '@/components/UploadProgressIndicator';
@@ -27,14 +27,14 @@ const Homepage = () => {
   return (
     <ToolbarLayout>
       <div className="flex flex-col items-center justify-center text-center w-full gap-14 h-screen">
-        <div className="flex flex-col items-center text-center -mt-40">
+        <div className="flex flex-col items-center text-center -mt-40 gap-2">
           <h1>DAVE</h1>
           <h2 className="font-normal">
             Document{' '}
             <span className="inline-block underline-yellow">Annotation</span>{' '}
             <span className=" inline-block underline-blue">Validation</span>
           </h2>
-          <h2 className="-mt-5 font-normal">
+          <h2 className="font-normal">
             and{' '}
             <span className="inline-block underline-green">Exploration</span>.
           </h2>
@@ -45,7 +45,9 @@ const Homepage = () => {
         </form>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <Button
-            style={{ zIndex: 1, backgroundColor: 'black' }}
+            color="default"
+            variant="solid"
+            style={{ zIndex: 1 }}
             onPress={() => {
               // router.push('/documents');
               handleSubmit({ text: '' });
@@ -54,7 +56,9 @@ const Homepage = () => {
             See all documents
           </Button>
           <Button
-            style={{ zIndex: 1, backgroundColor: '#0070f3' }}
+            color="primary"
+            variant="solid"
+            style={{ zIndex: 1 }}
             onPress={() => setUploadModalOpen(true)}
           >
             Upload annotated documents

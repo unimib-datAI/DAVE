@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { Text } from "@nextui-org/react";
+import { Text } from "@heroui/react";
 import { AnimatePresence, motion } from "framer-motion";
 import * as Portal from '@radix-ui/react-portal';
 import { Candidate } from "@/server/routers/document";
@@ -42,6 +42,19 @@ const LinkPopover = ({ anchor }: LinkPopoverProps) => {
   const { data, isFetching } = useQuery(['wikipedia.getData', { id: `${anchor?.candidate.wikipedia_id}` }], { enabled: !!anchor })
 
   return (
+    // <AnimatePresence>
+    //   {anchor && (
+    // <Container
+    //   anchor={anchor}
+    //   initial={{ opacity: 0, scale: 0.98, translateY: 10, }}
+    //   animate={{ opacity: 1, scale: 1, translateY: 0 }}
+    //   transition={{ ease: "easeInOut", duration: 0.2 }}
+    //   exit={{ opacity: 0, scale: 0.98, translateY: 10 }}>
+    //   <Text b size="14px">Title</Text>
+    //   <Text size="12px">Some description</Text>
+    // </Container>
+    //   )}
+    // </AnimatePresence>
     <Portal.Root>
       {anchor && (
         <Container
@@ -70,21 +83,7 @@ const LinkPopover = ({ anchor }: LinkPopoverProps) => {
         </Container>
       )}
     </Portal.Root>
-
-    // <AnimatePresence>
-    //   {anchor && (
-    // <Container
-    //   anchor={anchor}
-    //   initial={{ opacity: 0, scale: 0.98, translateY: 10, }}
-    //   animate={{ opacity: 1, scale: 1, translateY: 0 }}
-    //   transition={{ ease: "easeInOut", duration: 0.2 }}
-    //   exit={{ opacity: 0, scale: 0.98, translateY: 10 }}>
-    //   <Text b size="14px">Title</Text>
-    //   <Text size="12px">Some description</Text>
-    // </Container>
-    //   )}
-    // </AnimatePresence>
-  )
+  );
 };
 
 export default LinkPopover;

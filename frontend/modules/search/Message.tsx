@@ -1,7 +1,7 @@
 import { Skeleton } from '@/components/Skeleton';
 import { cn } from '@/lib/utils';
 import { DocumentWithChunk } from '@/server/routers/search';
-import { Tooltip } from '@nextui-org/react';
+import { Tooltip } from "@heroui/react";
 import { AnimatePresence, Variants, motion } from 'framer-motion';
 import { Sparkles, User, Link2 } from 'lucide-react';
 import Link from 'next/link';

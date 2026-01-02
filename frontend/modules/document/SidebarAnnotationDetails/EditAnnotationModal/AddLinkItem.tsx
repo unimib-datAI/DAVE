@@ -1,6 +1,6 @@
 import { Flex, useText } from '@/components';
 import styled from '@emotion/styled';
-import { Button } from '@nextui-org/react';
+import { Button } from "@heroui/react";
 import { Dispatch, SetStateAction } from 'react';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import AddCandidateForm from './AddCandidateForm';

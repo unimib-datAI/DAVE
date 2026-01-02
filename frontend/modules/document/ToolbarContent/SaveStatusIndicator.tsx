@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import styled from '@emotion/styled';
-import { Text, Tooltip } from '@nextui-org/react';
+import { Text, Tooltip } from "@heroui/react";
 import { FiCheck } from '@react-icons/all-files/fi/FiCheck';
 import { FiAlertTriangle } from '@react-icons/all-files/fi/FiAlertTriangle';
 import { FiClock } from '@react-icons/all-files/fi/FiClock';

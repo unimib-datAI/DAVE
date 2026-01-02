@@ -1,7 +1,7 @@
 import { useContext, useMemo } from 'react';
 import View from './View';
 import { ViewContext } from './ViewContext';
-import { Progress } from '@nextui-org/react';
+import { Progress } from "@heroui/react";
 import LoadingOverlay from '@/modules/review/LoadingOverlay';
 import { Button } from '@/components';
 

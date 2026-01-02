@@ -1,6 +1,6 @@
 import { ToolbarLayout } from '@/components';
 import { useContext, useMutation, useQuery } from '@/utils/trpc';
-import { Button, Container, Loading, Table, Text } from '@nextui-org/react';
+import { Button, Container, Loading, Table, Text } from "@heroui/react";
 import { NextPage } from 'next';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';

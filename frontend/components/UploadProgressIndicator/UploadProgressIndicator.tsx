@@ -1,7 +1,7 @@
 import { useAtom } from 'jotai';
 import { uploadProgressAtom, uploadModalOpenAtom } from '@/atoms/upload';
 import styled from '@emotion/styled';
-import { Loading } from '@nextui-org/react';
+import { Loading } from "@heroui/react";
 import { AnimatePresence, motion } from 'framer-motion';
 
 const IndicatorContainer = styled(motion.div)({

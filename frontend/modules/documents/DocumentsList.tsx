@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { Table, styled as styledNext, Text } from "@nextui-org/react";
+import { Table, styled as styledNext, Text } from "@heroui/react";
 import Link from "next/link";
 import { Fragment, useState } from "react";
 import DocumentCard from "./DocumentCard";
@@ -32,7 +32,7 @@ const DocumentsGrid = ({ data }: DocumentsListProps) => {
         </Fragment>
       ))}
     </DocumentsGridContainer>
-  )
+  );
 }
 
 const Container = styled.div({

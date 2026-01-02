@@ -8,7 +8,7 @@ import {
   Input,
   Text,
   Textarea,
-} from '@nextui-org/react';
+} from "@heroui/react";
 import { ChangeEvent, useState, Dispatch, SetStateAction } from 'react';
 import { EntityAnnotation } from '@/server/routers/document';
 

@@ -1,6 +1,6 @@
 import { useForm } from '@/hooks';
 import { Facet } from '@/server/routers/search';
-import { Checkbox } from '@nextui-org/react';
+import { Checkbox } from "@heroui/react";
 import Fuse from 'fuse.js';
 import { Option } from 'lucide-react';
 import { Link, Link2, SearchIcon } from 'lucide-react';

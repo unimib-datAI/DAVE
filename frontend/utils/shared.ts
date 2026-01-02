@@ -1,6 +1,6 @@
 import { ProcessedCluster } from '@/modules/document/DocumentProvider/types';
 import { Document } from '@/server/routers/document';
-import { CSS } from '@nextui-org/react';
+import { CSS } from "@heroui/react";
 
 /**
  * Encode a string to uri component.

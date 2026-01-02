@@ -1,7 +1,7 @@
 import ShortcutButton from "@/components/ShortcutButton/ShortcutButton";
 import { useClickOutside } from "@/hooks";
 import styled from "@emotion/styled";
-import { Text } from "@nextui-org/react";
+import { Text } from "@heroui/react";
 import { FiInfo } from '@react-icons/all-files/fi/FiInfo';
 import { AnimatePresence, m, motion } from "framer-motion";
 import { useState } from "react";

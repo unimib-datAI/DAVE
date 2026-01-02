@@ -1,4 +1,4 @@
-/* @tailwind base; */
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -66,4 +66,66 @@
   --ring: 216 34% 17%;
 
   --radius: 0.5rem;
+}
+
+h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 1rem;
+}
+
+h2 {
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.underline-yellow {
+  position: relative;
+  display: inline-block;
+}
+
+.underline-yellow::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 8px;
+  background: rgba(245, 192, 112, 0.4);
+  z-index: -1;
+}
+
+.underline-blue {
+  position: relative;
+  display: inline-block;
+}
+
+.underline-blue::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 8px;
+  background: rgba(112, 130, 245, 0.4);
+  z-index: -1;
+}
+
+.underline-green {
+  position: relative;
+  display: inline-block;
+}
+
+.underline-green::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 8px;
+  background: rgba(112, 245, 112, 0.4);
+  z-index: -1;
 }

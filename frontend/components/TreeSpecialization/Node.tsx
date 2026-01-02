@@ -1,5 +1,5 @@
 import styled from "@emotion/styled";
-import { Text, Tooltip } from "@nextui-org/react";
+import { Text, Tooltip } from "@heroui/react";
 import { darken } from "polished";
 import { MouseEvent, useMemo } from "react";
 import { ChildTreeItem, TreeItem } from "./Tree";

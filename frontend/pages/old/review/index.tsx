@@ -1,7 +1,7 @@
 import { Source } from "@/server/routers/review";
 import { useQuery } from "@/utils/trpc";
 import styled from "@emotion/styled";
-import { Row, Text } from "@nextui-org/react";
+import { Row, Text } from "@heroui/react";
 import { FiFolder } from "@react-icons/all-files/fi/FiFolder";
 import { FiCheck } from "@react-icons/all-files/fi/FiCheck";
 import { motion } from "framer-motion";

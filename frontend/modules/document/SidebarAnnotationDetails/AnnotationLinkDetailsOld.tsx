@@ -1,7 +1,7 @@
 import { Candidate } from "@/server/routers/document";
 import { useQuery } from "@/utils/trpc";
 import styled from "@emotion/styled";
-import { Collapse, Checkbox, Col, Text, Link } from "@nextui-org/react";
+import { Collapse, Checkbox, Col, Text, Link } from "@heroui/react";
 import { FiArrowUpRight } from "@react-icons/all-files/fi/FiArrowUpRight";
 import { useState, useEffect, useMemo } from "react";
 import Image from 'next/image';

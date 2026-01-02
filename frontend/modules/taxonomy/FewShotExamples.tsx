@@ -1,6 +1,6 @@
 import { Candidate } from "@/server/routers/taxonomy";
 import styled from "@emotion/styled";
-import { Button, Text } from "@nextui-org/react";
+import { Button, Text } from "@heroui/react";
 import { useState } from "react";
 import CandidatesList from "./CandidatesList";
 

@@ -1,7 +1,7 @@
 import { Flex } from '@/components';
 import { Candidate } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Checkbox, Text, Link } from '@nextui-org/react';
+import { Checkbox, Text, Link } from "@heroui/react";
 import { MouseEvent } from 'react';
 import { getCandidateId } from '../../DocumentProvider/utils';
 

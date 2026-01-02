@@ -1,5 +1,5 @@
 import { forEachElement, removeStopScroll, stopScroll } from "@/utils/shared";
-import { useModal as useNextModal } from "@nextui-org/react";
+import { useModal as useNextModal } from "@heroui/react";
 import { useCallback, useEffect } from "react";
 
 

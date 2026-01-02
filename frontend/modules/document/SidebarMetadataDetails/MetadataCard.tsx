@@ -1,6 +1,6 @@
 import { useText } from '@/components';
 import styled from '@emotion/styled';
-import { Text } from '@nextui-org/react';
+import { Text } from "@heroui/react";
 import { darken } from 'polished';
 
 type MetadataCardProps = {

@@ -5,7 +5,7 @@ import GlobalStyles from '../styles/globalStyles';
 import NextNProgress from 'nextjs-progressbar';
 import { withTRPC } from '@trpc/next';
 import { AppRouter } from '@/server/routers/_app';
-import { NextUIProvider } from '@nextui-org/react';
+import { HeroUIProvider } from "@heroui/react";
 import { NextPage } from 'next';
 import { ReactElement, ReactNode, useEffect } from 'react';
 import { SessionProvider, useSession, signOut } from 'next-auth/react';
@@ -151,13 +151,13 @@ function MyApp({
       <Global styles={GlobalStyles} />
       <TranslationProvider locale={locale}>
         <TaxonomyProvider>
-          <NextUIProvider>
+          <HeroUIProvider>
             <Layout>
               <NextNProgress color="rgb(75 85 99)" showOnShallow={false} />
               {getLayout(<Component {...pageProps} />)}
               <UploadProgressIndicator />
             </Layout>
-          </NextUIProvider>
+          </HeroUIProvider>
         </TaxonomyProvider>
       </TranslationProvider>
     </SessionProvider>

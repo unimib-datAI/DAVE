@@ -6,7 +6,7 @@ import {
   EntityAnnotation,
 } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Tooltip } from '@nextui-org/react';
+import { Tooltip } from "@heroui/react";
 import { darken } from 'polished';
 import {
   ReactNode,

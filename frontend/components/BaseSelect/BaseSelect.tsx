@@ -7,7 +7,7 @@ import {
   FormElement,
   Input,
   InputProps,
-} from '@nextui-org/react';
+} from "@heroui/react";
 import { FiChevronDown } from '@react-icons/all-files/fi/FiChevronDown';
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
 import {

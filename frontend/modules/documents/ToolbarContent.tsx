@@ -1,6 +1,6 @@
 import { useText } from "@/components";
 import styled from "@emotion/styled";
-import { Input, useModal } from "@nextui-org/react";
+import { Input, useModal } from "@heroui/react";
 import { FaSistrix } from '@react-icons/all-files/fa/FaSistrix';
 import SearchModal from "./SearchModal";
 

@@ -1,7 +1,7 @@
 import { Annotation } from "@/lib/ner/core/types";
 import { AdditionalAnnotationProps, Candidate, EntityAnnotation } from "@/server/routers/document";
 import styled from "@emotion/styled";
-import { Link, Text } from "@nextui-org/react";
+import { Link, Text } from "@heroui/react";
 import { HTMLAttributes, MouseEvent, PropsWithChildren, useEffect, useMemo, useState } from "react";
 import { FiExternalLink } from '@react-icons/all-files/fi/FiExternalLink';
 import { keyframes } from "@emotion/react";

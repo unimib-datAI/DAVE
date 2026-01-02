@@ -4,7 +4,7 @@ import styled from '@emotion/styled';
 import { useInfiniteQuery, useQuery } from '@/utils/trpc';
 import { NextPageWithLayout } from '../_app';
 import { ReactElement, useCallback, useEffect } from 'react';
-import { Card } from '@nextui-org/react';
+import { Card } from "@heroui/react";
 import ActionBar from '@/modules/documents/ActionBar';
 import DocumentCard from '@/modules/documents/DocumentCard';
 import DocumentsList from '@/modules/documents/DocumentsList';

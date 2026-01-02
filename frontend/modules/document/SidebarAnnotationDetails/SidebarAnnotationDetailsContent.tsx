@@ -1,5 +1,5 @@
 import styled from '@emotion/styled';
-import { Button, Col, Divider, Text } from '@nextui-org/react';
+import { Button, Col, Divider, Text } from "@heroui/react";
 import TextAnnotationDetails from './AnnotationTextDetails';
 import AnnotationLinkDetails from './AnnotationLinkDetails';
 import { EditAnnotationModal } from './EditAnnotationModal';

@@ -1,13 +1,12 @@
 import { useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
 import {
-  Popover,
-  Avatar,
-  Button,
   Dropdown,
-  User,
-  Text,
-} from '@nextui-org/react';
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
+  Avatar,
+} from '@heroui/react';
 import { FiSliders } from '@react-icons/all-files/fi/FiSliders';
 import { FiFolder } from '@react-icons/all-files/fi/FiFolder';
 import { signOut, useSession } from 'next-auth/react';
@@ -28,6 +27,12 @@ const LinkButton = styled.a({
   '&:hover': {
     backgroundColor: 'rgb(0 0 0/0.03)',
   },
+});
+
+const StyledLink = styled.a({
+  fontWeight: 'bold',
+  color: 'inherit',
+  textDecoration: 'none',
 });
 
 const LoginAvatar = () => {
@@ -63,43 +68,34 @@ const LoginAvatar = () => {
 
   return (
     <Dropdown placement="bottom-left">
-      <Dropdown.Trigger>
+      <DropdownTrigger>
         <Avatar
           size="md"
-          text={data?.user?.name?.slice(0, 1).toUpperCase()}
-          pointer
+          name={data?.user?.name?.slice(0, 1).toUpperCase()}
+          as="button"
+          className="cursor-pointer"
         />
-      </Dropdown.Trigger>
-      <Dropdown.Menu
-        aria-label="Static Actions"
-        onAction={handleAction}
-        style={{ minWidth: 500 }}
-      >
-        <Dropdown.Item key="profile" icon={<FiSliders />}>
+      </DropdownTrigger>
+      <DropdownMenu aria-label="User Actions" onAction={handleAction}>
+        <DropdownItem key="profile" startContent={<FiSliders />}>
           <Link href="/taxonomy" passHref>
-            <Text as="a" b color="inherit">
-              Gestisci tassonomia
-            </Text>
+            <StyledLink>Gestisci tassonomia</StyledLink>
           </Link>
-        </Dropdown.Item>
-        <Dropdown.Item key="collections" icon={<FiFolder />}>
+        </DropdownItem>
+        <DropdownItem key="collections" startContent={<FiFolder />}>
           <Link href="/collections" passHref>
-            <Text as="a" b color="inherit">
-              Manage Collections
-            </Text>
+            <StyledLink>Manage Collections</StyledLink>
           </Link>
-        </Dropdown.Item>
-        <Dropdown.Item key="annotation-config" icon={<FiSliders />}>
+        </DropdownItem>
+        <DropdownItem key="annotation-config" startContent={<FiSliders />}>
           <Link href="/annotation-configuration" passHref>
-            <Text as="a" b color="inherit" style={{ paddingTop: 10 }}>
-              Annotation config
-            </Text>
+            <StyledLink>Annotation config</StyledLink>
           </Link>
-        </Dropdown.Item>
-        <Dropdown.Item key="logout" color="error" withDivider>
+        </DropdownItem>
+        <DropdownItem key="logout" color="danger" showDivider>
           {t('toolbar.logout')}
-        </Dropdown.Item>
-      </Dropdown.Menu>
+        </DropdownItem>
+      </DropdownMenu>
     </Dropdown>
   );
 };

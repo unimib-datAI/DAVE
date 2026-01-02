@@ -1,6 +1,6 @@
 import { keyframes } from "@emotion/react";
 import styled from "@emotion/styled";
-import { Progress, Text } from "@nextui-org/react";
+import { Progress, Text } from "@heroui/react";
 import { PropsWithChildren, ReactNode, UIEvent, useEffect, useRef, useState } from "react";
 
 type ContentProps = PropsWithChildren<{

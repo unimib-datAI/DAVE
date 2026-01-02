@@ -1,6 +1,6 @@
 import { Slider } from '@/components/Slider';
 import { useForm } from '@/hooks';
-import { Switch, Tooltip } from '@nextui-org/react';
+import { Switch, Tooltip } from "@heroui/react";
 import { Select } from 'antd';
 import { Message, SkeletonMessage } from './Message';
 import { Button } from '@/components';

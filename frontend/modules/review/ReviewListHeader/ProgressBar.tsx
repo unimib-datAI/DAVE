@@ -2,7 +2,7 @@ import { useParam } from "@/hooks";
 import useTrackTime from "@/hooks/use-track-time";
 import { getTimeFromSeconds } from "@/utils/time";
 import styled from "@emotion/styled";
-import { Text } from "@nextui-org/react";
+import { Text } from "@heroui/react";
 import { FaRegClock } from '@react-icons/all-files/fa/FaRegClock';
 import { useEffect, useMemo, useRef } from "react";
 import { useSelector, selectProgress, selectCurrentAnnotation, useReviewDispatch } from "../ReviewProvider/selectors";

@@ -10,7 +10,7 @@ import { useInput, useOnceEffect } from '@/hooks';
 import styled from '@emotion/styled';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@/utils/trpc';
-import { Textarea, Text, Tooltip } from '@nextui-org/react';
+import { Textarea, Text, Tooltip } from "@heroui/react";
 import { flattenTree, getAllNodeData } from '@/components/Tree';
 import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
 import NER from '@/components/NER/NER';

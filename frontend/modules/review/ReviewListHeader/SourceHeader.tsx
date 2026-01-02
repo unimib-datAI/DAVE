@@ -1,6 +1,6 @@
 import { useParam } from "@/hooks";
 import styled from "@emotion/styled";
-import { Text } from "@nextui-org/react";
+import { Text } from "@heroui/react";
 import { selectIsDocDone, selectSourceInfo, useSelector } from "../ReviewProvider/selectors";
 import { FiChevronRight } from '@react-icons/all-files/fi/FiChevronRight';
 import { FiChevronLeft } from "@react-icons/all-files/fi/FiChevronLeft";

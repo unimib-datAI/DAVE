@@ -1,6 +1,6 @@
 import { getTimeFromSeconds } from "@/utils/time";
 import styled from "@emotion/styled";
-import { Text } from "@nextui-org/react";
+import { Text } from "@heroui/react";
 import { selectAvgTime, selectIsDocDone, selectProgress, useSelector } from "../ReviewProvider/selectors";
 import ProgressBar from "./ProgressBar";
 import SourceHeader from "./SourceHeader";

@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils';
-import { Loading } from '@nextui-org/react';
+import { Loading } from "@heroui/react";
 import { AnimatePresence, motion } from 'framer-motion';
 import { SearchIcon, ArrowRight } from 'lucide-react';
 import { HTMLAttributes, forwardRef, useState } from 'react';
