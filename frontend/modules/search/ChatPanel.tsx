@@ -123,7 +123,20 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     token_repetition_penalty_max: 1.15,
     system:
       process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
-      `Sei un assistente che parla ITALIANO o INGLESE, scegli in base alla lingua della DOMANDA e del CONTESTO: se la domanda è formulata in INGLESE rispondi in INGLESE, se è formulata in ITALIANO rispondi in ITALIANO. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio. Se non conosci la risposta, limitati a dire che non lo sai.`,
+      `You are an expert assistant.
+You can operate in any domain and any language.
+
+Your task is to answer the user's question using ONLY the information
+explicitly provided in the context.
+
+You must not use prior knowledge, assumptions, or external information.
+
+The answer MUST be written in the same language as the user's question,
+regardless of the language of the context documents.
+
+If the context does not contain sufficient information to answer the
+question with certainty, you must say so explicitly using the prescribed
+fallback response.`,
     message: '',
     useDocumentContext: true,
     retrievalMethod: 'full',
@@ -575,7 +588,20 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                       rows={10}
                       placeholder={
                         process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
-                        'Here you can add your system prompt which determins the behaviour of the AI model.'
+                        `You are an expert assistant.
+You can operate in any domain and any language.
+
+Your task is to answer the user's question using ONLY the information
+explicitly provided in the context.
+
+You must not use prior knowledge, assumptions, or external information.
+
+The answer MUST be written in the same language as the user's question,
+regardless of the language of the context documents.
+
+If the context does not contain sufficient information to answer the
+question with certainty, you must say so explicitly using the prescribed
+fallback response.`
                       }
                       {...register('system')}
                     />
