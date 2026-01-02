@@ -69,23 +69,21 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       return;
     }
     console.log('received context', context);
-    const contextValue = context
-      ? context.map(
-          (item) =>
-            `Nome Documento ${item.title} - Contenuto: ${item.chunks
-              .map((chunk) => chunk.text)
-              .join(' ')}`
-        )
-      : '';
-    let content = '';
-    if (options.system && options.system !== defaultSystemPropmt) {
-      console.log('received system', options.system);
-      content =
-        options.system + `CONTESTO: ${contextValue} - DOMANDA: ${message}`;
-    } else {
-      content =
-        defaultSystemPropmt + `CONTESTO: ${contextValue} - DOMANDA: ${message}`;
+    let contextStr = '';
+    if (context) {
+      context.forEach((item, index) => {
+        const docContent = `Nome Documento ${
+          item.title
+        } - Contenuto: ${item.chunks.map((chunk) => chunk.text).join(' ')}`;
+        contextStr += `<document id="DOC_${
+          index + 1
+        }">\n${docContent}\n</document>\n`;
+      });
     }
+    const questionStr = `<question language="auto">\n${message}\n</question>`;
+    const instructions = `<instructions>\n- Answer the question using ONLY information explicitly stated in the context.\n- Integrate information from multiple documents only if they are consistent.\n- Do NOT infer, speculate, generalize, or rely on external knowledge.\n- The answer MUST be written in the same language as the question.\n- If answering requires translating information from the context, translate faithfully\n  without adding, omitting, or reinterpreting any content.\n- Do NOT mention documents, context, retrieval, or sources explicitly.\n- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:\n  "Le informazioni fornite non sono sufficienti per rispondere con certezza."\n- Use a clear, precise, and domain-appropriate technical style.\n</instructions>`;
+    const fullPrompt = `<input>\n\n<context>\n${contextStr}</context>\n\n${questionStr}\n\n${instructions}\n\n</input>`;
+    const content = fullPrompt;
     console.log('received content', content);
     // Create a new user message
     const userMessage: Message = {
@@ -125,17 +123,13 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       };
 
       // Get formatted messages with system prompt
-      const apiMessages = tempMessages.map((message, index) => {
-        //check if is last user message
-        if (message.role === 'user' && index === tempMessages.length - 1)
-          return message;
-        else {
-          return {
-            role: message.role,
-            content: message.usrMessage,
-          };
-        }
-      });
+      const apiMessages = [
+        { role: 'system', content: options.system },
+        ...tempMessages.map((message) => ({
+          role: message.role,
+          content: message.content,
+        })),
+      ];
       console.log(
         'messages that will be sent, formatted and stripped',
         apiMessages
