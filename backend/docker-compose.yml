@@ -34,6 +34,11 @@ services:
       DOCS_PORT: 3001
       ENABLE_AUTH: false
       MONGO: $MONGO
+      # Default annotation service URLs (overridable via environment)
+      ANNOTATION_SPACYNER_URL: ${ANNOTATION_SPACYNER_URL:-http://spacyner:80/api/spacyner}
+      ANNOTATION_BLINK_URL: ${ANNOTATION_BLINK_URL:-http://biencoder:80/api/blink/biencoder/mention/doc}
+      ANNOTATION_NILCLUSTER_URL: ${ANNOTATION_NILCLUSTER_URL:-http://clustering:80/api/clustering}
+      ANNOTATION_CONSOLIDATION_URL: ${ANNOTATION_CONSOLIDATION_URL:-http://consolidation:80/api/consolidation}
     networks:
       - caddy_net
     volumes:
@@ -47,6 +52,11 @@ services:
       DOCS_PORT: 3001
       ENABLE_AUTH: false
       MONGO: $MONGO_DOCUMENTS
+      # Default annotation service URLs (overridable via environment)
+      ANNOTATION_SPACYNER_URL: ${ANNOTATION_SPACYNER_URL:-http://spacyner:80/api/spacyner}
+      ANNOTATION_BLINK_URL: ${ANNOTATION_BLINK_URL:-http://biencoder:80/api/blink/biencoder/mention/doc}
+      ANNOTATION_NILCLUSTER_URL: ${ANNOTATION_NILCLUSTER_URL:-http://clustering:80/api/clustering}
+      ANNOTATION_CONSOLIDATION_URL: ${ANNOTATION_CONSOLIDATION_URL:-http://consolidation:80/api/consolidation}
     networks:
       - caddy_net
     volumes:
@@ -60,6 +70,11 @@ services:
       DOCS_PORT: 3001
       ENABLE_AUTH: false
       MONGO: $MONGO_SPERIMENTAZIONE
+      # Default annotation service URLs (overridable via environment)
+      ANNOTATION_SPACYNER_URL: ${ANNOTATION_SPACYNER_URL:-http://spacyner:80/api/spacyner}
+      ANNOTATION_BLINK_URL: ${ANNOTATION_BLINK_URL:-http://biencoder:80/api/blink/biencoder/mention/doc}
+      ANNOTATION_NILCLUSTER_URL: ${ANNOTATION_NILCLUSTER_URL:-http://clustering:80/api/clustering}
+      ANNOTATION_CONSOLIDATION_URL: ${ANNOTATION_CONSOLIDATION_URL:-http://consolidation:80/api/consolidation}
     networks:
       - caddy_net
     volumes:

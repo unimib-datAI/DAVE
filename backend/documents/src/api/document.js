@@ -10,6 +10,7 @@ import { Annotation, annotationDTO } from "../models/annotation";
 import { decode, makeDecryptionRequest } from "../utils/anonymization";
 
 import axios from "axios";
+import { Service, serviceDTO } from "../models/service";
 
 const route = Router();
 
@@ -104,6 +105,127 @@ export default (app) => {
       const { q, limit, page } = req.query;
       const documentsPage = await DocumentController.findAll(q, limit, page);
       return res.json(documentsPage).status(200);
+    }),
+  );
+
+  /**
+   * Services endpoints
+   * Persist minimal service entries (name + uri + serviceType) used by the annotation pipeline.
+   *
+   * Routes:
+   *   GET    /api/document/services          -> list services
+   *   POST   /api/document/services          -> create new service
+   *   PUT    /api/document/services/:id      -> update service
+   *   DELETE /api/document/services/:id      -> delete service
+   *
+   * Protected by auth middleware (JWT). Requests should present a valid Bearer token.
+   */
+  // GET /api/document/services - list all services
+  route.get(
+    "/services",
+    asyncRoute(async (req, res) => {
+      try {
+        const services = await Service.find({}).lean();
+        return res.json(services).status(200);
+      } catch (err) {
+        console.error("Failed to fetch services", err);
+        return res.status(500).json({ message: "Failed to fetch services" });
+      }
+    }),
+  );
+
+  // POST /api/document/services - create a new service
+  route.post(
+    "/services",
+    validateRequest({
+      req: {
+        body: z.object({
+          name: z.string().min(1),
+          uri: z.string().min(1),
+          serviceType: z.string().min(1),
+          description: z.string().optional(),
+        }),
+      },
+    }),
+    asyncRoute(async (req, res) => {
+      try {
+        const { name, uri, serviceType, description } = req.body;
+        // create and save
+        const svc = serviceDTO({ name, uri, serviceType, description });
+        const inserted = await svc.save();
+        return res.json(inserted).status(201);
+      } catch (err) {
+        console.error("Failed to create service", err);
+        // handle duplicate key
+        if (err && err.code === 11000) {
+          return res
+            .status(409)
+            .json({ message: "Service with this name already exists" });
+        }
+        return res
+          .status(500)
+          .json({ message: "Failed to create service", error: String(err) });
+      }
+    }),
+  );
+
+  // PUT /api/document/services/:id - update a service
+  route.put(
+    "/services/:id",
+    validateRequest({
+      req: {
+        params: z.object({ id: z.string().min(1) }),
+        body: z.object({
+          name: z.string().min(1).optional(),
+          uri: z.string().min(1).optional(),
+          serviceType: z.string().min(1).optional(),
+          description: z.string().optional(),
+          disabled: z.boolean().optional(),
+        }),
+      },
+    }),
+    asyncRoute(async (req, res) => {
+      try {
+        const { id } = req.params;
+        const update = req.body;
+        const updated = await Service.findByIdAndUpdate(id, update, {
+          new: true,
+        });
+        if (!updated) {
+          return res.status(404).json({ message: "Service not found" });
+        }
+        return res.json(updated).status(200);
+      } catch (err) {
+        console.error("Failed to update service", err);
+        return res
+          .status(500)
+          .json({ message: "Failed to update service", error: String(err) });
+      }
+    }),
+  );
+
+  // DELETE /api/document/services/:id - delete a service
+  route.delete(
+    "/services/:id",
+    validateRequest({
+      req: {
+        params: z.object({ id: z.string().min(1) }),
+      },
+    }),
+    asyncRoute(async (req, res) => {
+      try {
+        const { id } = req.params;
+        const deleted = await Service.findByIdAndDelete(id);
+        if (!deleted) {
+          return res.status(404).json({ message: "Service not found" });
+        }
+        return res.json({ message: "deleted" }).status(200);
+      } catch (err) {
+        console.error("Failed to delete service", err);
+        return res
+          .status(500)
+          .json({ message: "Failed to delete service", error: String(err) });
+      }
     }),
   );
 
@@ -243,6 +365,7 @@ export default (app) => {
   );
 
   async function moveEntities() {}
+
   /**
    * @swagger
    * /api/document/anon/{id}:
