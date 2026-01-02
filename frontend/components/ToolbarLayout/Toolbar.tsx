@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { PropsWithChildren } from 'react';
 import { LoginAvatar } from '../LoginAvatar';
 import { CollectionSelector } from '../CollectionSelector';
+import { useRouter } from 'next/router';
 
 const Container = styled.div({
   position: 'fixed',
@@ -39,6 +40,8 @@ const Logo = styled.a({
 });
 
 const Toolbar = ({ children }: PropsWithChildren<{}>) => {
+  const router = useRouter();
+  console.log('current route', router.pathname);
   return (
     <Container id="toolbar">
       <Link href="/" passHref>

@@ -1,6 +1,7 @@
 import { Modal, Text, Button, Progress } from '@nextui-org/react';
 import { useAtom } from 'jotai';
 import { uploadModalOpenAtom, uploadProgressAtom } from '@/atoms/upload';
+import { annotationSelectedServicesAtom } from '@/atoms/annotationConfig';
 import { useMutation, useContext } from '@/utils/trpc';
 import { useRef, useState } from 'react';
 import styled from '@emotion/styled';
@@ -119,6 +120,8 @@ export const UploadDocumentsModal = ({
   const { data: session, status } = useSession();
   const [uploadProgress, setUploadProgress] = useAtom(uploadProgressAtom);
   const [activeCollection] = useAtom(activeCollectionAtom);
+  // read selected services mapping (slot -> SelectedService | null)
+  const [selectedServices] = useAtom(annotationSelectedServicesAtom);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [activeTab, setActiveTab] = useState<'json' | 'txt'>('json');
@@ -271,11 +274,24 @@ export const UploadDocumentsModal = ({
       try {
         const text = await file.text();
 
+        // Resolve selected services and fallback to DEFAULT-<SLOT> naming for unset slots.
+        // The backend will interpret DEFAULT-<TYPE> default records; we provide the name so the server can
+        // substitute the actual default service record if needed.
+        const resolvedSelectedServices = Object.fromEntries(
+          Object.entries(selectedServices || {}).map(([slot, svc]) => [
+            slot,
+            svc
+              ? { id: svc.id, name: svc.name, uri: svc.uri }
+              : { id: '', name: `DEFAULT-${slot}`, uri: '' },
+          ])
+        );
+
         await annotateAndUploadMutation.mutateAsync({
           text,
           name: file.name.replace('.txt', ''),
           collectionId: collectionId || activeCollection?.id,
           token: session?.accessToken,
+          selectedServices: resolvedSelectedServices,
         });
 
         completed++;

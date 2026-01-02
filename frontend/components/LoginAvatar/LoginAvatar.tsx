@@ -70,7 +70,11 @@ const LoginAvatar = () => {
           pointer
         />
       </Dropdown.Trigger>
-      <Dropdown.Menu aria-label="Static Actions" onAction={handleAction}>
+      <Dropdown.Menu
+        aria-label="Static Actions"
+        onAction={handleAction}
+        style={{ minWidth: 500 }}
+      >
         <Dropdown.Item key="profile" icon={<FiSliders />}>
           <Link href="/taxonomy" passHref>
             <Text as="a" b color="inherit">
@@ -82,6 +86,13 @@ const LoginAvatar = () => {
           <Link href="/collections" passHref>
             <Text as="a" b color="inherit">
               Manage Collections
+            </Text>
+          </Link>
+        </Dropdown.Item>
+        <Dropdown.Item key="annotation-config" icon={<FiSliders />}>
+          <Link href="/annotation-configuration" passHref>
+            <Text as="a" b color="inherit" style={{ paddingTop: 10 }}>
+              Annotation config
             </Text>
           </Link>
         </Dropdown.Item>

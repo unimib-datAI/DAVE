@@ -17,6 +17,7 @@ const Container = styled.div({
   display: 'flex',
   alignItems: 'center',
   gap: '8px',
+  marginRight: '10px',
 });
 
 const CollectionButton = styled.button({
@@ -62,7 +63,7 @@ const CollectionSelector = () => {
           }
         }
       },
-    },
+    }
   );
 
   const handleCollectionSelect = (key: string | number) => {
@@ -93,37 +94,43 @@ const CollectionSelector = () => {
 
   return (
     <Container>
-      <Dropdown>
-        <Dropdown.Button
-          flat
-          css={{
-            background: '$white',
-            border: '1px solid $gray300',
-            minWidth: '180px',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <FiFolder />
-            <Text size={14} weight="medium">
-              {activeCollection?.name || 'Select Collection'}
-            </Text>
-          </div>
-        </Dropdown.Button>
-        <Dropdown.Menu
-          aria-label="Collection selection"
-          selectionMode="single"
-          selectedKeys={activeCollection ? [activeCollection.id] : []}
-          onAction={handleCollectionSelect}
-        >
-          {collections.map((collection) => (
-            <Dropdown.Item key={collection.id}>{collection.name}</Dropdown.Item>
-          ))}
-          <Dropdown.Item key="manage" withDivider icon={<FiPlus />}>
-            Manage Collections
-          </Dropdown.Item>
-        </Dropdown.Menu>
-      </Dropdown>
+      {router.pathname === '/documents/[id]' ? (
+        activeCollection?.name
+      ) : (
+        <Dropdown>
+          <Dropdown.Button
+            flat
+            css={{
+              background: '$white',
+              border: '1px solid $gray300',
+              minWidth: '180px',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FiFolder />
+              <Text size={14} weight="medium">
+                {activeCollection?.name || 'Select Collection'}
+              </Text>
+            </div>
+          </Dropdown.Button>
+          <Dropdown.Menu
+            aria-label="Collection selection"
+            selectionMode="single"
+            selectedKeys={activeCollection ? [activeCollection.id] : []}
+            onAction={handleCollectionSelect}
+          >
+            {collections.map((collection) => (
+              <Dropdown.Item key={collection.id}>
+                {collection.name}
+              </Dropdown.Item>
+            ))}
+            <Dropdown.Item key="manage" withDivider icon={<FiPlus />}>
+              Manage Collections
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        </Dropdown>
+      )}
     </Container>
   );
 };
