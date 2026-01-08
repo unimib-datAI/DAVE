@@ -11,6 +11,7 @@ import { decode, makeDecryptionRequest } from "../utils/anonymization";
 
 import axios from "axios";
 import { Service, serviceDTO } from "../models/service";
+import { Configuration, configurationDTO } from "../models/configuration";
 
 const route = Router();
 
@@ -225,6 +226,290 @@ export default (app) => {
         return res
           .status(500)
           .json({ message: "Failed to delete service", error: String(err) });
+      }
+    }),
+  );
+
+  /**
+   * Configuration endpoints
+   * Persist annotation pipeline configurations per user.
+   * Each configuration contains a mapping of pipeline slots to services.
+   *
+   * Routes:
+   *   GET    /api/document/configurations          -> list user's configurations
+   *   POST   /api/document/configurations          -> create new configuration
+   *   PUT    /api/document/configurations/:id      -> update configuration
+   *   DELETE /api/document/configurations/:id      -> delete configuration
+   *   POST   /api/document/configurations/:id/activate -> set as active configuration
+   *   GET    /api/document/configurations/active   -> get active configuration
+   *
+   * Protected by auth middleware (JWT). Requests should present a valid Bearer token.
+   */
+
+  // GET /api/document/configurations - list all configurations for the user
+  route.get(
+    "/configurations",
+    asyncRoute(async (req, res) => {
+      try {
+        const userId = req.user?.sub;
+        console.log("GET /configurations - userId:", userId);
+        if (!userId) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const configurations = await Configuration.find({ userId }).lean();
+        console.log(
+          `Found ${configurations.length} configurations for user ${userId}`,
+        );
+        return res.json(configurations).status(200);
+      } catch (err) {
+        console.error("Failed to fetch configurations", err);
+        return res
+          .status(500)
+          .json({ message: "Failed to fetch configurations" });
+      }
+    }),
+  );
+
+  // GET /api/document/configurations/active - get active configuration for user
+  route.get(
+    "/configurations/active",
+    asyncRoute(async (req, res) => {
+      try {
+        const userId = req.user?.sub;
+        console.log("GET /configurations/active - userId:", userId);
+        if (!userId) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+        const activeConfig = await Configuration.findOne({
+          userId,
+          isActive: true,
+        }).lean();
+        if (!activeConfig) {
+          console.log(`No active configuration found for user ${userId}`);
+          return res
+            .status(404)
+            .json({ message: "No active configuration found" });
+        }
+        console.log(`Found active configuration: ${activeConfig.name}`);
+        return res.json(activeConfig).status(200);
+      } catch (err) {
+        console.error("Failed to fetch active configuration", err);
+        return res
+          .status(500)
+          .json({ message: "Failed to fetch active configuration" });
+      }
+    }),
+  );
+
+  // POST /api/document/configurations - create a new configuration
+  route.post(
+    "/configurations",
+    validateRequest({
+      req: {
+        body: z.object({
+          name: z.string().min(1),
+          services: z.record(z.any()).optional(),
+          isActive: z.boolean().optional(),
+        }),
+      },
+    }),
+    asyncRoute(async (req, res) => {
+      try {
+        const userId = req.user?.sub;
+        console.log(
+          "POST /configurations - userId:",
+          userId,
+          "body:",
+          req.body,
+        );
+        if (!userId) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { name, services, isActive } = req.body;
+
+        // If this is set as active, deactivate all other configurations for this user
+        if (isActive) {
+          await Configuration.updateMany(
+            { userId, isActive: true },
+            { $set: { isActive: false } },
+          );
+        }
+
+        const config = configurationDTO({ userId, name, services, isActive });
+        const inserted = await config.save();
+        console.log(
+          `Created configuration: ${inserted.name} (${inserted._id})`,
+        );
+        return res.json(inserted).status(201);
+      } catch (err) {
+        console.error("Failed to create configuration", err);
+        // handle duplicate key
+        if (err && err.code === 11000) {
+          return res
+            .status(409)
+            .json({ message: "Configuration with this name already exists" });
+        }
+        return res.status(500).json({
+          message: "Failed to create configuration",
+          error: String(err),
+        });
+      }
+    }),
+  );
+
+  // PUT /api/document/configurations/:id - update a configuration
+  route.put(
+    "/configurations/:id",
+    validateRequest({
+      req: {
+        params: z.object({ id: z.string().min(1) }),
+        body: z.object({
+          name: z.string().min(1).optional(),
+          services: z.record(z.any()).optional(),
+          isActive: z.boolean().optional(),
+        }),
+      },
+    }),
+    asyncRoute(async (req, res) => {
+      try {
+        const userId = req.user?.sub;
+        console.log(
+          "PUT /configurations/:id - userId:",
+          userId,
+          "id:",
+          req.params.id,
+        );
+        if (!userId) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { id } = req.params;
+        const update = req.body;
+
+        // Verify the configuration belongs to the user
+        const existingConfig = await Configuration.findOne({ _id: id, userId });
+        if (!existingConfig) {
+          console.log(`Configuration ${id} not found for user ${userId}`);
+          return res.status(404).json({ message: "Configuration not found" });
+        }
+
+        // If setting this as active, deactivate all other configurations
+        if (update.isActive) {
+          await Configuration.updateMany(
+            { userId, _id: { $ne: id }, isActive: true },
+            { $set: { isActive: false } },
+          );
+        }
+
+        const updated = await Configuration.findByIdAndUpdate(id, update, {
+          new: true,
+        });
+        return res.json(updated).status(200);
+      } catch (err) {
+        console.error("Failed to update configuration", err);
+        return res.status(500).json({
+          message: "Failed to update configuration",
+          error: String(err),
+        });
+      }
+    }),
+  );
+
+  // POST /api/document/configurations/:id/activate - set configuration as active
+  route.post(
+    "/configurations/:id/activate",
+    validateRequest({
+      req: {
+        params: z.object({ id: z.string().min(1) }),
+      },
+    }),
+    asyncRoute(async (req, res) => {
+      try {
+        const userId = req.user?.sub;
+        console.log(
+          "POST /configurations/:id/activate - userId:",
+          userId,
+          "id:",
+          req.params.id,
+        );
+        if (!userId) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { id } = req.params;
+
+        // Verify the configuration belongs to the user
+        const existingConfig = await Configuration.findOne({ _id: id, userId });
+        if (!existingConfig) {
+          console.log(`Configuration ${id} not found for user ${userId}`);
+          return res.status(404).json({ message: "Configuration not found" });
+        }
+
+        // Deactivate all other configurations for this user
+        await Configuration.updateMany(
+          { userId, _id: { $ne: id } },
+          { $set: { isActive: false } },
+        );
+
+        // Activate this configuration
+        const updated = await Configuration.findByIdAndUpdate(
+          id,
+          { $set: { isActive: true } },
+          { new: true },
+        );
+
+        return res.json(updated).status(200);
+      } catch (err) {
+        console.error("Failed to activate configuration", err);
+        return res.status(500).json({
+          message: "Failed to activate configuration",
+          error: String(err),
+        });
+      }
+    }),
+  );
+
+  // DELETE /api/document/configurations/:id - delete a configuration
+  route.delete(
+    "/configurations/:id",
+    validateRequest({
+      req: {
+        params: z.object({ id: z.string().min(1) }),
+      },
+    }),
+    asyncRoute(async (req, res) => {
+      try {
+        const userId = req.user?.sub;
+        console.log(
+          "DELETE /configurations/:id - userId:",
+          userId,
+          "id:",
+          req.params.id,
+        );
+        if (!userId) {
+          return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { id } = req.params;
+
+        // Verify the configuration belongs to the user and delete it
+        const deleted = await Configuration.findOneAndDelete({
+          _id: id,
+          userId,
+        });
+        if (!deleted) {
+          console.log(`Configuration ${id} not found for user ${userId}`);
+          return res.status(404).json({ message: "Configuration not found" });
+        }
+        console.log(`Deleted configuration: ${deleted.name} (${deleted._id})`);
+        return res.json({ message: "deleted" }).status(200);
+      } catch (err) {
+        console.error("Failed to delete configuration", err);
+        return res.status(500).json({
+          message: "Failed to delete configuration",
+          error: String(err),
+        });
       }
     }),
   );

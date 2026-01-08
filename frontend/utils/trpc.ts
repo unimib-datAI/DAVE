@@ -1,11 +1,9 @@
 import { AppRouter } from '@/server/routers/_app';
 import { createReactQueryHooks } from '@trpc/react';
+
 export const getJWTHeader = (token?: string) => {
   if (!token) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'No authentication token provided',
-    });
+    throw new Error('No authentication token provided');
   }
   return `Bearer ${token}`;
 };

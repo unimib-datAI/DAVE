@@ -1,15 +1,15 @@
 import { Modal, Text, Button, Progress } from '@nextui-org/react';
 import { useAtom } from 'jotai';
 import { uploadModalOpenAtom, uploadProgressAtom } from '@/atoms/upload';
-import { annotationSelectedServicesAtom } from '@/atoms/annotationConfig';
-import { useMutation, useContext } from '@/utils/trpc';
+
+import { useMutation, useContext, useQuery } from '@/utils/trpc';
 import { useRef, useState } from 'react';
 import styled from '@emotion/styled';
 import { FiUpload } from '@react-icons/all-files/fi/FiUpload';
 import { FiX } from '@react-icons/all-files/fi/FiX';
 import * as Tabs from '@radix-ui/react-tabs';
 import { activeCollectionAtom } from '@/atoms/collection';
-import { message } from 'antd';
+import { message, Select } from 'antd';
 import { useSession } from 'next-auth/react';
 
 const UploadContainer = styled.div({
@@ -120,16 +120,44 @@ export const UploadDocumentsModal = ({
   const { data: session, status } = useSession();
   const [uploadProgress, setUploadProgress] = useAtom(uploadProgressAtom);
   const [activeCollection] = useAtom(activeCollectionAtom);
-  // read selected services mapping (slot -> SelectedService | null)
-  const [selectedServices] = useAtom(annotationSelectedServicesAtom);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [activeTab, setActiveTab] = useState<'json' | 'txt'>('json');
+  const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const txtFileInputRef = useRef<HTMLInputElement>(null);
   const createDocumentMutation = useMutation(['document.createDocument']);
   const annotateAndUploadMutation = useMutation(['document.annotateAndUpload']);
   const trpcContext = useContext();
+  const token = session?.accessToken as string | undefined;
+
+  // Fetch configurations
+  const { data: configurations = [], isLoading: configurationsLoading } =
+    useQuery(['document.getConfigurations', { token: token ?? '' }], {
+      enabled: status === 'authenticated' && !!token,
+      onSuccess: (data) => {
+        console.log('Configurations loaded:', data);
+      },
+    });
+
+  // Get active configuration
+  const { data: activeConfig, isLoading: activeConfigLoading } = useQuery(
+    ['document.getActiveConfiguration', { token: token ?? '' }],
+    {
+      enabled: status === 'authenticated' && !!token,
+      onSuccess: (data) => {
+        console.log('Active config loaded:', data);
+      },
+    }
+  );
+
+  console.log('Upload Modal - configurations:', configurations);
+  console.log('Upload Modal - activeConfig:', activeConfig);
+  console.log('Upload Modal - selectedConfigId:', selectedConfigId);
+  console.log('Upload Modal - loading states:', {
+    configurationsLoading,
+    activeConfigLoading,
+  });
 
   const handleFileSelect = (
     event: React.ChangeEvent<HTMLInputElement>,
@@ -274,24 +302,13 @@ export const UploadDocumentsModal = ({
       try {
         const text = await file.text();
 
-        // Resolve selected services and fallback to DEFAULT-<SLOT> naming for unset slots.
-        // The backend will interpret DEFAULT-<TYPE> default records; we provide the name so the server can
-        // substitute the actual default service record if needed.
-        const resolvedSelectedServices = Object.fromEntries(
-          Object.entries(selectedServices || {}).map(([slot, svc]) => [
-            slot,
-            svc
-              ? { id: svc.id, name: svc.name, uri: svc.uri }
-              : { id: '', name: `DEFAULT-${slot}`, uri: '' },
-          ])
-        );
-
+        // Backend fetches configuration - either selected or active
         await annotateAndUploadMutation.mutateAsync({
           text,
           name: file.name.replace('.txt', ''),
           collectionId: collectionId || activeCollection?.id,
           token: session?.accessToken,
-          selectedServices: resolvedSelectedServices,
+          configurationId: selectedConfigId || undefined,
         });
 
         completed++;
@@ -447,6 +464,54 @@ export const UploadDocumentsModal = ({
 
           <TabsContent value="txt">
             <UploadContainer>
+              {/* Configuration Selector */}
+              <div style={{ marginBottom: '1rem' }}>
+                <Text size={14} b css={{ marginBottom: '0.5rem' }}>
+                  Annotation Configuration
+                </Text>
+                <Select
+                  style={{ width: '100%' }}
+                  placeholder="Select configuration (or use active)"
+                  value={selectedConfigId}
+                  onChange={(value) => {
+                    console.log('Select onChange called with:', value);
+                    setSelectedConfigId(value);
+                  }}
+                  allowClear
+                  getPopupContainer={(trigger) =>
+                    trigger.parentElement || document.body
+                  }
+                  dropdownStyle={{ zIndex: 10000 }}
+                  options={[
+                    ...(activeConfig
+                      ? [
+                          {
+                            label: `${activeConfig.name} (Active)`,
+                            value: activeConfig._id,
+                          },
+                        ]
+                      : []),
+                    ...configurations
+                      .filter((c: any) => c._id !== activeConfig?._id)
+                      .map((config: any) => ({
+                        label: config.name,
+                        value: config._id,
+                      })),
+                  ]}
+                ></Select>
+                <Text size={12} css={{ color: '#666', marginTop: '0.25rem' }}>
+                  {selectedConfigId
+                    ? `Using configuration: ${
+                        configurations.find(
+                          (c: any) => c._id === selectedConfigId
+                        )?.name || 'Selected'
+                      }`
+                    : activeConfig
+                    ? `Using active configuration: ${activeConfig.name}`
+                    : 'Using default services (no active configuration)'}
+                </Text>
+              </div>
+
               {!uploadProgress.isUploading && uploadProgress.total === 0 && (
                 <>
                   <FileInputLabel
