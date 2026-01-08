@@ -328,6 +328,175 @@ export const documents = createRouter()
       }
     },
   })
+  // Configuration endpoints
+  .query('getConfigurations', {
+    input: z.object({
+      token: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      try {
+        const { token } = input;
+        const result = await fetchJson<any, any[]>(
+          `${baseURL}/document/configurations`,
+          {
+            headers: {
+              Authorization: getJWTHeader(token),
+            },
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to fetch configurations',
+        });
+      }
+    },
+  })
+  .query('getActiveConfiguration', {
+    input: z.object({
+      token: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      try {
+        const { token } = input;
+        const result = await fetchJson<any, any>(
+          `${baseURL}/document/configurations/active`,
+          {
+            headers: {
+              Authorization: getJWTHeader(token),
+            },
+          }
+        );
+        return result;
+      } catch (error: any) {
+        // If no active configuration, return null instead of throwing
+        if (
+          error.message?.includes('404') ||
+          error.message?.includes('not found')
+        ) {
+          return null;
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to fetch active configuration',
+        });
+      }
+    },
+  })
+  .mutation('createConfiguration', {
+    input: z.object({
+      name: z.string(),
+      services: z.record(z.any()).optional(),
+      isActive: z.boolean().optional(),
+      token: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      const { token, ...body } = input;
+      try {
+        const result = await fetchJson<any, any>(
+          `${baseURL}/document/configurations`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: getJWTHeader(token),
+              'Content-Type': 'application/json',
+            },
+            body,
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to create configuration',
+        });
+      }
+    },
+  })
+  .mutation('updateConfiguration', {
+    input: z.object({
+      id: z.string(),
+      name: z.string().optional(),
+      services: z.record(z.any()).optional(),
+      isActive: z.boolean().optional(),
+      token: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      const { token, id, ...body } = input;
+      try {
+        const result = await fetchJson<any, any>(
+          `${baseURL}/document/configurations/${id}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: getJWTHeader(token),
+              'Content-Type': 'application/json',
+            },
+            body,
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to update configuration',
+        });
+      }
+    },
+  })
+  .mutation('deleteConfiguration', {
+    input: z.object({
+      id: z.string(),
+      token: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      const { id, token } = input;
+      try {
+        const result = await fetchJson<any, any>(
+          `${baseURL}/document/configurations/${id}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: getJWTHeader(token),
+            },
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to delete configuration',
+        });
+      }
+    },
+  })
+  .mutation('activateConfiguration', {
+    input: z.object({
+      id: z.string(),
+      token: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      const { id, token } = input;
+      try {
+        const result = await fetchJson<any, any>(
+          `${baseURL}/document/configurations/${id}/activate`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization: getJWTHeader(token),
+            },
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to activate configuration',
+        });
+      }
+    },
+  })
   .mutation('moveEntitiesToCluster', {
     input: z.object({
       id: z.string(),
@@ -615,19 +784,54 @@ export const documents = createRouter()
       collectionId: z.string(),
       name: z.string().optional(),
       token: z.string(),
-      // optional mapping slot -> { id?, name, uri? } coming from frontend selected services atom
-      selectedServices: z
-        .record(
-          z.object({
-            id: z.string().optional(),
-            name: z.string(),
-            uri: z.string().optional(),
-          })
-        )
-        .optional(),
+      configurationId: z.string().optional(),
     }),
     resolve: async ({ input }) => {
-      const { text, name, collectionId, token, selectedServices } = input;
+      const { text, name, collectionId, token, configurationId } = input;
+
+      // Fetch configuration from database - either specified or active
+      let selectedServices: Record<string, any> | undefined;
+      try {
+        let configToUse: any;
+
+        if (configurationId) {
+          // Fetch specific configuration by ID
+          const allConfigs = await fetchJson<any, any[]>(
+            `${baseURL}/document/configurations`,
+            {
+              headers: {
+                Authorization: getJWTHeader(token),
+              },
+            }
+          );
+          configToUse = allConfigs.find((c: any) => c._id === configurationId);
+        } else {
+          // Fetch active configuration
+          configToUse = await fetchJson<any, any>(
+            `${baseURL}/document/configurations/active`,
+            {
+              headers: {
+                Authorization: getJWTHeader(token),
+              },
+            }
+          );
+        }
+
+        if (configToUse && configToUse.services) {
+          // Convert MongoDB Map to plain object
+          selectedServices = {};
+          if (configToUse.services instanceof Map) {
+            configToUse.services.forEach((value: any, key: string) => {
+              selectedServices![key] = value;
+            });
+          } else {
+            selectedServices = configToUse.services;
+          }
+        }
+      } catch (error: any) {
+        console.log('No active configuration found, using defaults');
+        selectedServices = undefined;
+      }
 
       // default fallback URLs (from env or built-in)
       const defaultSpacyner =

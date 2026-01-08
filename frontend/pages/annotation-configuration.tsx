@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation, useContext } from '@/utils/trpc';
@@ -8,7 +8,7 @@ import {
   AnnotationSelectedServices,
 } from '@/atoms/annotationConfig';
 import { Card, Button, Input, Text, Spacer } from '@nextui-org/react';
-import { Modal, Popconfirm, message } from 'antd';
+import { Modal, Popconfirm, message, Select } from 'antd';
 
 type ServiceRecord = {
   _id: string;
@@ -30,7 +30,7 @@ const KNOWN_SERVICE_TYPES = [
 
 export default function AnnotationConfigurationPage(): JSX.Element {
   const { data: session, status } = useSession();
-  const token = (session as any)?.accessToken as string | undefined;
+  const token = session?.accessToken as string | undefined;
 
   const trpcContext = useContext();
 
@@ -45,16 +45,81 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       enabled: status === 'authenticated' && !!token,
     });
 
+  // Fetch user configurations
+  const { data: configurations = [], refetch: refetchConfigurations } =
+    useQuery(['document.getConfigurations', { token: token ?? '' }], {
+      enabled: status === 'authenticated' && !!token,
+    });
+
   // Mutations
   const createServiceMutation = useMutation(['document.createService']);
   const deleteServiceMutation = useMutation(['document.deleteService']);
   const updateServiceMutation = useMutation(['document.updateService']);
+  const createConfigurationMutation = useMutation([
+    'document.createConfiguration',
+  ]);
+  const updateConfigurationMutation = useMutation([
+    'document.updateConfiguration',
+  ]);
+  const deleteConfigurationMutation = useMutation([
+    'document.deleteConfiguration',
+  ]);
+  const activateConfigurationMutation = useMutation([
+    'document.activateConfiguration',
+  ]);
 
   // Local form state for creating a new service
   const [newName, setNewName] = useState('');
   const [newUri, setNewUri] = useState('');
   const [newType, setNewType] = useState<string>('OTHER');
   const [creating, setCreating] = useState(false);
+
+  // Configuration management state
+  const [currentConfigId, setCurrentConfigId] = useState<string | null>(null);
+  const [configName, setConfigName] = useState('');
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [setAsActive, setSetAsActive] = useState(false);
+
+  // Load active configuration on mount
+  useEffect(() => {
+    const loadActiveConfig = async () => {
+      if (!token) return;
+      try {
+        const activeConfig = await trpcContext.fetchQuery([
+          'document.getActiveConfiguration',
+          { token },
+        ]);
+        if (activeConfig) {
+          setCurrentConfigId(activeConfig._id);
+          setConfigName(activeConfig.name);
+          // Load services from configuration
+          const services: AnnotationSelectedServices = {};
+          if (activeConfig.services) {
+            Object.entries(activeConfig.services).forEach(
+              ([slot, svc]: [string, any]) => {
+                if (svc) {
+                  services[slot] = {
+                    id: svc.id || '',
+                    name: svc.name || '',
+                    uri: svc.uri || '',
+                    serviceType: svc.serviceType,
+                  };
+                } else {
+                  services[slot] = null;
+                }
+              }
+            );
+          }
+          setSelectedServices(services);
+        }
+      } catch (err) {
+        console.log('No active configuration found');
+      }
+    };
+    if (status === 'authenticated') {
+      loadActiveConfig();
+    }
+  }, [status, token]);
 
   // UI helper: group services by serviceType
   const servicesByType = useMemo(() => {
@@ -190,6 +255,178 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       (s: ServiceRecord) => s._id === id || (s as any).id === id
     ) || null;
 
+  // Save current configuration
+  const handleSaveConfiguration = async () => {
+    if (!token) {
+      message.warning('You must be signed in to save a configuration.');
+      return;
+    }
+    const name = configName.trim();
+    if (!name) {
+      message.warning('Configuration name is required.');
+      return;
+    }
+
+    try {
+      // Convert selectedServices to plain object for storage
+      const services: Record<string, any> = {};
+      Object.entries(selectedServices || {}).forEach(([slot, svc]) => {
+        services[slot] = svc;
+      });
+
+      if (currentConfigId) {
+        // Update existing configuration
+        console.log('sent token', token);
+        await updateConfigurationMutation.mutateAsync({
+          id: currentConfigId,
+          name,
+          services,
+          token,
+        });
+        message.success('Configuration updated');
+      } else {
+        // Create new configuration and set as active
+        const created = await createConfigurationMutation.mutateAsync({
+          name,
+          services,
+          isActive: true,
+          token,
+        });
+        setCurrentConfigId(created._id);
+        message.success('Configuration saved and activated');
+      }
+      await refetchConfigurations();
+      setShowSaveModal(false);
+    } catch (err: any) {
+      message.error(
+        `Failed to save configuration: ${err?.message || String(err)}`
+      );
+    }
+  };
+
+  // Create new configuration
+  const handleCreateNewConfiguration = async () => {
+    if (!token) {
+      message.warning('You must be signed in to create a configuration.');
+      return;
+    }
+    const name = configName.trim();
+    if (!name) {
+      message.warning('Configuration name is required.');
+      return;
+    }
+
+    try {
+      const services: Record<string, any> = {};
+      Object.entries(selectedServices || {}).forEach(([slot, svc]) => {
+        services[slot] = svc;
+      });
+
+      const created = await createConfigurationMutation.mutateAsync({
+        name,
+        services,
+        isActive: setAsActive,
+        token,
+      });
+      setCurrentConfigId(created._id);
+      setConfigName(created.name);
+      message.success(
+        setAsActive
+          ? 'Configuration created and activated'
+          : 'Configuration created'
+      );
+      await refetchConfigurations();
+      setShowSaveModal(false);
+      setSetAsActive(false);
+    } catch (err: any) {
+      message.error(
+        `Failed to create configuration: ${err?.message || String(err)}`
+      );
+    }
+  };
+
+  // Load a configuration
+  const handleLoadConfiguration = async (configId: string) => {
+    const config = configurations.find((c: any) => c._id === configId);
+    if (!config) return;
+
+    setCurrentConfigId(config._id);
+    setConfigName(config.name);
+
+    // Load services from configuration
+    const services: AnnotationSelectedServices = {};
+    if (config.services) {
+      Object.entries(config.services).forEach(([slot, svc]: [string, any]) => {
+        if (svc) {
+          services[slot] = {
+            id: svc.id || '',
+            name: svc.name || '',
+            uri: svc.uri || '',
+            serviceType: svc.serviceType,
+          };
+        } else {
+          services[slot] = null;
+        }
+      });
+    }
+    setSelectedServices(services);
+    message.success(`Loaded configuration: ${config.name}`);
+  };
+
+  // Activate a configuration
+  const handleActivateConfiguration = async (configId: string) => {
+    if (!token) {
+      message.warning('You must be signed in.');
+      return;
+    }
+    try {
+      await activateConfigurationMutation.mutateAsync({ id: configId, token });
+      await refetchConfigurations();
+      await handleLoadConfiguration(configId);
+      message.success('Configuration activated');
+    } catch (err: any) {
+      message.error(
+        `Failed to activate configuration: ${err?.message || String(err)}`
+      );
+    }
+  };
+
+  // Delete a configuration
+  const handleDeleteConfiguration = async (configId: string) => {
+    if (!token) {
+      message.warning('You must be signed in.');
+      return;
+    }
+    try {
+      await deleteConfigurationMutation.mutateAsync({ id: configId, token });
+      await refetchConfigurations();
+      if (currentConfigId === configId) {
+        setCurrentConfigId(null);
+        setConfigName('');
+      }
+      message.success('Configuration deleted');
+    } catch (err: any) {
+      message.error(
+        `Failed to delete configuration: ${err?.message || String(err)}`
+      );
+    }
+  };
+
+  // Reset to new configuration
+  const handleNewConfiguration = () => {
+    setCurrentConfigId(null);
+    setConfigName('');
+    setSetAsActive(false);
+    setSelectedServices({
+      NER: null,
+      NEL: null,
+      CLUSTERING: null,
+      CONSOLIDATION: null,
+      NORMALIZATION: null,
+    });
+    message.info('Started new configuration');
+  };
+
   // Layout: single centered column with stacked cards
   return (
     <div
@@ -201,7 +438,92 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     >
       <div style={{ width: '100%', maxWidth: 900 }}>
         <header style={{ marginBottom: 16 }}>
-          <Text h3>Annotation Configuration</Text>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 12,
+            }}
+          >
+            <Text h3>Annotation Configuration</Text>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button auto size="sm" onClick={handleNewConfiguration}>
+                New
+              </Button>
+              <Button
+                auto
+                size="sm"
+                color="primary"
+                onClick={() => {
+                  // If no current config, prompt for name first
+                  if (!currentConfigId && !configName) {
+                    setConfigName('');
+                  }
+                  setShowSaveModal(true);
+                }}
+              >
+                {currentConfigId ? 'Update' : 'Save As...'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Configuration Selector */}
+          <div style={{ marginBottom: 16 }}>
+            <Text small css={{ color: '$accents7', marginBottom: 8 }}>
+              Select Configuration:
+            </Text>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <Select
+                placeholder="Select a configuration"
+                style={{ flex: 1, minWidth: 300 }}
+                value={currentConfigId || undefined}
+                onChange={(value) => handleLoadConfiguration(value)}
+                options={configurations.map((config: any) => ({
+                  label: config.name + (config.isActive ? ' (Active)' : ''),
+                  value: config._id,
+                }))}
+              />
+              {currentConfigId && (
+                <>
+                  <Button
+                    auto
+                    size="sm"
+                    color="success"
+                    disabled={
+                      configurations.find((c: any) => c._id === currentConfigId)
+                        ?.isActive
+                    }
+                    onClick={() => handleActivateConfiguration(currentConfigId)}
+                  >
+                    Set as Active
+                  </Button>
+                  <Popconfirm
+                    title="Delete this configuration?"
+                    onConfirm={() => handleDeleteConfiguration(currentConfigId)}
+                    okText="Yes"
+                    cancelText="No"
+                  >
+                    <Button auto size="sm" color="error">
+                      Delete
+                    </Button>
+                  </Popconfirm>
+                </>
+              )}
+            </div>
+            {currentConfigId &&
+              configurations.find((c: any) => c._id === currentConfigId)
+                ?.isActive && (
+                <Text
+                  small
+                  color="success"
+                  css={{ marginTop: 8, fontWeight: 'bold' }}
+                >
+                  ✓ This configuration is active and will be used for annotation
+                </Text>
+              )}
+          </div>
+
           <Text small css={{ color: '$accents7' }}>
             Configure persisted services and pick which implementation the
             annotation pipeline should use for each slot.
@@ -230,7 +552,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                   label="Name"
                   placeholder="e.g. NER-service-1"
                   value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setNewName(e.target.value)
+                  }
                 />
               </div>
 
@@ -241,7 +565,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                   label="URI"
                   placeholder="http://localhost:8001/ner"
                   value={newUri}
-                  onChange={(e) => setNewUri(e.target.value)}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setNewUri(e.target.value)
+                  }
                 />
               </div>
 
@@ -674,6 +1000,67 @@ export default function AnnotationConfigurationPage(): JSX.Element {
             </pre>
           </div>
         </Card>
+
+        {/* Save Configuration Modal */}
+        <Modal
+          title={
+            currentConfigId ? 'Update Configuration' : 'Save New Configuration'
+          }
+          visible={showSaveModal}
+          onOk={
+            currentConfigId
+              ? handleSaveConfiguration
+              : handleCreateNewConfiguration
+          }
+          onCancel={() => setShowSaveModal(false)}
+          okText={currentConfigId ? 'Update' : 'Create'}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Text>Configuration Name:</Text>
+            <Input
+              value={configName}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setConfigName(e.target.value)
+              }
+              placeholder="Enter configuration name"
+            />
+            {currentConfigId && (
+              <Text small color="warning">
+                This will update the existing configuration &quot;
+                {
+                  configurations.find((c: any) => c._id === currentConfigId)
+                    ?.name
+                }
+                &quot;.
+              </Text>
+            )}
+            {!currentConfigId && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <input
+                    type="checkbox"
+                    id="setAsActive"
+                    checked={setAsActive}
+                    onChange={(e) => setSetAsActive(e.target.checked)}
+                    style={{ cursor: 'pointer' }}
+                  />
+                  <label
+                    htmlFor="setAsActive"
+                    style={{ cursor: 'pointer', marginBottom: 0 }}
+                  >
+                    <Text small>Set as active configuration</Text>
+                  </label>
+                </div>
+                <Text small color="primary">
+                  A new configuration will be created.
+                  {setAsActive
+                    ? ' It will be set as active and used for annotation.'
+                    : ' You can activate it later from the dropdown.'}
+                </Text>
+              </>
+            )}
+          </div>
+        </Modal>
       </div>
     </div>
   );
