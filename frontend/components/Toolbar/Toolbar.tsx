@@ -16,8 +16,8 @@ const Container = styled.div({
   // boxShadow: '0 2px 4px rgb(0 0 0 / 2%), inset 0 -1px 0 rgb(0 0 0 / 6%)',
   padding: '5px 24px',
   borderBottom: '1px solid #EAECED',
-  zIndex: '10'
-})
+  zIndex: '10',
+});
 
 const Nav = styled.nav({
   display: 'flex',
@@ -26,13 +26,13 @@ const Nav = styled.nav({
   justifyContent: 'space-between',
   width: '100%',
   maxWidth: '1260px',
-  margin: '0 auto'
-})
+  margin: '0 auto',
+});
 
 const Logo = styled.a({
   fontSize: '22px',
-  fontWeight: 700
-})
+  fontWeight: 700,
+});
 
 const LinkButton = styled.a({
   border: 'none',
@@ -43,9 +43,9 @@ const LinkButton = styled.a({
   transition: 'background 250ms ease-out',
 
   '&:hover': {
-    backgroundColor: 'rgb(0 0 0/0.03)'
-  }
-})
+    backgroundColor: 'rgb(0 0 0/0.03)',
+  },
+});
 
 const Toolbar = () => {
   const t = useText('infer');
@@ -54,9 +54,7 @@ const Toolbar = () => {
     <Container>
       <Nav>
         <Link href="/infer" passHref>
-          <Logo>
-            🔨 GiustiziaUI
-          </Logo>
+          <Logo>🔨 DAVE</Logo>
         </Link>
         <Grid.Container direction="row" css={{ width: 'auto', gap: '10px' }}>
           <Link href="/documents" passHref>
@@ -66,8 +64,7 @@ const Toolbar = () => {
         </Grid.Container>
       </Nav>
     </Container>
-  )
-}
+  );
+};
 
 export default Toolbar;
-
