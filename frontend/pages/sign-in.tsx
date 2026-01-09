@@ -59,7 +59,7 @@ const Login: NextPage<{}> = () => {
       <Card css={{ maxWidth: '500px', margin: '0 auto', padding: '12px 16px' }}>
         <Box as="form" onSubmit={onFormSubmit}>
           <Text h2 css={{ textAlign: 'center' }}>
-            GiustiziaUI 🔨
+            DAVE 🔨
           </Text>
           <Spacer y={0.5} />
           <Input
@@ -76,8 +76,14 @@ const Login: NextPage<{}> = () => {
             {...register('password')}
             contentLeft={<FaLock />}
           />
-          {signInError && <Text color="error">Invalid username or password.</Text>}
-          <Button type="submit" disabled={!value.password || !value.username} loading={status === 'loading'}>
+          {signInError && (
+            <Text color="error">Invalid username or password.</Text>
+          )}
+          <Button
+            type="submit"
+            disabled={!value.password || !value.username}
+            loading={status === 'loading'}
+          >
             Login
           </Button>
         </Box>
