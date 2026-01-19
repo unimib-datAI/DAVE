@@ -127,7 +127,7 @@ services:
       - cluster.info.update.interval=1m
       ###
       - discovery.type=single-node
-      - ES_JAVA_OPTS=-Xms4096m -Xmx4096m
+      - ES_JAVA_OPTS=-Xms1024m -Xmx1024m
       - http.max_content_length=200mb
     networks:
       - dave_net

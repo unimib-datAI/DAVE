@@ -10,6 +10,36 @@ import { Annotation, annotationDTO } from "../models/annotation";
 import { decode, makeDecryptionRequest } from "../utils/anonymization";
 
 import axios from "axios";
+
+// Cache for anonymization service health check
+let anonymizationServiceAvailable = null;
+let lastAnonymizationHealthCheck = 0;
+const ANONYMIZATION_HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
+
+async function checkAnonymizationService() {
+  const endpoint =
+    process.env.ANONYMIZATION_ENDPOINT || "http://10.0.0.108:8081";
+  const now = Date.now();
+
+  // Return cached status if checked recently
+  if (
+    anonymizationServiceAvailable !== null &&
+    now - lastAnonymizationHealthCheck < ANONYMIZATION_HEALTH_CHECK_INTERVAL
+  ) {
+    return anonymizationServiceAvailable;
+  }
+
+  try {
+    await axios.get(endpoint, { timeout: 1000 });
+    anonymizationServiceAvailable = true;
+    lastAnonymizationHealthCheck = now;
+    return true;
+  } catch (error) {
+    anonymizationServiceAvailable = false;
+    lastAnonymizationHealthCheck = now;
+    return false;
+  }
+}
 import { Service, serviceDTO } from "../models/service";
 import { Configuration, configurationDTO } from "../models/configuration";
 
@@ -928,15 +958,36 @@ export default (app) => {
             false,
           );
 
-          // De-anonymize the document for generation context
-          const deAnonymizedDoc = await decode(fullDocument);
-          console.log("Document de-anonymized for Elasticsearch indexing");
+          let deAnonymizedDoc;
+
+          // Check if anonymization service is available before attempting decode
+          const serviceAvailable = await checkAnonymizationService();
+
+          if (serviceAvailable) {
+            try {
+              // Try to de-anonymize the document for generation context
+              deAnonymizedDoc = await decode(fullDocument);
+              console.log("Document de-anonymized for Elasticsearch indexing");
+            } catch (decryptError) {
+              // If decryption fails, continue with original document
+              console.warn(
+                "Decryption failed, using original text for Elasticsearch",
+              );
+              deAnonymizedDoc = fullDocument;
+            }
+          } else {
+            // Service is down, skip decryption entirely
+            console.warn(
+              "Anonymization service unavailable, skipping decryption for Elasticsearch",
+            );
+            deAnonymizedDoc = fullDocument;
+          }
 
           // Prepare payload with both anonymized and de-anonymized versions
           const elasticPayload = {
             id: doc.id, // Ensure id is included
             text: req.body.text, // Anonymized text
-            text_deanonymized: deAnonymizedDoc.text, // De-anonymized text for generation
+            text_deanonymized: deAnonymizedDoc.text, // De-anonymized text for generation (or original if decryption failed)
             collectionId: req.body.collectionId,
             annotation_sets: req.body.annotation_sets, // Keep annotations anonymized
             preview: req.body.preview, // Keep preview anonymized
