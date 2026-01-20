@@ -96,24 +96,6 @@ services:
       - ./frontend/lib:/app/lib
       - ./frontend/package.json:/app/package.json
 
-  text-generation:
-    build:
-      context: ./backend/text-generation
-      dockerfile: Dockerfile
-    environment:
-      - HOST=0.0.0.0
-      - TEXT_GENERATION_ADDR=${TEXT_GENERATION_ADDR:-http://localhost:8000}
-      - TEXT_GENERATION_KEY=${TEXT_GENERATION_KEY:-your-key}
-      - MODEL_NAME=${MODEL_NAME:-default-model}
-    ports:
-      - 7862:7862
-      - 8000:8000
-    networks:
-      - dave_net
-    volumes:
-      - ./models/text-generation:/workspace/models
-      - /mnt/data:/models
-
   es:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.3
     restart: $RESTART_POLICY
