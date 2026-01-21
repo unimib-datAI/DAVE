@@ -1,5 +1,42 @@
 version: "3"
 services:
+  postgres:
+    restart: $RESTART_POLICY
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+    networks:
+      - dave_net
+    ports:
+      - 127.0.0.1:5432:5432
+
+  keycloak:
+    restart: $RESTART_POLICY
+    image: quay.io/keycloak/keycloak:23.0
+    command: start-dev
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HTTP_ENABLED: true
+      KC_HEALTH_ENABLED: true
+      KC_METRICS_ENABLED: true
+    depends_on:
+      - postgres
+    ports:
+      - ${KEYCLOAK_PORT:-8080}:8080
+    networks:
+      - dave_net
+
   mongo:
     restart: $RESTART_POLICY
     image: mongo:4.4.6 # mongo 5 requires cpu supports AVX
@@ -27,6 +64,10 @@ services:
       JWT_SECRET: ${DOCUMENTS_JWT_SECRET:-your-secret-key-change-in-production}
       MONGO: $MONGO
       ANONYMIZATION_ENDPOINT: $ANONYMIZATION_ENDPOINT
+      KEYCLOAK_ISSUER: $KEYCLOAK_ISSUER
+      KEYCLOAK_ID: $KEYCLOAK_ID
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
     networks:
       - dave_net
     volumes:

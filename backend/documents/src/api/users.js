@@ -1,73 +1,83 @@
 import { Router } from "express";
 import { asyncRoute } from "../utils/async-route";
-import { CollectionController } from "../controllers/collection";
 import { validateRequest } from "zod-express-middleware";
 import { z } from "zod";
-import User from "../models/user";
-import { AuthController } from "../controllers/auth";
+import { keycloakService } from "../services/keycloak";
 
 const route = Router();
+
 async function getAllUsers(req, res) {
-  const userId = req.user?.sub;
-  if (!userId) {
-    return res.status(401).json({ message: "Unauthorized" });
+  try {
+    const userId = req.user?.sub;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const allUsers = await keycloakService.getAllUsers();
+
+    const sanitizedUsers = allUsers.map((user) => ({
+      id: user.userId,
+      email: user.email,
+      name: user.name,
+      createdAt: user.createdAt,
+    }));
+
+    return res.json(sanitizedUsers);
+  } catch (error) {
+    console.error("Error fetching users from Keycloak:", error);
+    return res.status(500).json({
+      message: "Failed to fetch users",
+      error: error.message,
+    });
   }
-  const userObj = await User.findOne({ userId: userId });
-  if (!userObj) {
-    return res.status(404).json({ message: "User not found" });
-  }
-  const allUsers = await User.find({}).lean();
-  const sanitizedUsers = allUsers.map((user) => ({
-    id: user.userId,
-    email: user.email,
-    name: user.name,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  }));
-  return res.json(sanitizedUsers);
 }
 
 async function createUser(req, res) {
   try {
     const userId = req.user?.sub;
-    const { email, password } = req.body;
-    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+    const { email, password, firstName, lastName } = req.body;
 
-    let checkRes = await AuthController.checkIsAdmin(userId);
-    if (!checkRes) return res.status(401).json({ message: "Unauthorized" });
-    else {
-      try {
-        let result = await AuthController.createUser({ email, password });
-        if (result) return res.json(result);
-        else {
-          console.error("Error creating new user", error);
-          return res.status(500).json({ message: "Internal server error" });
-        }
-      } catch (error) {
-        console.error("Error creating new user catched", error);
-
-        return res
-          .status(500)
-          .json({ message: error?.message || "Internal server error" });
-      }
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
     }
+
+    const result = await keycloakService.createUser({
+      email,
+      password,
+      firstName,
+      lastName,
+    });
+
+    return res.json(result);
   } catch (error) {
-    console.error("Error in createUser", error);
-    return res
-      .status(401)
-      .json({ message: "The user is unathorized to do this operation" });
+    console.error("Error creating user in Keycloak:", error);
+
+    if (error.message && error.message.includes("already exists")) {
+      return res.status(409).json({
+        message: "User with this email already exists",
+      });
+    }
+
+    return res.status(500).json({
+      message: error?.message || "Failed to create user",
+    });
   }
 }
+
 export default (app) => {
   app.use("/users", route);
+
   route.get("/", asyncRoute(getAllUsers));
+
   route.post(
     "/",
     validateRequest({
       req: {
         body: z.object({
-          email: z.string(),
-          password: z.string(),
+          email: z.string().email(),
+          password: z.string().min(8),
+          firstName: z.string().optional(),
+          lastName: z.string().optional(),
         }),
       },
     }),

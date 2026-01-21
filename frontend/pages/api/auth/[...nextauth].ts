@@ -1,8 +1,10 @@
 import NextAuth, { NextAuthOptions } from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
+import KeycloakProvider from 'next-auth/providers/keycloak';
 
-// API_BASE_URI already points to /api, so auth endpoints are at /api/auth/*
-const API_BASE_URI = process.env.API_BASE_URI || 'http://localhost:8080/api';
+// Keycloak configuration
+const KEYCLOAK_ID = process.env.KEYCLOAK_ID || '';
+const KEYCLOAK_SECRET = process.env.KEYCLOAK_SECRET || '';
+const KEYCLOAK_ISSUER = process.env.KEYCLOAK_ISSUER || '';
 
 async function refreshAccessToken(token: any) {
   try {
@@ -17,10 +19,20 @@ async function refreshAccessToken(token: any) {
       mask(token?.refreshToken)
     );
 
-    const res = await fetch(`${API_BASE_URI}/auth/refresh`, {
+    // Keycloak token endpoint
+    const url = `${KEYCLOAK_ISSUER}/protocol/openid-connect/token`;
+
+    const params = new URLSearchParams({
+      client_id: KEYCLOAK_ID,
+      client_secret: KEYCLOAK_SECRET,
+      grant_type: 'refresh_token',
+      refresh_token: token.refreshToken,
+    });
+
+    const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken: token.refreshToken }),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: params.toString(),
     });
 
     console.log(
@@ -39,19 +51,21 @@ async function refreshAccessToken(token: any) {
     const refreshed = await res.json();
 
     console.log('refreshAccessToken: refreshed payload received', {
-      accessToken: refreshed?.accessToken ? mask(refreshed.accessToken) : null,
-      refreshToken: refreshed?.refreshToken
-        ? mask(refreshed.refreshToken)
+      accessToken: refreshed?.access_token
+        ? mask(refreshed.access_token)
         : null,
-      expiresIn: refreshed?.expiresIn,
+      refreshToken: refreshed?.refresh_token
+        ? mask(refreshed.refresh_token)
+        : null,
+      expiresIn: refreshed?.expires_in,
     });
 
     return {
       ...token,
-      accessToken: refreshed.accessToken,
-      refreshToken: refreshed.refreshToken ?? token.refreshToken,
-      accessTokenExpires: Date.now() + (refreshed.expiresIn as number) * 1000,
-      user: refreshed.user ?? token.user,
+      accessToken: refreshed.access_token,
+      refreshToken: refreshed.refresh_token ?? token.refreshToken,
+      accessTokenExpires: Date.now() + refreshed.expires_in * 1000,
+      idToken: refreshed.id_token,
     };
   } catch (error) {
     console.error('Error refreshing access token:', error);
@@ -70,88 +84,106 @@ export const authOptions: NextAuthOptions = {
   pages: {
     signIn: `${process.env.NEXT_PUBLIC_BASE_PATH}/sign-in`,
   },
-  providers: [
-    CredentialsProvider({
-      name: 'Credentials',
-      credentials: {
-        username: { label: 'Username', type: 'text' },
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
       },
-      async authorize(credentials) {
-        // Accept either email or username (use username as email if email not provided)
-        const email = credentials?.email || credentials?.username;
-        const password = credentials?.password;
-
-        if (!email || !password) {
-          return null;
-        }
-
-        try {
-          console.log('Attempting login to:', `${API_BASE_URI}/auth/login`);
-          const res = await fetch(`${API_BASE_URI}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              email: email,
-              password: password,
-            }),
-          });
-
-          if (!res.ok) {
-            console.error('Login failed with status:', res.status);
-            return null;
-          }
-
-          const data = await res.json();
-          console.log('Login successful for:', data.user?.email);
-
-          if (!data || !data.accessToken) {
-            return null;
-          }
-
-          return {
-            id: data.user.userId,
-            email: data.user.email,
-            name: data.user.name,
-            role: data.user.role,
-            accessToken: data.accessToken,
-            refreshToken: data.refreshToken,
-            expiresIn: data.expiresIn,
-          };
-        } catch (error) {
-          console.error('Authorization error:', error);
-          return null;
-        }
+    },
+    callbackUrl: {
+      name: `next-auth.callback-url`,
+      options: {
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+      },
+    },
+    csrfToken: {
+      name: `next-auth.csrf-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+      },
+    },
+    pkceCodeVerifier: {
+      name: `next-auth.pkce.code_verifier`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+        maxAge: 900,
+      },
+    },
+    state: {
+      name: `next-auth.state`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+        maxAge: 900,
+      },
+    },
+    nonce: {
+      name: `next-auth.nonce`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false,
+      },
+    },
+  },
+  providers: [
+    KeycloakProvider({
+      clientId: KEYCLOAK_ID,
+      clientSecret: KEYCLOAK_SECRET,
+      issuer: KEYCLOAK_ISSUER,
+      authorization: {
+        params: {
+          scope: 'openid email profile',
+        },
       },
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       console.log(
         'NextAuth.jwt: invoked; userPresent=',
         !!user,
+        'accountPresent=',
+        !!account,
         'token.accessTokenExpires=',
         token?.accessTokenExpires
       );
 
-      // First sign in
-      if (user) {
-        const u: any = user as any;
+      // First sign in with Keycloak
+      if (account && user) {
         console.log(
-          'NextAuth.jwt: initial sign-in for user=',
-          u?.email ?? u?.id
+          'NextAuth.jwt: initial sign-in with provider=',
+          account.provider
         );
+
         return {
           ...token,
-          accessToken: u.accessToken,
-          refreshToken: u.refreshToken,
-          accessTokenExpires: Date.now() + (u.expiresIn as number) * 1000,
+          accessToken: account.access_token,
+          refreshToken: account.refresh_token,
+          idToken: account.id_token,
+          accessTokenExpires: account.expires_at
+            ? account.expires_at * 1000
+            : Date.now() + 3600 * 1000,
           user: {
-            userId: u.id,
-            email: u.email,
-            name: u.name,
-            role: u.role,
+            userId: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
           },
         };
       }
@@ -195,8 +227,26 @@ export const authOptions: NextAuthOptions = {
       // Make tokens and user available on the client
       session.user = token.user as any;
       session.accessToken = token.accessToken as string;
+      session.idToken = token.idToken as string;
       session.error = token.error as string;
       return session;
+    },
+  },
+  events: {
+    async signOut({ token }) {
+      // Optionally call Keycloak logout endpoint
+      if (token?.idToken) {
+        try {
+          const logoutUrl = `${KEYCLOAK_ISSUER}/protocol/openid-connect/logout`;
+          const params = new URLSearchParams({
+            id_token_hint: token.idToken as string,
+          });
+          await fetch(`${logoutUrl}?${params.toString()}`);
+          console.log('NextAuth.signOut: Keycloak logout successful');
+        } catch (error) {
+          console.error('NextAuth.signOut: Keycloak logout failed', error);
+        }
+      }
     },
   },
 };

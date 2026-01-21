@@ -75,24 +75,30 @@ DAVE/
 
 ### 1. Configure Environment Variables
 
+⚠️ **IMPORTANT**: You MUST create a `.env` file before building the project. Skipping this step will cause build failures.
+
 Copy the sample environment file and configure it:
 
 ```bash
 cp .env.sample .env
 ```
 
-Edit the `.env` file and populate the following variables:
+**At minimum**, edit the `.env` file and update these critical variables:
+
+- **`NEXTAUTH_SECRET`** - **REQUIRED** - Generate a random string (use: `openssl rand -base64 32`)
+- **`NEXTAUTH_URL`** - **REQUIRED** - Set to `http://127.0.0.1:3000/dave/api/auth` (or your domain)
+
+The `.env.sample` file includes sensible defaults for other variables. Review and adjust as needed:
 
 #### UI Configuration
-- **`UI_ACCESS_USERNAME`** - Username for UI authentication (default: `admin`)
-- **`UI_ACCESS_PASSWORD`** - Password for UI authentication (default: `password`)
-- **`UI_NEXTAUTH_SECRET`** - Secret key for NextAuth.js session encryption (generate a random string)
-- **`UI_NEXTAUTH_URL`** - NextAuth callback URL (default: `http://127.0.0.1:3000/dave/api/auth`)
-- **`UI_NEXT_PUBLIC_BASE_PATH`** - Base path for the UI (default: `/dave`)
-- **`UI_NEXT_PUBLIC_FULL_PATH`** - Full path URL for the UI (default: `http://127.0.0.1:3000/dave`)
-- **`UI_API_LLM`** - Internal URL for text generation service
-- **`UI_API_INDEXER`** - Internal URL for indexer service
-- **`UI_VARIANT`** - UI variant configuration (default: `default`)
+- **`ACCESS_USERNAME`** - Username for UI authentication (default: `admin`)
+- **`ACCESS_PASSWORD`** - Password for UI authentication (default: `password`)
+- **`API_BASE_URI`** - Document service URL (default: `http://documents:3001`)
+- **`NEXT_PUBLIC_BASE_PATH`** - Base path for the UI (default: `/dave`)
+- **`NEXT_PUBLIC_FULL_PATH`** - Full path URL for the UI (default: `http://127.0.0.1:3000/dave`)
+- **`API_LLM`** - Internal URL for text generation service
+- **`API_INDEXER`** - Internal URL for indexer service
+- **`VARIANT`** - UI variant configuration (default: `default`)
 - **`LISTEN_UI`** - Port for UI service (default: `3000`)
 
 #### MongoDB Configuration
@@ -217,6 +223,34 @@ The following services are exposed on these ports:
 - **Text Generation**: `7862`, `8000`
 
 ## Troubleshooting
+
+### Build Fails with "Invalid URL" or "ERR_INVALID_URL"
+
+**Error:**
+```
+TypeError [ERR_INVALID_URL]: Invalid URL
+at parseUrl (.../next-auth/utils/parse-url.js:13:16)
+```
+
+**Solution:** This means your `.env` file is missing or `NEXTAUTH_URL` is not set.
+
+1. Ensure you created the `.env` file: `cp .env.sample .env`
+2. Edit `.env` and set `NEXTAUTH_URL=http://127.0.0.1:3000/dave/api/auth`
+3. Generate a random secret: `NEXTAUTH_SECRET=$(openssl rand -base64 32)`
+4. Rebuild: `docker compose build --no-cache ui`
+
+### Build Fails with Missing Function Import
+
+**Error:**
+```
+Attempted import error: 'getStartAndEndIndexForPagination' is not exported from '@/utils/shared'
+```
+
+**Solution:** This is fixed in the latest version. Pull the latest changes:
+```bash
+git pull origin main
+docker compose build --no-cache ui
+```
 
 ### Services Not Starting
 

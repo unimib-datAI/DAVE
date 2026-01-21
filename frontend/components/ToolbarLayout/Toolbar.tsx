@@ -41,7 +41,6 @@ const Logo = styled.a({
 
 const Toolbar = ({ children }: PropsWithChildren<{}>) => {
   const router = useRouter();
-  console.log('current route', router.pathname);
   return (
     <Container id="toolbar">
       <Link href="/" passHref>

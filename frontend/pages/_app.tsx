@@ -75,20 +75,13 @@ function MyApp({
     useEffect(() => {
       try {
         if ((currentSession as any)?.error === 'RefreshAccessTokenError') {
-          // log locally and force sign out
-          console.warn(
-            'AuthWatcher: RefreshAccessTokenError detected — signing out user',
-          );
           // sign out and redirect to sign-in page
           signOut({
             callbackUrl: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/sign-in`,
           });
         }
       } catch (e) {
-        console.error(
-          'AuthWatcher: error while handling session refresh error',
-          e,
-        );
+        // Silent error handling
       }
     }, [currentSession]);
 
@@ -96,22 +89,13 @@ function MyApp({
     useEffect(() => {
       try {
         if (token) {
-          console.log(
-            'AuthWatcher: token present — fetching collections in background',
-          );
           // trigger a background refetch
-          collectionsQuery.refetch().catch((err) => {
-            console.warn(
-              'AuthWatcher: background collections fetch failed',
-              err,
-            );
+          collectionsQuery.refetch().catch(() => {
+            // Silent error handling
           });
         }
       } catch (e) {
-        console.error(
-          'AuthWatcher: error while initiating collections fetch',
-          e,
-        );
+        // Silent error handling
       }
       // We intentionally depend on token and the refetch function
     }, [token, collectionsQuery.refetch]);
@@ -120,14 +104,8 @@ function MyApp({
     useEffect(() => {
       const handleRouteChange = () => {
         if (!token) return;
-        console.log(
-          'AuthWatcher: route changed — refetching collections in background',
-        );
-        collectionsQuery.refetch().catch((err) => {
-          console.warn(
-            'AuthWatcher: collections refetch on route change failed',
-            err,
-          );
+        collectionsQuery.refetch().catch(() => {
+          // Silent error handling
         });
       };
 

@@ -135,9 +135,6 @@ export const UploadDocumentsModal = ({
   const { data: configurations = [], isLoading: configurationsLoading } =
     useQuery(['document.getConfigurations', { token: token ?? '' }], {
       enabled: status === 'authenticated' && !!token,
-      onSuccess: (data) => {
-        console.log('Configurations loaded:', data);
-      },
     });
 
   // Get active configuration
@@ -145,19 +142,8 @@ export const UploadDocumentsModal = ({
     ['document.getActiveConfiguration', { token: token ?? '' }],
     {
       enabled: status === 'authenticated' && !!token,
-      onSuccess: (data) => {
-        console.log('Active config loaded:', data);
-      },
     }
   );
-
-  console.log('Upload Modal - configurations:', configurations);
-  console.log('Upload Modal - activeConfig:', activeConfig);
-  console.log('Upload Modal - selectedConfigId:', selectedConfigId);
-  console.log('Upload Modal - loading states:', {
-    configurationsLoading,
-    activeConfigLoading,
-  });
 
   const handleFileSelect = (
     event: React.ChangeEvent<HTMLInputElement>,
