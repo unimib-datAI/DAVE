@@ -75,7 +75,7 @@ DAVE/
 
 ### 1. Configure Environment Variables
 
-⚠️ **IMPORTANT**: You MUST create a `.env` file before building the project. Skipping this step will cause build failures.
+**IMPORTANT**: You MUST create a `.env` file before building the project. Skipping this step will cause build failures.
 
 Copy the sample environment file and configure it:
 
@@ -83,45 +83,316 @@ Copy the sample environment file and configure it:
 cp .env.sample .env
 ```
 
-**At minimum**, edit the `.env` file and update these critical variables:
+#### Quick Start Configuration (Minimum Setup)
 
-- **`NEXTAUTH_SECRET`** - **REQUIRED** - Generate a random string (use: `openssl rand -base64 32`)
-- **`NEXTAUTH_URL`** - **REQUIRED** - Set to `http://127.0.0.1:3000/dave/api/auth` (or your domain)
+For a quick local setup, you only need to change these 3 things in your `.env` file:
 
-The `.env.sample` file includes sensible defaults for other variables. Review and adjust as needed:
+1. **Generate and set `NEXTAUTH_SECRET`:**
+   ```bash
+   openssl rand -base64 32
+   ```
+   Copy the output and replace the value in `.env`
 
-#### UI Configuration
-- **`ACCESS_USERNAME`** - Username for UI authentication (default: `admin`)
-- **`ACCESS_PASSWORD`** - Password for UI authentication (default: `password`)
-- **`API_BASE_URI`** - Document service URL (default: `http://documents:3001`)
-- **`NEXT_PUBLIC_BASE_PATH`** - Base path for the UI (default: `/dave`)
-- **`NEXT_PUBLIC_FULL_PATH`** - Full path URL for the UI (default: `http://127.0.0.1:3000/dave`)
-- **`API_LLM`** - Internal URL for text generation service
-- **`API_INDEXER`** - Internal URL for indexer service
-- **`VARIANT`** - UI variant configuration (default: `default`)
-- **`LISTEN_UI`** - Port for UI service (default: `3000`)
+2. **Update `MONGO_ROOT_PASSWORD` and `MONGO_PASSWORD`:**
+   - Change `example_root_password_change_me` to a secure password
+   - Change `example_password_change_me` to a different secure password
 
-#### MongoDB Configuration
-- **`MONGO_ROOT_PASSWORD`** - Root password for MongoDB (change this!)
-- **`MONGO_PASSWORD`** - Application user password for MongoDB (change this!)
-- **`MONGO`** - MongoDB connection string (uses variables above)
+3. **Update the `MONGO` connection string:**
+   - Replace the password in the connection string with your `MONGO_PASSWORD` value
+   - Example: `mongodb://usr:YOUR_MONGO_PASSWORD@mongo:27017/dave?authSource=admin`
+
+That's it! You can now proceed to build and run the project. All other variables have sensible defaults.
+
+---
+
+#### Environment Variables Quick Reference Table
+
+| Category | Variable | Required | Default | Description |
+|----------|----------|----------|---------|-------------|
+| **Authentication** | `NEXTAUTH_SECRET` | Yes | - | NextAuth.js secret (generate with `openssl rand -base64 32`) |
+| | `NEXTAUTH_URL` | Yes | - | Public auth callback URL (e.g., `http://127.0.0.1:3000/dave/api/auth`) |
+| | `NEXTAUTH_URL_INTERNAL` | No | `http://localhost:3000` | Internal auth URL for server-side requests |
+| **MongoDB** | `MONGO_ROOT_PASSWORD` | Yes | - | MongoDB root password (change in production!) |
+| | `MONGO_PASSWORD` | Yes | - | MongoDB app user password (change in production!) |
+| | `MONGO` | ⚠️ Yes | - | MongoDB connection string (include password from above) |
+| **Frontend** | `LISTEN_UI` | No | `3000` | Port for UI service |
+| | `ACCESS_USERNAME` | No | `admin` | Basic auth username (if not using Keycloak) |
+| | `ACCESS_PASSWORD` | No | `password` | Basic auth password (change in production!) |
+| | `NEXT_PUBLIC_BASE_PATH` | No | `/dave` | Base path for application URL |
+| | `NEXT_PUBLIC_FULL_PATH` | No | `http://127.0.0.1:3000/dave` | Full public URL |
+| | `VARIANT` | No | `default` | UI theme variant |
+| **Keycloak (SSO)** | `USE_KEYCLOAK` | No | `true` | Enable Keycloak authentication |
+| | `KEYCLOAK_ADMIN` | No | `admin` | Keycloak admin username |
+| | `KEYCLOAK_ADMIN_PASSWORD` | No | `admin` | Keycloak admin password (change in production!) |
+| | `KEYCLOAK_ID` | No | `dave_client` | Keycloak client ID |
+| | `KEYCLOAK_SECRET` | No | - | Keycloak client secret (change in production!) |
+| | `KEYCLOAK_ISSUER` | No | `http://keycloak:8080/realms/DAVE` | Keycloak realm issuer URL |
+| **Elasticsearch** | `ELASTIC_INDEX` | No | `dave` | Elasticsearch index name |
+| | `ELASTIC_PORT` | No | `9200` | Elasticsearch port |
+| **Document Service** | `DOCS_PORT` | No | `3001` | Document service port |
+| | `API_BASE_URI` | No | `http://documents:3001` | Internal document service URL |
+| | `API_USERNAME` | No | `api_user` | Internal API username |
+| | `API_PASSWORD` | No | - | Internal API password (change in production!) |
+| | `DOCUMENTS_JWT_SECRET` | No | - | JWT secret for documents (change in production!) |
+| **Text Generation** | `TEXT_GENERATION_ADDR` | No | `http://text-generation:8000` | Text generation service URL |
+| | `API_LLM` | No | `http://text-generation:8000/v1` | LLM API endpoint |
+| | `TEXT_GENERATION_GPU_LAYERS` | No | `35` | GPU layers for model (adjust for your GPU) |
+| | `MODEL_NAME` | No | `default-model` | Text generation model name |
+| **QA Vectorizer** | `QAVECTORIZER_ADDR` | No | `7863` | QA vectorizer service port |
+| | `API_INDEXER` | No | `http://qavectorizer:7863` | Indexer API endpoint |
+| | `SENTENCE_TRANSFORMER_EMBEDDING_MODEL` | No | `Alibaba-NLP/gte-multilingual-base` | Hugging Face embedding model |
+| | `SENTENCE_TRANSFORMER_DEVICE` | No | `cuda` | Device for inference (`cuda` or `cpu`) |
+| | `OGG2NAME_INDEX` | No | `dave_ogg2name` | Object-to-name mapping index |
+| **Docker** | `RESTART_POLICY` | No | `unless-stopped` | Container restart policy |
+| **Optional Features** | `NO_LOGIN` | No | `false` | Disable authentication (dev only) |
+| | `LOCALE` | No | `ita` | Application language (`ita`, `eng`) |
+| | `NEXT_PUBLIC_QUESTIONS` | No | - | Predefined chat questions (separated by `-\|`) |
+| | `NEXT_PUBLIC_SYSTEM_PROMPT` | No | - | Custom AI system prompt |
+| **Annotation Services** | `ANNOTATION_SPACYNER_URL` | No | - | SpaCy NER service URL (optional) |
+| | `ANNOTATION_BLINK_URL` | No | - | BLINK entity linking URL (optional) |
+| | `ANNOTATION_INDEXER_URL` | No | - | Annotation indexer URL (optional) |
+| | `ANNOTATION_NILPREDICTION_URL` | No | - | NIL prediction service URL (optional) |
+| | `ANNOTATION_NILCLUSTER_URL` | No | - | NIL clustering service URL (optional) |
+| | `ANNOTATION_CONSOLIDATION_URL` | No | - | Annotation consolidation URL (optional) |
+
+---
+
+#### Detailed Environment Variables Reference
+
+For production deployments or custom configurations, review and adjust these variables as needed:
+
+#### Required Variables (Must Be Set)
+
+Edit the `.env` file and update these **REQUIRED** variables:
+
+- **`NEXTAUTH_SECRET`** - Authentication secret for NextAuth.js
+  - Generate with: `openssl rand -base64 32`
+  - Example: `your-nextauth-secret-change-me-generate-with-openssl`
+
+- **`NEXTAUTH_URL`** - Public URL for authentication callbacks
+  - For local development: `http://127.0.0.1:3000/dave/api/auth`
+  - For production: `https://yourdomain.com/dave/api/auth`
+
+- **`MONGO_ROOT_PASSWORD`** - MongoDB root password
+  - **Change this immediately in production!**
+  - Example: `example_root_password_change_me`
+
+- **`MONGO_PASSWORD`** - MongoDB application user password
+  - **Change this immediately in production!**
+  - Example: `example_password_change_me`
+
+- **`MONGO`** - MongoDB connection string
+  - Format: `mongodb://usr:PASSWORD@mongo:27017/dave?authSource=admin`
+  - Replace `PASSWORD` with the value of `MONGO_PASSWORD`
+  - Example: `mongodb://usr:example_password_change_me@mongo:27017/dave?authSource=admin`
+
+#### Docker Configuration
+
+- **`RESTART_POLICY`** - Docker restart policy for all containers
+  - Options: `no`, `always`, `on-failure`, `unless-stopped`
+  - Default: `unless-stopped`
+
+#### Keycloak Authentication (Optional - for SSO/OAuth)
+
+DAVE supports Keycloak for enterprise SSO. If not using Keycloak, you can use basic authentication.
+
+- **`USE_KEYCLOAK`** - Enable/disable Keycloak authentication
+  - Default: `true`
+  - Set to `false` to use basic auth only
+
+- **`KEYCLOAK_DB_PASSWORD`** - Password for Keycloak's PostgreSQL database
+  - Default: `keycloak`
+
+- **`KEYCLOAK_ADMIN`** - Keycloak admin username
+  - Default: `admin`
+
+- **`KEYCLOAK_ADMIN_PASSWORD`** - Keycloak admin password
+  - Default: `admin`
+  - **Change in production!**
+
+- **`KEYCLOAK_HOSTNAME`** - Hostname for Keycloak server
+  - Default: `vm.chronos.disco.unimib.it`
+  - Adjust for your domain
+
+- **`KEYCLOAK_ISSUER`** - Keycloak realm issuer URL
+  - Default: `http://keycloak:8080/realms/DAVE`
+
+- **`KEYCLOAK_ID`** - Keycloak client ID
+  - Default: `dave_client`
+
+- **`KEYCLOAK_SECRET`** - Keycloak client secret
+  - Default: `your-keycloak-secret-change-me`
+  - **Change in production!**
+
+#### Frontend (UI) Configuration
+
+- **`LISTEN_UI`** - Port for the UI service to listen on
+  - Default: `3000`
+
+- **`ACCESS_USERNAME`** - Basic auth username for UI (when not using Keycloak)
+  - Default: `admin`
+
+- **`ACCESS_PASSWORD`** - Basic auth password for UI (when not using Keycloak)
+  - Default: `password`
+  - **Change in production!**
+
+- **`NEXT_PUBLIC_BASE_PATH`** - Base path for the application in the URL
+  - Default: `/dave`
+  - Used for reverse proxy setups
+
+- **`NEXT_PUBLIC_FULL_PATH`** - Full public URL for the application
+  - Default: `http://127.0.0.1:3000/dave`
+  - For production: `https://yourdomain.com/dave`
+
+- **`NEXTAUTH_URL_INTERNAL`** - Internal NextAuth URL (for server-side requests)
+  - Default: `http://localhost:3000`
+
+- **`VARIANT`** - UI variant/theme configuration
+  - Default: `default`
+
+- **`HOST`** - Host binding for services
+  - Default: `0.0.0.0`
+
+- **`NEXT_PUBLIC_ELASTIC_INDEX`** - Elasticsearch index name (exposed to frontend)
+  - Default: `dave`
+
+**Optional UI Features:**
+
+- **`NO_LOGIN`** - Disable authentication (development/testing only)
+  - Default: `false`
+  - Set to `true` to bypass login
+
+- **`LOCALE`** - Application locale/language
+  - Default: `ita` (Italian)
+  - Other options: `eng` (English)
+
+- **`NEXT_PUBLIC_QUESTIONS`** - Predefined chat questions (separated by `-|`)
+  - Example: `What is this document about?-|Summarize the main points-|Who are the key entities?`
+
+- **`NEXT_PUBLIC_SYSTEM_PROMPT`** - Custom system prompt for AI chat
+  - Default: Uses built-in expert assistant prompt
+
+#### Document Service Configuration
+
+- **`DOCS_PORT`** - Port for the document service
+  - Default: `3001`
+
+- **`API_BASE_URI`** - Internal URL for document service API
+  - Default: `http://documents:3001`
+
+- **`API_USERNAME`** - Username for internal API authentication
+  - Default: `api_user`
+
+- **`API_PASSWORD`** - Password for internal API authentication
+  - Default: `api_password_change_me`
+  - **Change in production!**
+
+- **`DOCUMENTS_JWT_SECRET`** - JWT secret for document service authentication
+  - Default: `your-secret-key-change-in-production`
+  - **Change in production!**
 
 #### Elasticsearch Configuration
-- **`ELASTIC_INDEX`** - Name of the Elasticsearch index (default: `dave`)
 
-#### Text Generation Configuration
+- **`ELASTIC_INDEX`** - Name of the Elasticsearch index
+  - Default: `dave`
+
+- **`ELASTIC_PORT`** - Elasticsearch port
+  - Default: `9200`
+
+#### Text Generation Service Configuration
+
 - **`TEXT_GENERATION_ADDR`** - Internal URL for text generation service
-- **`TEXT_GENERATION_GPU_LAYERS`** - Number of GPU layers to use (default: `35`)
+  - Default: `http://text-generation:8000`
 
-#### QA Vectorizer Configuration
-- **`HOST_BASE_URL`** - Base URL for the host (default: `http://0.0.0.0`)
-- **`QAVECTORIZER_ADDR`** - Port for QA vectorizer service (default: `7863`)
+- **`TEXT_GENERATION_KEY`** - API key for text generation service
+  - Default: `your-key`
+
+- **`MODEL_NAME`** - Name of the text generation model
+  - Default: `default-model`
+
+- **`API_LLM`** - LLM API endpoint (OpenAI-compatible format)
+  - Default: `http://text-generation:8000/v1`
+
+- **`TEXT_GENERATION_GPU_LAYERS`** - Number of GPU layers to offload
+  - Default: `35`
+  - Adjust based on your GPU memory (higher = more GPU usage, faster inference)
+
+- **`TEXT_GENERATION`** - Enable text generation features
+  - Default: `true`
+
+#### QA Vectorizer Service Configuration
+
+- **`HOST_BASE_URL`** - Base URL for the vectorizer host
+  - Default: `http://0.0.0.0`
+
+- **`QAVECTORIZER_ADDR`** - Port for QA vectorizer service
+  - Default: `7863`
+
+- **`API_INDEXER`** - Indexer API endpoint (exposed to frontend)
+  - Default: `http://qavectorizer:7863`
+
+- **`CHROMA_PORT`** - Port for ChromaDB (if used)
+  - Default: `8000`
+
 - **`SENTENCE_TRANSFORMER_EMBEDDING_MODEL`** - Hugging Face model for embeddings
-- **`SENTENCE_TRANSFORMER_DEVICE`** - Device for inference (`cuda` for GPU, `cpu` for CPU)
-- **`OGG2NAME_INDEX`** - Index name for object-to-name mapping
+  - Default: `Alibaba-NLP/gte-multilingual-base`
+  - Other options: `sentence-transformers/all-MiniLM-L6-v2`, `intfloat/multilingual-e5-large`
 
-#### General Configuration
-- **`RESTART_POLICY`** - Docker restart policy (default: `unless-stopped`)
+- **`SENTENCE_TRANSFORMER_DEVICE`** - Device for inference
+  - Options: `cuda` (GPU), `cpu` (CPU)
+  - Default: `cuda`
+
+- **`OGG2NAME_INDEX`** - Elasticsearch index for object-to-name mapping
+  - Default: `dave_ogg2name`
+
+#### Annotation Pipeline Services (Optional)
+
+These services enable advanced NER (Named Entity Recognition) and entity linking features. Leave empty if not using these features.
+
+- **`ANONYMIZATION_ENDPOINT`** - URL for anonymization service
+  - Optional, leave empty if not used
+
+- **`ANNOTATION_SPACYNER_URL`** - URL for SpaCy NER annotation service
+  - Optional, leave empty if not used
+
+- **`ANNOTATION_BLINK_URL`** - URL for BLINK entity linking service
+  - Optional, leave empty if not used
+
+- **`ANNOTATION_INDEXER_URL`** - URL for annotation indexer service
+  - Optional, leave empty if not used
+
+- **`ANNOTATION_NILPREDICTION_URL`** - URL for NIL (Not In Lexicon) prediction service
+  - Optional, leave empty if not used
+
+- **`ANNOTATION_NILCLUSTER_URL`** - URL for NIL clustering service
+  - Optional, leave empty if not used
+
+- **`ANNOTATION_CONSOLIDATION_URL`** - URL for annotation consolidation service
+  - Optional, leave empty if not used
+
+#### Security Best Practices
+
+1. **Never use default passwords in production** - Change all default passwords and secrets
+2. **Generate strong secrets** - Use `openssl rand -base64 32` for all secret values
+3. **Use HTTPS in production** - Configure a reverse proxy (nginx, traefik) with SSL/TLS
+4. **Restrict network access** - Use firewall rules to limit access to services
+5. **Keep credentials secure** - Never commit `.env` file to version control
+6. **Regular updates** - Keep all services and dependencies up to date
+
+#### Example Production Configuration
+
+For production deployments, your `.env` should look similar to:
+
+```bash
+# Production example (DO NOT copy these exact values!)
+NEXTAUTH_SECRET=Kx8vQ2pL9mR3wN7sJ4fY1hT6cV5bA0zE2gU8xD3qW9e=
+NEXTAUTH_URL=https://yourdomain.com/dave/api/auth
+MONGO_ROOT_PASSWORD=SecureRootPass123!@#
+MONGO_PASSWORD=SecureAppPass456$%^
+MONGO=mongodb://usr:SecureAppPass456$%^@mongo:27017/dave?authSource=admin
+KEYCLOAK_ADMIN_PASSWORD=SecureKeycloakAdmin789&*(
+DOCUMENTS_JWT_SECRET=8fR5vN2pL7kQ3wJ9mT6xY1hS4cB0zA5gU3eD8qW2r=
+```
 
 ### 2. Install Python Dependencies
 
