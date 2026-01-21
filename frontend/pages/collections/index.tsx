@@ -117,9 +117,7 @@ const Collections: NextPage = () => {
     name: '',
     allowedUserIds: [] as string[],
   });
-  useEffect(() => {
-    if (session) console.log('*** jwt ***', session.accessToken);
-  }, [session]);
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/sign-in');

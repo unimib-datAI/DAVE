@@ -260,7 +260,7 @@ export default (app) => {
         console.log(
           `Found ${configurations.length} configurations for user ${userId}`,
         );
-        return res.json(configurations).status(200);
+        return res.status(200).json(configurations);
       } catch (err) {
         console.error("Failed to fetch configurations", err);
         return res
@@ -291,7 +291,7 @@ export default (app) => {
             .json({ message: "No active configuration found" });
         }
         console.log(`Found active configuration: ${activeConfig.name}`);
-        return res.json(activeConfig).status(200);
+        return res.status(200).json(activeConfig);
       } catch (err) {
         console.error("Failed to fetch active configuration", err);
         return res

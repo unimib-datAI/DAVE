@@ -233,6 +233,15 @@ export function maskWords(inputString: string) {
   return maskedString;
 }
 
+export function getStartAndEndIndexForPagination(page: number, text: string) {
+  // For infinite loading, return the full text range
+  // Page parameter can be used for future pagination if needed
+  return {
+    startIndex: 0,
+    endIndex: text.length,
+  };
+}
+
 export function getClustersGroups(data: Document, annSetName: string) {
   const annSetClusters = data.features.clusters[annSetName];
   if (!annSetClusters) {

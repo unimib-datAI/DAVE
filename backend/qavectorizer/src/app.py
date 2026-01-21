@@ -1283,9 +1283,9 @@ print(
 es_client = Elasticsearch(
     hosts=[
         {
-            "host": "es",
+            "host": "host.docker.internal",
             "scheme": "http",
-            "port": 9200,
+            "port": 9201,
         }
     ],
     request_timeout=60,
