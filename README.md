@@ -114,7 +114,7 @@ That's it! You can now proceed to build and run the project. All other variables
 | | `NEXTAUTH_URL_INTERNAL` | No | `http://localhost:3000` | Internal auth URL for server-side requests |
 | **MongoDB** | `MONGO_ROOT_PASSWORD` | Yes | - | MongoDB root password (change in production!) |
 | | `MONGO_PASSWORD` | Yes | - | MongoDB app user password (change in production!) |
-| | `MONGO` | ⚠️ Yes | - | MongoDB connection string (include password from above) |
+| | `MONGO` | Yes | - | MongoDB connection string (include password from above) |
 | **Frontend** | `LISTEN_UI` | No | `3000` | Port for UI service |
 | | `ACCESS_USERNAME` | No | `admin` | Basic auth username (if not using Keycloak) |
 | | `ACCESS_PASSWORD` | No | `password` | Basic auth password (change in production!) |
@@ -387,11 +387,11 @@ For production deployments, your `.env` should look similar to:
 # Production example (DO NOT copy these exact values!)
 NEXTAUTH_SECRET=Kx8vQ2pL9mR3wN7sJ4fY1hT6cV5bA0zE2gU8xD3qW9e=
 NEXTAUTH_URL=https://yourdomain.com/dave/api/auth
-MONGO_ROOT_PASSWORD=SecureRootPass123!@#
-MONGO_PASSWORD=SecureAppPass456$%^
-MONGO=mongodb://usr:SecureAppPass456$%^@mongo:27017/dave?authSource=admin
-KEYCLOAK_ADMIN_PASSWORD=SecureKeycloakAdmin789&*(
-DOCUMENTS_JWT_SECRET=8fR5vN2pL7kQ3wJ9mT6xY1hS4cB0zA5gU3eD8qW2r=
+MONGO_ROOT_PASSWORD=SecureRootPass123
+MONGO_PASSWORD=SecureAppPass456
+MONGO=mongodb://usr:SecureAppPass456@mongo:27017/dave?authSource=admin
+KEYCLOAK_ADMIN_PASSWORD=SecureKeycloakAdmin789
+DOCUMENTS_JWT_SECRET=JWTSecret234567890abcdef
 ```
 
 ### 2. Install Python Dependencies
@@ -553,10 +553,10 @@ docker compose exec mongo mongosh -u root -p <MONGO_ROOT_PASSWORD>
 
 Ensure you're running scripts from the root folder:
 ```bash
-# ✓ Correct
+# Correct
 python scripts/upload_mongo.py
 
-# ✗ Incorrect
+# Incorrect
 cd scripts && python upload_mongo.py
 ```
 
