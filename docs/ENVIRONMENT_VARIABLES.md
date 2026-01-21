@@ -50,7 +50,7 @@ These variables **MUST** be set before starting the application:
 ### NEXTAUTH_SECRET
 
 - **Type:** String (minimum 32 characters)
-- **Required:** ⚠️ Yes
+- **Required:** Yes
 - **Default:** None
 - **Description:** Secret key used by NextAuth.js for encrypting tokens and session data.
 
@@ -64,14 +64,14 @@ openssl rand -base64 32
 NEXTAUTH_SECRET=Kx8vQ2pL9mR3wN7sJ4fY1hT6cV5bA0zE2gU8xD3qW9e=
 ```
 
-⚠️ **Never use the example value above in production!**
+**Never use the example value above in production!**
 
 ---
 
 ### NEXTAUTH_URL
 
 - **Type:** URL
-- **Required:** ⚠️ Yes
+- **Required:** Yes
 - **Default:** None
 - **Description:** Public-facing URL for NextAuth.js authentication callbacks.
 
@@ -85,14 +85,14 @@ NEXTAUTH_URL=http://127.0.0.1:3000/dave/api/auth
 NEXTAUTH_URL=https://yourdomain.com/dave/api/auth
 ```
 
-⚠️ **Always use `127.0.0.1` instead of `localhost` to avoid DNS resolution issues.**
+**Always use `127.0.0.1` instead of `localhost` to avoid DNS resolution issues.**
 
 ---
 
 ### MONGO_ROOT_PASSWORD
 
 - **Type:** String
-- **Required:** ⚠️ Yes
+- **Required:** Yes
 - **Default:** None
 - **Description:** Root password for MongoDB database.
 
@@ -101,14 +101,14 @@ NEXTAUTH_URL=https://yourdomain.com/dave/api/auth
 MONGO_ROOT_PASSWORD=SecureRootPassword123!
 ```
 
-⚠️ **Change this immediately in production! Never use default or example passwords.**
+**Change this immediately in production! Never use default or example passwords.**
 
 ---
 
 ### MONGO_PASSWORD
 
 - **Type:** String
-- **Required:** ⚠️ Yes
+- **Required:** Yes
 - **Default:** None
 - **Description:** Password for the MongoDB application user (`usr`).
 
@@ -117,14 +117,14 @@ MONGO_ROOT_PASSWORD=SecureRootPassword123!
 MONGO_PASSWORD=SecureAppPassword456!
 ```
 
-⚠️ **Must be different from `MONGO_ROOT_PASSWORD`.**
+**Must be different from `MONGO_ROOT_PASSWORD`.**
 
 ---
 
 ### MONGO
 
 - **Type:** MongoDB Connection String
-- **Required:** ⚠️ Yes
+- **Required:** Yes
 - **Default:** None
 - **Description:** Full MongoDB connection string used by all services.
 
@@ -138,7 +138,7 @@ mongodb://usr:<MONGO_PASSWORD>@mongo:27017/dave?authSource=admin
 MONGO=mongodb://usr:SecureAppPassword456!@mongo:27017/dave?authSource=admin
 ```
 
-⚠️ **The password in this string MUST match `MONGO_PASSWORD`.**
+**The password in this string MUST match `MONGO_PASSWORD`.**
 
 ---
 
@@ -235,7 +235,7 @@ KEYCLOAK_ADMIN=admin
 KEYCLOAK_ADMIN_PASSWORD=SecureKeycloakAdmin789!
 ```
 
-⚠️ **Change in production!**
+**Change in production!**
 
 ---
 
@@ -294,7 +294,7 @@ KEYCLOAK_ID=dave_client
 KEYCLOAK_SECRET=your-keycloak-client-secret-here
 ```
 
-⚠️ **Change in production! Generate a secure random string.**
+**Change in production! Generate a secure random string.**
 
 ---
 
@@ -376,7 +376,7 @@ ACCESS_USERNAME=admin
 ACCESS_PASSWORD=SecureUIPassword123!
 ```
 
-⚠️ **Change in production!**
+**Change in production!**
 
 ---
 
@@ -471,7 +471,7 @@ Should match `ELASTIC_INDEX`.
 NO_LOGIN=false
 ```
 
-⚠️ **Never set to `true` in production!**
+**Never set to `true` in production!**
 
 ---
 
@@ -567,7 +567,7 @@ API_USERNAME=api_user
 API_PASSWORD=SecureAPIPassword123!
 ```
 
-⚠️ **Change in production!**
+**Change in production!**
 
 ---
 
@@ -582,7 +582,7 @@ API_PASSWORD=SecureAPIPassword123!
 DOCUMENTS_JWT_SECRET=SecureJWTSecret456!
 ```
 
-⚠️ **Change in production! Use a long random string.**
+**Change in production! Use a long random string.**
 
 ---
 
@@ -897,7 +897,7 @@ Here's an example production `.env` configuration with secure values:
 ```env
 # ============================================================================
 # PRODUCTION CONFIGURATION EXAMPLE
-# ⚠️ DO NOT copy these exact values - generate your own secure credentials!
+# DO NOT copy these exact values - generate your own secure credentials!
 # ============================================================================
 
 # Docker
@@ -909,24 +909,24 @@ NEXTAUTH_URL=https://yourdomain.com/dave/api/auth
 NEXTAUTH_URL_INTERNAL=http://localhost:3000
 
 # MongoDB (REQUIRED)
-MONGO_ROOT_PASSWORD=SecureRootPass123!@#$%^
-MONGO_PASSWORD=SecureAppPass456!@#$%^
-MONGO=mongodb://usr:SecureAppPass456!@#$%^@mongo:27017/dave?authSource=admin
+MONGO_ROOT_PASSWORD=SecureRootPass123
+MONGO_PASSWORD=SecureAppPass456
+MONGO=mongodb://usr:SecureAppPass456@mongo:27017/dave?authSource=admin
 
 # Keycloak (if using SSO)
 USE_KEYCLOAK=true
-KEYCLOAK_DB_PASSWORD=KeycloakDB789!@#$%^
+KEYCLOAK_DB_PASSWORD=KeycloakDB789
 KEYCLOAK_ADMIN=admin
-KEYCLOAK_ADMIN_PASSWORD=KeycloakAdmin012!@#$%^
+KEYCLOAK_ADMIN_PASSWORD=KeycloakAdmin012
 KEYCLOAK_HOSTNAME=auth.yourdomain.com
 KEYCLOAK_ISSUER=https://auth.yourdomain.com/realms/DAVE
 KEYCLOAK_ID=dave_client
-KEYCLOAK_SECRET=SecureKeycloakClientSecret345!@#$%^
+KEYCLOAK_SECRET=SecureKeycloakClientSecret345
 
 # Frontend
 LISTEN_UI=3000
 ACCESS_USERNAME=admin
-ACCESS_PASSWORD=UIPassword678!@#$%^
+ACCESS_PASSWORD=UIPassword678
 NEXT_PUBLIC_BASE_PATH=/dave
 NEXT_PUBLIC_FULL_PATH=https://yourdomain.com/dave
 VARIANT=default
@@ -941,12 +941,12 @@ NEXT_PUBLIC_ELASTIC_INDEX=dave_production
 DOCS_PORT=3001
 API_BASE_URI=http://documents:3001
 API_USERNAME=api_user
-API_PASSWORD=APIPassword901!@#$%^
-DOCUMENTS_JWT_SECRET=JWTSecret234!@#$%^567890abcdef
+API_PASSWORD=APIPassword901
+DOCUMENTS_JWT_SECRET=JWTSecret234567890abcdef
 
 # Text Generation
 TEXT_GENERATION_ADDR=http://text-generation:8000
-TEXT_GENERATION_KEY=LLMKey567!@#$%^
+TEXT_GENERATION_KEY=LLMKey567
 MODEL_NAME=mistral-7b-instruct-v0.2
 API_LLM=http://text-generation:8000/v1
 TEXT_GENERATION_GPU_LAYERS=35
@@ -981,13 +981,13 @@ ANNOTATION_CONSOLIDATION_URL=
 
 ### 1. Password Security
 
-✅ **DO:**
+**DO:**
 - Use strong, unique passwords for each service
 - Use password managers to generate secure random passwords
 - Minimum 16 characters with mixed case, numbers, and symbols
 - Rotate credentials regularly
 
-❌ **DON'T:**
+**DON'T:**
 - Use default passwords in production
 - Reuse passwords across services
 - Use simple passwords like "password123"
