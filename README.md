@@ -73,6 +73,8 @@ DAVE/
 
 ## Setup Instructions
 
+**NEW USER?** Follow the [Quick Start Checklist](docs/QUICK_START_CHECKLIST.md) for a step-by-step guide.
+
 ### 1. Configure Environment Variables
 
 **IMPORTANT**: You MUST create a `.env` file before building the project. Skipping this step will cause build failures.
@@ -83,9 +85,23 @@ Copy the sample environment file and configure it:
 cp .env.sample .env
 ```
 
-#### Quick Start Configuration (Minimum Setup)
+#### Quick Start Configuration (Works Out of the Box)
 
-For a quick local setup, you only need to change these 3 things in your `.env` file:
+The `.env.sample` file has working defaults for local development. For a quick start:
+
+**Option 1: Use Defaults (Fastest)**
+
+The `.env.sample` works as-is for local development. Just copy it:
+
+```bash
+cp .env.sample .env
+```
+
+**IMPORTANT:** You still need to configure Keycloak after starting the services. See [Keycloak Setup Guide](docs/KEYCLOAK_SETUP.md) for details.
+
+**Option 2: Custom Configuration (Recommended for Production)**
+
+If you want to customize or prepare for production:
 
 1. **Generate and set `NEXTAUTH_SECRET`:**
    ```bash
@@ -93,15 +109,16 @@ For a quick local setup, you only need to change these 3 things in your `.env` f
    ```
    Copy the output and replace the value in `.env`
 
-2. **Update `MONGO_ROOT_PASSWORD` and `MONGO_PASSWORD`:**
-   - Change `example_root_password_change_me` to a secure password
-   - Change `example_password_change_me` to a different secure password
+2. **Update MongoDB passwords:**
+   - Change `MONGO_ROOT_PASSWORD` to a secure password
+   - Change `MONGO_PASSWORD` to a different secure password
+   - Update the password in `MONGO` connection string to match `MONGO_PASSWORD`
 
-3. **Update the `MONGO` connection string:**
-   - Replace the password in the connection string with your `MONGO_PASSWORD` value
-   - Example: `mongodb://usr:YOUR_MONGO_PASSWORD@mongo:27017/dave?authSource=admin`
+3. **Configure Keycloak client secret** (after creating the Keycloak client):
+   - Follow the [Keycloak Setup Guide](docs/KEYCLOAK_SETUP.md)
+   - Update `KEYCLOAK_SECRET` with the actual client secret from Keycloak
 
-That's it! You can now proceed to build and run the project. All other variables have sensible defaults.
+That's it! All other variables have sensible defaults for local development.
 
 ---
 
@@ -109,12 +126,12 @@ That's it! You can now proceed to build and run the project. All other variables
 
 | Category | Variable | Required | Default | Description |
 |----------|----------|----------|---------|-------------|
-| **Authentication** | `NEXTAUTH_SECRET` | Yes | - | NextAuth.js secret (generate with `openssl rand -base64 32`) |
-| | `NEXTAUTH_URL` | Yes | - | Public auth callback URL (e.g., `http://127.0.0.1:3000/dave/api/auth`) |
+| **Authentication** | `NEXTAUTH_SECRET` | No | `dev-secret-key...` | NextAuth.js secret (works for dev, change in production!) |
+| | `NEXTAUTH_URL` | No | `http://127.0.0.1:3000/dave/api/auth` | Public auth callback URL |
 | | `NEXTAUTH_URL_INTERNAL` | No | `http://localhost:3000` | Internal auth URL for server-side requests |
-| **MongoDB** | `MONGO_ROOT_PASSWORD` | Yes | - | MongoDB root password (change in production!) |
-| | `MONGO_PASSWORD` | Yes | - | MongoDB app user password (change in production!) |
-| | `MONGO` | Yes | - | MongoDB connection string (include password from above) |
+| **MongoDB** | `MONGO_ROOT_PASSWORD` | No | `dev_root_password_123` | MongoDB root password (change in production!) |
+| | `MONGO_PASSWORD` | No | `dev_app_password_456` | MongoDB app user password (change in production!) |
+| | `MONGO` | No | `mongodb://usr:dev_app_password_456@...` | MongoDB connection string (change passwords in production!) |
 | **Frontend** | `LISTEN_UI` | No | `3000` | Port for UI service |
 | | `ACCESS_USERNAME` | No | `admin` | Basic auth username (if not using Keycloak) |
 | | `ACCESS_PASSWORD` | No | `password` | Basic auth password (change in production!) |
@@ -125,15 +142,15 @@ That's it! You can now proceed to build and run the project. All other variables
 | | `KEYCLOAK_ADMIN` | No | `admin` | Keycloak admin username |
 | | `KEYCLOAK_ADMIN_PASSWORD` | No | `admin` | Keycloak admin password (change in production!) |
 | | `KEYCLOAK_ID` | No | `dave_client` | Keycloak client ID |
-| | `KEYCLOAK_SECRET` | No | - | Keycloak client secret (change in production!) |
+| | `KEYCLOAK_SECRET` | Yes | `your-keycloak-secret-change-me` | Keycloak client secret (get from Keycloak admin console) |
 | | `KEYCLOAK_ISSUER` | No | `http://keycloak:8080/realms/DAVE` | Keycloak realm issuer URL |
 | **Elasticsearch** | `ELASTIC_INDEX` | No | `dave` | Elasticsearch index name |
 | | `ELASTIC_PORT` | No | `9200` | Elasticsearch port |
 | **Document Service** | `DOCS_PORT` | No | `3001` | Document service port |
 | | `API_BASE_URI` | No | `http://documents:3001` | Internal document service URL |
 | | `API_USERNAME` | No | `api_user` | Internal API username |
-| | `API_PASSWORD` | No | - | Internal API password (change in production!) |
-| | `DOCUMENTS_JWT_SECRET` | No | - | JWT secret for documents (change in production!) |
+| | `API_PASSWORD` | No | `dev_api_password_789` | Internal API password (change in production!) |
+| | `DOCUMENTS_JWT_SECRET` | No | `dev-jwt-secret-key...` | JWT secret for documents (change in production!) |
 | **Text Generation** | `TEXT_GENERATION_ADDR` | No | `http://text-generation:8000` | Text generation service URL |
 | | `API_LLM` | No | `http://text-generation:8000/v1` | LLM API endpoint |
 | | `TEXT_GENERATION_GPU_LAYERS` | No | `35` | GPU layers for model (adjust for your GPU) |
@@ -161,30 +178,33 @@ That's it! You can now proceed to build and run the project. All other variables
 
 For production deployments or custom configurations, review and adjust these variables as needed:
 
-#### Required Variables (Must Be Set)
+#### Variables to Update (Development vs Production)
 
-Edit the `.env` file and update these **REQUIRED** variables:
+The `.env.sample` file has working defaults for all variables. For **local development**, you can use them as-is. For **production**, you should update these:
 
 - **`NEXTAUTH_SECRET`** - Authentication secret for NextAuth.js
-  - Generate with: `openssl rand -base64 32`
-  - Example: `your-nextauth-secret-change-me-generate-with-openssl`
+  - Development default: `dev-secret-key-change-in-production-use-openssl-rand-base64-32` (works but insecure)
+  - Production: Generate with `openssl rand -base64 32`
 
 - **`NEXTAUTH_URL`** - Public URL for authentication callbacks
-  - For local development: `http://127.0.0.1:3000/dave/api/auth`
-  - For production: `https://yourdomain.com/dave/api/auth`
+  - Development default: `http://127.0.0.1:3000/dave/api/auth` (works for local)
+  - Production: `https://yourdomain.com/dave/api/auth`
 
 - **`MONGO_ROOT_PASSWORD`** - MongoDB root password
-  - **Change this immediately in production!**
-  - Example: `example_root_password_change_me`
+  - Development default: `dev_root_password_123` (works but insecure)
+  - Production: Use a strong password
 
 - **`MONGO_PASSWORD`** - MongoDB application user password
-  - **Change this immediately in production!**
-  - Example: `example_password_change_me`
+  - Development default: `dev_app_password_456` (works but insecure)
+  - Production: Use a strong password (different from root password)
 
 - **`MONGO`** - MongoDB connection string
-  - Format: `mongodb://usr:PASSWORD@mongo:27017/dave?authSource=admin`
-  - Replace `PASSWORD` with the value of `MONGO_PASSWORD`
-  - Example: `mongodb://usr:example_password_change_me@mongo:27017/dave?authSource=admin`
+  - Development default: `mongodb://usr:dev_app_password_456@mongo:27017/dave?authSource=admin` (works)
+  - Production: Update password to match your `MONGO_PASSWORD`
+
+- **`KEYCLOAK_SECRET`** - Keycloak client secret (MUST be set after Keycloak setup)
+  - No working default - must get from Keycloak Admin Console
+  - See [Keycloak Setup Guide](docs/KEYCLOAK_SETUP.md)
 
 #### Docker Configuration
 
@@ -419,6 +439,8 @@ docker compose up -d
 ```
 
 This command will:
+- Build and start PostgreSQL (for Keycloak)
+- Build and start Keycloak (authentication server)
 - Build and start MongoDB
 - Build and start Elasticsearch
 - Build and start the document service
@@ -432,11 +454,35 @@ Check that all services are running:
 docker compose ps
 ```
 
-Wait for all services to be healthy (especially Elasticsearch, which may take a minute to initialize).
+Wait for all services to be healthy (especially Elasticsearch and Keycloak, which may take a minute to initialize).
+
+### 4. Configure Keycloak Authentication
+
+After the services start, you need to configure Keycloak:
+
+1. **Access Keycloak Admin Console:**
+   - URL: `http://127.0.0.1:8080`
+   - Username: `admin`
+   - Password: `admin`
+
+2. **Follow the Keycloak Setup Guide:**
+   - See [docs/KEYCLOAK_SETUP.md](docs/KEYCLOAK_SETUP.md) for detailed step-by-step instructions
+   - Create the `DAVE` realm
+   - Create the `dave_client` client
+   - Get the client secret
+   - Update `KEYCLOAK_SECRET` in your `.env` file
+   - Create at least one user to log in with
+
+3. **Restart the UI service** after updating the `.env`:
+   ```bash
+   docker compose restart ui
+   ```
+
+**Alternative:** If you don't want to use Keycloak, set `USE_KEYCLOAK=false` in `.env` and use basic authentication (username: `admin`, password: `password`).
 
 ## Data Ingestion
 
-### 4. Prepare Your Documents
+### 5. Prepare Your Documents
 
 Place your **GateNLP format documents** in the following directory:
 
@@ -444,7 +490,7 @@ Place your **GateNLP format documents** in the following directory:
 scripts/input_data/
 ```
 
-### 5. Upload Documents to MongoDB
+### 6. Upload Documents to MongoDB
 
 From the **root folder**, run the MongoDB upload script:
 
@@ -457,7 +503,7 @@ This script will:
 - Parse and validate the document format
 - Upload documents to MongoDB
 
-### 6. Index Documents in Elasticsearch
+### 7. Index Documents in Elasticsearch
 
 From the **root folder**, run the Elasticsearch indexing script:
 
@@ -490,6 +536,8 @@ The following services are exposed on these ports:
 - **MongoDB**: `27018` (internal: 27017)
 - **Document Service**: `3001`
 - **Elasticsearch**: `9200`
+- **Keycloak**: `8080` (http://127.0.0.1:8080)
+- **PostgreSQL** (Keycloak DB): `5432` (internal only)
 - **QA Vectorizer**: `7863`
 - **Text Generation**: `7862`, `8000`
 
@@ -503,12 +551,11 @@ TypeError [ERR_INVALID_URL]: Invalid URL
 at parseUrl (.../next-auth/utils/parse-url.js:13:16)
 ```
 
-**Solution:** This means your `.env` file is missing or `NEXTAUTH_URL` is not set.
+**Solution:** This means your `.env` file is missing.
 
 1. Ensure you created the `.env` file: `cp .env.sample .env`
-2. Edit `.env` and set `NEXTAUTH_URL=http://127.0.0.1:3000/dave/api/auth`
-3. Generate a random secret: `NEXTAUTH_SECRET=$(openssl rand -base64 32)`
-4. Rebuild: `docker compose build --no-cache ui`
+2. The `.env.sample` already has correct defaults, so this should work immediately
+3. Rebuild: `docker compose build --no-cache ui`
 
 ### Build Fails with Missing Function Import
 
@@ -523,6 +570,30 @@ git pull origin main
 docker compose build --no-cache ui
 ```
 
+### Cannot Log In to DAVE
+
+**Error:** Login fails or redirects incorrectly
+
+**Solution:** You need to configure Keycloak first.
+
+1. Make sure you completed the Keycloak setup steps
+2. Verify `KEYCLOAK_SECRET` in `.env` matches the secret from Keycloak admin console
+3. Restart UI service: `docker compose restart ui`
+4. See [Keycloak Setup Guide](docs/KEYCLOAK_SETUP.md) for detailed instructions
+
+**Alternative:** Disable Keycloak and use basic auth:
+```bash
+# In .env file, set:
+USE_KEYCLOAK=false
+
+# Restart services
+docker compose restart ui documents
+
+# Log in with:
+# Username: admin
+# Password: password
+```
+
 ### Services Not Starting
 
 Check logs for a specific service:
@@ -535,6 +606,7 @@ Example:
 docker compose logs -f ui
 docker compose logs -f es
 docker compose logs -f mongo
+docker compose logs -f keycloak
 ```
 
 ### Elasticsearch Memory Issues
@@ -546,7 +618,11 @@ If Elasticsearch fails to start, you may need to increase Docker's memory alloca
 
 Verify MongoDB is running and accepting connections:
 ```bash
-docker compose exec mongo mongosh -u root -p <MONGO_ROOT_PASSWORD>
+# Using default password from .env.sample
+docker compose exec mongo mongosh -u root -p dev_root_password_123
+
+# Or use your custom password if you changed it
+docker compose exec mongo mongosh -u root -p <YOUR_MONGO_ROOT_PASSWORD>
 ```
 
 ### Python Script Errors
