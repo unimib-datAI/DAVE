@@ -1,4 +1,4 @@
-import { Modal, Text, Button, Progress } from '@nextui-org/react';
+import { Modal, Text, Button, Progress, Checkbox } from '@nextui-org/react';
 import { useAtom } from 'jotai';
 import { uploadModalOpenAtom, uploadProgressAtom } from '@/atoms/upload';
 
@@ -124,6 +124,7 @@ export const UploadDocumentsModal = ({
   const [isDragOver, setIsDragOver] = useState(false);
   const [activeTab, setActiveTab] = useState<'json' | 'txt'>('json');
   const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
+  const [toAnonymize, setToAnonymize] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const txtFileInputRef = useRef<HTMLInputElement>(null);
   const createDocumentMutation = useMutation(['document.createDocument']);
@@ -217,11 +218,12 @@ export const UploadDocumentsModal = ({
         const content = await file.text();
         const jsonData = JSON.parse(content);
         if (activeCollection.id) {
-          console.log('access token', session?.accesstoken);
+          console.log('access token', (session as any)?.accessToken);
           await createDocumentMutation.mutateAsync({
             document: jsonData,
             collectionId: collectionId || activeCollection?.id,
             token: session?.accessToken,
+            toAnonymize,
           });
 
           completed++;
@@ -295,6 +297,7 @@ export const UploadDocumentsModal = ({
           collectionId: collectionId || activeCollection?.id,
           token: session?.accessToken,
           configurationId: selectedConfigId || undefined,
+          toAnonymize,
         });
 
         completed++;
@@ -385,6 +388,11 @@ export const UploadDocumentsModal = ({
         </Text>
       </Modal.Header>
       <Modal.Body>
+        <div style={{ marginBottom: '1rem' }}>
+          <Checkbox isSelected={toAnonymize} onChange={setToAnonymize}>
+            Anonymize documents
+          </Checkbox>
+        </div>
         <Tabs.Root value={activeTab} onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="json">JSON Documents</TabsTrigger>
