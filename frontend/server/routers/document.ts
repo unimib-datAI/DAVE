@@ -650,9 +650,10 @@ export const documents = createRouter()
       }),
       collectionId: z.string(),
       token: z.string(),
+      toAnonymize: z.boolean(),
     }),
     resolve: async ({ input }) => {
-      const { document, collectionId, token } = input;
+      const { document, collectionId, token, toAnonymize } = input;
       const elasticIndex = process.env.ELASTIC_INDEX;
 
       try {
@@ -666,6 +667,7 @@ export const documents = createRouter()
             ...document,
             collectionId,
             elasticIndex,
+            toAnonymize,
           },
           timeout: 600000,
         });
@@ -785,9 +787,11 @@ export const documents = createRouter()
       name: z.string().optional(),
       token: z.string(),
       configurationId: z.string().optional(),
+      toAnonymize: z.boolean(),
     }),
     resolve: async ({ input }) => {
-      const { text, name, collectionId, token, configurationId } = input;
+      const { text, name, collectionId, token, configurationId, toAnonymize } =
+        input;
 
       // Fetch configuration from database - either specified or active
       let selectedServices: Record<string, any> | undefined;
@@ -987,7 +991,10 @@ export const documents = createRouter()
             Authorization: getJWTHeader(token),
             'Content-Type': 'application/json',
           },
-          body: documentToUpload,
+          body: {
+            ...documentToUpload,
+            toAnonymize,
+          },
         });
 
         console.log('Document uploaded successfully');

@@ -7,7 +7,7 @@ import { z } from "zod";
 import { AnnotationSet, annotationSetDTO } from "../models/annotationSet";
 import { AnnotationSetController } from "../controllers/annotationSet";
 import { Annotation, annotationDTO } from "../models/annotation";
-import { decode, makeDecryptionRequest } from "../utils/anonymization";
+import { encode, decode, makeDecryptionRequest } from "../utils/anonymization";
 
 import axios from "axios";
 import { Service, serviceDTO } from "../models/service";
@@ -904,11 +904,18 @@ export default (app) => {
           features: z.object().optional(),
           offset_type: z.string().optional(),
           elasticIndex: z.string().optional(),
+          toAnonymize: z.boolean().optional(),
         }),
       },
     }),
     asyncRoute(async (req, res, next) => {
-      const { elasticIndex } = req.body;
+      const { elasticIndex, toAnonymize } = req.body;
+
+      // Anonymize the document if requested
+      if (toAnonymize) {
+        req.body = await encode(req.body);
+      }
+
       const doc = await DocumentController.insertFullDocument(req.body);
 
       if (elasticIndex) {
