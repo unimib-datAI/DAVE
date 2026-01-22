@@ -5,6 +5,7 @@ import { ChatPanel } from './ChatPanel';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Popover, Button as AntButton } from 'antd';
+import { ChatProvider } from '@/modules/chat/ChatProvider';
 
 type LLMSearchProps = {
   onClose: () => void;
@@ -77,7 +78,9 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
             </Button>
           </div>
         </div>
-        <ChatPanel devMode={devMode} />
+        <ChatProvider>
+          <ChatPanel devMode={devMode} />
+        </ChatProvider>
       </motion.div>
     );
   }

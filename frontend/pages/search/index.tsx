@@ -25,7 +25,7 @@ const variants = {
 };
 
 const getFacetsFromUrl = (
-  facets: Record<string, string | string[] | undefined>,
+  facets: Record<string, string | string[] | undefined>
 ) => {
   return Object.keys(facets).reduce(
     (acc, key) => {
@@ -47,7 +47,7 @@ const getFacetsFromUrl = (
     {
       annotations: [] as { type: string; value: string }[],
       metadata: [] as { type: string; value: string }[],
-    },
+    }
   );
 };
 
@@ -64,7 +64,7 @@ const Search = () => {
   const { text, ...facetsFilters } = router.query;
   const facets = useMemo(
     () => getFacetsFromUrl(facetsFilters),
-    [facetsFilters],
+    [facetsFilters]
   );
   const { register, onSubmit, setValue } = useForm({
     text: '',
@@ -102,7 +102,7 @@ const Search = () => {
           ? firstPage.pagination.current_page - 1
           : undefined,
       keepPreviousData: true,
-    },
+    }
   );
 
   const { ref, inView } = useInView({
@@ -147,13 +147,13 @@ const Search = () => {
 
     // Clean up selectedFilters to remove empty or whitespace-only strings
     const validFilters = selectedFilters.filter(
-      (filter) => filter && filter.trim() !== '',
+      (filter) => filter && filter.trim() !== ''
     );
     if (validFilters.length === 0) return allHits;
 
     // Normalize valid filters for consistent comparison
     const normalizedValidFilters = validFilters.map((f) =>
-      f.toLowerCase().trim(),
+      f.toLowerCase().trim()
     );
 
     const matches = allHits.filter(
@@ -164,14 +164,14 @@ const Search = () => {
             (ann.id_ER &&
               ann.id_ER.trim() !== '' &&
               normalizedValidFilters.includes(
-                ann.id_ER.toLowerCase().trim(),
+                ann.id_ER.toLowerCase().trim()
               )) ||
             (ann.display_name &&
               ann.display_name.trim() !== '' &&
               normalizedValidFilters.includes(
-                ann.display_name.toLowerCase().trim(),
-              )),
-        ),
+                ann.display_name.toLowerCase().trim()
+              ))
+        )
     );
     const nonMatches = allHits.filter(
       (hit) =>
@@ -181,14 +181,14 @@ const Search = () => {
             (ann.id_ER &&
               ann.id_ER.trim() !== '' &&
               normalizedValidFilters.includes(
-                ann.id_ER.toLowerCase().trim(),
+                ann.id_ER.toLowerCase().trim()
               )) ||
             (ann.display_name &&
               ann.display_name.trim() !== '' &&
               normalizedValidFilters.includes(
-                ann.display_name.toLowerCase().trim(),
-              )),
-        ),
+                ann.display_name.toLowerCase().trim()
+              ))
+        )
     );
     return [...matches, ...nonMatches];
   }, [data, selectedFilters]);
@@ -221,12 +221,12 @@ const Search = () => {
             <Facets
               facets={data.pages[0].facets}
               selectedFilters={selectedFilters.filter(
-                (f) => f && f.trim() !== '',
+                (f) => f && f.trim() !== ''
               )}
               setSelectedFilters={(filters) => {
                 // Filter out empty strings or whitespace-only strings
                 const validFilters = filters.filter(
-                  (f) => f && f.trim() !== '',
+                  (f) => f && f.trim() !== ''
                 );
                 setSelectedFilters(validFilters);
               }}
@@ -260,18 +260,18 @@ const Search = () => {
                     Array.isArray(hit.annotations) &&
                     hit.annotations.some((ann: any) => {
                       const normalizedSelectedFilters = selectedFilters.map(
-                        (f) => f.toLowerCase().trim(),
+                        (f) => f.toLowerCase().trim()
                       );
                       return (
                         (ann.id_ER &&
                           ann.id_ER.trim() !== '' &&
                           normalizedSelectedFilters.includes(
-                            ann.id_ER.toLowerCase().trim(),
+                            ann.id_ER.toLowerCase().trim()
                           )) ||
                         (ann.display_name &&
                           ann.display_name.trim() !== '' &&
                           normalizedSelectedFilters.includes(
-                            ann.display_name.toLowerCase().trim(),
+                            ann.display_name.toLowerCase().trim()
                           ))
                       );
                     })

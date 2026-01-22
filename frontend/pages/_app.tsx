@@ -11,6 +11,8 @@ import { ReactElement, ReactNode, useEffect } from 'react';
 import { SessionProvider, useSession, signOut } from 'next-auth/react';
 import { useQuery } from '@/utils/trpc';
 import { useRouter } from 'next/router';
+import { useAtom } from 'jotai';
+import { loadLLMSettingsAtom } from '@/atoms/llmSettings';
 
 import { TranslationProvider } from '@/components';
 import TaxonomyProvider from '@/modules/taxonomy/TaxonomyProvider';
@@ -60,6 +62,19 @@ function MyApp({
     // useSession is safe to call here because AuthWatcher will be rendered inside SessionProvider
     const { data: currentSession } = useSession();
     const router = useRouter();
+    const [, loadLLMSettings] = useAtom(loadLLMSettingsAtom);
+
+    // Log user ID whenever session changes
+    useEffect(() => {
+      if (currentSession?.user) {
+        console.log(
+          'User ID:',
+          (currentSession.user as any).userId || 'No ID available'
+        );
+      } else {
+        console.log('User ID: Not logged in');
+      }
+    }, [currentSession]);
 
     // Setup a tRPC query to fetch collections. The query is enabled only when a valid token is present.
     // We use the token stored in the session (session.accessToken). The query runs in background when enabled.
@@ -114,6 +129,13 @@ function MyApp({
         router.events.off('routeChangeComplete', handleRouteChange);
       };
     }, [router.events, token, collectionsQuery.refetch]);
+
+    // Load LLM settings on mount
+    useEffect(() => {
+      loadLLMSettings().catch(() => {
+        // Silent error handling - will use defaults
+      });
+    }, [loadLLMSettings]);
 
     return null;
   };
