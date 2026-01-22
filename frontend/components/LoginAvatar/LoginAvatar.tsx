@@ -10,6 +10,7 @@ import {
 } from '@nextui-org/react';
 import { FiSliders } from '@react-icons/all-files/fi/FiSliders';
 import { FiFolder } from '@react-icons/all-files/fi/FiFolder';
+import { FiSettings } from '@react-icons/all-files/fi/FiSettings';
 import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -93,6 +94,13 @@ const LoginAvatar = () => {
           <Link href="/annotation-configuration" passHref>
             <Text as="a" b color="inherit" style={{ paddingTop: 10 }}>
               Annotation config
+            </Text>
+          </Link>
+        </Dropdown.Item>
+        <Dropdown.Item key="settings" icon={<FiSettings />}>
+          <Link href="/settings" passHref>
+            <Text as="a" b color="inherit" style={{ paddingTop: 10 }}>
+              Settings
             </Text>
           </Link>
         </Dropdown.Item>

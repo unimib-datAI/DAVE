@@ -17,12 +17,11 @@ import { ButtonSend } from './ButtonSend';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAtom } from 'jotai';
+import { facetsDocumentsAtom, selectedFiltersAtom } from '@/utils/atoms';
 import {
-  chatHistoryAtom,
-  conversationRatedAtom,
-  facetsDocumentsAtom,
-  selectedFiltersAtom,
-} from '@/utils/atoms';
+  useConversationRated,
+  useChatDispatch,
+} from '@/modules/chat/ChatProvider';
 import { current } from 'immer';
 import { Radio } from 'antd';
 import RateConversation from '@/components/RateConversation/RateConversation';
@@ -109,9 +108,8 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
           (q) => q.trim() !== ''
         )
       : [];
-  const [conversationRated, setConversationRated] = useAtom(
-    conversationRatedAtom
-  );
+  const conversationRated = useConversationRated();
+  const dispatch = useChatDispatch();
   const mostSimilarDocumentsMutation = useMutation([
     'search.mostSimilarDocuments',
   ]);
@@ -202,7 +200,7 @@ fallback response.`,
           filter_ids: filterIds,
           retrievalMethod: formValues.retrievalMethod,
           force_rag: formValues.force_rag,
-          collectionId: activeCollection ? activeCollection.id : null,
+          collectionId: activeCollection ? activeCollection.id : undefined,
         })
       : undefined;
     appendMessage({ ...formValues, context, devMode });
@@ -236,9 +234,7 @@ fallback response.`,
                     key={index}
                     {...message}
                     context={message.context ? message.context : []}
-                    isDoneStreaming={
-                      state.statuses ? state.statuses[index] : true
-                    }
+                    isDoneStreaming={message.isDoneStreaming ?? true}
                   />
                 );
               } else {

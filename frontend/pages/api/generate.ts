@@ -6,6 +6,8 @@ import { executeMultiAgent } from '@/lib/multiAgent';
  * Server-side proxy for text generation using OpenAI-compatible API
  * This endpoint uses the OpenAI library to communicate with a local
  * OpenAI-compatible server with proper streaming support
+ *
+ * Supports custom LLM settings passed via request body
  */
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== 'POST') {
@@ -23,17 +25,6 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     res.setHeader('X-Accel-Buffering', 'no'); // Prevents proxy buffering
     res.setHeader('Transfer-Encoding', 'chunked');
 
-    // Get the base URL for the OpenAI-compatible server
-    const baseURL = process.env.API_LLM || 'http://localhost:8000/v1';
-
-    console.log('OpenAI-compatible server address:', baseURL);
-
-    // Initialize OpenAI client with custom base URL
-    const openai = new OpenAI({
-      baseURL: baseURL,
-      apiKey: 'dummy-key', // Most local servers don't require a real API key
-    });
-
     // Extract parameters from request body
     const {
       messages,
@@ -43,8 +34,31 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       top_p = 0.9,
       model = 'phi4-mini',
       useMultiAgent = false,
+      customSettings, // Custom LLM settings from frontend
       ...otherParams
     } = req.body;
+
+    // Determine which settings to use
+    let baseURL = process.env.API_LLM || 'http://localhost:8000/v1';
+    let apiKey = 'dummy-key'; // Most local servers don't require a real API key
+    let modelToUse = model;
+
+    // If custom settings are provided and enabled, use them
+    if (customSettings?.useCustomSettings) {
+      console.log('Using custom LLM settings from user configuration');
+      baseURL = customSettings.baseURL || baseURL;
+      apiKey = customSettings.apiKey || apiKey;
+      modelToUse = customSettings.model || modelToUse;
+    }
+
+    console.log('OpenAI-compatible server address:', baseURL);
+    console.log('Using model:', modelToUse);
+
+    // Initialize OpenAI client with configured settings
+    const openai = new OpenAI({
+      baseURL: baseURL,
+      apiKey: apiKey,
+    });
     let rawMessages = messages;
     if (!rawMessages && prompt) {
       rawMessages = [
@@ -89,8 +103,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         chatMessages,
         {
           baseURL: baseURL,
-          apiKey: 'dummy-key',
-          model: model,
+          apiKey: apiKey,
+          model: modelToUse,
           temperature: temperature,
           max_tokens: max_tokens,
         },
@@ -112,7 +126,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
       // Create streaming completion
       const stream = await openai.chat.completions.create({
-        model: model,
+        model: modelToUse,
         messages: chatMessages,
         max_tokens: max_tokens,
         temperature: temperature,

@@ -1,9 +1,10 @@
 import { activeCollectionAtom } from '@/atoms/collection';
 import { DocumentWithChunk } from '@/server/routers/search';
-import { chatHistoryAtom, conversationRatedAtom } from '@/utils/atoms';
 import { getPromptAndMessage } from '@/utils/textGeneration';
+import { llmSettingsAtom } from '@/atoms/llmSettings';
 import { useAtom } from 'jotai';
 import { useEffect, useState } from 'react';
+import { useChatState, useChatDispatch } from '@/modules/chat/ChatProvider';
 
 export type Message = {
   role: 'system' | 'assistant' | 'user';
@@ -31,30 +32,28 @@ export type GenerateOptions = {
 const defaultSystemPropmt =
   "Sei un assistente che parla ITALIANO o INGLESE, scegli in base alla lingua della DOMANDA e del CONTESTO: se la domanda è formulata in INGLESE rispondi in INGLESE, se è formulata in ITALIANO rispondi in ITALIANO. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio. Se non conosci la risposta, limitati a dire che non lo sai.";
 function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
-  const [chatHistory, setChatHistory] = useAtom(chatHistoryAtom);
+  const chatState = useChatState();
+  const dispatch = useChatDispatch();
   const [activeCollection] = useAtom(activeCollectionAtom);
-  const [conversationRated, setConversationRated] = useAtom(
-    conversationRatedAtom
-  );
+  const [llmSettings] = useAtom(llmSettingsAtom);
 
   // Initialize messages from chat history or initial messages
   const [messages, setMessages] = useState<Message[]>(() => {
-    return chatHistory.messages && chatHistory.messages.length > 0
-      ? chatHistory.messages
+    return chatState.messages && chatState.messages.length > 0
+      ? chatState.messages
       : initialMessages || [];
   });
 
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
 
-  // Update chat history when messages change
+  // Update chat state when messages change
   useEffect(() => {
-    setChatHistory({
-      messages,
-      contexts: [], // Legacy - not used anymore
-      statuses: [], // Legacy - not used anymore
+    dispatch({
+      type: 'setMessages',
+      payload: { messages },
     });
-  }, [messages, setChatHistory]);
+  }, [messages, dispatch]);
 
   const appendMessage = async ({
     message,
@@ -147,6 +146,9 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           ...normalizedOptions,
           messages: apiMessages,
           collectionId: activeCollection,
+          customSettings: llmSettings.useCustomSettings
+            ? llmSettings
+            : undefined,
         }),
       });
 
@@ -240,7 +242,10 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
   const restartChat = () => {
     // Reset to initial messages (create a new array)
     setMessages([...initialMessages]);
-    setConversationRated(false);
+    dispatch({
+      type: 'setConversationRated',
+      payload: { rated: false },
+    });
   };
 
   return {
