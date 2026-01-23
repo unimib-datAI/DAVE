@@ -358,20 +358,20 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
           setIsOpen(true);
         }}
       >
-        Edit clusters
+        {t('editClusters')}
       </Button>
       <Drawer
         width={'70%'}
-        title="Modifica cluster"
+        title={t('modifyClusters')}
         open={isOpen}
         onClose={() => !isSaving && setIsOpen(false)}
       >
         <Row justify="space-between" align="middle" gutter={0}>
           <Col span={10}>
-            <p>Cluster sorgente</p>
+            <p>{t('sourceCluster')}</p>
             <Select
               style={{ width: '90%' }}
-              placeholder="Seleziona un cluster"
+              placeholder={t('selectCluster')}
               value={sourceCluster?.id}
               onChange={(value) => {
                 let source = null;
@@ -431,10 +431,10 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
             </Row>
           </Col>
           <Col span={10}>
-            <p>Cluster destinazione</p>
+            <p>{t('destinationCluster')}</p>
             <Select
               style={{ width: '90%' }}
-              placeholder="Seleziona un cluster"
+              placeholder={t('selectCluster')}
               value={dest?.id}
               onChange={(value) => {
                 let dest = null;
@@ -491,7 +491,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
                     style={{ marginBottom: 10 }}
                     onPress={handleSelectAll}
                   >
-                    Select all
+                    {t('selectAll')}
                   </Button>
                   <SortableContext
                     items={sourceList}
@@ -552,7 +552,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
         {editedClusters && (
           <Row justify={'center'}>
             <Button onClick={handleSave} loading={isSaving}>
-              Salva
+              {t('save')}
             </Button>
           </Row>
         )}

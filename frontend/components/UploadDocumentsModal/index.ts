@@ -1,1 +1,1 @@
-export { UploadDocumentsModal } from './UploadDocumentsModal';
+export { default as UploadDocumentsModal } from './UploadDocumentsModal';

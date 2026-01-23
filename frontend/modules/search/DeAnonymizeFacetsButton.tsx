@@ -7,6 +7,7 @@ import {
 } from '@/utils/atoms';
 import { FacetedQueryOutput } from '@/server/routers/search';
 import { useState } from 'react';
+import { useText } from '@/components/TranslationProvider';
 
 type DeAnonymizeFacetsButtonProps = {
   facets: FacetedQueryOutput['facets'];
@@ -15,6 +16,7 @@ type DeAnonymizeFacetsButtonProps = {
 export function DeAnonymizeFacetsButton({
   facets,
 }: DeAnonymizeFacetsButtonProps) {
+  const t = useText('common');
   const [deanonymize, setDeanonymize] = useAtom(deanonymizeFacetsAtom);
   const [deanonymizedNames, setDeanonymizedNames] = useAtom(
     deanonymizedFacetNamesAtom
@@ -85,13 +87,13 @@ export function DeAnonymizeFacetsButton({
       {isLoading ? (
         <>
           <div className="animate-spin h-4 w-4 border-2 border-gray-300 border-t-blue-600 rounded-full" />
-          <span className="text-sm font-medium">Loading...</span>
+          <span className="text-sm font-medium">{t('loading')}</span>
         </>
       ) : (
         <>
           {deanonymize ? <Eye size={16} /> : <EyeOff size={16} />}
           <span className="text-sm font-medium">
-            {deanonymize ? 'Hide Names' : 'Show Names'}
+            {deanonymize ? t('hideNames') : t('showNames')}
           </span>
         </>
       )}

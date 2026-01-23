@@ -175,7 +175,7 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
               }
               style={{ margin: '10px', width: '100%', marginBottom: 0 }}
               type="text"
-              placeholder="Search"
+              placeholder={t('search')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

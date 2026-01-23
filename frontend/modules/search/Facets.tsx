@@ -5,6 +5,7 @@ import { SearchIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FacetFilter } from './FacetFilter';
 import { DeAnonymizeFacetsButton } from './DeAnonymizeFacetsButton';
+import { useText } from '@/components/TranslationProvider';
 
 // Entity type grouping map - keys are lowercase
 const entityTypeGroupMap: Record<string, string> = {
@@ -241,6 +242,7 @@ const Facets = ({
   selectedFilters,
   setSelectedFilters,
 }: FacetsProps) => {
+  const t = useText('search');
   const { register, value } = useForm({
     filter: '',
   });
@@ -334,7 +336,7 @@ const Facets = ({
       <div className="overflow-y-auto h-full">
         <div className="flex flex-col pr-6 py-6 gap-8">
           <div className="flex flex-col gap-3">
-            <div className="text-lg font-semibold">Filter</div>
+            <div className="text-lg font-semibold">{t('filter')}</div>
             <DeAnonymizeFacetsButton
               facets={{
                 annotations: allFacets
@@ -350,7 +352,7 @@ const Facets = ({
               <input
                 className="text-slate-800 resize-none bg-transparent w-full h-full border-none text-base"
                 spellCheck="false"
-                placeholder={`Find filter`}
+                placeholder={t('findFilter')}
                 {...register('filter')}
               />
             </div>

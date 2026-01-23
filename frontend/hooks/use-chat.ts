@@ -5,6 +5,7 @@ import { llmSettingsAtom } from '@/atoms/llmSettings';
 import { useAtom } from 'jotai';
 import { useEffect, useState } from 'react';
 import { useChatState, useChatDispatch } from '@/modules/chat/ChatProvider';
+import { useText } from '@/components/TranslationProvider';
 
 export type Message = {
   role: 'system' | 'assistant' | 'user';
@@ -36,6 +37,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
   const dispatch = useChatDispatch();
   const [activeCollection] = useAtom(activeCollectionAtom);
   const [llmSettings] = useAtom(llmSettingsAtom);
+  const t = useText('chat');
 
   // Initialize messages from chat history or initial messages
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -229,7 +231,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
         ...prev,
         {
           role: 'assistant',
-          content: 'Sorry, there was an error generating the response.',
+          content: t.errorGeneratingResponse,
           isDoneStreaming: true,
         },
       ]);

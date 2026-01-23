@@ -18,6 +18,9 @@ import { useAtom } from 'jotai';
 import { facetsDocumentsAtom, selectedFiltersAtom } from '@/utils/atoms';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { activeCollectionAtom } from '@/atoms/collection';
+import { GetServerSideProps } from 'next';
+import { getSession } from 'next-auth/react';
+import { useText } from '@/components/TranslationProvider';
 
 const variants = {
   isFetching: { opacity: 0.5 },
@@ -53,6 +56,7 @@ const getFacetsFromUrl = (
 
 const Search = () => {
   const router = useRouter();
+  const t = useText('search');
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const [selectedFilters, setSelectedFiltersRaw] = useAtom(selectedFiltersAtom);
   const [activeCollection] = useAtom(activeCollectionAtom);
@@ -208,7 +212,7 @@ const Search = () => {
           <form onSubmit={onSubmit(handleSubmit)} className="mb-4">
             <Searchbar {...register('text')} loading={isFetching} />
           </form>
-          <h2>Documents</h2>
+          <h2>{t('documents')}</h2>
         </div>
         <motion.div
           style={{ ...(isFetching && { pointerEvents: 'none' }) }}
@@ -238,11 +242,11 @@ const Search = () => {
           >
             <div className="flex flex-col sticky top-16 bg-white py-6">
               <h4>
-                {`${data.pages[0].pagination.total_hits} results`}
+                {`${data.pages[0].pagination.total_hits} ${t('results')}`}
                 {text &&
                   typeof text === 'string' &&
                   text.trim() !== '' &&
-                  ` for "${text}"`}
+                  ` ${t('for')} "${text}"`}
               </h4>
               {data && <ActiveFiltersList facets={data.pages[0].facets} />}
             </div>
@@ -288,7 +292,7 @@ const Search = () => {
                   onClick={() => fetchNextPage()}
                   className="bg-slate-900 mx-auto"
                 >
-                  Load More
+                  {t('loadMore')}
                 </Button>
               </div>
             )}
@@ -300,6 +304,29 @@ const Search = () => {
   ) : (
     <LoadingOverlay show />
   );
+};
+
+// Protect this page - require authentication
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const session = await getSession(context);
+
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/sign-in',
+        permanent: false,
+      },
+    };
+  }
+
+  const locale = process.env.LOCALE || 'ita';
+  const localeObj = (await import(`@/translation/${locale}`)).default;
+
+  return {
+    props: {
+      locale: localeObj,
+    },
+  };
 };
 
 export default Search;

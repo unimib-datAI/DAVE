@@ -11,6 +11,7 @@ import * as Tabs from '@radix-ui/react-tabs';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { message, Select } from 'antd';
 import { useSession } from 'next-auth/react';
+import { useText } from '@/components/TranslationProvider';
 
 const UploadContainer = styled.div({
   display: 'flex',
@@ -112,10 +113,8 @@ interface props {
   collectionId?: string;
   doneUploading?: Function;
 }
-export const UploadDocumentsModal = ({
-  collectionId,
-  doneUploading,
-}: props) => {
+const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
+  const t = useText('uploadModal');
   const [isOpen, setIsOpen] = useAtom(uploadModalOpenAtom);
   const { data: session, status } = useSession();
   const [uploadProgress, setUploadProgress] = useAtom(uploadProgressAtom);
@@ -384,19 +383,19 @@ export const UploadDocumentsModal = ({
     >
       <Modal.Header>
         <Text b size={18}>
-          Upload Documents
+          {t('header')}
         </Text>
       </Modal.Header>
       <Modal.Body>
         <div style={{ marginBottom: '1rem' }}>
           <Checkbox isSelected={toAnonymize} onChange={setToAnonymize}>
-            Anonymize documents
+            {t('anonymize')}
           </Checkbox>
         </div>
         <Tabs.Root value={activeTab} onValueChange={handleTabChange}>
           <TabsList>
-            <TabsTrigger value="json">JSON Documents</TabsTrigger>
-            <TabsTrigger value="txt">Plain Text Documents</TabsTrigger>
+            <TabsTrigger value="json">{t('tabs.json')}</TabsTrigger>
+            <TabsTrigger value="txt">{t('tabs.txt')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="json">
@@ -413,14 +412,14 @@ export const UploadDocumentsModal = ({
                     <FiUpload size={32} />
                     <Text css={{ marginTop: '0.5rem' }}>
                       {isDragOver
-                        ? 'Drop files here'
-                        : 'Click to select or drag JSON files'}
+                        ? t('jsonTab.dropFiles')
+                        : t('jsonTab.clickSelect')}
                     </Text>
                     <Text
                       size={12}
                       css={{ color: '#888', marginTop: '0.25rem' }}
                     >
-                      Upload pre-annotated JSON documents
+                      {t('jsonTab.description')}
                     </Text>
                   </FileInputLabel>
                   <FileInput
@@ -437,7 +436,7 @@ export const UploadDocumentsModal = ({
               {selectedFiles.length > 0 && !uploadProgress.isUploading && (
                 <FileList>
                   <Text b size={14}>
-                    Selected Files ({selectedFiles.length})
+                    {t('selectedFiles', { n: selectedFiles.length })}
                   </Text>
                   {selectedFiles.map((file, index) => (
                     <FileItem key={index}>
@@ -461,11 +460,11 @@ export const UploadDocumentsModal = ({
               {/* Configuration Selector */}
               <div style={{ marginBottom: '1rem' }}>
                 <Text size={14} b css={{ marginBottom: '0.5rem' }}>
-                  Annotation Configuration
+                  {t('txtTab.configLabel')}
                 </Text>
                 <Select
                   style={{ width: '100%' }}
-                  placeholder="Select configuration (or use active)"
+                  placeholder={t('txtTab.configPlaceholder')}
                   value={selectedConfigId}
                   onChange={(value) => {
                     console.log('Select onChange called with:', value);
@@ -495,14 +494,15 @@ export const UploadDocumentsModal = ({
                 ></Select>
                 <Text size={12} css={{ color: '#666', marginTop: '0.25rem' }}>
                   {selectedConfigId
-                    ? `Using configuration: ${
-                        configurations.find(
-                          (c: any) => c._id === selectedConfigId
-                        )?.name || 'Selected'
-                      }`
+                    ? t('txtTab.configText', {
+                        name:
+                          configurations.find(
+                            (c: any) => c._id === selectedConfigId
+                          )?.name || 'Selected',
+                      })
                     : activeConfig
-                    ? `Using active configuration: ${activeConfig.name}`
-                    : 'Using default services (no active configuration)'}
+                    ? t('txtTab.configActive', { name: activeConfig.name })
+                    : t('txtTab.configDefault')}
                 </Text>
               </div>
 
@@ -518,14 +518,14 @@ export const UploadDocumentsModal = ({
                     <FiUpload size={32} />
                     <Text css={{ marginTop: '0.5rem' }}>
                       {isDragOver
-                        ? 'Drop files here'
-                        : 'Click to select or drag TXT files'}
+                        ? t('txtTab.dropFiles')
+                        : t('txtTab.clickSelect')}
                     </Text>
                     <Text
                       size={12}
                       css={{ color: '#888', marginTop: '0.25rem' }}
                     >
-                      Files will be automatically annotated before upload
+                      {t('txtTab.description')}
                     </Text>
                   </FileInputLabel>
                   <FileInput
@@ -542,7 +542,7 @@ export const UploadDocumentsModal = ({
               {selectedFiles.length > 0 && !uploadProgress.isUploading && (
                 <FileList>
                   <Text b size={14}>
-                    Selected Files ({selectedFiles.length})
+                    {t('selectedFiles', { n: selectedFiles.length })}
                   </Text>
                   {selectedFiles.map((file, index) => (
                     <FileItem key={index}>
@@ -564,14 +564,14 @@ export const UploadDocumentsModal = ({
           {uploadProgress.isUploading && (
             <div>
               <Text b size={14}>
-                {activeTab === 'txt'
-                  ? 'Annotating and uploading documents...'
-                  : 'Uploading documents...'}
+                {activeTab === 'txt' ? t('uploading.txt') : t('uploading.json')}
               </Text>
               <Text size={12} css={{ marginTop: '0.5rem', color: '#666' }}>
-                {uploadProgress.completed} of {uploadProgress.total} completed
-                {uploadProgress.failed > 0 &&
-                  ` (${uploadProgress.failed} failed)`}
+                {t('progress', {
+                  completed: uploadProgress.completed,
+                  total: uploadProgress.total,
+                  failed: uploadProgress.failed,
+                })}
               </Text>
               <Progress
                 value={progressPercentage}
@@ -584,13 +584,14 @@ export const UploadDocumentsModal = ({
           {!uploadProgress.isUploading && uploadProgress.total > 0 && (
             <div>
               <Text b size={14} css={{ color: '#0a0' }}>
-                Upload Complete!
+                {t('complete')}
               </Text>
               <Text size={12} css={{ marginTop: '0.5rem' }}>
-                Successfully uploaded {uploadProgress.completed} of{' '}
-                {uploadProgress.total} documents
-                {uploadProgress.failed > 0 &&
-                  ` (${uploadProgress.failed} failed)`}
+                {t('success', {
+                  completed: uploadProgress.completed,
+                  total: uploadProgress.total,
+                  failed: uploadProgress.failed,
+                })}
               </Text>
             </div>
           )}
@@ -598,7 +599,7 @@ export const UploadDocumentsModal = ({
           {uploadProgress.errors.length > 0 && (
             <ErrorList>
               <Text b size={14} css={{ color: '#c00' }}>
-                Errors:
+                {t('errors')}
               </Text>
               {uploadProgress.errors.map((error, index) => (
                 <ErrorItem key={index}>
@@ -616,7 +617,9 @@ export const UploadDocumentsModal = ({
           onPress={handleClose}
           disabled={uploadProgress.isUploading}
         >
-          {uploadProgress.isUploading ? 'Uploading...' : 'Close'}
+          {uploadProgress.isUploading
+            ? t('buttons.uploading')
+            : t('buttons.close')}
         </Button>
         {selectedFiles.length > 0 && !uploadProgress.isUploading && (
           <Button
@@ -624,8 +627,7 @@ export const UploadDocumentsModal = ({
             onPress={handleUpload}
             disabled={uploadProgress.isUploading}
           >
-            Upload {selectedFiles.length} file
-            {selectedFiles.length !== 1 ? 's' : ''}
+            {t('buttons.upload', { n: selectedFiles.length })}
           </Button>
         )}
       </Modal.Footer>

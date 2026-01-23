@@ -5,6 +5,7 @@ import styled from '@emotion/styled';
 import { signIn, useSession, getSession } from 'next-auth/react';
 import { Card, Text, Spacer } from '@nextui-org/react';
 import { Button } from '@/components';
+import { useText } from '@/components/TranslationProvider';
 
 const Container = styled.div`
   display: flex;
@@ -32,6 +33,7 @@ const Login: NextPage<{}> = () => {
   const { status } = useSession();
   const router = useRouter();
   const { error, callbackUrl } = router.query;
+  const t = useText('signIn');
 
   // If user is already authenticated, redirect to home
   useEffect(() => {
@@ -53,10 +55,10 @@ const Login: NextPage<{}> = () => {
       <Card css={{ maxWidth: '500px', margin: '0 auto', padding: '32px 24px' }}>
         <Box>
           <Text h2 css={{ textAlign: 'center', marginBottom: '8px' }}>
-            DAVE 🔨
+            {t('title')}
           </Text>
           <Text css={{ textAlign: 'center', color: '$gray600' }}>
-            Data Analysis and Visualization Environment
+            {t('subtitle')}
           </Text>
           <Spacer y={1} />
 
@@ -64,10 +66,10 @@ const Login: NextPage<{}> = () => {
             <>
               <Text color="error" css={{ textAlign: 'center' }}>
                 {error === 'OAuthCallback'
-                  ? 'Authentication failed. Please try again.'
+                  ? t('errors.authFailed')
                   : error === 'AccessDenied'
-                  ? 'Access denied. You do not have permission to access this application.'
-                  : 'An error occurred during sign in. Please try again.'}
+                  ? t('errors.accessDenied')
+                  : t('errors.genericError')}
               </Text>
               <Spacer y={0.5} />
             </>
@@ -79,14 +81,14 @@ const Login: NextPage<{}> = () => {
             loading={status === 'loading'}
             css={{ width: '100%' }}
           >
-            {status === 'loading' ? 'Signing in...' : 'Sign in with Keycloak'}
+            {status === 'loading' ? t('button.signingIn') : t('button.signIn')}
           </Button>
 
           <Text
             size="$sm"
             css={{ textAlign: 'center', color: '$gray500', marginTop: '8px' }}
           >
-            You will be redirected to Keycloak for authentication
+            {t('redirectMessage')}
           </Text>
         </Box>
       </Card>
@@ -94,7 +96,15 @@ const Login: NextPage<{}> = () => {
   );
 };
 
-// No server-side redirect needed - the useEffect hook handles client-side redirect
-// and the middleware handles protecting routes
+export const getServerSideProps: GetServerSideProps = async () => {
+  const locale = process.env.LOCALE || 'ita';
+  const localeObj = (await import(`@/translation/${locale}`)).default;
+
+  return {
+    props: {
+      locale: localeObj,
+    },
+  };
+};
 
 export default Login;

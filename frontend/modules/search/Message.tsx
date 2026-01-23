@@ -7,6 +7,7 @@ import { Sparkles, User, Link2 } from 'lucide-react';
 import Link from 'next/link';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { useText } from '@/components/TranslationProvider';
 
 type MessageProps = {
   role: 'system' | 'assistant' | 'user';
@@ -52,6 +53,7 @@ const Message = ({
   isDoneStreaming,
   usrMessage,
 }: MessageProps) => {
+  const t = useText('chat');
   // Only return early for assistant messages with empty content
   // For user messages, we want to display them even with empty content
   if (role === 'assistant' && (!content || content.trim() === '')) return null;
@@ -102,7 +104,7 @@ const Message = ({
           )}
         >
           <div className="text-sm font-semibold mb-1">
-            {role === 'assistant' ? 'Dave' : 'You'}
+            {role === 'assistant' ? t.dave : t.you}
           </div>
 
           <div className="text-black">
@@ -127,7 +129,7 @@ const Message = ({
         >
           <div className="w-full h-[1px] bg-orange-200 my-3" />
           <div className="text-xs font-semibold mb-2 text-slate-600">
-            Context sources:
+            {t.contextSources}
           </div>
           <div className="flex flex-col gap-2">
             {Array.isArray(context) &&
@@ -151,7 +153,7 @@ const Message = ({
 
                   <Link href={`/documents/${doc.id || ''}`} passHref>
                     <a className="text-blue-700 text-base tracking-wide font-medium">
-                      {doc.title || 'Document'}
+                      {doc.title || t.document}
                     </a>
                   </Link>
 
@@ -164,7 +166,7 @@ const Message = ({
                     doc.chunks.length > 0 && (
                       <div className="flex flex-col gap-2 mt-1">
                         <span className="text-xs leading-tight font-semibold">
-                          Relevant passages:
+                          {t.relevantPassages}
                         </span>
                         <div className="flex flex-row items-center flex-wrap gap-2">
                           {!doc.full_docs ? (
@@ -194,12 +196,12 @@ const Message = ({
                           ) : (
                             <Tooltip
                               content={
-                                <div className="max-w-xs">Full document</div>
+                                <div className="max-w-xs">{t.fullDocument}</div>
                               }
                               key={`${doc.id || ''}`}
                             >
                               <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
-                                Full document
+                                {t.fullDocument}
                               </div>
                             </Tooltip>
                           )}

@@ -32,7 +32,7 @@ const LinkButton = styled.a({
 });
 
 const LoginAvatar = () => {
-  const t = useText('infer');
+  const t = useText('common');
   const { data, status } = useSession();
 
   const handleAction = (key: string | number) => {
@@ -57,7 +57,7 @@ const LoginAvatar = () => {
   if (status === 'unauthenticated') {
     return (
       <Link href="/login" passHref>
-        <LinkButton>Login</LinkButton>
+        <LinkButton>{t('toolbar.login')}</LinkButton>
       </Link>
     );
   }
@@ -79,28 +79,28 @@ const LoginAvatar = () => {
         <Dropdown.Item key="profile" icon={<FiSliders />}>
           <Link href="/taxonomy" passHref>
             <Text as="a" b color="inherit">
-              Gestisci tassonomia
+              {t('toolbar.manageTaxonomy')}
             </Text>
           </Link>
         </Dropdown.Item>
         <Dropdown.Item key="collections" icon={<FiFolder />}>
           <Link href="/collections" passHref>
             <Text as="a" b color="inherit">
-              Manage Collections
+              {t('toolbar.manageCollections')}
             </Text>
           </Link>
         </Dropdown.Item>
         <Dropdown.Item key="annotation-config" icon={<FiSliders />}>
           <Link href="/annotation-configuration" passHref>
             <Text as="a" b color="inherit" style={{ paddingTop: 10 }}>
-              Annotation config
+              {t('toolbar.annotationConfig')}
             </Text>
           </Link>
         </Dropdown.Item>
         <Dropdown.Item key="settings" icon={<FiSettings />}>
           <Link href="/settings" passHref>
             <Text as="a" b color="inherit" style={{ paddingTop: 10 }}>
-              Settings
+              {t('toolbar.settings')}
             </Text>
           </Link>
         </Dropdown.Item>
