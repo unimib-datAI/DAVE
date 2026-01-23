@@ -7,7 +7,7 @@ import { withTRPC } from '@trpc/next';
 import { AppRouter } from '@/server/routers/_app';
 import { NextUIProvider } from '@nextui-org/react';
 import { NextPage } from 'next';
-import { ReactElement, ReactNode, useEffect } from 'react';
+import { ReactElement, ReactNode, useEffect, useState } from 'react';
 import { SessionProvider, useSession, signOut } from 'next-auth/react';
 import { useQuery } from '@/utils/trpc';
 import { useRouter } from 'next/router';
@@ -54,6 +54,35 @@ function MyApp({
 }: AppPropsWithLayout) {
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
+
+  // A simple version counter used to force a remount of the TranslationProvider subtree
+  // whenever the selected locale changes. This provides a straightforward way to ensure
+  // all components re-render with the newly loaded translations.
+  const [localeVersion, setLocaleVersion] = useState<number>(0);
+
+  // Listen for locale changes (both storage events from other tabs and a custom event)
+  // and bump the version to force remount.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const bump = () => setLocaleVersion((v) => v + 1);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'locale') bump();
+    };
+    const onLocaleChange = (_e: Event) => bump();
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('localeChange', onLocaleChange as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(
+        'localeChange',
+        onLocaleChange as EventListener
+      );
+    };
+  }, []);
+
   // An internal component that watches the NextAuth session and:
   // - signs the user out if a refresh failure occurred
   // - fetches collections in the background once logged in and on route changes
@@ -149,7 +178,7 @@ function MyApp({
       <AuthWatcher />
 
       <Global styles={GlobalStyles} />
-      <TranslationProvider locale={locale}>
+      <TranslationProvider key={localeVersion} locale={locale}>
         <TaxonomyProvider>
           <NextUIProvider>
             <Layout>

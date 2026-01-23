@@ -1,4 +1,4 @@
-import type { NextPage } from 'next';
+import type { NextPage, GetServerSideProps } from 'next';
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
@@ -29,6 +29,7 @@ import {
 } from '@/atoms/collection';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { useQuery, useMutation } from '@/utils/trpc';
+import { useText } from '@/components/TranslationProvider';
 
 const Container = styled.div`
   max-width: 1200px;
@@ -97,7 +98,7 @@ const UserBadge = styled.div`
 `;
 
 interface User {
-  userId: string;
+  id: string;
   email: string;
   name?: string;
 }
@@ -118,13 +119,15 @@ const Collections: NextPage = () => {
     allowedUserIds: [] as string[],
   });
 
+  const t = useText('collections');
+
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/sign-in');
     }
   }, [status, router]);
 
-  const token = session?.accessToken as string | undefined;
+  const token = (session as any)?.accessToken as string | undefined;
   const tokenAvailable =
     !!token && typeof token === 'string' && token.trim().length > 0;
 
@@ -221,7 +224,7 @@ const Collections: NextPage = () => {
   const handleDelete = async (collectionId: string) => {
     deleteMutation.mutate({
       id: collectionId,
-      token: session?.accessToken,
+      token: (session as any)?.accessToken,
     });
   };
 
@@ -230,20 +233,20 @@ const Collections: NextPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!session?.accessToken || !formData.name.trim()) return;
+    if (!(session as any)?.accessToken || !formData.name.trim()) return;
 
     if (editingCollection) {
       updateMutation.mutate({
         id: editingCollection.id,
         name: formData.name,
         allowedUserIds: formData.allowedUserIds,
-        token: session.accessToken,
+        token: (session as any).accessToken,
       });
     } else {
       createMutation.mutate({
         name: formData.name,
         allowedUserIds: formData.allowedUserIds,
-        token: session.accessToken,
+        token: (session as any).accessToken,
       });
     }
   };
@@ -258,7 +261,7 @@ const Collections: NextPage = () => {
   };
 
   const getUserName = (userId: string) => {
-    const user = users.find((u) => u.userId === userId);
+    const user = users.find((u) => u.id === userId);
     return user?.name || user?.email || userId;
   };
 
@@ -276,18 +279,16 @@ const Collections: NextPage = () => {
     <ToolbarLayout>
       <Container>
         <Header>
-          <Text h2>Collections</Text>
+          <Text h2>{t.title}</Text>
           <Button auto color="primary" icon={<FiPlus />} onPress={handleCreate}>
-            New Collection
+            {t.newCollection}
           </Button>
         </Header>
 
         {collections.length === 0 ? (
           <Card>
             <Card.Body css={{ textAlign: 'center', padding: '40px' }}>
-              <Text color="$gray600">
-                No collections yet. Create your first one!
-              </Text>
+              <Text color="$gray600">{t.emptyState}</Text>
             </Card.Body>
           </Card>
         ) : (
@@ -305,13 +306,13 @@ const Collections: NextPage = () => {
                     <Text h4 css={{ margin: 0 }}>
                       {collection.name}
                     </Text>
-                    {collection.ownerId === session?.user?.userId && (
+                    {collection.ownerId === (session?.user as any)?.userId && (
                       <Text
                         size={12}
                         color="$gray600"
                         css={{ marginTop: '4px' }}
                       >
-                        Owner
+                        {t.owner}
                       </Text>
                     )}
                   </div>
@@ -321,7 +322,7 @@ const Collections: NextPage = () => {
                         e.stopPropagation();
                         handleDownload(collection);
                       }}
-                      title="Download"
+                      title={t.download}
                       disabled={
                         isDownloading && downloadingId === collection.id
                       }
@@ -337,27 +338,27 @@ const Collections: NextPage = () => {
                         e.stopPropagation();
                         handleEdit(collection);
                       }}
-                      title="Edit"
+                      title={t.edit}
                     >
                       <EditIcon size={18} />
                     </IconBtn>
-                    {collection.ownerId === session?.user?.userId && (
+                    {collection.ownerId === (session?.user as any)?.userId && (
                       <Popconfirm
-                        title="Delete Collection"
-                        description="Are you sure you want to delete this collection?"
+                        title={t.deleteTitle}
+                        description={t.deleteDescription}
                         onConfirm={(e) => {
                           e?.stopPropagation();
                           handleDelete(collection.id);
                         }}
                         onCancel={(e) => e?.stopPropagation()}
-                        okText="Yes"
-                        cancelText="No"
+                        okText={t.yes}
+                        cancelText={t.no}
                       >
                         <IconBtn
                           onClick={(e) => {
                             e.stopPropagation();
                           }}
-                          title="Delete"
+                          title={t.delete}
                           style={{ color: '#ef4444' }}
                         >
                           <TrashIcon size={18} />
@@ -375,7 +376,7 @@ const Collections: NextPage = () => {
                           color="$gray600"
                           css={{ marginBottom: '8px' }}
                         >
-                          Shared with:
+                          {t.sharedWith}
                         </Text>
                         <div
                           style={{
@@ -407,14 +408,14 @@ const Collections: NextPage = () => {
         >
           <Modal.Header>
             <Text h3>
-              {editingCollection ? 'Edit Collection' : 'New Collection'}
+              {editingCollection ? t.editModalTitle : t.newModalTitle}
             </Text>
           </Modal.Header>
           <Modal.Body>
             <Input
               fullWidth
-              label="Collection Name"
-              placeholder="Enter collection name"
+              label={t.collectionNameLabel}
+              placeholder={t.collectionNamePlaceholder}
               value={formData.name}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, name: e.target.value }))
@@ -422,7 +423,7 @@ const Collections: NextPage = () => {
             />
             <Spacer y={1} />
             <Text size={14} weight="medium">
-              Share with users:
+              {t.shareWithUsers}
             </Text>
             <Spacer y={0.5} />
             <div
@@ -456,8 +457,8 @@ const Collections: NextPage = () => {
                   >
                     <input
                       type="checkbox"
-                      checked={formData.allowedUserIds.includes(user.userId)}
-                      onChange={() => toggleUser(user.userId)}
+                      checked={formData.allowedUserIds.includes(user.id)}
+                      onChange={() => toggleUser(user.id)}
                       style={{ marginRight: '12px' }}
                     />
                     <div>
@@ -474,7 +475,7 @@ const Collections: NextPage = () => {
           </Modal.Body>
           <Modal.Footer>
             <Button auto flat onPress={() => setModalOpen(false)}>
-              Cancel
+              {t.cancel}
             </Button>
             <Button
               auto
@@ -482,13 +483,24 @@ const Collections: NextPage = () => {
               onPress={handleSubmit}
               disabled={createMutation.isLoading || updateMutation.isLoading}
             >
-              {editingCollection ? 'Update' : 'Create'}
+              {editingCollection ? t.update : t.create}
             </Button>
           </Modal.Footer>
         </Modal>
       </Container>
     </ToolbarLayout>
   );
+};
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  const locale = process.env.LOCALE || 'ita';
+  const localeObj = (await import(`@/translation/${locale}`)).default;
+
+  return {
+    props: {
+      locale: localeObj,
+    },
+  };
 };
 
 export default Collections;

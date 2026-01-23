@@ -1,8 +1,8 @@
-import { ToolbarLayout } from '@/components';
+import { ToolbarLayout, useText } from '@/components';
 import { useContext, useMutation, useQuery } from '@/utils/trpc';
 import { Button, Container, Loading, Table, Text } from '@nextui-org/react';
 import { NextPage } from 'next';
-import { useSession } from 'next-auth/react';
+import { useSession, getSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { FiArrowLeft } from '@react-icons/all-files/fi/FiArrowLeft';
@@ -14,6 +14,7 @@ import { useAtom } from 'jotai';
 import { activeCollectionAtom, collectionsAtom } from '@/atoms/collection';
 import { UploadDocumentsModal } from '@/components/UploadDocumentsModal';
 import { uploadModalOpenAtom } from '@/atoms/upload';
+import { GetServerSideProps } from 'next';
 const Header = styled.div`
   display: flex;
   flex-direction: column;
@@ -36,6 +37,7 @@ const Chip = styled.span({
   lineHeight: 1,
 });
 const Collection: NextPage = () => {
+  const t = useText('collections');
   const router = useRouter();
   const { data: session, status } = useSession();
   const id = router.query.id as string | undefined;
@@ -44,32 +46,36 @@ const Collection: NextPage = () => {
   const [allCollections] = useAtom(collectionsAtom);
   const [, setUploadModalOpen] = useAtom(uploadModalOpenAtom);
 
-  const [currentCollectionName, setCurrentCollectionName] = useState(null);
+  const [currentCollectionName, setCurrentCollectionName] = useState<
+    string | null
+  >(null);
   // delete mutation with onSuccess that updates cache locally
   const deleteDocumentMutation = useMutation(['document.deleteDocument'], {
     onSuccess: (_result, variables) => {
       // Build the same query key you use in useQuery
       const queryKey = [
         'collection.getCollectionInfo',
-        { id: id ?? '', token: session?.accessToken },
-      ];
+        { id: id ?? '', token: (session as any)?.accessToken },
+      ] as const;
 
       // Remove the deleted doc from the cached array (instant local update)
-      utils.setQueryData<collectionDocInfo[] | undefined>(queryKey, (old) =>
-        old ? old.filter((d) => d.id !== variables.docId) : old
+      utils.setQueryData(queryKey, (old: collectionDocInfo[] | undefined) =>
+        old
+          ? old.filter((d: collectionDocInfo) => d.id !== variables.docId)
+          : old
       );
 
       // Optionally show a success message
-      message.success('Document deleted successfully');
+      message.success(t('documentDeleted'));
     },
     onError: () => {
-      message.error('Error deleting the document');
+      message.error(t('errorDeleting'));
     },
   });
   const { data, isLoading, refetch } = useQuery(
     [
       'collection.getCollectionInfo',
-      { id: id ?? '', token: session?.accessToken },
+      { id: id ?? '', token: (session as any)?.accessToken },
     ],
     { enabled: enabled }
   );
@@ -108,14 +114,12 @@ const Collection: NextPage = () => {
             onPress={() => router.push('/collections')}
           >
             {' '}
-            Back to collections{' '}
+            {t('backToCollections')}{' '}
           </Button>
           <Text h2>
-            Collection{' '}
-            <Chip aria-label="collection-name">
-              {currentCollectionName || 'untitled'}
-            </Chip>{' '}
-            documents
+            {t('collectionDocuments', {
+              name: currentCollectionName || t('untitled'),
+            })}
           </Text>
         </Header>
         <Table
@@ -127,10 +131,10 @@ const Collection: NextPage = () => {
           }}
         >
           <Table.Header>
-            <Table.Column>Id</Table.Column>
-            <Table.Column>Name</Table.Column>
-            <Table.Column>Preview</Table.Column>
-            <Table.Column width={100}>Actions</Table.Column>
+            <Table.Column>{t('tableHeaders.id')}</Table.Column>
+            <Table.Column>{t('tableHeaders.name')}</Table.Column>
+            <Table.Column>{t('tableHeaders.preview')}</Table.Column>
+            <Table.Column width={100}>{t('tableHeaders.actions')}</Table.Column>
           </Table.Header>
           <Table.Body>
             {(data ?? []).map((docInfo: collectionDocInfo) => (
@@ -143,15 +147,15 @@ const Collection: NextPage = () => {
                   <Text css={{ maxWidth: '500px' }}>
                     {docInfo.preview
                       ? docInfo.preview.slice(0, 50) + '...'
-                      : 'No preview available'}
+                      : t('noPreview')}
                   </Text>
                 </Table.Cell>
                 <Table.Cell>
                   <Popconfirm
                     okText="Confirm"
                     cancelText="Cancel"
-                    title="Delete document"
-                    description={`Are you sure you want to delete this document?`}
+                    title={t('deleteDocument')}
+                    description={t('deleteConfirmation')}
                     onConfirm={() => handleDeleteDocument(docInfo.id)}
                   >
                     <Button
@@ -174,10 +178,34 @@ const Collection: NextPage = () => {
           style={{ zIndex: 1, backgroundColor: '#0070f3', marginTop: 15 }}
           onPress={() => setUploadModalOpen(true)}
         >
-          Upload annotated documents
+          {t('uploadAnnotatedDocuments')}
         </Button>
       </Container>
     </ToolbarLayout>
   );
 };
+
+// Protect this page - require authentication
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  const session = await getSession(context);
+
+  if (!session) {
+    return {
+      redirect: {
+        destination: '/sign-in',
+        permanent: false,
+      },
+    };
+  }
+
+  const locale = process.env.LOCALE || 'ita';
+  const localeObj = (await import(`@/translation/${locale}`)).default;
+
+  return {
+    props: {
+      locale: localeObj,
+    },
+  };
+};
+
 export default Collection;

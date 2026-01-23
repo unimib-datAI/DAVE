@@ -5,7 +5,11 @@ import styled from '@emotion/styled';
 import Link from 'next/link';
 import { FiCpu } from '@react-icons/all-files/fi/FiCpu';
 import { FiSettings } from '@react-icons/all-files/fi/FiSettings';
-import { Card, Text } from '@nextui-org/react';
+import { FiGlobe } from '@react-icons/all-files/fi/FiGlobe';
+import { Card, Text, Spacer } from '@nextui-org/react';
+import { BaseSelect, Option } from '@/components/BaseSelect';
+import { useText } from '@/components/TranslationProvider';
+import { useEffect, useState } from 'react';
 
 const Container = styled.div({
   maxWidth: '1200px',
@@ -78,27 +82,110 @@ const CardDescription = styled.p({
   lineHeight: '1.5',
 });
 
+const LanguageCard = styled.div({
+  display: 'flex',
+  flexDirection: 'column',
+  padding: '24px',
+  borderRadius: '12px',
+  border: '1px solid #E5E7EB',
+  backgroundColor: '#FFF',
+});
+
 const SettingsPage = () => {
+  const t = useText('settings');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('');
+
+  useEffect(() => {
+    // Prefer a stored locale in localStorage (client-side). Fall back to cookie or 'ita'.
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('locale');
+      if (stored) {
+        setSelectedLanguage(stored);
+        return;
+      }
+    }
+
+    // Get current language from cookie or default to 'ita'
+    const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      acc[key] = value;
+      return acc;
+    }, {} as Record<string, string>);
+    const currentLocale = cookies.locale || 'ita';
+    setSelectedLanguage(currentLocale);
+  }, []);
+
+  const handleLanguageChange = (value: string) => {
+    // Persist selected locale to cookie (so SSR requests still have a fallback)
+    try {
+      const expires = new Date();
+      expires.setFullYear(expires.getFullYear() + 1);
+      document.cookie = `locale=${value}; expires=${expires.toUTCString()}; path=/`;
+    } catch (e) {
+      // ignore cookie write errors
+    }
+
+    // Persist the chosen locale to localStorage so the client-side TranslationProvider can pick it up.
+    try {
+      localStorage.setItem('locale', value);
+    } catch (e) {
+      // Ignore localStorage write errors
+    }
+
+    // Dispatch a custom event so same-tab listeners can react immediately.
+    try {
+      window.dispatchEvent(new CustomEvent('localeChange', { detail: value }));
+    } catch (e) {
+      // ignore
+    }
+
+    // Keep local UI state in sync
+    setSelectedLanguage(value);
+
+    // Simplest, most reliable approach: perform a full reload so server and client are both in the new locale.
+    // This ensures pages that only read the locale on first render (SSR or mounted code) show the new language.
+    try {
+      window.location.reload();
+    } catch (e) {
+      // If reload somehow fails, there's not much else to do; components may still update via the event.
+    }
+  };
+
   return (
     <ToolbarLayout>
       <Container>
-        <Title>Settings</Title>
-        <Subtitle>
-          Configure your DAVE experience and manage integrations
-        </Subtitle>
+        <Title>{t('title')}</Title>
+        <Subtitle>{t('subtitle')}</Subtitle>
 
         <SettingsGrid>
+          <LanguageCard>
+            <IconWrapper>
+              <FiGlobe />
+            </IconWrapper>
+            <CardTitle>{t('language.label')}</CardTitle>
+            <CardDescription>{t('language.description')}</CardDescription>
+            <Spacer y={1} />
+            <BaseSelect
+              value={selectedLanguage}
+              onChange={(e, val) => handleLanguageChange(val as string)}
+              inputProps={{ placeholder: t('language.selectPlaceholder') }}
+            >
+              <Option value="eng" label={t('language.english')}>
+                {t('language.english')}
+              </Option>
+              <Option value="ita" label={t('language.italian')}>
+                {t('language.italian')}
+              </Option>
+            </BaseSelect>
+          </LanguageCard>
+
           <Link href="/settings/llm" passHref>
             <SettingCard>
               <IconWrapper>
                 <FiCpu />
               </IconWrapper>
-              <CardTitle>LLM Configuration</CardTitle>
-              <CardDescription>
-                Configure custom LLM API endpoints, API keys, and model
-                preferences. Use your own OpenAI-compatible API or stick with
-                the default configuration.
-              </CardDescription>
+              <CardTitle>{t('llmConfig.title')}</CardTitle>
+              <CardDescription>{t('llmConfig.description')}</CardDescription>
             </SettingCard>
           </Link>
 
@@ -113,10 +200,9 @@ const SettingsPage = () => {
             <IconWrapper>
               <FiSettings />
             </IconWrapper>
-            <CardTitle>General Settings</CardTitle>
+            <CardTitle>{t('generalSettings.title')}</CardTitle>
             <CardDescription>
-              Coming soon: Configure general application preferences and display
-              options.
+              {t('generalSettings.description')}
             </CardDescription>
           </SettingCard>
         </SettingsGrid>
@@ -138,8 +224,14 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   }
 
+  // Check for locale in cookies, fallback to env
+  const locale = context.req.cookies.locale || process.env.LOCALE || 'ita';
+  const localeObj = (await import(`@/translation/${locale}`)).default;
+
   return {
-    props: {},
+    props: {
+      locale: localeObj,
+    },
   };
 };
 

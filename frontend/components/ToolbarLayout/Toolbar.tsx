@@ -4,6 +4,7 @@ import { PropsWithChildren } from 'react';
 import { LoginAvatar } from '../LoginAvatar';
 import { CollectionSelector } from '../CollectionSelector';
 import { useRouter } from 'next/router';
+import { FiHome } from '@react-icons/all-files/fi/FiHome';
 
 const Container = styled.div({
   position: 'fixed',
@@ -44,7 +45,9 @@ const Toolbar = ({ children }: PropsWithChildren<{}>) => {
   return (
     <Container id="toolbar">
       <Link href="/" passHref>
-        <Logo>🔨</Logo>
+        <Logo>
+          <FiHome />
+        </Logo>
       </Link>
       <ToolbarContent>
         <CollectionSelector />

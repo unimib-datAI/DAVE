@@ -11,6 +11,7 @@ import {
   deanonymizeFacetsAtom,
   deanonymizedFacetNamesAtom,
 } from '@/utils/atoms';
+import { useText } from '@/components/TranslationProvider';
 
 type FacetFilterProps = {
   facet: Facet;
@@ -46,6 +47,7 @@ const FacetFilter = ({
   onFilterChange,
   selectedFilters,
 }: FacetFilterProps) => {
+  const t = useText('search');
   const [deanonymize] = useAtom(deanonymizeFacetsAtom);
   const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
 
@@ -168,7 +170,7 @@ const FacetFilter = ({
         <input
           className="text-slate-800 resize-none bg-transparent w-full h-full border-none text-sm"
           spellCheck="false"
-          placeholder={`Find ${facet.key}`}
+          placeholder={t('findFacet', { facet: facet.key })}
           {...register('filter')}
         />
       </div>
@@ -228,7 +230,7 @@ const FacetFilter = ({
               onClick={() => setPage(0)}
               className="text-xs border-none bg-transparent flex justify-start m-0 p-0 font-semibold underline cursor-pointer"
             >
-              Show less
+              {t('showLess')}
             </button>
           ) : null}
           {VISIBLE_ELEMENTS < facet.n_children ? (
@@ -236,7 +238,7 @@ const FacetFilter = ({
               onClick={() => setPage((p) => p + 1)}
               className="text-xs border-none bg-transparent flex justify-start m-0 p-0 font-semibold underline cursor-pointer"
             >
-              {`Show ${STEP} more`}
+              {t('showMore', { count: STEP })}
             </button>
           ) : null}
         </div>

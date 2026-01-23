@@ -9,6 +9,8 @@ import {
 } from '@/atoms/annotationConfig';
 import { Card, Button, Input, Text, Spacer } from '@nextui-org/react';
 import { Modal, Popconfirm, message, Select } from 'antd';
+import { useText } from '@/components/TranslationProvider';
+import { GetServerSideProps } from 'next';
 
 type ServiceRecord = {
   _id: string;
@@ -29,6 +31,7 @@ const KNOWN_SERVICE_TYPES = [
 ];
 
 export default function AnnotationConfigurationPage(): JSX.Element {
+  const t = useText('annotationConfig');
   const { data: session, status } = useSession();
   const token = session?.accessToken as string | undefined;
 
@@ -156,14 +159,14 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   // Create a new service via TRPC and refresh list; if created, optionally select it
   const handleCreateService = async (selectIntoSlot?: string) => {
     if (!token) {
-      message.warning('You must be signed in to create a service.');
+      message.warning(t('messages.signInRequired'));
       return;
     }
     const name = newName.trim();
     const uri = newUri.trim();
     const serviceType = (newType || 'OTHER').trim();
     if (!name || !uri) {
-      message.warning('Name and URI are required.');
+      message.warning(t('messages.nameRequired'));
       return;
     }
     setCreating(true);
@@ -187,10 +190,10 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       setNewName('');
       setNewUri('');
       setNewType('OTHER');
-      message.success('Service created');
+      message.success(t('messages.serviceCreated'));
     } catch (err: any) {
       const msg = err?.message || String(err);
-      message.error(`Failed to create service: ${msg}`);
+      message.error(t('messages.createFailed', { error: msg }));
     } finally {
       setCreating(false);
     }
@@ -199,7 +202,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   // Delete service
   const handleDeleteService = async (serviceId: string) => {
     if (!token) {
-      message.warning('You must be signed in to delete a service.');
+      message.warning(t('messages.signInRequired'));
       return;
     }
     try {
@@ -215,9 +218,11 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         });
         return copy;
       });
-      message.success('Service deleted');
+      message.success(t('messages.serviceDeleted'));
     } catch (err: any) {
-      message.error(`Failed to delete service: ${err?.message || String(err)}`);
+      message.error(
+        t('messages.deleteFailed', { error: err?.message || String(err) })
+      );
     }
   };
 
@@ -227,7 +232,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     patch: Partial<ServiceRecord>
   ) => {
     if (!token) {
-      message.warning('You must be signed in to update a service.');
+      message.warning(t('messages.signInRequired'));
       return;
     }
     try {
@@ -237,9 +242,11 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         token,
       });
       await trpcContext.invalidateQueries(['document.getServices']);
-      message.success('Service updated');
+      message.success(t('messages.serviceUpdated'));
     } catch (err: any) {
-      message.error(`Failed to update service: ${err?.message || String(err)}`);
+      message.error(
+        t('messages.updateFailed', { error: err?.message || String(err) })
+      );
     }
   };
 
@@ -258,12 +265,12 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   // Save current configuration
   const handleSaveConfiguration = async () => {
     if (!token) {
-      message.warning('You must be signed in to save a configuration.');
+      message.warning(t('messages.signInRequired'));
       return;
     }
     const name = configName.trim();
     if (!name) {
-      message.warning('Configuration name is required.');
+      message.warning(t('messages.nameRequired'));
       return;
     }
 
@@ -283,7 +290,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
           services,
           token,
         });
-        message.success('Configuration updated');
+        message.success(t('messages.configUpdated'));
       } else {
         // Create new configuration and set as active
         const created = await createConfigurationMutation.mutateAsync({
@@ -293,13 +300,13 @@ export default function AnnotationConfigurationPage(): JSX.Element {
           token,
         });
         setCurrentConfigId(created._id);
-        message.success('Configuration saved and activated');
+        message.success(t('messages.configSaved'));
       }
       await refetchConfigurations();
       setShowSaveModal(false);
     } catch (err: any) {
       message.error(
-        `Failed to save configuration: ${err?.message || String(err)}`
+        t('messages.saveFailed', { error: err?.message || String(err) })
       );
     }
   };
@@ -307,12 +314,12 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   // Create new configuration
   const handleCreateNewConfiguration = async () => {
     if (!token) {
-      message.warning('You must be signed in to create a configuration.');
+      message.warning(t('messages.signInRequired'));
       return;
     }
     const name = configName.trim();
     if (!name) {
-      message.warning('Configuration name is required.');
+      message.warning(t('messages.nameRequired'));
       return;
     }
 
@@ -332,15 +339,17 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       setConfigName(created.name);
       message.success(
         setAsActive
-          ? 'Configuration created and activated'
-          : 'Configuration created'
+          ? t('messages.configCreated') +
+              ' and ' +
+              t('messages.configActivated').toLowerCase()
+          : t('messages.configCreated')
       );
       await refetchConfigurations();
       setShowSaveModal(false);
       setSetAsActive(false);
     } catch (err: any) {
       message.error(
-        `Failed to create configuration: ${err?.message || String(err)}`
+        t('messages.saveFailed', { error: err?.message || String(err) })
       );
     }
   };
@@ -370,23 +379,23 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       });
     }
     setSelectedServices(services);
-    message.success(`Loaded configuration: ${config.name}`);
+    message.success(t('messages.configLoaded', { name: config.name }));
   };
 
   // Activate a configuration
   const handleActivateConfiguration = async (configId: string) => {
     if (!token) {
-      message.warning('You must be signed in.');
+      message.warning(t('messages.signInRequired'));
       return;
     }
     try {
       await activateConfigurationMutation.mutateAsync({ id: configId, token });
       await refetchConfigurations();
       await handleLoadConfiguration(configId);
-      message.success('Configuration activated');
+      message.success(t('messages.configActivated'));
     } catch (err: any) {
       message.error(
-        `Failed to activate configuration: ${err?.message || String(err)}`
+        t('messages.activateFailed', { error: err?.message || String(err) })
       );
     }
   };
@@ -394,7 +403,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   // Delete a configuration
   const handleDeleteConfiguration = async (configId: string) => {
     if (!token) {
-      message.warning('You must be signed in.');
+      message.warning(t('messages.signInRequired'));
       return;
     }
     try {
@@ -404,10 +413,10 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         setCurrentConfigId(null);
         setConfigName('');
       }
-      message.success('Configuration deleted');
+      message.success(t('messages.configDeleted'));
     } catch (err: any) {
       message.error(
-        `Failed to delete configuration: ${err?.message || String(err)}`
+        t('messages.deleteFailed', { error: err?.message || String(err) })
       );
     }
   };
@@ -424,7 +433,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       CONSOLIDATION: null,
       NORMALIZATION: null,
     });
-    message.info('Started new configuration');
+    message.info(t('messages.newConfigStarted'));
   };
 
   // Layout: single centered column with stacked cards
@@ -446,10 +455,10 @@ export default function AnnotationConfigurationPage(): JSX.Element {
               marginBottom: 12,
             }}
           >
-            <Text h3>Annotation Configuration</Text>
+            <Text h3>{t('header')}</Text>
             <div style={{ display: 'flex', gap: 8 }}>
               <Button auto size="sm" onClick={handleNewConfiguration}>
-                New
+                {t('buttons.new')}
               </Button>
               <Button
                 auto
@@ -463,7 +472,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                   setShowSaveModal(true);
                 }}
               >
-                {currentConfigId ? 'Update' : 'Save As...'}
+                {currentConfigId ? t('buttons.update') : t('buttons.saveAs')}
               </Button>
             </div>
           </div>
@@ -471,16 +480,18 @@ export default function AnnotationConfigurationPage(): JSX.Element {
           {/* Configuration Selector */}
           <div style={{ marginBottom: 16 }}>
             <Text small css={{ color: '$accents7', marginBottom: 8 }}>
-              Select Configuration:
+              {t('configSelector.label')}
             </Text>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <Select
-                placeholder="Select a configuration"
+                placeholder={t('configSelector.placeholder')}
                 style={{ flex: 1, minWidth: 300 }}
                 value={currentConfigId || undefined}
                 onChange={(value) => handleLoadConfiguration(value)}
                 options={configurations.map((config: any) => ({
-                  label: config.name + (config.isActive ? ' (Active)' : ''),
+                  label:
+                    config.name +
+                    (config.isActive ? t('configSelector.activeSuffix') : ''),
                   value: config._id,
                 }))}
               />
@@ -496,7 +507,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     }
                     onClick={() => handleActivateConfiguration(currentConfigId)}
                   >
-                    Set as Active
+                    {t('configSelector.setActive')}
                   </Button>
                   <Popconfirm
                     title="Delete this configuration?"
@@ -505,7 +516,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     cancelText="No"
                   >
                     <Button auto size="sm" color="error">
-                      Delete
+                      {t('configSelector.delete')}
                     </Button>
                   </Popconfirm>
                 </>
@@ -519,21 +530,20 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                   color="success"
                   css={{ marginTop: 8, fontWeight: 'bold' }}
                 >
-                  ✓ This configuration is active and will be used for annotation
+                  {t('configSelector.activeNote')}
                 </Text>
               )}
           </div>
 
           <Text small css={{ color: '$accents7' }}>
-            Configure persisted services and pick which implementation the
-            annotation pipeline should use for each slot.
+            {t('description')}
           </Text>
         </header>
 
         {/* Add new service */}
         <Card variant="bordered" style={{ marginBottom: 15, padding: 15 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Text b>Add new service</Text>
+            <Text b>{t('addService.title')}</Text>
 
             {/* CSS grid: 1fr 1fr 160px so Name + URI expand, Type is fixed */}
             <div
@@ -549,12 +559,10 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                 <Input
                   clearable
                   fullWidth
-                  label="Name"
-                  placeholder="e.g. NER-service-1"
+                  label={t('addService.nameLabel')}
+                  placeholder={t('addService.namePlaceholder')}
                   value={newName}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setNewName(e.target.value)
-                  }
+                  onChange={(e) => setNewName(e.target.value)}
                 />
               </div>
 
@@ -562,18 +570,16 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                 <Input
                   clearable
                   fullWidth
-                  label="URI"
-                  placeholder="http://localhost:8001/ner"
+                  label={t('addService.uriLabel')}
+                  placeholder={t('addService.uriPlaceholder')}
                   value={newUri}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setNewUri(e.target.value)
-                  }
+                  onChange={(e) => setNewUri(e.target.value)}
                 />
               </div>
 
               <div>
                 <label style={{ display: 'block', marginBottom: 6 }}>
-                  Type
+                  {t('addService.typeLabel')}
                 </label>
                 <select
                   value={newType}
@@ -598,11 +604,12 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <Button onPress={() => handleCreateService()} disabled={creating}>
-                {creating ? 'Creating...' : 'Create service'}
+                {creating
+                  ? t('addService.creating')
+                  : t('addService.createButton')}
               </Button>
               <Text small css={{ color: '$accents7' }}>
-                Services are persisted in the documents microservice. You must
-                be signed in.
+                {t('addService.note')}
               </Text>
             </div>
           </div>
@@ -610,10 +617,10 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 
         {/* Available services */}
         <Card variant="bordered" style={{ marginBottom: 15, padding: 15 }}>
-          <Text b>Available services</Text>
+          <Text b>{t('availableServices.title')}</Text>
           <Spacer y={0.5} />
           {isServicesLoading ? (
-            <Text>Loading services…</Text>
+            <Text>{t('availableServices.loading')}</Text>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {Object.keys(servicesByType).map((type) => {
@@ -631,7 +638,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     >
                       <Text b>{type}</Text>
                       <Text small css={{ color: '$accents7' }}>
-                        {list.length} service(s)
+                        {t('availableServices.count', { n: list.length })}
                       </Text>
                     </div>
 
@@ -706,7 +713,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                               }}
                               size="sm"
                             >
-                              Edit
+                              {t('availableServices.edit')}
                             </Button>
 
                             <Popconfirm
@@ -716,7 +723,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                               cancelText="Cancel"
                             >
                               <Button color="error" size="sm">
-                                Delete
+                                {t('availableServices.delete')}
                               </Button>
                             </Popconfirm>
                           </div>
@@ -732,10 +739,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 
         {/* Pipeline slot selection (stacked single column) */}
         <Card variant="bordered" style={{ marginBottom: 15, padding: 15 }}>
-          <Text b>Pipeline slot selection</Text>
+          <Text b>{t('pipeline.title')}</Text>
           <Text small css={{ color: '$accents7', mt: '$2' }}>
-            Pick an implementation for each pipeline slot. Selections are stored
-            locally.
+            {t('pipeline.description')}
           </Text>
 
           <div
@@ -769,12 +775,12 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     }}
                   >
                     <div>
-                      <Text b>{slot}</Text>
+                      <Text b>{t('pipeline.slotLabel', { slot })}</Text>
                       <Text
                         small
                         css={{ color: '$accents7', marginLeft: '10px' }}
                       >
-                        Select a service implementation
+                        {t('pipeline.selectImpl')}
                       </Text>
                     </div>
                     <div>
@@ -784,7 +790,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                         auto
                         onPress={() => selectServiceForSlot(slot, null)}
                       >
-                        Clear
+                        {t('pipeline.clear')}
                       </Button>
                     </div>
                   </div>
@@ -798,7 +804,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                   >
                     <div>
                       <label style={{ display: 'block', marginBottom: 6 }}>
-                        Choose service (only services of type: {slot})
+                        {t('pipeline.chooseService', { slot })}
                       </label>
                       <select
                         value={currentId ?? ''}
@@ -819,10 +825,10 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                           background: 'transparent',
                         }}
                       >
-                        <option value="">-- not selected --</option>
+                        <option value="">{t('pipeline.notSelected')}</option>
                         {options.length === 0 ? (
                           <option value="" disabled>
-                            -- no services for this slot --
+                            {t('pipeline.noServices')}
                           </option>
                         ) : (
                           options.map((s) => (
@@ -836,7 +842,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 
                     <div>
                       <label style={{ display: 'block', marginBottom: 6 }}>
-                        Selected service preview
+                        {t('pipeline.previewLabel')}
                       </label>
                       <div
                         style={{
@@ -848,7 +854,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                         <Text small css={{ fontFamily: 'monospace' }}>
                           {current
                             ? `${current.name} — ${current.uri}`
-                            : 'No service selected'}
+                            : t('pipeline.noService')}
                         </Text>
                       </div>
                     </div>
@@ -867,8 +873,8 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                               slot in KNOWN_SERVICE_TYPES ? slot : 'OTHER'
                             );
                             Modal.confirm({
-                              title: `Create a new service and select it for slot ${slot}?`,
-                              content: 'Click OK to continue and fill details.',
+                              title: t('pipeline.prefillModalTitle', { slot }),
+                              content: t('pipeline.prefillModalContent'),
                               onOk: () => {
                                 const input =
                                   document.querySelector<HTMLInputElement>(
@@ -880,7 +886,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                           }}
                           size="sm"
                         >
-                          Prefill create form
+                          {t('pipeline.prefillButton')}
                         </Button>
 
                         <Button
@@ -888,7 +894,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                           color="success"
                           onPress={() => {
                             Modal.confirm({
-                              title: 'Create & select service',
+                              title: t('pipeline.createSelectModalTitle'),
                               content: (
                                 <div
                                   style={{
@@ -899,7 +905,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                                 >
                                   <input
                                     id={`quick-name-${slot}`}
-                                    placeholder="Service name (e.g. my-ner)"
+                                    placeholder={t('pipeline.namePlaceholder')}
                                     style={{
                                       width: '100%',
                                       padding: 8,
@@ -910,7 +916,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                                   />
                                   <input
                                     id={`quick-uri-${slot}`}
-                                    placeholder="Service URI (e.g. http://localhost:8001/ner)"
+                                    placeholder={t('pipeline.uriPlaceholder')}
                                     style={{
                                       width: '100%',
                                       padding: 8,
@@ -931,7 +937,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                                 const name = nameEl?.value ?? '';
                                 const uri = uriEl?.value ?? '';
                                 if (!name.trim() || !uri.trim()) {
-                                  message.warning('Name and URI required');
+                                  message.warning(
+                                    t('pipeline.validationWarning')
+                                  );
                                   throw new Error('validation');
                                 }
                                 setCreating(true);
@@ -955,15 +963,15 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                                       serviceType: inserted.serviceType || slot,
                                     } as ServiceRecord);
                                     message.success(
-                                      'Service created & selected'
+                                      t('pipeline.successMessage')
                                     );
                                   }
                                 } catch (err: any) {
                                   if ((err as Error).message !== 'validation') {
                                     message.error(
-                                      `Failed to create & select service: ${
-                                        err?.message || String(err)
-                                      }`
+                                      t('messages.createFailed', {
+                                        error: err?.message || String(err),
+                                      })
                                     );
                                   }
                                 } finally {
@@ -974,7 +982,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                           }}
                           size="sm"
                         >
-                          Create & select
+                          {t('pipeline.createSelectButton')}
                         </Button>
                       </div>
                     </div>
@@ -986,7 +994,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         </Card>
 
         <Card variant="bordered" style={{ padding: 10 }}>
-          <Text b>Persisted selected configuration (preview)</Text>
+          <Text b>{t('preview.title')}</Text>
           <Spacer y={0.5} />
           <div
             style={{
@@ -1004,7 +1012,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         {/* Save Configuration Modal */}
         <Modal
           title={
-            currentConfigId ? 'Update Configuration' : 'Save New Configuration'
+            currentConfigId
+              ? t('saveModal.updateTitle')
+              : t('saveModal.saveTitle')
           }
           visible={showSaveModal}
           onOk={
@@ -1013,25 +1023,22 @@ export default function AnnotationConfigurationPage(): JSX.Element {
               : handleCreateNewConfiguration
           }
           onCancel={() => setShowSaveModal(false)}
-          okText={currentConfigId ? 'Update' : 'Create'}
+          okText={currentConfigId ? t('buttons.update') : 'Create'}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Text>Configuration Name:</Text>
+            <Text>{t('saveModal.nameLabel')}</Text>
             <Input
               value={configName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setConfigName(e.target.value)
-              }
-              placeholder="Enter configuration name"
+              onChange={(e) => setConfigName(e.target.value)}
+              placeholder={t('saveModal.namePlaceholder')}
             />
             {currentConfigId && (
               <Text small color="warning">
-                This will update the existing configuration &quot;
-                {
-                  configurations.find((c: any) => c._id === currentConfigId)
-                    ?.name
-                }
-                &quot;.
+                {t('saveModal.updateNote', {
+                  name: configurations.find(
+                    (c: any) => c._id === currentConfigId
+                  )?.name,
+                })}
               </Text>
             )}
             {!currentConfigId && (
@@ -1048,14 +1055,13 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     htmlFor="setAsActive"
                     style={{ cursor: 'pointer', marginBottom: 0 }}
                   >
-                    <Text small>Set as active configuration</Text>
+                    <Text small>{t('saveModal.setActiveLabel')}</Text>
                   </label>
                 </div>
                 <Text small color="primary">
-                  A new configuration will be created.
                   {setAsActive
-                    ? ' It will be set as active and used for annotation.'
-                    : ' You can activate it later from the dropdown.'}
+                    ? t('saveModal.createNoteActive')
+                    : t('saveModal.createNoteInactive')}
                 </Text>
               </>
             )}
@@ -1065,3 +1071,14 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     </div>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  const locale = process.env.LOCALE || 'ita';
+  const localeObj = (await import(`@/translation/${locale}`)).default;
+
+  return {
+    props: {
+      locale: localeObj,
+    },
+  };
+};
