@@ -1,7 +1,7 @@
 import { useForm } from '@/hooks';
 import { Facet } from '@/server/routers/search';
 import { Checkbox } from '@nextui-org/react';
-import Fuse from 'fuse.js';
+
 import { Option } from 'lucide-react';
 import { Link, Link2, SearchIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
@@ -54,13 +54,10 @@ const FacetFilter = ({
   const { register, value } = useForm({
     filter: '',
   });
-  const fuse = useRef(
-    new Fuse(facet.children, {
-      keys: filterType.startsWith('annotation')
-        ? ['display_name', 'ids_ER']
-        : ['key', 'ids_ER'],
-    })
-  );
+  const fuseOptions = {
+    // Only search by the displayed label (de-anonymized display_name).
+    keys: ['display_name'],
+  };
 
   const [page, setPage] = useState(0);
 
@@ -78,21 +75,26 @@ const FacetFilter = ({
     const key = displayName?.toLowerCase() || '';
 
     if (!acc[key]) {
-      acc[key] = { ...child };
+      // store the canonical display_name (de-anonymized when available) so the grouped item shows the correct text
+      acc[key] = { ...child, display_name: displayName };
     } else {
       // Combine ids_ER arrays, removing duplicates
       acc[key].ids_ER = Array.from(
-        new Set([...acc[key].ids_ER, ...child.ids_ER])
+        new Set([...(acc[key].ids_ER || []), ...(child.ids_ER || [])])
       );
-      acc[key].doc_count += child.doc_count;
+      acc[key].doc_count = (acc[key].doc_count || 0) + (child.doc_count || 0);
     }
     return acc;
   }, {} as Record<string, (typeof facet.children)[0]>);
 
-  const deduplicatedChildren =
-    value.filter.trim() === ''
-      ? Object.values(groupedChildren)
-      : fuse.current.search(value.filter).map(({ item }) => item);
+  const groupedArray = Object.values(groupedChildren);
+  const deduplicatedChildren = (() => {
+    const q = value.filter.trim().toLowerCase();
+    if (!q) return groupedArray;
+    return groupedArray.filter((item) =>
+      (item.display_name || item.key || '').toLowerCase().includes(q)
+    );
+  })();
 
   // Filter out anonymous personas
   const filteredAnonymous = deduplicatedChildren.filter(
