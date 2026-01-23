@@ -17,7 +17,7 @@ const ButtonSend = ({ state, children, ...props }: ButtonProps) => {
     if (state === 'searching') {
       return (
         <span className="flex flex-row items-center gap-2">
-          {t.searchingDocuments}
+          {t('searchingDocuments')}
           <Loading color="currentColor" size="sm" />
         </span>
       );
@@ -26,7 +26,7 @@ const ButtonSend = ({ state, children, ...props }: ButtonProps) => {
     if (state === 'generating') {
       return (
         <span className="flex flex-row items-center gap-2">
-          {t.generating}
+          {t('generating')}
           <Loading color="currentColor" size="sm" />
         </span>
       );

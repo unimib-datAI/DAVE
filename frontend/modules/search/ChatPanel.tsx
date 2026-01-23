@@ -262,7 +262,7 @@ fallback response.`,
                 disabled={chatState !== 'idle'}
                 className="text-slate-800 resize-none bg-transparent w-full h-full border-none text-sm"
                 spellCheck="false"
-                placeholder={t.typeQuestionPlaceholder}
+                placeholder={t('ypeQuestionPlaceholder')}
                 {...register('message')}
               />
             </div>
@@ -271,8 +271,8 @@ fallback response.`,
               <Tooltip
                 content={
                   window.location.href.includes('documents')
-                    ? t.useCurrentDocumentContext
-                    : t.useCurrentSearchResultsContext
+                    ? t('useCurrentDocumentContext')
+                    : t('useCurrentSearchResultsContext')
                 }
                 placement="top"
                 color="invert"
@@ -297,7 +297,7 @@ fallback response.`,
               auto={true}
               className="bg-slate-900"
             >
-              {t.send}
+              {t('send')}
             </ButtonSend>
 
             <Tooltip content={t.resetChat} color="invert">
@@ -332,11 +332,11 @@ fallback response.`,
                       className="w-full"
                       color="invert"
                       placement="left"
-                      content={t.selectPredefinedQuestionTooltip}
+                      content={t('selectPredefinedQuestionTooltip')}
                     >
                       <div className="flex flex-row justify-between w-full">
                         <span className="text-sm font-semibold">
-                          {t.predefinedQuestions}
+                          {t('predefinedQuestions')}
                         </span>
                       </div>
                     </Tooltip>
@@ -344,7 +344,7 @@ fallback response.`,
                       <Select
                         id="predefined-questions-select"
                         style={{ width: '100%' }}
-                        placeholder={t.selectQuestion}
+                        placeholder={t('selectQuestion')}
                         disabled={isStreaming}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -378,11 +378,11 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content={t.temperatureTooltip}
+                    content={t('temperatureTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
                       <span className="text-sm font-semibold">
-                        {t.temperature}
+                        {t('temperature')}
                       </span>
                       <span className="text-sm">{value.temperature}</span>
                     </div>
@@ -400,11 +400,11 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content={t.maxNewTokensTooltip}
+                    content={t('maxNewTokensTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
                       <span className="text-sm font-semibold">
-                        {t.maxNewTokens}
+                        {t('maxNewTokens')}
                       </span>
                       <span className="text-sm">{value.max_new_tokens}</span>
                     </div>
@@ -423,10 +423,10 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content={t.topPTooltip}
+                    content={t('topPTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
-                      <span className="text-sm font-semibold">{t.topP}</span>
+                      <span className="text-sm font-semibold">{t('topP')}</span>
                       <span className="text-sm">{value.top_p}</span>
                     </div>
                   </Tooltip>
@@ -443,10 +443,10 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content={t.topKTooltip}
+                    content={t('topKTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
-                      <span className="text-sm font-semibold">{t.topK}</span>
+                      <span className="text-sm font-semibold">{t('topK')}</span>
                       <span className="text-sm">{value.top_k}</span>
                     </div>
                   </Tooltip>
@@ -463,11 +463,11 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content={t.frequencyPenaltyTooltip}
+                    content={t('frequencyPenaltyTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
                       <span className="text-sm font-semibold">
-                        {t.frequencyPenalty}
+                        {t('frequencyPenalty')}
                       </span>
                       <span className="text-sm">
                         {value.token_repetition_penalty_max}
@@ -506,7 +506,7 @@ fallback response.`,
                     </div>
                   </Tooltip>*/}
                   <span className="text-sm font-semibold">
-                    {t.retrievalMethod}
+                    {t('retrievalMethod')}
                   </span>
                   <Radio.Group
                     value={fieldRetrievalMethod.value}
@@ -516,13 +516,13 @@ fallback response.`,
                       fieldRetrievalMethod.onChange(newValue);
                     }}
                   >
-                    <Radio value="full">{t.hybridRetrieval}</Radio>
+                    <Radio value="full">{t('hybridRetrieval')}</Radio>
                     <Radio value="hibrid_no_ner">
-                      {t.hybridRetrievalNoNer}
+                      {t('hybridRetrievalNoNer')}
                     </Radio>
-                    <Radio value="dense">{t.dense}</Radio>
-                    <Radio value="full-text">{t.fullText}</Radio>
-                    <Radio value="none">{t.none}</Radio>
+                    <Radio value="dense">{t('dense')}</Radio>
+                    <Radio value="full-text">{t('fullText')}</Radio>
+                    <Radio value="none">{t('none')}</Radio>
                   </Radio.Group>
                 </div>
                 <div className="flex flex-col gap-3">
@@ -530,7 +530,7 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content={t.forceRagTooltip}
+                    content={t('forceRagTooltip')}
                   >
                     <div className="flex flex-row items-center gap-2 w-full">
                       <Checkbox
@@ -542,7 +542,7 @@ fallback response.`,
                         htmlFor="force-rag"
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
-                        {t.forceRag}
+                        {t('forceRag')}
                       </label>
                     </div>
                   </Tooltip>
@@ -552,7 +552,7 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content={t.useMultiAgentTooltip}
+                    content={t('useMultiAgentTooltip')}
                   >
                     <div className="flex flex-row items-center gap-2 w-full">
                       <Checkbox
@@ -564,7 +564,7 @@ fallback response.`,
                         htmlFor="use-multi-agent"
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
-                        {t.useMultiAgentSystem}
+                        {t('useMultiAgentSystem')}
                       </label>
                     </div>
                   </Tooltip>
@@ -574,11 +574,11 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content={t.systemPromptTooltip}
+                    content={t('systemPromptTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
                       <span className="text-sm font-semibold">
-                        {t.systemPrompt}
+                        {t('systemPrompt')}
                       </span>
                     </div>
                   </Tooltip>
