@@ -29,6 +29,7 @@ import { useMutation } from '@/utils/trpc';
 
 import { getClustersGroups, groupBy } from '@/utils/shared';
 import { CheckboxChangeEvent } from 'antd/es/checkbox';
+import { useText } from '@/components';
 
 interface EditClustersProps {
   onEdit: Function;
@@ -156,6 +157,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
   const moveEntitiesToClusters = useMutation([
     'document.moveEntitiesToCluster',
   ]);
+  const t = useText('document');
 
   useEffect(() => {
     if (sourceCluster && dest) {
