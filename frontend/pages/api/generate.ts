@@ -125,6 +125,30 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       console.log('[API] Using Standard Generation');
 
       // Create streaming completion
+      // Only forward a small, explicit whitelist of parameters to the OpenAI-compatible API.
+      // This prevents passing provider-specific or custom fields (e.g. collectionId, max_new_tokens, system, etc.)
+      // which newer OpenAI clients will reject with "Unrecognized request arguments".
+      const ALLOWED_OPENAI_PARAMS = new Set([
+        'max_tokens',
+        'temperature',
+        'top_p',
+        'n',
+        'stop',
+        'presence_penalty',
+        'frequency_penalty',
+        'logit_bias',
+        'user',
+      ]);
+
+      const filteredOtherParams: Record<string, any> = {};
+      if (otherParams && typeof otherParams === 'object') {
+        for (const [k, v] of Object.entries(otherParams)) {
+          if (ALLOWED_OPENAI_PARAMS.has(k)) {
+            filteredOtherParams[k] = v;
+          }
+        }
+      }
+
       const stream = await openai.chat.completions.create({
         model: modelToUse,
         messages: chatMessages,
@@ -132,7 +156,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         temperature: temperature,
         top_p: top_p,
         stream: true,
-        ...otherParams,
+        ...filteredOtherParams,
       });
 
       // Stream the response to the client
