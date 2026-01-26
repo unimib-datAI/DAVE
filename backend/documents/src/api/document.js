@@ -905,15 +905,16 @@ export default (app) => {
           offset_type: z.string().optional(),
           elasticIndex: z.string().optional(),
           toAnonymize: z.boolean().optional(),
+          anonymizeTypes: z.array(z.string()).optional(),
         }),
       },
     }),
     asyncRoute(async (req, res, next) => {
-      const { elasticIndex, toAnonymize } = req.body;
+      const { elasticIndex, toAnonymize, anonymizeTypes } = req.body;
 
       // Anonymize the document if requested
       if (toAnonymize) {
-        req.body = await encode(req.body);
+        req.body = await encode(req.body, anonymizeTypes);
       }
 
       const doc = await DocumentController.insertFullDocument(req.body);

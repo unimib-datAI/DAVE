@@ -16,6 +16,9 @@ export type Translation = {
   uploadModal: {
     header: string;
     anonymize: string;
+    anonymizeTypesLabel: string;
+    anonymizeTypesPlaceholder: string;
+    anonymizeTypesHelp: string;
     tabs: {
       json: string;
       txt: string;

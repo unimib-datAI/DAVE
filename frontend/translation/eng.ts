@@ -18,6 +18,10 @@ const t: Translation = {
   uploadModal: {
     header: 'Upload Documents',
     anonymize: 'Anonymize documents',
+    anonymizeTypesLabel: 'Entity types to anonymize (optional)',
+    anonymizeTypesPlaceholder: 'e.g. persona, luogo, altro',
+    anonymizeTypesHelp:
+      'Comma-separated list. Leave empty to anonymize all entities.',
     tabs: {
       json: 'JSON Documents',
       txt: 'Plain Text Documents',

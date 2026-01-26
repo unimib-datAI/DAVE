@@ -1,9 +1,16 @@
-import { Modal, Text, Button, Progress, Checkbox } from '@nextui-org/react';
+import {
+  Modal,
+  Text,
+  Button,
+  Progress,
+  Checkbox,
+  Input,
+} from '@nextui-org/react';
 import { useAtom } from 'jotai';
 import { uploadModalOpenAtom, uploadProgressAtom } from '@/atoms/upload';
 
 import { useMutation, useContext, useQuery } from '@/utils/trpc';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { FiUpload } from '@react-icons/all-files/fi/FiUpload';
 import { FiX } from '@react-icons/all-files/fi/FiX';
@@ -124,7 +131,14 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
   const [activeTab, setActiveTab] = useState<'json' | 'txt'>('json');
   const [selectedConfigId, setSelectedConfigId] = useState<string | null>(null);
   const [toAnonymize, setToAnonymize] = useState(false);
+  const [anonymizeTypes, setAnonymizeTypes] = useState<string[]>([]);
+  const [anonymizeTypesInput, setAnonymizeTypesInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync input value with anonymizeTypes state
+  useEffect(() => {
+    setAnonymizeTypesInput(anonymizeTypes.join(', '));
+  }, [anonymizeTypes]);
   const txtFileInputRef = useRef<HTMLInputElement>(null);
   const createDocumentMutation = useMutation(['document.createDocument']);
   const annotateAndUploadMutation = useMutation(['document.annotateAndUpload']);
@@ -223,6 +237,8 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
             collectionId: collectionId || activeCollection?.id,
             token: session?.accessToken,
             toAnonymize,
+            anonymizeTypes:
+              anonymizeTypes.length > 0 ? anonymizeTypes : undefined,
           });
 
           completed++;
@@ -297,6 +313,8 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
           token: session?.accessToken,
           configurationId: selectedConfigId || undefined,
           toAnonymize,
+          anonymizeTypes:
+            anonymizeTypes.length > 0 ? anonymizeTypes : undefined,
         });
 
         completed++;
@@ -355,6 +373,9 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
     if (!uploadProgress.isUploading) {
       setIsOpen(false);
       setSelectedFiles([]);
+      setToAnonymize(false);
+      setAnonymizeTypes([]);
+      setAnonymizeTypesInput('');
       setUploadProgress({
         total: 0,
         completed: 0,
@@ -391,6 +412,31 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
           <Checkbox isSelected={toAnonymize} onChange={setToAnonymize}>
             {t('anonymize')}
           </Checkbox>
+          {toAnonymize && (
+            <div style={{ marginTop: '0.5rem', marginLeft: '1.5rem' }}>
+              <Text size={12} css={{ marginBottom: '0.25rem' }}>
+                {t('anonymizeTypesLabel')}
+              </Text>
+              <Input
+                placeholder={t('anonymizeTypesPlaceholder')}
+                value={anonymizeTypesInput}
+                onChange={(e) => {
+                  setAnonymizeTypesInput(e.target.value);
+                }}
+                onBlur={() => {
+                  const types = anonymizeTypesInput
+                    .split(',')
+                    .map((type) => type.trim())
+                    .filter((type) => type.length > 0);
+                  setAnonymizeTypes(types);
+                }}
+                css={{ width: '100%' }}
+              />
+              <Text size={10} css={{ color: '#666', marginTop: '0.25rem' }}>
+                {t('anonymizeTypesHelp')}
+              </Text>
+            </div>
+          )}
         </div>
         <Tabs.Root value={activeTab} onValueChange={handleTabChange}>
           <TabsList>
