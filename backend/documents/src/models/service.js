@@ -18,9 +18,10 @@ const { Schema } = mongoose;
 const ALLOWED_SERVICE_TYPES = [
   "NER",
   "NEL",
+  "INDEXER",
+  "NILPREDICTION",
   "CLUSTERING",
   "CONSOLIDATION",
-  "NORMALIZATION",
   "OTHER",
 ];
 

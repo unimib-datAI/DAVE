@@ -889,6 +889,11 @@ export const documents = createRouter()
       // Map pipeline slots to concrete service URLs (use selected services when provided, else env/default)
       const spacynerURL = resolveUrlForSlot('NER', defaultSpacyner);
       const blinkURL = resolveUrlForSlot('NEL', defaultBlink);
+      const resolvedIndexerURL = resolveUrlForSlot('INDEXER', indexerURL);
+      const resolvedNilPredictionURL = resolveUrlForSlot(
+        'NILPREDICTION',
+        nilpredictionURL
+      );
       const nilclusterURL = resolveUrlForSlot('CLUSTERING', defaultNilcluster);
       const consolidationURL = resolveUrlForSlot(
         'CONSOLIDATION',
@@ -928,7 +933,7 @@ export const documents = createRouter()
 
         console.log('Step 3: Calling indexer search...');
         // Step 4: Indexer search
-        const indexerRes = await fetchJson<any, any>(indexerURL, {
+        const indexerRes = await fetchJson<any, any>(resolvedIndexerURL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -939,7 +944,7 @@ export const documents = createRouter()
 
         console.log('Step 4: Calling nilprediction...');
         // Step 5: NIL prediction
-        const nilRes = await fetchJson<any, any>(nilpredictionURL, {
+        const nilRes = await fetchJson<any, any>(resolvedNilPredictionURL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -987,7 +992,7 @@ export const documents = createRouter()
         }
 
         console.log('Step 8: Uploading annotated document...');
-        // Step 9: Upload the annotated document
+        // Step 10: Upload the annotated document
         const documentToUpload = {
           ...gdoc,
           name: name || 'Untitled Document',

@@ -126,7 +126,48 @@ export default (app) => {
     "/services",
     asyncRoute(async (req, res) => {
       try {
-        const services = await Service.find({}).lean();
+        let services = await Service.find({}).lean();
+
+        // Check and create default services if they don't exist
+        const defaultServices = [
+          {
+            name: "DEFAULT_INDEXER",
+            uri:
+              process.env.ANNOTATION_INDEXER_URL ||
+              "http://indexer:80/api/indexer/search/doc",
+            serviceType: "INDEXER",
+            description: "Default indexer service for entity search",
+          },
+          {
+            name: "DEFAULT_NILPREDICTION",
+            uri:
+              process.env.ANNOTATION_NILPREDICTION_URL ||
+              "http://nilpredictor:80/api/nilprediction/doc",
+            serviceType: "NILPREDICTION",
+            description: "Default NIL prediction service",
+          },
+        ];
+
+        for (const defaultSvc of defaultServices) {
+          const existing = services.find(
+            (s) => s.serviceType === defaultSvc.serviceType,
+          );
+          if (!existing) {
+            try {
+              const svc = serviceDTO(defaultSvc);
+              const inserted = await svc.save();
+              services.push(inserted.toObject());
+              console.log(`Created default service: ${defaultSvc.name}`);
+            } catch (createErr) {
+              console.error(
+                `Failed to create default service ${defaultSvc.name}:`,
+                createErr,
+              );
+              // Continue without failing the request
+            }
+          }
+        }
+
         return res.json(services).status(200);
       } catch (err) {
         console.error("Failed to fetch services", err);
