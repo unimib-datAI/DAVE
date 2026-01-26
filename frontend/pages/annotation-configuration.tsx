@@ -21,19 +21,25 @@ type ServiceRecord = {
   disabled?: boolean;
 };
 
-const KNOWN_SERVICE_TYPES = [
+// Canonical pipeline slots and order used by the backend pipeline.
+// The UI must present and save exactly these keys so backend and UI align.
+const CANONICAL_SLOTS: string[] = [
   'NER',
   'NEL',
+  'INDEXER',
+  'NILPREDICTION',
   'CLUSTERING',
   'CONSOLIDATION',
-  'NORMALIZATION',
-  'OTHER',
 ];
+
+// Known service types used in the "Add service" dropdown and grouping
+const KNOWN_SERVICE_TYPES = [...CANONICAL_SLOTS, 'OTHER'] as string[];
 
 export default function AnnotationConfigurationPage(): JSX.Element {
   const t = useText('annotationConfig');
   const { data: session, status } = useSession();
-  const token = session?.accessToken as string | undefined;
+  // accessToken is not part of the typed Session interface here, cast to any
+  const token = (session as any)?.accessToken as string | undefined;
 
   const trpcContext = useContext();
 
@@ -41,6 +47,48 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   const [selectedServices, setSelectedServices] = useAtom(
     annotationSelectedServicesAtom
   );
+
+  // Utility: normalize a services object so it contains all canonical slots (preserving existing values)
+  const ensureCanonicalServices = (
+    src?: AnnotationSelectedServices | null
+  ): AnnotationSelectedServices => {
+    const out: AnnotationSelectedServices = {};
+    const srcObj = src || {};
+    for (const slot of CANONICAL_SLOTS) {
+      out[slot] = slot in srcObj ? srcObj[slot] ?? null : null;
+    }
+    // Preserve any additional non-canonical keys as well
+    Object.keys(srcObj).forEach((k) => {
+      if (!(k in out)) {
+        out[k] = srcObj[k];
+      }
+    });
+    return out;
+  };
+
+  // Ensure selectedServices always contains canonical slots when the page mounts
+  useEffect(() => {
+    if (!selectedServices) {
+      // initialize atom with canonical empty slots
+      const init: AnnotationSelectedServices = {};
+      for (const slot of CANONICAL_SLOTS) init[slot] = null;
+      setSelectedServices(init);
+      return;
+    }
+    // Fill any missing canonical slots while preserving existing values
+    setSelectedServices((prev) => {
+      const copy: AnnotationSelectedServices = { ...(prev || {}) };
+      let changed = false;
+      for (const slot of CANONICAL_SLOTS) {
+        if (!(slot in copy)) {
+          copy[slot] = null;
+          changed = true;
+        }
+      }
+      return changed ? copy : prev || copy;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch available services from backend (requires JWT)
   const { data: availableServices = [], isLoading: isServicesLoading } =
@@ -83,7 +131,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [setAsActive, setSetAsActive] = useState(false);
 
-  // Load active configuration on mount
+  // Load active configuration on mount and normalize it to canonical slots
   useEffect(() => {
     const loadActiveConfig = async () => {
       if (!token) return;
@@ -95,25 +143,44 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         if (activeConfig) {
           setCurrentConfigId(activeConfig._id);
           setConfigName(activeConfig.name);
-          // Load services from configuration
+
+          // Load services from configuration and normalize to canonical slots
           const services: AnnotationSelectedServices = {};
+          // populate canonical slots first so order is guaranteed
+          for (const slot of CANONICAL_SLOTS) {
+            services[slot] = null;
+          }
+
           if (activeConfig.services) {
             Object.entries(activeConfig.services).forEach(
               ([slot, svc]: [string, any]) => {
-                if (svc) {
-                  services[slot] = {
-                    id: svc.id || '',
-                    name: svc.name || '',
-                    uri: svc.uri || '',
-                    serviceType: svc.serviceType,
-                  };
+                const normalizedSlot = slot.toUpperCase();
+                if (CANONICAL_SLOTS.includes(normalizedSlot)) {
+                  if (svc) {
+                    services[normalizedSlot] = {
+                      id: svc.id || '',
+                      name: svc.name || '',
+                      uri: svc.uri || '',
+                      serviceType: svc.serviceType,
+                    };
+                  } else {
+                    services[normalizedSlot] = null;
+                  }
                 } else {
-                  services[slot] = null;
+                  // keep unknown slot as-is to preserve any custom entries
+                  services[slot] = svc
+                    ? {
+                        id: svc.id || '',
+                        name: svc.name || '',
+                        uri: svc.uri || '',
+                        serviceType: svc.serviceType,
+                      }
+                    : null;
                 }
               }
             );
           }
-          setSelectedServices(services);
+          setSelectedServices(ensureCanonicalServices(services));
         }
       } catch (err) {
         console.log('No active configuration found');
@@ -122,18 +189,19 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     if (status === 'authenticated') {
       loadActiveConfig();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, token]);
 
-  // UI helper: group services by serviceType
+  // UI helper: group services by serviceType (ensure canonical groups exist)
   const servicesByType = useMemo(() => {
     const groups: Record<string, ServiceRecord[]> = {};
     (availableServices || []).forEach((s: ServiceRecord) => {
-      const t = s.serviceType || 'OTHER';
-      if (!groups[t]) groups[t] = [];
-      groups[t].push(s);
+      const st = (s.serviceType || 'OTHER').toUpperCase();
+      if (!groups[st]) groups[st] = [];
+      groups[st].push(s);
     });
-    // ensure known types exist (empty arrays)
-    for (const t of KNOWN_SERVICE_TYPES) {
+    // ensure canonical types exist
+    for (const t of [...CANONICAL_SLOTS, 'OTHER']) {
       groups[t] = groups[t] || [];
     }
     return groups;
@@ -152,7 +220,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       } else {
         copy[slot] = null;
       }
-      return copy;
+      return ensureCanonicalServices(copy);
     });
   };
 
@@ -216,7 +284,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
             copy[k] = null;
           }
         });
-        return copy;
+        return ensureCanonicalServices(copy);
       });
       message.success(t('messages.serviceDeleted'));
     } catch (err: any) {
@@ -250,11 +318,8 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     }
   };
 
-  // Pipeline slots to manage (derive from atom keys)
-  const pipelineSlots = useMemo(
-    () => Object.keys(selectedServices || {}),
-    [selectedServices]
-  );
+  // Pipeline slots to render: use canonical ordering so saved configs match backend pipeline
+  const pipelineSlots = CANONICAL_SLOTS;
 
   // Helper to find service record by id
   const findServiceById = (id?: string) =>
@@ -275,15 +340,20 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     }
 
     try {
-      // Convert selectedServices to plain object for storage
+      // Convert selectedServices to plain object for storage and ensure canonical keys/order
       const services: Record<string, any> = {};
-      Object.entries(selectedServices || {}).forEach(([slot, svc]) => {
-        services[slot] = svc;
+      for (const slot of CANONICAL_SLOTS) {
+        services[slot] = (selectedServices || {})[slot] ?? null;
+      }
+      // preserve any additional keys the user might have (not strictly necessary)
+      Object.keys(selectedServices || {}).forEach((k) => {
+        if (!(k in services)) {
+          services[k] = selectedServices![k];
+        }
       });
 
       if (currentConfigId) {
         // Update existing configuration
-        console.log('sent token', token);
         await updateConfigurationMutation.mutateAsync({
           id: currentConfigId,
           name,
@@ -325,8 +395,11 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 
     try {
       const services: Record<string, any> = {};
-      Object.entries(selectedServices || {}).forEach(([slot, svc]) => {
-        services[slot] = svc;
+      for (const slot of CANONICAL_SLOTS) {
+        services[slot] = (selectedServices || {})[slot] ?? null;
+      }
+      Object.keys(selectedServices || {}).forEach((k) => {
+        if (!(k in services)) services[k] = selectedServices![k];
       });
 
       const created = await createConfigurationMutation.mutateAsync({
@@ -362,23 +435,41 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     setCurrentConfigId(config._id);
     setConfigName(config.name);
 
-    // Load services from configuration
+    // Load services from configuration and normalize to canonical slots
     const services: AnnotationSelectedServices = {};
+    for (const slot of CANONICAL_SLOTS) {
+      services[slot] = null;
+    }
+
     if (config.services) {
       Object.entries(config.services).forEach(([slot, svc]: [string, any]) => {
-        if (svc) {
-          services[slot] = {
-            id: svc.id || '',
-            name: svc.name || '',
-            uri: svc.uri || '',
-            serviceType: svc.serviceType,
-          };
+        const normalizedSlot = slot.toUpperCase();
+        if (CANONICAL_SLOTS.includes(normalizedSlot)) {
+          if (svc) {
+            services[normalizedSlot] = {
+              id: svc.id || '',
+              name: svc.name || '',
+              uri: svc.uri || '',
+              serviceType: svc.serviceType,
+            };
+          } else {
+            services[normalizedSlot] = null;
+          }
         } else {
-          services[slot] = null;
+          // preserve unknown keys
+          services[slot] = svc
+            ? {
+                id: svc.id || '',
+                name: svc.name || '',
+                uri: svc.uri || '',
+                serviceType: svc.serviceType,
+              }
+            : null;
         }
       });
     }
-    setSelectedServices(services);
+
+    setSelectedServices(ensureCanonicalServices(services));
     message.success(t('messages.configLoaded', { name: config.name }));
   };
 
@@ -421,18 +512,14 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     }
   };
 
-  // Reset to new configuration
+  // Reset to new configuration (initialize canonical slots)
   const handleNewConfiguration = () => {
     setCurrentConfigId(null);
     setConfigName('');
     setSetAsActive(false);
-    setSelectedServices({
-      NER: null,
-      NEL: null,
-      CLUSTERING: null,
-      CONSOLIDATION: null,
-      NORMALIZATION: null,
-    });
+    const init: AnnotationSelectedServices = {};
+    for (const slot of CANONICAL_SLOTS) init[slot] = null;
+    setSelectedServices(init);
     message.info(t('messages.newConfigStarted'));
   };
 
@@ -593,9 +680,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     boxSizing: 'border-box',
                   }}
                 >
-                  {KNOWN_SERVICE_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
+                  {KNOWN_SERVICE_TYPES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
                     </option>
                   ))}
                 </select>
@@ -753,7 +840,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
             }}
           >
             {pipelineSlots.map((slot) => {
-              const current = selectedServices[slot] as SelectedService | null;
+              const current = (selectedServices || {})[
+                slot
+              ] as SelectedService | null;
               const currentId = current?.id;
               const options = servicesByType[slot] || [];
 
@@ -781,6 +870,19 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                         css={{ color: '$accents7', marginLeft: '10px' }}
                       >
                         {t('pipeline.selectImpl')}
+                      </Text>
+                      <Text small css={{ color: '$accents7' }}>
+                        {slot === 'NER'
+                          ? 'Named Entity Recognition - identifies entities like persons, organizations, locations.'
+                          : slot === 'NEL'
+                          ? 'Named Entity Linking - links entities to knowledge base entries.'
+                          : slot === 'INDEXER'
+                          ? 'Searches for candidate entities in the knowledge base.'
+                          : slot === 'NILPREDICTION'
+                          ? 'Predicts if entities are NIL (not in knowledge base).'
+                          : slot === 'CLUSTERING'
+                          ? 'Groups similar entities into clusters.'
+                          : 'Consolidates and finalizes annotation results.'}
                       </Text>
                     </div>
                     <div>
@@ -869,9 +971,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                         <Button
                           auto
                           onPress={() => {
-                            setNewType(
-                              slot in KNOWN_SERVICE_TYPES ? slot : 'OTHER'
-                            );
+                            setNewType(slot as string);
                             Modal.confirm({
                               title: t('pipeline.prefillModalTitle', { slot }),
                               content: t('pipeline.prefillModalContent'),
@@ -948,7 +1048,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                                     await createServiceMutation.mutateAsync({
                                       name: name.trim(),
                                       uri: uri.trim(),
-                                      serviceType: slot,
+                                      serviceType: slot as string,
                                       description: '',
                                       token: token || '',
                                     });
@@ -1004,7 +1104,11 @@ export default function AnnotationConfigurationPage(): JSX.Element {
             }}
           >
             <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-              {JSON.stringify(selectedServices, null, 2)}
+              {JSON.stringify(
+                ensureCanonicalServices(selectedServices),
+                null,
+                2
+              )}
             </pre>
           </div>
         </Card>
