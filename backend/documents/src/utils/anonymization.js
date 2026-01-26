@@ -248,7 +248,7 @@ export async function decode(doc) {
  * - Encrypts using API.
  * - Adjusts subsequent annotations correctly ACROSS ALL ANNOTATION SETS.
  */
-export async function encode(doc) {
+export async function encode(doc, anonymizeTypes = null) {
   if (!doc || typeof doc !== "object") {
     throw new TypeError("encode: doc must be an object");
   }
@@ -326,6 +326,14 @@ export async function encode(doc) {
 
   for (let i = 0; i < globalAnns.length; i++) {
     const { annsetName, annotation } = globalAnns[i];
+
+    // Skip annotation if anonymizeTypes is provided and type is not in the list
+    if (anonymizeTypes && !anonymizeTypes.includes(annotation.type)) {
+      console.log(
+        `[ENCODE] Skipping annotation type '${annotation.type}' not in anonymizeTypes list`,
+      );
+      continue;
+    }
 
     // Validate annotation indexes
     if (
@@ -456,9 +464,13 @@ export async function encode(doc) {
 /**
  * Convenience wrapper used by external code
  */
-export async function processDocument(doc, toEncode = true) {
+export async function processDocument(
+  doc,
+  toEncode = true,
+  anonymizeTypes = null,
+) {
   try {
-    return toEncode ? await encode(doc) : await decode(doc);
+    return toEncode ? await encode(doc, anonymizeTypes) : await decode(doc);
   } catch (error) {
     console.error("Error processing document:", error);
     throw error;

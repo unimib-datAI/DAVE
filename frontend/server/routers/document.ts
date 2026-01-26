@@ -651,9 +651,11 @@ export const documents = createRouter()
       collectionId: z.string(),
       token: z.string(),
       toAnonymize: z.boolean(),
+      anonymizeTypes: z.array(z.string()).optional(),
     }),
     resolve: async ({ input }) => {
-      const { document, collectionId, token, toAnonymize } = input;
+      const { document, collectionId, token, toAnonymize, anonymizeTypes } =
+        input;
       const elasticIndex = process.env.ELASTIC_INDEX;
 
       try {
@@ -668,6 +670,7 @@ export const documents = createRouter()
             collectionId,
             elasticIndex,
             toAnonymize,
+            anonymizeTypes,
           },
           timeout: 600000,
         });
@@ -788,10 +791,18 @@ export const documents = createRouter()
       token: z.string(),
       configurationId: z.string().optional(),
       toAnonymize: z.boolean(),
+      anonymizeTypes: z.array(z.string()).optional(),
     }),
     resolve: async ({ input }) => {
-      const { text, name, collectionId, token, configurationId, toAnonymize } =
-        input;
+      const {
+        text,
+        name,
+        collectionId,
+        token,
+        configurationId,
+        toAnonymize,
+        anonymizeTypes,
+      } = input;
 
       // Fetch configuration from database - either specified or active
       let selectedServices: Record<string, any> | undefined;
@@ -994,6 +1005,7 @@ export const documents = createRouter()
           body: {
             ...documentToUpload,
             toAnonymize,
+            anonymizeTypes,
           },
         });
 
