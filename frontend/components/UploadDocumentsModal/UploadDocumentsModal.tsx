@@ -144,18 +144,21 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
   const annotateAndUploadMutation = useMutation(['document.annotateAndUpload']);
   const trpcContext = useContext();
   const token = session?.accessToken as string | undefined;
+  const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
+  // When auth is disabled, pass an empty string token to satisfy backend schema validation.
+  const tokenForApi = token ?? '';
 
   // Fetch configurations
   const { data: configurations = [], isLoading: configurationsLoading } =
-    useQuery(['document.getConfigurations', { token: token ?? '' }], {
-      enabled: status === 'authenticated' && !!token,
+    useQuery(['document.getConfigurations', { token: tokenForApi }], {
+      enabled: authDisabled || (status === 'authenticated' && !!token),
     });
 
   // Get active configuration
   const { data: activeConfig, isLoading: activeConfigLoading } = useQuery(
-    ['document.getActiveConfiguration', { token: token ?? '' }],
+    ['document.getActiveConfiguration', { token: tokenForApi }],
     {
-      enabled: status === 'authenticated' && !!token,
+      enabled: authDisabled || (status === 'authenticated' && !!token),
     }
   );
 
@@ -231,11 +234,11 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
         const content = await file.text();
         const jsonData = JSON.parse(content);
         if (activeCollection.id) {
-          console.log('access token', (session as any)?.accessToken);
+          console.log('access token', tokenForApi);
           await createDocumentMutation.mutateAsync({
             document: jsonData,
             collectionId: collectionId || activeCollection?.id,
-            token: session?.accessToken,
+            token: tokenForApi,
             toAnonymize,
             anonymizeTypes:
               anonymizeTypes.length > 0 ? anonymizeTypes : undefined,
@@ -310,7 +313,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
           text,
           name: file.name.replace('.txt', ''),
           collectionId: collectionId || activeCollection?.id,
-          token: session?.accessToken,
+          token: tokenForApi,
           configurationId: selectedConfigId || undefined,
           toAnonymize,
           anonymizeTypes:

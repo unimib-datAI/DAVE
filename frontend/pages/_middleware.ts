@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export default function handler(req: NextRequest) {
-  // If login is disabled, allow everything
-  if (process.env.NO_LOGIN === 'true') {
+  // If authentication is disabled, allow everything
+  if (process.env.NEXT_PUBLIC_USE_AUTH === 'false') {
     if (process.env.STATALE_MODE === 'true') {
       if (
         !req.nextUrl.pathname.match(/\/documents\/\d+/) &&

@@ -28,6 +28,9 @@ export type User = {
 
 const getJWTHeader = (token?: string) => {
   if (!token) {
+    if (process.env.USE_AUTH === 'false') {
+      return ''; // No Authorization header when auth is disabled
+    }
     throw new TRPCError({
       code: 'UNAUTHORIZED',
       message: 'No authentication token provided',
@@ -45,8 +48,11 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { token } = input;
 
-      // If no token supplied, avoid calling backend and return empty collection list early
-      if (!token || typeof token !== 'string' || token.trim().length === 0) {
+      // If no token supplied and auth is enabled, avoid calling backend and return empty collection list early
+      if (
+        (!token || typeof token !== 'string' || token.trim().length === 0) &&
+        process.env.USE_AUTH !== 'false'
+      ) {
         return [] as Collection[];
       }
 
@@ -78,12 +84,15 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { id, token } = input;
       try {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, Collection>(
           `${baseURL}/collection/${id}`,
           {
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -103,12 +112,15 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { id, token } = input;
       try {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, collectionDocInfo[]>(
           `${baseURL}/collection/collectioninfo/${id}`,
           {
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -130,14 +142,18 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { name, allowedUserIds, token } = input;
       try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, Collection>(
           `${baseURL}/collection`,
           {
             method: 'POST',
-            headers: {
-              Authorization: getJWTHeader(token),
-              'Content-Type': 'application/json',
-            },
+            headers,
             body: JSON.stringify({
               name,
               allowedUserIds: allowedUserIds || [],
@@ -165,14 +181,18 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { id, name, allowedUserIds, token } = input;
       try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, Collection>(
           `${baseURL}/collection/${id}`,
           {
             method: 'PUT',
-            headers: {
-              Authorization: getJWTHeader(token),
-              'Content-Type': 'application/json',
-            },
+            headers,
             body: JSON.stringify({
               name,
               allowedUserIds,
@@ -205,14 +225,17 @@ export const collections = createRouter()
       try {
         const elasticIndex = process.env.ELASTIC_INDEX;
 
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<
           any,
           { message: string; collection: Collection }
         >(`${baseURL}/collection/${id}`, {
           method: 'DELETE',
-          headers: {
-            Authorization: getJWTHeader(token),
-          },
+          headers,
           body: {
             elasticIndex,
           },
@@ -240,8 +263,11 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { token } = input;
 
-      // If no token supplied, do not call backend and return empty users list early
-      if (!token || typeof token !== 'string' || token.trim().length === 0) {
+      // If no token supplied and auth is enabled, do not call backend and return empty users list early
+      if (
+        (!token || typeof token !== 'string' || token.trim().length === 0) &&
+        process.env.USE_AUTH !== 'false'
+      ) {
         console.log(
           'collections.getAllUsers: no token supplied, returning empty array'
         );
@@ -253,12 +279,15 @@ export const collections = createRouter()
           'collections.getAllUsers: received token (masked)',
           `${token.slice(0, 6)}...${token.slice(-4)}`
         );
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, User[]>(
           `${baseURL}/collection/users/all`,
           {
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -280,10 +309,13 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { id, token } = input;
       try {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const response = await fetch(`${baseURL}/collection/${id}/download`, {
-          headers: {
-            Authorization: getJWTHeader(token),
-          },
+          headers,
         });
         if (!response.ok) {
           throw new TRPCError({

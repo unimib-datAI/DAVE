@@ -54,7 +54,10 @@ const LoginAvatar = () => {
     );
   }
 
-  if (status === 'unauthenticated') {
+  if (
+    status === 'unauthenticated' &&
+    process.env.NEXT_PUBLIC_USE_AUTH !== 'false'
+  ) {
     return (
       <Link href="/login" passHref>
         <LinkButton>{t('toolbar.login')}</LinkButton>
@@ -62,14 +65,14 @@ const LoginAvatar = () => {
     );
   }
 
+  // When USE_AUTH=false or authenticated, show avatar
+  const displayName = data?.user?.name || 'Anonymous';
+  const avatarText = displayName.slice(0, 1).toUpperCase();
+
   return (
     <Dropdown placement="bottom-left">
       <Dropdown.Trigger>
-        <Avatar
-          size="md"
-          text={data?.user?.name?.slice(0, 1).toUpperCase()}
-          pointer
-        />
+        <Avatar size="md" text={avatarText} pointer />
       </Dropdown.Trigger>
       <Dropdown.Menu
         aria-label="Static Actions"
@@ -104,9 +107,11 @@ const LoginAvatar = () => {
             </Text>
           </Link>
         </Dropdown.Item>
-        <Dropdown.Item key="logout" color="error" withDivider>
-          {t('toolbar.logout')}
-        </Dropdown.Item>
+        {process.env.NEXT_PUBLIC_USE_AUTH !== 'false' && (
+          <Dropdown.Item key="logout" color="error" withDivider>
+            {t('toolbar.logout')}
+          </Dropdown.Item>
+        )}
       </Dropdown.Menu>
     </Dropdown>
   );

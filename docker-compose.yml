@@ -63,7 +63,7 @@ services:
     build: ./backend/documents
     environment:
       DOCS_PORT: 3001
-      ENABLE_AUTH: true
+      USE_AUTH: $USE_AUTH
       USE_KEYCLOAK: ${USE_KEYCLOAK:-true}
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://keycloak:8080/realms/DAVE}
       KEYCLOAK_ID: ${KEYCLOAK_ID:-dave_client}
@@ -95,6 +95,8 @@ services:
         API_BASE_URI: $API_BASE_URI
         API_USERNAME: $API_USERNAME
         API_PASSWORD: $API_PASSWORD
+        USE_AUTH: $USE_AUTH
+        NEXT_PUBLIC_USE_AUTH: $USE_AUTH
         NEXTAUTH_SECRET: $NEXTAUTH_SECRET
         NEXTAUTH_URL: $NEXTAUTH_URL
         NEXTAUTH_URL_INTERNAL: ${NEXTAUTH_URL_INTERNAL:-http://localhost:3000}
@@ -120,6 +122,8 @@ services:
       API_BASE_URI: $API_BASE_URI
       API_USERNAME: $API_USERNAME
       API_PASSWORD: $API_PASSWORD
+      USE_AUTH: $USE_AUTH
+      NEXT_PUBLIC_USE_AUTH: $USE_AUTH
       NEXTAUTH_SECRET: $NEXTAUTH_SECRET
       NEXTAUTH_URL: $NEXTAUTH_URL
       NEXTAUTH_URL_INTERNAL: ${NEXTAUTH_URL_INTERNAL:-http://localhost:3000}
