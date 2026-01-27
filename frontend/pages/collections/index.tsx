@@ -122,7 +122,10 @@ const Collections: NextPage = () => {
   const t = useText('collections');
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (
+      status === 'unauthenticated' &&
+      process.env.NEXT_PUBLIC_USE_AUTH !== 'false'
+    ) {
       router.push('/sign-in');
     }
   }, [status, router]);
@@ -130,13 +133,14 @@ const Collections: NextPage = () => {
   const token = (session as any)?.accessToken as string | undefined;
   const tokenAvailable =
     !!token && typeof token === 'string' && token.trim().length > 0;
+  const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
 
   const {
     data: collectionsData,
     isLoading: collectionsLoading,
     refetch: refetchCollections,
   } = useQuery(['collection.getAll', { token }], {
-    enabled: tokenAvailable,
+    enabled: tokenAvailable || authDisabled,
     onSuccess: (data) => {
       if (data) {
         setCollections(data);
@@ -145,7 +149,7 @@ const Collections: NextPage = () => {
   });
 
   const { data: usersData } = useQuery(['user.getAllUsers', { token }], {
-    enabled: tokenAvailable,
+    enabled: tokenAvailable || authDisabled,
     onSuccess: (data) => {
       if (data) {
         setUsers(data);
@@ -153,28 +157,46 @@ const Collections: NextPage = () => {
     },
   });
 
-  const createMutation = useMutation('collection.create', {
+  const createMutation = useMutation(['collection.create'], {
+    onMutate: (variables) => {
+      console.debug('[collection.create] onMutate', variables);
+    },
     onSuccess: () => {
       refetchCollections();
       setModalOpen(false);
       setFormData({ name: '', allowedUserIds: [] });
     },
+    onError: (err) => {
+      console.error('[collection.create] error', err);
+    },
   });
 
-  const updateMutation = useMutation('collection.update', {
+  const updateMutation = useMutation(['collection.update'], {
+    onMutate: (variables) => {
+      console.debug('[collection.update] onMutate', variables);
+    },
     onSuccess: () => {
       refetchCollections();
       setModalOpen(false);
       setFormData({ name: '', allowedUserIds: [] });
     },
+    onError: (err) => {
+      console.error('[collection.update] error', err);
+    },
   });
 
-  const deleteMutation = useMutation('collection.delete', {
+  const deleteMutation = useMutation(['collection.delete'], {
+    onMutate: (variables) => {
+      console.debug('[collection.delete] onMutate', variables);
+    },
     onSuccess: (result) => {
       refetchCollections();
       if (activeCollection?.id === result.collection.id) {
         setActiveCollection(null);
       }
+    },
+    onError: (err) => {
+      console.error('[collection.delete] error', err);
     },
   });
 
@@ -183,7 +205,7 @@ const Collections: NextPage = () => {
   const { data: downloadData, isLoading: isDownloading } = useQuery(
     ['collection.download', { id: downloadingId || '', token }],
     {
-      enabled: !!downloadingId && tokenAvailable,
+      enabled: !!downloadingId && (tokenAvailable || authDisabled),
       onSuccess: (data) => {
         if (data) {
           const blob = new Blob(
@@ -222,10 +244,12 @@ const Collections: NextPage = () => {
   };
 
   const handleDelete = async (collectionId: string) => {
-    deleteMutation.mutate({
+    const payload = {
       id: collectionId,
-      token: (session as any)?.accessToken,
-    });
+      token: authDisabled ? undefined : token,
+    };
+    console.info('[collections] delete payload', payload);
+    deleteMutation.mutate(payload);
   };
 
   const handleDownload = (collection: Collection) => {
@@ -233,21 +257,28 @@ const Collections: NextPage = () => {
   };
 
   const handleSubmit = async () => {
-    if (!(session as any)?.accessToken || !formData.name.trim()) return;
+    // Require a name always
+    if (!formData.name.trim()) return;
+    // Allow creating collections when auth is disabled. Otherwise require a token.
+    if (!authDisabled && !token) return;
 
     if (editingCollection) {
-      updateMutation.mutate({
+      const payload = {
         id: editingCollection.id,
         name: formData.name,
         allowedUserIds: formData.allowedUserIds,
-        token: (session as any).accessToken,
-      });
+        token: authDisabled ? undefined : token,
+      };
+      console.info('[collections] update payload', payload);
+      updateMutation.mutate(payload);
     } else {
-      createMutation.mutate({
+      const payload = {
         name: formData.name,
         allowedUserIds: formData.allowedUserIds,
-        token: (session as any).accessToken,
-      });
+        token: authDisabled ? undefined : token,
+      };
+      console.info('[collections] create payload', payload);
+      createMutation.mutate(payload);
     }
   };
 
@@ -279,16 +310,16 @@ const Collections: NextPage = () => {
     <ToolbarLayout>
       <Container>
         <Header>
-          <Text h2>{t.title}</Text>
+          <Text h2>{t('title')}</Text>
           <Button auto color="primary" icon={<FiPlus />} onPress={handleCreate}>
-            {t.newCollection}
+            {t('newCollection')}
           </Button>
         </Header>
 
         {collections.length === 0 ? (
           <Card>
             <Card.Body css={{ textAlign: 'center', padding: '40px' }}>
-              <Text color="$gray600">{t.emptyState}</Text>
+              <Text color="$gray600">{t('emptyState')}</Text>
             </Card.Body>
           </Card>
         ) : (
@@ -312,7 +343,7 @@ const Collections: NextPage = () => {
                         color="$gray600"
                         css={{ marginTop: '4px' }}
                       >
-                        {t.owner}
+                        {t('owner')}
                       </Text>
                     )}
                   </div>
@@ -322,7 +353,7 @@ const Collections: NextPage = () => {
                         e.stopPropagation();
                         handleDownload(collection);
                       }}
-                      title={t.download}
+                      title={t('download')}
                       disabled={
                         isDownloading && downloadingId === collection.id
                       }
@@ -338,27 +369,27 @@ const Collections: NextPage = () => {
                         e.stopPropagation();
                         handleEdit(collection);
                       }}
-                      title={t.edit}
+                      title={t('edit')}
                     >
                       <EditIcon size={18} />
                     </IconBtn>
                     {collection.ownerId === (session?.user as any)?.userId && (
                       <Popconfirm
-                        title={t.deleteTitle}
-                        description={t.deleteDescription}
+                        title={t('deleteTitle')}
+                        description={t('deleteDescription')}
                         onConfirm={(e) => {
                           e?.stopPropagation();
                           handleDelete(collection.id);
                         }}
                         onCancel={(e) => e?.stopPropagation()}
-                        okText={t.yes}
-                        cancelText={t.no}
+                        okText={t('yes')}
+                        cancelText={t('no')}
                       >
                         <IconBtn
                           onClick={(e) => {
                             e.stopPropagation();
                           }}
-                          title={t.delete}
+                          title={t('delete')}
                           style={{ color: '#ef4444' }}
                         >
                           <TrashIcon size={18} />
@@ -376,7 +407,7 @@ const Collections: NextPage = () => {
                           color="$gray600"
                           css={{ marginBottom: '8px' }}
                         >
-                          {t.sharedWith}
+                          {t('sharedWith')}
                         </Text>
                         <div
                           style={{
@@ -408,14 +439,14 @@ const Collections: NextPage = () => {
         >
           <Modal.Header>
             <Text h3>
-              {editingCollection ? t.editModalTitle : t.newModalTitle}
+              {editingCollection ? t('editModalTitle') : t('newModalTitle')}
             </Text>
           </Modal.Header>
           <Modal.Body>
             <Input
               fullWidth
-              label={t.collectionNameLabel}
-              placeholder={t.collectionNamePlaceholder}
+              label={t('collectionNameLabel')}
+              placeholder={t('collectionNamePlaceholder')}
               value={formData.name}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, name: e.target.value }))
@@ -423,7 +454,7 @@ const Collections: NextPage = () => {
             />
             <Spacer y={1} />
             <Text size={14} weight="medium">
-              {t.shareWithUsers}
+              {t('shareWithUsers')}
             </Text>
             <Spacer y={0.5} />
             <div
@@ -436,10 +467,10 @@ const Collections: NextPage = () => {
               }}
             >
               {users
-                .filter((user) => user.userId !== session?.user?.userId)
+                .filter((user) => user.id !== (session as any)?.user?.userId)
                 .map((user) => (
                   <label
-                    key={user.userId}
+                    key={user.id}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -475,7 +506,7 @@ const Collections: NextPage = () => {
           </Modal.Body>
           <Modal.Footer>
             <Button auto flat onPress={() => setModalOpen(false)}>
-              {t.cancel}
+              {t('cancel')}
             </Button>
             <Button
               auto
@@ -483,7 +514,7 @@ const Collections: NextPage = () => {
               onPress={handleSubmit}
               disabled={createMutation.isLoading || updateMutation.isLoading}
             >
-              {editingCollection ? t.update : t.create}
+              {editingCollection ? t('update') : t('create')}
             </Button>
           </Modal.Footer>
         </Modal>
@@ -493,8 +524,9 @@ const Collections: NextPage = () => {
 };
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const locale = process.env.LOCALE || 'ita';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeMap: { [key: string]: string } = { en: 'eng', ita: 'ita' };
+  const locale = localeMap[process.env.LOCALE || 'ita'] || 'ita';
+  const localeObj = (await import(`../../translation/${locale}`)).default;
 
   return {
     props: {

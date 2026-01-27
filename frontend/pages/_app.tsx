@@ -22,6 +22,7 @@ import { loadLLMSettingsAtom } from '@/atoms/llmSettings';
 import { TranslationProvider } from '@/components';
 import TaxonomyProvider from '@/modules/taxonomy/TaxonomyProvider';
 import { UploadProgressIndicator } from '@/components/UploadProgressIndicator';
+import { getBrowserId } from '@/utils/browserId';
 import '@/styles/globals.css';
 
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
@@ -50,6 +51,16 @@ const getTRPCUrl = () => {
     : `${process.env.NEXT_PUBLIC_FULL_PATH}/api/trpc`;
 
   return url;
+};
+
+const getTRPCHeaders = () => {
+  if (typeof window === 'undefined') return {};
+  if (process.env.NEXT_PUBLIC_USE_AUTH === 'false') {
+    return {
+      'X-Browser-ID': getBrowserId(),
+    };
+  }
+  return {};
 };
 
 function MyApp({
@@ -266,9 +277,11 @@ export default withTRPC<AppRouter>({
      * @link https://trpc.io/docs/ssr
      */
     const url = getTRPCUrl();
+    const headers = getTRPCHeaders();
 
     return {
       url,
+      headers,
       /**
        * @link https://react-query.tanstack.com/reference/QueryClient
        */
