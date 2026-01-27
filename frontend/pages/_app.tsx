@@ -8,7 +8,12 @@ import { AppRouter } from '@/server/routers/_app';
 import { NextUIProvider } from '@nextui-org/react';
 import { NextPage } from 'next';
 import { ReactElement, ReactNode, useEffect, useState } from 'react';
-import { SessionProvider, useSession, signOut } from 'next-auth/react';
+import {
+  SessionProvider,
+  useSession,
+  signOut,
+  getSession,
+} from 'next-auth/react';
 import { useQuery } from '@/utils/trpc';
 import { useRouter } from 'next/router';
 import { useAtom } from 'jotai';
@@ -86,12 +91,37 @@ function MyApp({
   // An internal component that watches the NextAuth session and:
   // - signs the user out if a refresh failure occurred
   // - fetches collections in the background once logged in and on route changes
+  // - proactively refreshes the NextAuth session shortly before the access token expires
   // It must be rendered as a descendant of SessionProvider so that useSession() has access to the session context.
   const AuthWatcher = () => {
     // useSession is safe to call here because AuthWatcher will be rendered inside SessionProvider
-    const { data: currentSession } = useSession();
+    const { data: currentSession, update } = useSession();
     const router = useRouter();
     const [, loadLLMSettings] = useAtom(loadLLMSettingsAtom);
+
+    // Helper: check if token is expired
+    const isTokenExpired = (token?: string): boolean => {
+      if (!token) return true;
+      try {
+        const parts = token.split('.');
+        if (parts.length < 2) return true;
+        const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          Array.prototype.map
+            .call(atob(payload), (c: string) => {
+              return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            })
+            .join('')
+        );
+        const parsed = JSON.parse(jsonPayload);
+        if (parsed && parsed.exp) {
+          return Date.now() >= parsed.exp * 1000;
+        }
+        return true;
+      } catch (e) {
+        return true;
+      }
+    };
 
     // Log user ID whenever session changes
     useEffect(() => {
@@ -143,6 +173,42 @@ function MyApp({
       }
       // We intentionally depend on token and the refetch function
     }, [token, collectionsQuery.refetch]);
+
+    // Refresh session every 120 seconds to keep tokens valid
+    useEffect(() => {
+      if (!token) return;
+
+      const interval = window.setInterval(async () => {
+        try {
+          console.log('AuthWatcher: performing periodic session refresh');
+          await update();
+          console.log('AuthWatcher: periodic refresh finished');
+        } catch (err) {
+          console.error('AuthWatcher: periodic refresh failed', err);
+          // If refresh fails, sign out
+          signOut({
+            callbackUrl: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/sign-in`,
+          });
+        }
+      }, 120 * 1000); // 120 seconds
+
+      return () => {
+        window.clearInterval(interval);
+      };
+    }, [token, update]);
+
+    // Refresh immediately if token is expired
+    useEffect(() => {
+      if (!token || !isTokenExpired(token)) return;
+
+      console.log('AuthWatcher: token expired, refreshing immediately');
+      update().catch((err) => {
+        console.error('AuthWatcher: immediate refresh failed', err);
+        signOut({
+          callbackUrl: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/sign-in`,
+        });
+      });
+    }, [token, update]);
 
     // Also refetch collections on every route change (background only if token is defined)
     useEffect(() => {
