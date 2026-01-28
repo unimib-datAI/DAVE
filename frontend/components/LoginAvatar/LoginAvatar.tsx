@@ -79,13 +79,13 @@ const LoginAvatar = () => {
         onAction={handleAction}
         style={{ minWidth: 500 }}
       >
-        <Dropdown.Item key="profile" icon={<FiSliders />}>
+        {/*<Dropdown.Item key="profile" icon={<FiSliders />}>
           <Link href="/taxonomy" passHref>
             <Text as="a" b color="inherit">
               {t('toolbar.manageTaxonomy')}
             </Text>
           </Link>
-        </Dropdown.Item>
+        </Dropdown.Item>*/}
         <Dropdown.Item key="collections" icon={<FiFolder />}>
           <Link href="/collections" passHref>
             <Text as="a" b color="inherit">
@@ -93,13 +93,9 @@ const LoginAvatar = () => {
             </Text>
           </Link>
         </Dropdown.Item>
-        <Dropdown.Item key="annotation-config" icon={<FiSliders />}>
-          <Link href="/annotation-configuration" passHref>
-            <Text as="a" b color="inherit" style={{ paddingTop: 10 }}>
-              {t('toolbar.annotationConfig')}
-            </Text>
-          </Link>
-        </Dropdown.Item>
+        {/* Annotation configuration menu entry removed from avatar.
+            Access annotation configuration from Settings -> Annotation Configuration
+            at /settings/annotation-configuration */}
         <Dropdown.Item key="settings" icon={<FiSettings />}>
           <Link href="/settings" passHref>
             <Text as="a" b color="inherit" style={{ paddingTop: 10 }}>

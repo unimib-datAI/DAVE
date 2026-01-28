@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { FiCpu } from '@react-icons/all-files/fi/FiCpu';
 import { FiSettings } from '@react-icons/all-files/fi/FiSettings';
 import { FiGlobe } from '@react-icons/all-files/fi/FiGlobe';
+import { FiSliders } from '@react-icons/all-files/fi/FiSliders';
 import { Card, Text, Spacer } from '@nextui-org/react';
 import { BaseSelect, Option } from '@/components/BaseSelect';
 import { useText } from '@/components/TranslationProvider';
@@ -186,6 +187,18 @@ const SettingsPage = () => {
               </IconWrapper>
               <CardTitle>{t('llmConfig.title')}</CardTitle>
               <CardDescription>{t('llmConfig.description')}</CardDescription>
+            </SettingCard>
+          </Link>
+
+          <Link href="/settings/annotation-configuration" passHref>
+            <SettingCard>
+              <IconWrapper>
+                <FiSliders />
+              </IconWrapper>
+              <CardTitle>{t('annotationConfig.title')}</CardTitle>
+              <CardDescription>
+                {t('annotationConfig.description')}
+              </CardDescription>
             </SettingCard>
           </Link>
 
