@@ -309,7 +309,7 @@ export const getTypeFilter = (annotations: EntityAnnotation[]) => {
 
   annotations.forEach((ann) => {
     // Always normalize the entity type for consistent grouping
-    const normalizedType = ann.type);
+    const normalizedType = ann.type;
 
     // Store with the original casing from the first occurrence
     if (!typeMap.has(normalizedType.toLowerCase())) {
