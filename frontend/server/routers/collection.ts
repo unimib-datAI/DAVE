@@ -300,7 +300,7 @@ export const collections = createRouter()
     },
   })
 
-  // Download collection as zip
+  // Download collection as zip (starts background export job, polls status, then downloads)
   .query('download', {
     input: z.object({
       id: z.string(),
@@ -314,26 +314,128 @@ export const collections = createRouter()
         if (authHeader) {
           headers.Authorization = authHeader;
         }
-        const response = await fetch(`${baseURL}/collection/${id}/download`, {
-          headers,
-        });
-        if (!response.ok) {
+
+        // Start export job for the collection using fetchJson helper (ensures JSON handling)
+        // Add debug logs to help diagnose request/response issues
+        try {
+          console.log(
+            '[trpc.collections.download] starting export POST',
+            `${baseURL}/export/start`
+          );
+          console.log('[trpc.collections.download] request headers:', headers);
+          try {
+            console.log(
+              '[trpc.collections.download] request body:',
+              JSON.stringify({ collectionId: id })
+            );
+          } catch (e) {
+            console.log(
+              '[trpc.collections.download] request body: <unserializable>'
+            );
+          }
+        } catch (e) {
+          // swallow logging errors
+        }
+
+        const startJson = await fetchJson<any, { jobId: string }>(
+          `${baseURL}/export/start`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(headers.Authorization
+                ? { Authorization: headers.Authorization }
+                : {}),
+            },
+            body: { collectionId: id },
+          }
+        );
+
+        try {
+          console.log(
+            '[trpc.collections.download] export start response:',
+            startJson
+          );
+        } catch (e) {
+          // ignore logging errors
+        }
+
+        const jobId = startJson?.jobId;
+        if (!jobId) {
+          // Provide extra debug info when jobId is missing
+          console.error(
+            '[trpc.collections.download] export start returned no jobId, full response:',
+            startJson
+          );
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to download collection',
+            message: 'Export job did not return a jobId',
           });
         }
-        const buffer = await response.arrayBuffer();
+
+        // Poll job status until completed or failed (timeout after 5 minutes)
+        const timeoutMs = 5 * 60 * 1000;
+        const pollIntervalMs = 2000;
+        const deadline = Date.now() + timeoutMs;
+
+        while (true) {
+          const statusJson = await fetchJson<
+            any,
+            { status: string; _error?: string }
+          >(`${baseURL}/export/${jobId}/status`, {
+            method: 'GET',
+            headers: headers.Authorization
+              ? { Authorization: headers.Authorization }
+              : {},
+          });
+          const status = statusJson?.status;
+
+          if (status === 'completed') break;
+          if (status === 'failed') {
+            const errMsg = statusJson?._error || 'Export job failed';
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: errMsg,
+            });
+          }
+
+          if (Date.now() > deadline) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: 'Export job timed out',
+            });
+          }
+
+          await new Promise((r) => setTimeout(r, pollIntervalMs));
+        }
+
+        // Download the exported file (binary) - use fetch for binary response
+        const dlRes = await fetch(`${baseURL}/export/${jobId}/download`, {
+          headers: headers.Authorization
+            ? { Authorization: headers.Authorization }
+            : {},
+        });
+        if (!dlRes.ok) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to download exported file',
+          });
+        }
+        const buffer = await dlRes.arrayBuffer();
         const base64 = Buffer.from(buffer).toString('base64');
-        const contentDisposition = response.headers.get('content-disposition');
+        const contentDisposition = dlRes.headers.get('content-disposition');
         const filename = contentDisposition
-          ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+          ? (contentDisposition.split('filename=')[1] || `${id}.zip`).replace(
+              /"/g,
+              ''
+            )
           : `${id}.zip`;
+
         return { data: base64, filename };
       } catch (error: any) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error.message || 'Failed to download collection',
+          message: error?.message || 'Failed to download collection',
         });
       }
     },

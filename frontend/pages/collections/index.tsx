@@ -1,5 +1,5 @@
 import type { NextPage, GetServerSideProps } from 'next';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import styled from '@emotion/styled';
@@ -200,8 +200,15 @@ const Collections: NextPage = () => {
     },
   });
 
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [exportingCollectionId, setExportingCollectionId] = useState<
+    string | null
+  >(null);
+  const [exportJobId, setExportJobId] = useState<string | null>(null);
+  const [exportLogs, setExportLogs] = useState<string>('');
+  const [isExporting, setIsExporting] = useState(false);
 
+  // State and TRPC-driven download flow
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const { data: downloadData, isLoading: isDownloading } = useQuery(
     ['collection.download', { id: downloadingId || '', token }],
     {
@@ -224,6 +231,144 @@ const Collections: NextPage = () => {
     }
   );
 
+  const pollRef = useRef<number | null>(null);
+
+  const cleanupPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  const startExport = async (collectionId: string) => {
+    setExportLogs('');
+    setExportingCollectionId(collectionId);
+    setIsExporting(true);
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_DOCS_BASE_URL || ''}/api/export/start`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && !authDisabled
+              ? { Authorization: `Bearer ${token}` }
+              : {}),
+          },
+          body: JSON.stringify({ collectionId }),
+        }
+      );
+      if (!res.ok) throw new Error('Failed to start export');
+      const data = await res.json();
+      const jobId = data.jobId;
+      setExportJobId(jobId);
+
+      // start polling for status and logs
+      pollRef.current = window.setInterval(async () => {
+        try {
+          const sRes = await fetch(`/api/export/${jobId}/status`, {
+            headers: { Authorization: token ? `Bearer ${token}` : '' },
+          });
+          if (!sRes.ok) throw new Error('Status fetch failed');
+          const sJson = await sRes.json();
+
+          // fetch logs for progress
+          const lRes = await fetch(`/api/export/${jobId}/logs?tail=4096`, {
+            headers: { Authorization: token ? `Bearer ${token}` : '' },
+          });
+          if (lRes.ok) {
+            const lJson = await lRes.json();
+            setExportLogs(lJson.logs || '');
+          }
+
+          if (sJson && sJson.status) {
+            if (sJson.status === 'completed') {
+              // final logs
+              try {
+                const lFinal = await fetch(
+                  `/api/export/${jobId}/logs?tail=8192`,
+                  {
+                    headers: { Authorization: token ? `Bearer ${token}` : '' },
+                  }
+                );
+                if (lFinal.ok) {
+                  const lj = await lFinal.json();
+                  setExportLogs(lj.logs || '');
+                }
+              } catch (e) {
+                console.warn('Failed to fetch final logs', e);
+              }
+
+              // download file
+              const dlRes = await fetch(`/api/export/${jobId}/download`, {
+                headers: { Authorization: token ? `Bearer ${token}` : '' },
+              });
+              if (!dlRes.ok) {
+                throw new Error('Download failed');
+              }
+              const blob = await dlRes.blob();
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              // attempt to parse filename from headers
+              const cd = dlRes.headers.get('Content-Disposition');
+              const filenameMatch = cd
+                ? cd.match(/filename=\"?([^\";]+)\"?/)
+                : null;
+              const filename = filenameMatch
+                ? filenameMatch[1]
+                : `collection_${collectionId}.zip`;
+              a.href = url;
+              a.download = filename;
+              a.click();
+              window.URL.revokeObjectURL(url);
+
+              cleanupPolling();
+              setExportingCollectionId(null);
+              setExportJobId(null);
+              setIsExporting(false);
+            } else if (sJson.status === 'failed') {
+              // final logs on failure
+              try {
+                const lFinal = await fetch(
+                  `/api/export/${jobId}/logs?tail=8192`,
+                  {
+                    headers: { Authorization: token ? `Bearer ${token}` : '' },
+                  }
+                );
+                if (lFinal.ok) {
+                  const lj = await lFinal.json();
+                  setExportLogs(lj.logs || '');
+                }
+              } catch (e) {
+                console.warn('Failed to fetch logs after failure', e);
+              }
+
+              cleanupPolling();
+              setIsExporting(false);
+              setExportingCollectionId(null);
+              setExportJobId(null);
+            }
+          }
+        } catch (err) {
+          console.error('Export polling error', err);
+          cleanupPolling();
+          setIsExporting(false);
+          setExportingCollectionId(null);
+          setExportJobId(null);
+        }
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to start export', err);
+      setIsExporting(false);
+      setExportingCollectionId(null);
+    }
+  };
+
+  const handleDownload = (collection: Collection) => {
+    // Use TRPC-backed download flow: set downloadingId, the useQuery above will run
+    setDownloadingId(collection.id);
+  };
   useEffect(() => {
     setLoading(collectionsLoading);
   }, [collectionsLoading]);
@@ -250,10 +395,6 @@ const Collections: NextPage = () => {
     };
     console.info('[collections] delete payload', payload);
     deleteMutation.mutate(payload);
-  };
-
-  const handleDownload = (collection: Collection) => {
-    setDownloadingId(collection.id);
   };
 
   const handleSubmit = async () => {
@@ -355,10 +496,14 @@ const Collections: NextPage = () => {
                       }}
                       title={t('download')}
                       disabled={
-                        isDownloading && downloadingId === collection.id
+                        (isExporting &&
+                          exportingCollectionId === collection.id) ||
+                        (isDownloading && downloadingId === collection.id)
                       }
                     >
-                      {isDownloading && downloadingId === collection.id ? (
+                      {(isExporting &&
+                        exportingCollectionId === collection.id) ||
+                      (isDownloading && downloadingId === collection.id) ? (
                         <Loading size="xs" />
                       ) : (
                         <FiDownload size={18} />
