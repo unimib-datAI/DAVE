@@ -53,96 +53,7 @@ export type Translation = {
       upload: string;
     };
   };
-  annotationConfig: {
-    header: string;
-    buttons: {
-      new: string;
-      update: string;
-      saveAs: string;
-    };
-    configSelector: {
-      label: string;
-      placeholder: string;
-      activeSuffix: string;
-      setActive: string;
-      delete: string;
-      activeNote: string;
-    };
-    description: string;
-    addService: {
-      title: string;
-      nameLabel: string;
-      namePlaceholder: string;
-      uriLabel: string;
-      uriPlaceholder: string;
-      typeLabel: string;
-      createButton: string;
-      creating: string;
-      note: string;
-    };
-    availableServices: {
-      title: string;
-      loading: string;
-      count: string;
-      edit: string;
-      delete: string;
-    };
-    pipeline: {
-      title: string;
-      description: string;
-      slotLabel: string;
-      selectImpl: string;
-      clear: string;
-      chooseService: string;
-      notSelected: string;
-      noServices: string;
-      previewLabel: string;
-      noService: string;
-      quickAdd: string;
-      prefillButton: string;
-      prefillModalTitle: string;
-      prefillModalContent: string;
-      createSelectButton: string;
-      createSelectModalTitle: string;
-      namePlaceholder: string;
-      uriPlaceholder: string;
-      validationWarning: string;
-      successMessage: string;
-    };
-    preview: {
-      title: string;
-    };
-    saveModal: {
-      updateTitle: string;
-      saveTitle: string;
-      nameLabel: string;
-      namePlaceholder: string;
-      updateNote: string;
-      setActiveLabel: string;
-      createNoteActive: string;
-      createNoteInactive: string;
-    };
-    messages: {
-      signInRequired: string;
-      nameRequired: string;
-      serviceCreated: string;
-      serviceDeleted: string;
-      serviceUpdated: string;
-      configUpdated: string;
-      configSaved: string;
-      configCreated: string;
-      configActivated: string;
-      configDeleted: string;
-      configLoaded: string;
-      newConfigStarted: string;
-      createFailed: string;
-      deleteFailed: string;
-      updateFailed: string;
-      saveFailed: string;
-      activateFailed: string;
-      loadFailed: string;
-    };
-  };
+
   signIn: {
     title: string;
     subtitle: string;
@@ -414,6 +325,97 @@ export type Translation = {
     generalSettings: {
       title: string;
       description: string;
+    };
+    annotationConfig: {
+      title: string;
+      header: string;
+      buttons: {
+        new: string;
+        update: string;
+        saveAs: string;
+      };
+      configSelector: {
+        label: string;
+        placeholder: string;
+        activeSuffix: string;
+        setActive: string;
+        delete: string;
+        activeNote: string;
+      };
+      description: string;
+      addService: {
+        title: string;
+        nameLabel: string;
+        namePlaceholder: string;
+        uriLabel: string;
+        uriPlaceholder: string;
+        typeLabel: string;
+        createButton: string;
+        creating: string;
+        note: string;
+      };
+      availableServices: {
+        title: string;
+        loading: string;
+        count: string;
+        edit: string;
+        delete: string;
+      };
+      pipeline: {
+        title: string;
+        description: string;
+        slotLabel: string;
+        selectImpl: string;
+        clear: string;
+        chooseService: string;
+        notSelected: string;
+        noServices: string;
+        previewLabel: string;
+        noService: string;
+        quickAdd: string;
+        prefillButton: string;
+        prefillModalTitle: string;
+        prefillModalContent: string;
+        createSelectButton: string;
+        createSelectModalTitle: string;
+        namePlaceholder: string;
+        uriPlaceholder: string;
+        validationWarning: string;
+        successMessage: string;
+      };
+      preview: {
+        title: string;
+      };
+      saveModal: {
+        updateTitle: string;
+        saveTitle: string;
+        nameLabel: string;
+        namePlaceholder: string;
+        updateNote: string;
+        setActiveLabel: string;
+        createNoteActive: string;
+        createNoteInactive: string;
+      };
+      messages: {
+        signInRequired: string;
+        nameRequired: string;
+        serviceCreated: string;
+        serviceDeleted: string;
+        serviceUpdated: string;
+        configUpdated: string;
+        configSaved: string;
+        configCreated: string;
+        configActivated: string;
+        configDeleted: string;
+        configLoaded: string;
+        newConfigStarted: string;
+        createFailed: string;
+        deleteFailed: string;
+        updateFailed: string;
+        saveFailed: string;
+        activateFailed: string;
+        loadFailed: string;
+      };
     };
   };
   settingsLLM: {
