@@ -8,82 +8,82 @@ import { DeAnonymizeFacetsButton } from './DeAnonymizeFacetsButton';
 import { useText } from '@/components/TranslationProvider';
 
 // Entity type grouping map - keys are lowercase
-const entityTypeGroupMap: Record<string, string> = {
-  // Person group
-  person: 'persona',
-  per: 'persona',
-  people: 'persona',
-  individual: 'persona',
-  persona: 'persona',
+// const entityTypeGroupMap: Record<string, string> = {
+//   // Person group
+//   person: 'persona',
+//   per: 'persona',
+//   people: 'persona',
+//   individual: 'persona',
+//   persona: 'persona',
 
-  // Location group
-  location: 'luogo',
-  loc: 'luogo',
-  place: 'luogo',
-  gpe: 'luogo',
-  luogo: 'luogo',
+//   // Location group
+//   location: 'luogo',
+//   loc: 'luogo',
+//   place: 'luogo',
+//   gpe: 'luogo',
+//   luogo: 'luogo',
 
-  // Organization group
-  organization: 'organizzazione',
-  org: 'organizzazione',
-  company: 'organizzazione',
-  institution: 'organizzazione',
-  organizzazione: 'organizzazione',
+//   // Organization group
+//   organization: 'organizzazione',
+//   org: 'organizzazione',
+//   company: 'organizzazione',
+//   institution: 'organizzazione',
+//   organizzazione: 'organizzazione',
 
-  // Date/Time group
-  date: 'data',
-  time: 'data',
-  temporal: 'data',
-  data: 'data',
+//   // Date/Time group
+//   date: 'data',
+//   time: 'data',
+//   temporal: 'data',
+//   data: 'data',
 
-  // Money/Currency group
-  money: 'money',
-  monetary: 'money',
-  currency: 'money',
-  financial: 'money',
-  denaro: 'money',
+//   // Money/Currency group
+//   money: 'money',
+//   monetary: 'money',
+//   currency: 'money',
+//   financial: 'money',
+//   denaro: 'money',
 
-  // Law/Legal group
-  law: 'norma',
-  legal: 'norma',
-  statute: 'norma',
-  regulation: 'norma',
-  norma: 'norma',
+//   // Law/Legal group
+//   law: 'norma',
+//   legal: 'norma',
+//   statute: 'norma',
+//   regulation: 'norma',
+//   norma: 'norma',
 
-  // Facility types
-  fac: 'facility',
-  facility: 'facility',
-  building: 'facility',
-  structure: 'facility',
+//   // Facility types
+//   fac: 'facility',
+//   facility: 'facility',
+//   building: 'facility',
+//   structure: 'facility',
 
-  // Nationality/Religion/Political types
-  norp: 'norp',
-  nationality: 'norp',
-  religion: 'norp',
-  political: 'norp',
+//   // Nationality/Religion/Political types
+//   norp: 'norp',
+//   nationality: 'norp',
+//   religion: 'norp',
+//   political: 'norp',
 
-  // Numeric types
-  cardinal: 'numeric',
-  ordinal: 'numeric',
-  quantity: 'numeric',
-  percent: 'numeric',
-  number: 'numeric',
+//   // Numeric types
+//   cardinal: 'numeric',
+//   ordinal: 'numeric',
+//   quantity: 'numeric',
+//   percent: 'numeric',
+//   number: 'numeric',
 
-  // Creative work types
-  work_of_art: 'creative_work',
-  artwork: 'creative_work',
-  creative: 'creative_work',
+//   // Creative work types
+//   work_of_art: 'creative_work',
+//   artwork: 'creative_work',
+//   creative: 'creative_work',
 
-  // Event types
-  event: 'event',
+//   // Event types
+//   event: 'event',
 
-  // Product types
-  product: 'product',
+//   // Product types
+//   product: 'product',
 
-  // Language types
-  language: 'language',
-};
-
+//   // Language types
+//   language: 'language',
+// };
+const entityTypeGroupMap: Record<string, string> = {};
 // Function to get normalized entity type group
 const getNormalizedEntityGroup = (key: string): string => {
   const lowerKey = key.toLowerCase();
