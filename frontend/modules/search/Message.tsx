@@ -104,7 +104,7 @@ const Message = ({
           )}
         >
           <div className="text-sm font-semibold mb-1">
-            {role === 'assistant' ? t.dave : t.you}
+            {role === 'assistant' ? t('dave') : t('you')}
           </div>
 
           <div className="text-black">
@@ -129,7 +129,7 @@ const Message = ({
         >
           <div className="w-full h-[1px] bg-orange-200 my-3" />
           <div className="text-xs font-semibold mb-2 text-slate-600">
-            {t.contextSources}
+            {t('contextSources')}
           </div>
           <div className="flex flex-col gap-2">
             {Array.isArray(context) &&
@@ -153,7 +153,7 @@ const Message = ({
 
                   <Link href={`/documents/${doc.id || ''}`} passHref>
                     <a className="text-blue-700 text-base tracking-wide font-medium">
-                      {doc.title || t.document}
+                      {doc.title || t('document')}
                     </a>
                   </Link>
 
@@ -166,7 +166,7 @@ const Message = ({
                     doc.chunks.length > 0 && (
                       <div className="flex flex-col gap-2 mt-1">
                         <span className="text-xs leading-tight font-semibold">
-                          {t.relevantPassages}
+                          {t('relevantPassages')}
                         </span>
                         <div className="flex flex-row items-center flex-wrap gap-2">
                           {!doc.full_docs ? (
@@ -196,12 +196,14 @@ const Message = ({
                           ) : (
                             <Tooltip
                               content={
-                                <div className="max-w-xs">{t.fullDocument}</div>
+                                <div className="max-w-xs">
+                                  {t('fullDocument')}
+                                </div>
                               }
                               key={`${doc.id || ''}`}
                             >
                               <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
-                                {t.fullDocument}
+                                {t('fullDocument')}
                               </div>
                             </Tooltip>
                           )}

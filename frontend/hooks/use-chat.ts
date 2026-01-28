@@ -231,7 +231,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
         ...prev,
         {
           role: 'assistant',
-          content: t.errorGeneratingResponse,
+          content: t('errorGeneratingResponse'),
           isDoneStreaming: true,
         },
       ]);

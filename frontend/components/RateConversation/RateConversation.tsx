@@ -43,9 +43,9 @@ export default function RateConversation({ state }: RateConversationProps) {
         type: 'setConversationRated',
         payload: { rated: true },
       });
-      message.success(t.conversationRatedSuccessfully);
+      message.success(t('conversationRatedSuccessfully'));
     } catch (error) {
-      message.error(t.errorRatingConversation);
+      message.error(t('errorRatingConversation'));
     }
   }
   return (
@@ -65,7 +65,7 @@ export default function RateConversation({ state }: RateConversationProps) {
             }}
             className="bg-gray-50 rounded-lg"
           >
-            {t.thankYouRating}
+            {t('thankYouRating')}
           </span>
         </motion.div>
       ) : (
@@ -97,7 +97,7 @@ export default function RateConversation({ state }: RateConversationProps) {
                     marginBottom: 10,
                   }}
                 >
-                  {t.rateConversation}
+                  {t('rateConversation')}
                 </span>
 
                 <Rate

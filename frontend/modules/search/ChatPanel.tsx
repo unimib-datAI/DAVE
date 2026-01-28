@@ -56,7 +56,7 @@ const Resources = ({ documents, isLoading }: ResourcesProps) => {
       ) : (
         <div className="flex flex-col gap-2">
           <span className="text-base tracking-tighter font-semibold">
-            {t.resources}
+            {t('resources')}
           </span>
           {documents.map((doc) => (
             <div
@@ -93,7 +93,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
       initialMessages: [
         {
           role: 'assistant',
-          content: t.initialMessage,
+          content: t('initialMessage'),
           isDoneStreaming: true,
         },
       ],
@@ -300,7 +300,7 @@ fallback response.`,
               {t('send')}
             </ButtonSend>
 
-            <Tooltip content={t.resetChat} color="invert">
+            <Tooltip content={t('resetChat')} color="invert">
               <Button
                 disabled={isStreaming}
                 type="button"
