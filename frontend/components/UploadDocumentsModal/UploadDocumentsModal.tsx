@@ -134,7 +134,8 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
   const [anonymizeTypes, setAnonymizeTypes] = useState<string[]>([]);
   const [anonymizeTypesInput, setAnonymizeTypesInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
-
+  const [jsonEntityTypes, setJsonEntityTypes] = useState<string[]>([]);
+  const [loadingJsonEntityTypes, setLoadingJsonEntityTypes] = useState(false);
   // Sync input value with anonymizeTypes state
   useEffect(() => {
     setAnonymizeTypesInput(anonymizeTypes.join(', '));
@@ -173,6 +174,12 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
         file.name.endsWith(extension)
       );
       setSelectedFiles(filteredFiles);
+      // For JSONs, extract entity types immediately when selecting via file input
+      if (fileType === 'json') {
+        getEntityTypesFromJson(
+          filteredFiles.filter((file) => file.name.endsWith('.json'))
+        );
+      }
     }
   };
 
@@ -187,7 +194,39 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
     event.stopPropagation();
     setIsDragOver(false);
   };
-
+  const getEntityTypesFromJson = async (files: File[]) => {
+    setLoadingJsonEntityTypes(true);
+    let typesArray: string[] = [];
+    let x = 1;
+    for (const file of files) {
+      console.log(`processing file n. ${x}`);
+      try {
+        const text = await file.text();
+        const jsonFile = JSON.parse(text);
+        if (jsonFile.annotation_sets) {
+          for (const key of Object.keys(jsonFile.annotation_sets)) {
+            if (jsonFile.annotation_sets[key].annotations) {
+              const annotationsArray: any[] =
+                jsonFile.annotation_sets[key].annotations;
+              annotationsArray.forEach((annotation) => {
+                if (!typesArray.includes(annotation.type)) {
+                  typesArray.push(annotation.type);
+                }
+              });
+            } else {
+              continue;
+            }
+          }
+        }
+      } catch (err) {
+        console.error('error getting entity types', err);
+      }
+      x += 1;
+    }
+    console.log('fount entity types from json files', typesArray);
+    setJsonEntityTypes(typesArray);
+    setLoadingJsonEntityTypes(false);
+  };
   const handleDrop = (
     event: React.DragEvent<HTMLLabelElement>,
     fileType: 'json' | 'txt'
@@ -203,6 +242,9 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
         file.name.endsWith(extension)
       );
       setSelectedFiles(filteredFiles);
+      getEntityTypesFromJson(
+        filteredFiles.filter((file) => file.name.endsWith('.json'))
+      );
     }
   };
 
@@ -420,24 +462,54 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
               <Text size={12} css={{ marginBottom: '0.25rem' }}>
                 {t('anonymizeTypesLabel')}
               </Text>
-              <Input
-                placeholder={t('anonymizeTypesPlaceholder')}
-                value={anonymizeTypesInput}
-                onChange={(e) => {
-                  setAnonymizeTypesInput(e.target.value);
-                }}
-                onBlur={() => {
-                  const types = anonymizeTypesInput
-                    .split(',')
-                    .map((type) => type.trim())
-                    .filter((type) => type.length > 0);
-                  setAnonymizeTypes(types);
-                }}
-                css={{ width: '100%' }}
-              />
-              <Text size={10} css={{ color: '#666', marginTop: '0.25rem' }}>
-                {t('anonymizeTypesHelp')}
-              </Text>
+
+              {activeTab === 'json' ? (
+                // Ant Design Select for JSON tab
+                <Select
+                  mode="multiple"
+                  placeholder={t('anonymizeTypesPlaceholder')}
+                  value={anonymizeTypes}
+                  onChange={(values: any) => {
+                    const vals = Array.isArray(values) ? values : [values];
+                    setAnonymizeTypes(vals as string[]);
+                    // ensure the free-text input remains in sync
+                    setAnonymizeTypesInput((vals as string[]).join(', '));
+                  }}
+                  loading={loadingJsonEntityTypes}
+                  allowClear
+                  style={{ width: '100%' }}
+                  options={jsonEntityTypes.map((type) => ({
+                    label: type,
+                    value: type,
+                  }))}
+                  getPopupContainer={(trigger) =>
+                    trigger.parentElement || document.body
+                  }
+                  dropdownStyle={{ zIndex: 10000 }}
+                />
+              ) : (
+                // Free-text Input for TXT tab (comma-separated)
+                <>
+                  <Input
+                    placeholder={t('anonymizeTypesPlaceholder')}
+                    value={anonymizeTypesInput}
+                    onChange={(e) => {
+                      setAnonymizeTypesInput(e.target.value);
+                    }}
+                    onBlur={() => {
+                      const types = anonymizeTypesInput
+                        .split(',')
+                        .map((type) => type.trim())
+                        .filter((type) => type.length > 0);
+                      setAnonymizeTypes(types);
+                    }}
+                    css={{ width: '100%' }}
+                  />
+                  <Text size={10} css={{ color: '#666', marginTop: '0.25rem' }}>
+                    {t('anonymizeTypesHelp')}
+                  </Text>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -615,13 +687,13 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
               <Text b size={14}>
                 {activeTab === 'txt' ? t('uploading.txt') : t('uploading.json')}
               </Text>
-              <Text size={12} css={{ marginTop: '0.5rem', color: '#666' }}>
+              {/*<Text size={12} css={{ marginTop: '0.5rem', color: '#666' }}>
                 {t('progress', {
                   completed: uploadProgress.completed,
                   total: uploadProgress.total,
                   failed: uploadProgress.failed,
                 })}
-              </Text>
+              </Text>*/}
               <Progress
                 value={progressPercentage}
                 color="primary"
