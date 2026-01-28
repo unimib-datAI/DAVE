@@ -46,3 +46,5 @@ __pycache__
 mongo
 elasticsearch
 backend/models
+
+export_logs
