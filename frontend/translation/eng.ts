@@ -11,7 +11,7 @@ const t: Translation = {
     },
     buttons: {
       seeAllDocuments: 'See all documents',
-      uploadAnnotatedDocuments: 'Upload annotated documents',
+      uploadAnnotatedDocuments: 'Upload documents',
     },
     searchPlaceholder: 'Search documents',
   },
@@ -112,7 +112,7 @@ const t: Translation = {
     noPreview: 'No preview available',
     deleteDocument: 'Delete document',
     deleteConfirmation: 'Are you sure you want to delete this document?',
-    uploadAnnotatedDocuments: 'Upload annotated documents',
+    uploadAnnotatedDocuments: 'Upload documents',
     documentDeleted: 'Document deleted successfully',
     errorDeleting: 'Error deleting the document',
     title: 'Collections',
