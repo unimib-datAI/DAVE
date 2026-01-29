@@ -262,7 +262,7 @@ fallback response.`,
                 disabled={chatState !== 'idle'}
                 className="text-slate-800 resize-none bg-transparent w-full h-full border-none text-sm"
                 spellCheck="false"
-                placeholder={t('ypeQuestionPlaceholder')}
+                placeholder={t('typeQuestionPlaceholder')}
                 {...register('message')}
               />
             </div>
