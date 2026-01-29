@@ -75,7 +75,9 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       context.forEach((item, index) => {
         const docContent = `Nome Documento ${
           item.title
-        } - Contenuto: ${item.chunks.map((chunk) => chunk.text).join(' ')}`;
+        } - Contenuto: ${item.chunks
+          .map((chunk) => chunk.text_anonymized || chunk.text)
+          .join(' ')}`;
         contextStr += `<document id="DOC_${
           index + 1
         }">\n${docContent}\n</document>\n`;
