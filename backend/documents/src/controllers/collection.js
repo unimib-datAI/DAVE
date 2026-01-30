@@ -121,16 +121,58 @@ export const CollectionController = {
   /**
    *
    * @param {String} collectionId
+   *
+   * Async generator that streams full documents one-by-one. This avoids
+   * loading all IDs or full documents into memory for very large collections.
+   *
+   * Usage:
+   *   for await (const doc of CollectionController.streamAllDocuments(id)) { ... }
+   */
+  async *streamAllDocuments(collectionId) {
+    if (!collectionId) {
+      throw new Error("Collection id is required");
+    }
+
+    // Use a mongoose cursor to stream document identifiers to keep memory usage low.
+    // Document.find(...).lean().cursor() returns an async iterator.
+    const cursor = Document.find({ collectionId }).lean().cursor();
+
+    try {
+      for await (const docMeta of cursor) {
+        // For each document metadata entry, fetch the full document payload.
+        // getFullDocById may fetch related annotation sets and perform processing.
+        // Yield the full document to the caller.
+        const fullDoc = await DocumentController.getFullDocById(docMeta.id);
+        yield fullDoc;
+      }
+    } finally {
+      // Ensure cursor is closed if the consumer stops early
+      try {
+        if (typeof cursor.close === "function") await cursor.close();
+      } catch (e) {
+        // best-effort; don't rethrow
+      }
+    }
+  },
+
+  /**
+   *
+   * @param {String} collectionId
+   *
+   * Collect all documents using the streaming generator above. This preserves
+   * the original API while benefiting from low-memory streaming internally.
    */
   async getAllDocuments(collectionId) {
-    let tempDoc = await Document.find({ collectionId }).lean();
-    if (!tempDoc) {
-      throw new Error("Collection not found");
+    if (!collectionId) {
+      throw new Error("Collection id is required");
     }
-    let fullDocsPromises = tempDoc.map(async (doc) => {
-      return await DocumentController.getFullDocById(doc.id);
-    });
-    let fullDocs = await Promise.all(fullDocsPromises);
-    return fullDocs;
+
+    const results = [];
+    for await (const doc of CollectionController.streamAllDocuments(
+      collectionId,
+    )) {
+      results.push(doc);
+    }
+    return results;
   },
 };
