@@ -270,24 +270,27 @@ export async function encode(doc, anonymizeTypes = null) {
   for (const clusterAnnSet of Object.keys(doc.features.clusters)) {
     encryptedTitles[clusterAnnSet] = [];
     for (let i = 0; i < doc.features.clusters[clusterAnnSet].length; i++) {
-      const cluster = doc.features.clusters[clusterAnnSet][i];
-      const originalTitle = cluster.title;
-      const result = await makeEncryptionRequest(originalTitle);
-      const encryptedTitle = result.vaultKey || originalTitle;
+      if (anonymizeTypes.includes(cluster.type){
+        const cluster = doc.features.clusters[clusterAnnSet][i];
+        const originalTitle = cluster.title;
+        const result = await makeEncryptionRequest(originalTitle);
+        const encryptedTitle = result.vaultKey || originalTitle;
 
-      // Update cluster title with encrypted version
-      cluster.title = encryptedTitle;
-      encryptedTitles[clusterAnnSet][i] = encryptedTitle;
+        // Update cluster title with encrypted version
+        cluster.title = encryptedTitle;
+        encryptedTitles[clusterAnnSet][i] = encryptedTitle;
 
-      // For each mention in this cluster, encrypt and store in originalKey
-      if (cluster.mentions) {
-        for (const mention of cluster.mentions) {
-          if (mention.text) {
-            const mentionResult = await makeEncryptionRequest(mention.text);
-            mention.originalKey = mentionResult.vaultKey || mention.text;
+        // For each mention in this cluster, encrypt and store in originalKey
+        if (cluster.mentions) {
+          for (const mention of cluster.mentions) {
+            if (mention.text) {
+              const mentionResult = await makeEncryptionRequest(mention.text);
+              mention.originalKey = mentionResult.vaultKey || mention.text;
+            }
           }
         }
       }
+
     }
   }
 
