@@ -6,7 +6,7 @@ import {
   deanonymizedFacetNamesAtom,
 } from '@/utils/atoms';
 import { FacetedQueryOutput } from '@/server/routers/search';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useText } from '@/components/TranslationProvider';
 
 type DeAnonymizeFacetsButtonProps = {
@@ -25,44 +25,55 @@ export function DeAnonymizeFacetsButton({
 
   const deanonymizeMutation = useMutation(['document.deanonymizeKeys']);
 
-  const handleToggle = async () => {
-    if (!deanonymize) {
-      // User wants to de-anonymize
-      setIsLoading(true);
+  // Helper to collect display names from facets and fetch de-anonymized values
+  const fetchAndSetDeAnonymizedNames = async () => {
+    setIsLoading(true);
+    try {
+      const displayNames = new Set<string>();
 
-      try {
-        // Collect all display names from annotation facets
-        const displayNames = new Set<string>();
+      facets.annotations.forEach((facet) => {
+        facet.children.forEach((child) => {
+          if (child.display_name && child.display_name.trim() !== '') {
+            displayNames.add(child.display_name);
+          }
+        });
+      });
 
-        facets.annotations.forEach((facet) => {
-          facet.children.forEach((child) => {
-            if (child.display_name && child.display_name.trim() !== '') {
-              displayNames.add(child.display_name);
-            }
-          });
+      const keysArray = Array.from(displayNames);
+
+      if (keysArray.length > 0) {
+        const result = await deanonymizeMutation.mutateAsync({
+          keys: keysArray,
         });
 
-        const keysArray = Array.from(displayNames);
-
-        if (keysArray.length > 0) {
-          // Call the batch de-anonymize endpoint
-          const result = await deanonymizeMutation.mutateAsync({
-            keys: keysArray,
-          });
-
-          // Store the de-anonymized names
-          setDeanonymizedNames(result);
-        }
-
-        // Enable de-anonymization view
-        setDeanonymize(true);
-      } catch (error) {
-        console.error('Failed to de-anonymize facet names:', error);
-        // Still toggle to show what we have
-        setDeanonymize(true);
-      } finally {
-        setIsLoading(false);
+        setDeanonymizedNames(result);
       }
+    } catch (error) {
+      console.error('Failed to de-anonymize facet names:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // On mount (or when `deanonymize` changes), if the global toggle indicates
+  // we should be showing real names and we don't have them yet, fetch them.
+  useEffect(() => {
+    if (deanonymize && Object.keys(deanonymizedNames || {}).length === 0) {
+      // Fire-and-forget - we handle loading state inside the helper
+      fetchAndSetDeAnonymizedNames();
+    }
+    // Only run when mounting and when deanonymize or deanonymizedNames reference changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deanonymize]);
+
+  const handleToggle = async () => {
+    if (!deanonymize) {
+      // User wants to de-anonymize; ensure names are loaded first
+      if (Object.keys(deanonymizedNames || {}).length === 0) {
+        await fetchAndSetDeAnonymizedNames();
+      }
+      // Enable de-anonymization view (this updates the global anonymization via derived atom)
+      setDeanonymize(true);
     } else {
       // User wants to re-anonymize (just toggle the view)
       setDeanonymize(false);
