@@ -25,27 +25,38 @@ async function makeEncryptionRequest(valueToEncrypt) {
   }
 }
 
-export async function makeDecryptionRequest(valueToDecrypt) {
-  try {
-    const res = await axios({
-      method: "post",
-      url: `${endpoint}/transit/decrypt`,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      data: {
-        fieldToDecrypt: valueToDecrypt,
-      },
-    });
-    return res.data;
-  } catch (error) {
-    console.error("Error decrypting value:", valueToDecrypt, error);
-    return {
-      fieldToDecrypt: valueToDecrypt,
-      decryptedData: null,
-      error: error.message,
-    };
+export async function makeDecryptionRequest(valueToDecrypt, retries = 3) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await axios.post(
+        `${endpoint}/transit/decrypt`,
+        { fieldToDecrypt: valueToDecrypt },
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+
+      return res.data;
+    } catch (error) {
+      lastError = error;
+      console.error(
+        `Decrypt attempt ${attempt} failed for value:`,
+        valueToDecrypt,
+        error.message,
+      );
+
+      // If this was the last attempt, fall through
+      if (attempt === retries) break;
+    }
   }
+
+  return {
+    fieldToDecrypt: valueToDecrypt,
+    decryptedData: null,
+    error: lastError?.message ?? "Unknown error",
+  };
 }
 
 /**
@@ -84,6 +95,7 @@ function replaceSubstring(str, start, end, replacement) {
  * - Adjusts subsequent annotations correctly ACROSS ALL ANNOTATION SETS.
  */
 export async function decode(doc) {
+  // const result = doc.features?.clusters.find((item) => item.title.startsWith());
   if (!doc || typeof doc !== "object") {
     throw new TypeError("decode: doc must be an object");
   }
@@ -104,6 +116,9 @@ export async function decode(doc) {
   for (const clusterAnnSet of Object.keys(doc.features.clusters)) {
     for (let i = 0; i < doc.features.clusters[clusterAnnSet].length; i++) {
       const cluster = doc.features.clusters[clusterAnnSet][i];
+      if (cluster.title.includes("O0wBZ")) {
+        console.log("IL BASTARDO", cluster);
+      }
       const encryptedTitle = cluster.title;
       const result = await makeDecryptionRequest(encryptedTitle);
       if (result?.decryptedData) {
