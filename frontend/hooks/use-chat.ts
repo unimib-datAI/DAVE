@@ -6,6 +6,7 @@ import { useAtom } from 'jotai';
 import { useEffect, useState } from 'react';
 import { useChatState, useChatDispatch } from '@/modules/chat/ChatProvider';
 import { useText } from '@/components/TranslationProvider';
+import { globalAnonymizationAtom } from '@/utils/atoms';
 
 export type Message = {
   role: 'system' | 'assistant' | 'user';
@@ -37,6 +38,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
   const dispatch = useChatDispatch();
   const [activeCollection] = useAtom(activeCollectionAtom);
   const [llmSettings] = useAtom(llmSettingsAtom);
+  const [isAnonymized] = useAtom(globalAnonymizationAtom);
   const t = useText('chat');
 
   // Initialize messages from chat history or initial messages
@@ -76,7 +78,9 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
         const docContent = `Nome Documento ${
           item.title
         } - Contenuto: ${item.chunks
-          .map((chunk) => chunk.text_anonymized || chunk.text)
+          .map((chunk) =>
+            isAnonymized ? chunk.text_anonymized || chunk.text : chunk.text
+          )
           .join(' ')}`;
         contextStr += `<document id="DOC_${
           index + 1
@@ -84,7 +88,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       });
     }
     const questionStr = `<question language="auto">\n${message}\n</question>`;
-    const instructions = `<instructions>\n- Answer the question using ONLY information explicitly stated in the context.\n- Integrate information from multiple documents only if they are consistent.\n- Do NOT infer, speculate, generalize, or rely on external knowledge.\n- The answer MUST be written in the same language as the question.\n- If answering requires translating information from the context, translate faithfully\n  without adding, omitting, or reinterpreting any content.\n- Do NOT mention documents, context, retrieval, or sources explicitly.\n- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:\n  "Le informazioni fornite non sono sufficienti per rispondere con certezza."\n- Use a clear, precise, and domain-appropriate technical style.\n</instructions>`;
+    const instructions = `<instructions>\n- Answer the question using ONLY information explicitly stated in the context.\n- Integrate information from multiple documents only if they are consistent.\n- Do NOT infer, speculate, generalize, or rely on external knowledge.\n- The answer MUST be written in the same language as the question.\n- If answering requires translating information from the context, translate faithfully\n  without adding, omitting, or reinterpreting any content.\n- Do NOT mention documents, context, retrieval, or sources explicitly.\n- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:\n  "The information provided is not sufficient to answer with certainty."\n- Use a clear, precise, and domain-appropriate technical style.\n Make sure to ALWAYS answer in the same language used by the user to ask the question, don't ming the documents language</instructions>`;
     const fullPrompt = `<input>\n\n<context>\n${contextStr}</context>\n\n${questionStr}\n\n${instructions}\n\n</input>`;
     const content = fullPrompt;
     console.log('received content', content);

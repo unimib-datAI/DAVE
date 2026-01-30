@@ -7,6 +7,7 @@ import {
   useReducer,
   useState,
 } from 'react';
+import { useAtom } from 'jotai';
 import {
   DocumentStateContext,
   DocumentDispatchContext,
@@ -21,14 +22,28 @@ import { createTaxonomy } from './utils';
 import { mapEntityType } from '../../../components/Tree/utils';
 import { useDocumentDispatch } from './selectors';
 import { DocumentContext } from './DocumentContext';
+import { globalAnonymizationAtom } from '@/utils/atoms';
 /**
  * Fetches a document and provides it to the context consumer globally for the page.
+ *
+ * This provider now reads the global anonymization atom and exposes `deAnonimize`
+ * and `setDeAnonimize` through the context as before, but mapped to the global atom
+ * (deAnonimize = !globalAnonymizationAtom).
  */
 const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   const [id] = useParam<string>('id');
-  const [deAnonimize, setDeAnonimize] = useState(
-    process.env.NODE_ENV === 'development'
-  );
+  // Map global anonymization atom to the local `deAnonimize` concept:
+  // - `globalAnonymizationAtom` = true  -> documents are anonymized
+  // - `deAnonimize` = true             -> show real (de-anonymized) document -> inverse of the atom
+  const [isAnonymized, setIsAnonymized] = useAtom(globalAnonymizationAtom);
+  const deAnonimize = !isAnonymized;
+  const setDeAnonimize = (value: boolean) => {
+    // value = true -> user requests de-anonymized view -> set global anonymization to false
+    setIsAnonymized(!value);
+  };
+
+  // Keep previous development behavior: in development default to de-anonymized view
+
   const { data, isFetching, refetch } = useQuery(
     ['document.getDocument', { id: id, deAnonimize }],
     {

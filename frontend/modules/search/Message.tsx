@@ -8,6 +8,8 @@ import Link from 'next/link';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useText } from '@/components/TranslationProvider';
+import { useAtom } from 'jotai';
+import { globalAnonymizationAtom } from '@/utils/atoms';
 
 type MessageProps = {
   role: 'system' | 'assistant' | 'user';
@@ -53,6 +55,7 @@ const Message = ({
   isDoneStreaming,
   usrMessage,
 }: MessageProps) => {
+  const [isAnonymized, setIsAnonimized] = useAtom(globalAnonymizationAtom);
   const t = useText('chat');
   // Only return early for assistant messages with empty content
   // For user messages, we want to display them even with empty content
@@ -174,7 +177,11 @@ const Message = ({
                               <Tooltip
                                 content={
                                   <div className="max-w-xs">
-                                    {chunk.text_anonymized || chunk.text || ''}
+                                    {isAnonymized
+                                      ? chunk.text_anonymized ||
+                                        chunk.text ||
+                                        ''
+                                      : chunk.text || ''}
                                   </div>
                                 }
                                 key={`${chunk.id || ''}-${chunkIndex}`}
