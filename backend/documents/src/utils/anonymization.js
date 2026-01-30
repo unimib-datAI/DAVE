@@ -270,7 +270,7 @@ export async function encode(doc, anonymizeTypes = null) {
   for (const clusterAnnSet of Object.keys(doc.features.clusters)) {
     encryptedTitles[clusterAnnSet] = [];
     for (let i = 0; i < doc.features.clusters[clusterAnnSet].length; i++) {
-      if (anonymizeTypes.includes(cluster.type){
+      if (anonymizeTypes.includes(cluster.type)) {
         const cluster = doc.features.clusters[clusterAnnSet][i];
         const originalTitle = cluster.title;
         const result = await makeEncryptionRequest(originalTitle);
@@ -290,7 +290,6 @@ export async function encode(doc, anonymizeTypes = null) {
           }
         }
       }
-
     }
   }
 
