@@ -270,8 +270,8 @@ export async function encode(doc, anonymizeTypes = null) {
   for (const clusterAnnSet of Object.keys(doc.features.clusters)) {
     encryptedTitles[clusterAnnSet] = [];
     for (let i = 0; i < doc.features.clusters[clusterAnnSet].length; i++) {
+      const cluster = doc.features.clusters[clusterAnnSet][i];
       if (anonymizeTypes.includes(cluster.type)) {
-        const cluster = doc.features.clusters[clusterAnnSet][i];
         const originalTitle = cluster.title;
         const result = await makeEncryptionRequest(originalTitle);
         const encryptedTitle = result.vaultKey || originalTitle;
