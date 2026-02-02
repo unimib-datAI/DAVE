@@ -255,82 +255,52 @@ const Facets = ({
     })
   );
 
-  const filteredFacets =
-    value.filter.trim() === ''
-      ? allFacets
-      : fuse.current.search(value.filter).map(({ item }) => item);
+  const filteredFacets = useMemo(() => {
+    const baseFiltered =
+      value.filter.trim() === ''
+        ? allFacets
+        : fuse.current.search(value.filter).map(({ item }) => item);
 
-  useEffect(() => {
-    // Reorder facets based on selected filters
-    // console.log('selected filters ', selectedFilters);
-    // console.log('fist facet', filteredFacets[0]);
+    // Create a copy to avoid mutating the original array
+    const sorted = [...baseFiltered];
 
-    // Clean up selected filters to remove empty or whitespace-only strings
-    const cleanedFilters = selectedFilters.filter(
-      (filter) => filter && filter.trim() !== ''
-    );
-
-    // Normalize cleaned filters for consistent comparison
-    const normalizedSelectedFilters = cleanedFilters.map((f) =>
-      f.toLowerCase().trim()
-    );
-
-    filteredFacets.sort((a, b) => {
-      const aSelected =
-        (a.key &&
-          normalizedSelectedFilters.includes(a.key.toLowerCase().trim())) ||
-        a.children.some((child) =>
-          child.ids_ER.some(
-            (id) =>
-              id &&
-              id.trim() !== '' &&
-              normalizedSelectedFilters.includes(id.toLowerCase().trim())
-          )
-        );
-      const bSelected =
-        (b.key &&
-          normalizedSelectedFilters.includes(b.key.toLowerCase().trim())) ||
-        b.children.some((child) =>
-          child.ids_ER.some(
-            (id) =>
-              id &&
-              id.trim() !== '' &&
-              normalizedSelectedFilters.includes(id.toLowerCase().trim())
-          )
-        );
-      return (bSelected ? 1 : 0) - (aSelected ? 1 : 0); // Prioritize selected facets
-    });
-  }, [selectedFilters, filteredFacets]);
-
-  // Reorder filtered facets to prioritize matches
-  if (value.filter.trim() !== '') {
-    filteredFacets.sort((a, b) => {
+    // If there's a filter query, prioritize matches
+    if (value.filter.trim() !== '') {
       const filterLower = value.filter.toLowerCase().trim();
-      const aMatches =
-        (a.key && a.key.toLowerCase().includes(filterLower)) ||
-        a.children.some(
-          (child) =>
-            (child.display_name &&
-              child.display_name.toLowerCase().includes(filterLower)) ||
-            child.ids_ER.some(
-              (id) =>
-                id && id.trim() !== '' && id.toLowerCase().includes(filterLower)
-            )
-        );
-      const bMatches =
-        (b.key && b.key.toLowerCase().includes(filterLower)) ||
-        b.children.some(
-          (child) =>
-            (child.display_name &&
-              child.display_name.toLowerCase().includes(filterLower)) ||
-            child.ids_ER.some(
-              (id) =>
-                id && id.trim() !== '' && id.toLowerCase().includes(filterLower)
-            )
-        );
-      return (bMatches ? 1 : 0) - (aMatches ? 1 : 0); // Prioritize facets that match the filter
-    });
-  }
+      sorted.sort((a, b) => {
+        const aMatches =
+          (a.key && a.key.toLowerCase().includes(filterLower)) ||
+          a.children.some(
+            (child) =>
+              (child.display_name &&
+                child.display_name.toLowerCase().includes(filterLower)) ||
+              child.ids_ER.some(
+                (id) =>
+                  id &&
+                  id.trim() !== '' &&
+                  id.toLowerCase().includes(filterLower)
+              )
+          );
+        const bMatches =
+          (b.key && b.key.toLowerCase().includes(filterLower)) ||
+          b.children.some(
+            (child) =>
+              (child.display_name &&
+                child.display_name.toLowerCase().includes(filterLower)) ||
+              child.ids_ER.some(
+                (id) =>
+                  id &&
+                  id.trim() !== '' &&
+                  id.toLowerCase().includes(filterLower)
+              )
+          );
+        return (bMatches ? 1 : 0) - (aMatches ? 1 : 0);
+      });
+    }
+
+    return sorted;
+  }, [allFacets, value.filter]);
+
   return allFacets.length > 0 ? (
     <div className="sticky top-16 w-72 h-[calc(100vh-4rem)]">
       <div className="overflow-y-auto h-full">
