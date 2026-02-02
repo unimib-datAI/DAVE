@@ -587,6 +587,7 @@ def get_index_settings():
         "mappings": {
             "properties": {
                 "text": {"type": "text"},
+                "text_deanonymized": {"type": "text"},
                 "name": {"type": "keyword"},
                 "preview": {"type": "keyword"},
                 "id": {"type": "keyword"},
@@ -939,6 +940,7 @@ class QueryElasticIndexRequest(BaseModel):
     page: int = 1
     documents_per_page: int = 20
     collection_id: str
+    is_anonymized: bool = True
 
     class Config:
         json_schema_extra = {
@@ -948,6 +950,7 @@ class QueryElasticIndexRequest(BaseModel):
                 "documents_per_page": 20,
                 "metadata": [{"type": "Anno Sentenza", "value": "2023"}],
                 "annotations": [{"type": "persona", "value": "entity_id"}],
+                "is_anonymized": True,
             }
         }
 
@@ -983,9 +986,14 @@ async def query_elastic_index(
     }
 
     # Add text query or match_all
+    # Use text_deanonymized field if is_anonymized is False, otherwise use text field
     if req.text and req.text.strip():
+        search_field = "text" if req.is_anonymized else "text_deanonymized"
+        print(
+            f"DEBUG: is_anonymized={req.is_anonymized}, searching in field='{search_field}'"
+        )
         query["bool"]["must"].append(
-            {"query_string": {"query": req.text, "default_field": "text"}}
+            {"query_string": {"query": req.text, "default_field": search_field}}
         )
     else:
         query["bool"]["must"].append({"match_all": {}})
@@ -1141,10 +1149,22 @@ def index_document_with_processing(
         print(f"Has annotation_sets: {req.annotation_sets is not None}")
         print(f"Has collection id {req.collectionId}")
         print(f"Has de-anonymized text: {req.text_deanonymized is not None}")
+
+        # Debug: Check if text_deanonymized is available or using fallback
+        if req.text_deanonymized:
+            print("DEBUG: text_deanonymized is available, using it")
+        else:
+            print(
+                "DEBUG: text_deanonymized is NOT available, using fallback to text field"
+            )
+
         # Prepare the document
         file_object = {
             "id": req.id,
             "text": req.text,
+            "text_deanonymized": req.text_deanonymized
+            if req.text_deanonymized
+            else req.text,
             "annotation_sets": req.annotation_sets,
             "preview": req.preview,
             "name": req.name,

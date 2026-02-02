@@ -15,7 +15,11 @@ import LoadingOverlay from '@/modules/review/LoadingOverlay';
 import Link from 'next/link';
 import { LLMButton } from '@/modules/search/LLMButton';
 import { useAtom } from 'jotai';
-import { facetsDocumentsAtom, selectedFiltersAtom } from '@/utils/atoms';
+import {
+  facetsDocumentsAtom,
+  selectedFiltersAtom,
+  globalAnonymizationAtom,
+} from '@/utils/atoms';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { GetServerSideProps } from 'next';
@@ -60,6 +64,7 @@ const Search = () => {
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const [selectedFilters, setSelectedFiltersRaw] = useAtom(selectedFiltersAtom);
   const [activeCollection] = useAtom(activeCollectionAtom);
+  const [isAnonymized] = useAtom(globalAnonymizationAtom);
   // Wrapper to ensure we never set empty filters
   const setSelectedFilters = (filters: string[]) => {
     const validFilters = filters.filter((f) => f && f.trim() !== '');
@@ -93,6 +98,7 @@ const Search = () => {
         limit: 20,
         collectionId:
           activeCollection && activeCollection.id ? activeCollection.id : 'N/A',
+        isAnonymized,
       },
     ],
     {
