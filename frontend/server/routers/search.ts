@@ -245,6 +245,7 @@ export const search = createRouter()
       limit: z.number().min(1).max(100).nullish(),
       cursor: z.number().nullish(),
       collectionId: z.string().optional(),
+      isAnonymized: z.boolean().optional(),
     }),
     resolve: async ({ input }) => {
       let index = process.env.ELASTIC_INDEX;
@@ -267,6 +268,7 @@ export const search = createRouter()
             n_facets: 20,
             page: input.cursor || 1,
             collection_id: input.collectionId,
+            is_anonymized: input.isAnonymized,
           }),
         }
       ).then((r) => r.json());
