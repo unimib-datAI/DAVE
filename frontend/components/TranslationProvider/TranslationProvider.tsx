@@ -24,7 +24,6 @@ export const useText = <NS extends keyof Translation>(namespace: NS) => {
         translation = translation.replace(/{.*}/g, param[k]);
       });
     }
-    console.log('requested translation: ', translation);
     return translation;
   };
 

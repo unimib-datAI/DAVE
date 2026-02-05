@@ -625,6 +625,7 @@ export const documents = createRouter()
     }),
     resolve: async ({ input }) => {
       const { docId, annotationSets, features } = input;
+      const elasticIndex = process.env.ELASTIC_INDEX;
       try {
         // Create an abort controller for timeout handling
         const abortController = new AbortController();
@@ -648,6 +649,7 @@ export const documents = createRouter()
               docId,
               annotationSets,
               features,
+              elasticIndex,
             },
             signal: abortController.signal,
           }
