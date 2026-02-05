@@ -4,8 +4,14 @@ import Fuse from 'fuse.js';
 import { SearchIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FacetFilter } from './FacetFilter';
-import { DeAnonymizeFacetsButton } from './DeAnonymizeFacetsButton';
+// import { DeAnonymizeFacetsButton } from './DeAnonymizeFacetsButton';
 import { useText } from '@/components/TranslationProvider';
+import { useAtom } from 'jotai';
+import {
+  deanonymizeFacetsAtom,
+  deanonymizedFacetNamesAtom,
+} from '@/utils/atoms';
+import { useMutation } from '@/utils/trpc';
 
 // Entity type grouping map - keys are lowercase
 // const entityTypeGroupMap: Record<string, string> = {
@@ -247,7 +253,48 @@ const Facets = ({
     filter: '',
   });
 
+  const [deanonymize] = useAtom(deanonymizeFacetsAtom);
+  const [deanonymizedNames, setDeanonymizedNames] = useAtom(
+    deanonymizedFacetNamesAtom
+  );
+
+  const deanonymizeMutation = useMutation(['document.deanonymizeKeys']);
+
   const allFacets = useMemo(() => buildFacets(facets), [facets]);
+
+  // Fetch de-anonymized names when global toggle is activated
+  useEffect(() => {
+    const fetchDeAnonymizedNames = async () => {
+      try {
+        const displayNames = new Set<string>();
+
+        facets.annotations.forEach((facet) => {
+          facet.children.forEach((child) => {
+            if (child.display_name && child.display_name.trim() !== '') {
+              displayNames.add(child.display_name);
+            }
+          });
+        });
+
+        const keysArray = Array.from(displayNames);
+
+        if (keysArray.length > 0) {
+          const result = await deanonymizeMutation.mutateAsync({
+            keys: keysArray,
+          });
+
+          setDeanonymizedNames(result);
+        }
+      } catch (error) {
+        console.error('Failed to de-anonymize facet names:', error);
+      }
+    };
+
+    if (deanonymize && Object.keys(deanonymizedNames || {}).length === 0) {
+      fetchDeAnonymizedNames();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deanonymize, facets]);
 
   const fuse = useRef(
     new Fuse(allFacets, {
@@ -307,7 +354,7 @@ const Facets = ({
         <div className="flex flex-col pr-6 py-6 gap-8">
           <div className="flex flex-col gap-3">
             <div className="text-lg font-semibold">{t('filter')}</div>
-            <DeAnonymizeFacetsButton
+            {/* <DeAnonymizeFacetsButton
               facets={{
                 annotations: allFacets
                   .filter((f) => f.filterType === 'annotation')
@@ -316,7 +363,7 @@ const Facets = ({
                   .filter((f) => f.filterType === 'metadata')
                   .map(({ filterType, ...rest }) => rest),
               }}
-            />
+            /> */}
             <div className="flex flex-row items-center border-[1px] border-solid border-slate-200 rounded-md p-3 w-full gap-2">
               <SearchIcon size={22} />
               <input
