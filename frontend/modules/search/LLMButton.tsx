@@ -1,7 +1,7 @@
 import { useClickOutside } from '@/hooks';
 import { AnimatePresence, motion } from 'framer-motion';
 import { MessageCircle } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LLMSearch } from './LLMSearch';
 
 const variantsLLM = {
@@ -18,10 +18,23 @@ const LLMButton = () => {
     document.body.style.overflowY = 'hidden';
   };
 
-  const refLLMWindow = useClickOutside(() => {
+  const closeLLMWindow = () => {
     setOpenLLM(false);
     document.body.style.overflowY = 'auto';
-  });
+  };
+
+  const refLLMWindow = useClickOutside(closeLLMWindow);
+
+  // Cleanup: ensure body overflow is restored when component unmounts or LLM closes
+  useEffect(() => {
+    if (!openLLM) {
+      document.body.style.overflowY = 'auto';
+    }
+
+    return () => {
+      document.body.style.overflowY = 'auto';
+    };
+  }, [openLLM]);
 
   return (
     <>
@@ -54,12 +67,7 @@ const LLMButton = () => {
               exit="exit"
               className="fixed inset-0 z-30 p-4 flex items-center justify-center"
             >
-              <LLMSearch
-                ref={refLLMWindow}
-                onClose={() => {
-                  setOpenLLM(false);
-                }}
-              />
+              <LLMSearch ref={refLLMWindow} onClose={closeLLMWindow} />
             </motion.div>
           </>
         )}

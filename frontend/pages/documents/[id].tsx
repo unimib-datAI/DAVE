@@ -1,4 +1,4 @@
-import { ToolbarLayout } from '@/components';
+import { ToolbarLayout, useText } from '@/components';
 import { ReactElement, useEffect, useState } from 'react';
 import { NextPageWithLayout } from '../_app';
 import DocumentProvider from '@/modules/document/DocumentProvider/DocumentProvider';
@@ -33,7 +33,7 @@ const Document: NextPageWithLayout = () => {
   const router = useRouter();
   const dispatch = useDocumentDispatch();
   const [isLoading, setIsLoading] = useState(false);
-
+  const t = useText('document');
   useEffect(() => {
     const { annotationSetId, annotationId } = router.query;
     if (annotationSetId != null) {

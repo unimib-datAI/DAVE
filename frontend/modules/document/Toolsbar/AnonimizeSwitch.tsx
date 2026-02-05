@@ -1,17 +1,17 @@
 import { useText } from '@/components';
-import { anonimizedNamesAtom } from '@/utils/atoms';
+import { globalAnonymizationAtom } from '@/utils/atoms';
 import { useAtom } from 'jotai';
 import Switch from 'react-switch';
 export function AnonimizeSwitch() {
   //get translations
   const t = useText('document');
-  //global status access to anonimization parameter
-  const [anonimized, setAnonimized] = useAtom(anonimizedNamesAtom);
+  // global anonymization state (true = anonymized)
+  const [isAnonymized, setIsAnonymized] = useAtom(globalAnonymizationAtom);
   return (
     <div className="flex flex-row items-center gap-1">
       <Switch
-        onChange={() => setAnonimized(!anonimized)}
-        checked={anonimized}
+        onChange={() => setIsAnonymized(!isAnonymized)}
+        checked={isAnonymized}
         uncheckedIcon={false}
         checkedIcon={false}
         onColor="#86d3ff"

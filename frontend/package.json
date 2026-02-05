@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "inspect": "NODE_OPTIONS='--inspect' next dev"
+    "inspect": "NODE_OPTIONS='--inspect' next dev",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug"
   },
   "dependencies": {
     "@ant-design/icons": "^5.5.2",
@@ -67,6 +71,8 @@
     "zod": "^3.14.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.57.0",
+    "@types/jest": "^29.5.11",
     "@types/lodash.get": "^4.4.7",
     "@types/node": "17.0.23",
     "@types/react": "17.0.43",

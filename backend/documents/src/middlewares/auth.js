@@ -16,20 +16,22 @@ export const authMiddleware = (req, res, next) => {
     return next();
   }
 
-  // if auth disabled, only check for API_KEY (backwards-compatible)
-  // if (process.env.ENABLE_AUTH !== "true") {
-  //     if (
-  //         !req.headers.authorization ||
-  //         req.headers.authorization !== process.env.API_KEY
-  //     ) {
-  //         console.log("*** headers ***", req.headers);
-  //         throw new HTTPError({
-  //             code: HTTP_ERROR_CODES.FORBIDDEN,
-  //             message: "Invalid authorization header.",
-  //         });
-  //     }
-  //     return next();
-  // }
+  // if auth disabled, skip auth checks entirely
+  if (process.env.ENABLE_AUTH === "false" || process.env.USE_AUTH === "false") {
+    const browserId = req.headers["x-browser-id"] || "anon-user";
+    req.user = {
+      sub: browserId,
+      email: `${browserId}@example.com`,
+      name: `Anonymous User ${browserId.slice(0, 8)}`,
+      preferred_username: browserId,
+      email_verified: false,
+      roles: [],
+      resource_access: {},
+      client_roles: [],
+      userId: browserId,
+    };
+    return next();
+  }
 
   // validate Bearer JWT
   const authHeader = req.headers.authorization || "";

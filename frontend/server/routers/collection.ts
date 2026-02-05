@@ -28,6 +28,9 @@ export type User = {
 
 const getJWTHeader = (token?: string) => {
   if (!token) {
+    if (process.env.USE_AUTH === 'false') {
+      return ''; // No Authorization header when auth is disabled
+    }
     throw new TRPCError({
       code: 'UNAUTHORIZED',
       message: 'No authentication token provided',
@@ -45,8 +48,11 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { token } = input;
 
-      // If no token supplied, avoid calling backend and return empty collection list early
-      if (!token || typeof token !== 'string' || token.trim().length === 0) {
+      // If no token supplied and auth is enabled, avoid calling backend and return empty collection list early
+      if (
+        (!token || typeof token !== 'string' || token.trim().length === 0) &&
+        process.env.USE_AUTH !== 'false'
+      ) {
         return [] as Collection[];
       }
 
@@ -78,12 +84,15 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { id, token } = input;
       try {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, Collection>(
           `${baseURL}/collection/${id}`,
           {
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -103,12 +112,15 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { id, token } = input;
       try {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, collectionDocInfo[]>(
           `${baseURL}/collection/collectioninfo/${id}`,
           {
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -130,14 +142,18 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { name, allowedUserIds, token } = input;
       try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, Collection>(
           `${baseURL}/collection`,
           {
             method: 'POST',
-            headers: {
-              Authorization: getJWTHeader(token),
-              'Content-Type': 'application/json',
-            },
+            headers,
             body: JSON.stringify({
               name,
               allowedUserIds: allowedUserIds || [],
@@ -165,14 +181,18 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { id, name, allowedUserIds, token } = input;
       try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, Collection>(
           `${baseURL}/collection/${id}`,
           {
             method: 'PUT',
-            headers: {
-              Authorization: getJWTHeader(token),
-              'Content-Type': 'application/json',
-            },
+            headers,
             body: JSON.stringify({
               name,
               allowedUserIds,
@@ -205,14 +225,17 @@ export const collections = createRouter()
       try {
         const elasticIndex = process.env.ELASTIC_INDEX;
 
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<
           any,
           { message: string; collection: Collection }
         >(`${baseURL}/collection/${id}`, {
           method: 'DELETE',
-          headers: {
-            Authorization: getJWTHeader(token),
-          },
+          headers,
           body: {
             elasticIndex,
           },
@@ -240,8 +263,11 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { token } = input;
 
-      // If no token supplied, do not call backend and return empty users list early
-      if (!token || typeof token !== 'string' || token.trim().length === 0) {
+      // If no token supplied and auth is enabled, do not call backend and return empty users list early
+      if (
+        (!token || typeof token !== 'string' || token.trim().length === 0) &&
+        process.env.USE_AUTH !== 'false'
+      ) {
         console.log(
           'collections.getAllUsers: no token supplied, returning empty array'
         );
@@ -253,12 +279,15 @@ export const collections = createRouter()
           'collections.getAllUsers: received token (masked)',
           `${token.slice(0, 6)}...${token.slice(-4)}`
         );
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, User[]>(
           `${baseURL}/collection/users/all`,
           {
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -271,7 +300,7 @@ export const collections = createRouter()
     },
   })
 
-  // Download collection as zip
+  // Download collection as zip (starts background export job, polls status, then downloads)
   .query('download', {
     input: z.object({
       id: z.string(),
@@ -280,28 +309,133 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { id, token } = input;
       try {
-        const response = await fetch(`${baseURL}/collection/${id}/download`, {
-          headers: {
-            Authorization: getJWTHeader(token),
-          },
-        });
-        if (!response.ok) {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
+
+        // Start export job for the collection using fetchJson helper (ensures JSON handling)
+        // Add debug logs to help diagnose request/response issues
+        try {
+          console.log(
+            '[trpc.collections.download] starting export POST',
+            `${baseURL}/export/start`
+          );
+          console.log('[trpc.collections.download] request headers:', headers);
+          try {
+            console.log(
+              '[trpc.collections.download] request body:',
+              JSON.stringify({ collectionId: id })
+            );
+          } catch (e) {
+            console.log(
+              '[trpc.collections.download] request body: <unserializable>'
+            );
+          }
+        } catch (e) {
+          // swallow logging errors
+        }
+
+        const startJson = await fetchJson<any, { jobId: string }>(
+          `${baseURL}/export/start`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(headers.Authorization
+                ? { Authorization: headers.Authorization }
+                : {}),
+            },
+            body: { collectionId: id },
+          }
+        );
+
+        try {
+          console.log(
+            '[trpc.collections.download] export start response:',
+            startJson
+          );
+        } catch (e) {
+          // ignore logging errors
+        }
+
+        const jobId = startJson?.jobId;
+        if (!jobId) {
+          // Provide extra debug info when jobId is missing
+          console.error(
+            '[trpc.collections.download] export start returned no jobId, full response:',
+            startJson
+          );
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to download collection',
+            message: 'Export job did not return a jobId',
           });
         }
-        const buffer = await response.arrayBuffer();
+
+        // Poll job status until completed or failed (timeout after 5 minutes)
+        const timeoutMs = 5 * 60 * 1000;
+        const pollIntervalMs = 2000;
+        const deadline = Date.now() + timeoutMs;
+
+        while (true) {
+          const statusJson = await fetchJson<
+            any,
+            { status: string; _error?: string }
+          >(`${baseURL}/export/${jobId}/status`, {
+            method: 'GET',
+            headers: headers.Authorization
+              ? { Authorization: headers.Authorization }
+              : {},
+          });
+          const status = statusJson?.status;
+
+          if (status === 'completed') break;
+          if (status === 'failed') {
+            const errMsg = statusJson?._error || 'Export job failed';
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: errMsg,
+            });
+          }
+
+          if (Date.now() > deadline) {
+            throw new TRPCError({
+              code: 'INTERNAL_SERVER_ERROR',
+              message: 'Export job timed out',
+            });
+          }
+
+          await new Promise((r) => setTimeout(r, pollIntervalMs));
+        }
+
+        // Download the exported file (binary) - use fetch for binary response
+        const dlRes = await fetch(`${baseURL}/export/${jobId}/download`, {
+          headers: headers.Authorization
+            ? { Authorization: headers.Authorization }
+            : {},
+        });
+        if (!dlRes.ok) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to download exported file',
+          });
+        }
+        const buffer = await dlRes.arrayBuffer();
         const base64 = Buffer.from(buffer).toString('base64');
-        const contentDisposition = response.headers.get('content-disposition');
+        const contentDisposition = dlRes.headers.get('content-disposition');
         const filename = contentDisposition
-          ? contentDisposition.split('filename=')[1].replace(/"/g, '')
+          ? (contentDisposition.split('filename=')[1] || `${id}.zip`).replace(
+              /"/g,
+              ''
+            )
           : `${id}.zip`;
+
         return { data: base64, filename };
       } catch (error: any) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error.message || 'Failed to download collection',
+          message: error?.message || 'Failed to download collection',
         });
       }
     },

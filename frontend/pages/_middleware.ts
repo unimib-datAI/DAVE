@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export default function handler(req: NextRequest) {
-  if (process.env.NO_LOGIN === 'true') {
+  // If authentication is disabled, allow everything
+  if (process.env.NEXT_PUBLIC_USE_AUTH === 'false') {
     if (process.env.STATALE_MODE === 'true') {
       if (
         !req.nextUrl.pathname.match(/\/documents\/\d+/) &&
         !req.nextUrl.pathname.includes('api')
       ) {
         const url = req.nextUrl.clone();
-
         url.pathname = `/404`;
         return NextResponse.rewrite(url);
       }
@@ -16,32 +16,7 @@ export default function handler(req: NextRequest) {
     return NextResponse.next();
   }
 
-  const token =
-    req.cookies['next-auth.session-token'] ||
-    req.cookies['__Secure-next-auth.session-token'];
-
-  const authorized = !!token;
-
-  if (authorized) {
-    if (req.nextUrl.pathname === '/sign-in') {
-      const redirectUrl = new URL(
-        `${process.env.NEXT_PUBLIC_BASE_PATH}/`,
-        req.url
-      );
-      return NextResponse.redirect(redirectUrl);
-    }
-  } else {
-    if (
-      req.nextUrl.pathname !== '/sign-in' &&
-      !req.nextUrl.pathname.includes('/api/auth')
-    ) {
-      const redirectUrl = new URL(
-        `${process.env.NEXT_PUBLIC_BASE_PATH}/sign-in`,
-        req.url
-      );
-      return NextResponse.redirect(redirectUrl);
-    }
-  }
-
+  // Allow all requests to pass through
+  // Authentication will be handled by getServerSideProps in protected pages
   return NextResponse.next();
 }

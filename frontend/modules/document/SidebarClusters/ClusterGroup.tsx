@@ -98,15 +98,15 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
 
     // If the root node is "Altro" (UNKNOWN) and we have an actual type value,
     // append the original type to show "Altro/type"
-    if (
-      nodes.length === 1 &&
-      nodes[0].key === 'UNKNOWN' &&
-      type !== 'UNKNOWN'
-    ) {
-      return `${path}/${type}`;
-    }
+    // if (
+    //   nodes.length === 1 &&
+    //   nodes[0].key === 'UNKNOWN' &&
+    //   type !== 'UNKNOWN'
+    // ) {
+    //   return `${type}`;
+    // }
 
-    return path;
+    return type;
   }, [type]);
 
   // Filter and sort clusters based on searchTerm and selectedSort
@@ -175,7 +175,7 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
               }
               style={{ margin: '10px', width: '100%', marginBottom: 0 }}
               type="text"
-              placeholder="Search"
+              placeholder={t('search')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

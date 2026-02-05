@@ -1,7 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import { useSession } from 'next-auth/react';
-import { useQuery, useMutation, useContext } from '@/utils/trpc';
+import { useQuery, useMutation } from '@/utils/trpc';
+import { useQueryClient } from 'react-query';
 import {
   annotationSelectedServicesAtom,
   SelectedService,
@@ -9,6 +10,8 @@ import {
 } from '@/atoms/annotationConfig';
 import { Card, Button, Input, Text, Spacer } from '@nextui-org/react';
 import { Modal, Popconfirm, message, Select } from 'antd';
+import { useText } from '@/components/TranslationProvider';
+import { GetServerSideProps } from 'next';
 
 type ServiceRecord = {
   _id: string;
@@ -19,25 +22,74 @@ type ServiceRecord = {
   disabled?: boolean;
 };
 
-const KNOWN_SERVICE_TYPES = [
+// Canonical pipeline slots and order used by the backend pipeline.
+// The UI must present and save exactly these keys so backend and UI align.
+const CANONICAL_SLOTS: string[] = [
   'NER',
   'NEL',
+  'INDEXER',
+  'NILPREDICTION',
   'CLUSTERING',
   'CONSOLIDATION',
-  'NORMALIZATION',
-  'OTHER',
 ];
 
-export default function AnnotationConfigurationPage(): JSX.Element {
-  const { data: session, status } = useSession();
-  const token = session?.accessToken as string | undefined;
+// Known service types used in the "Add service" dropdown and grouping
+const KNOWN_SERVICE_TYPES = [...CANONICAL_SLOTS, 'OTHER'] as string[];
 
-  const trpcContext = useContext();
+export default function AnnotationConfigurationPage(): JSX.Element {
+  const t = useText('settings');
+  const { data: session, status } = useSession();
+  // accessToken is not part of the typed Session interface here, cast to any
+  const token = (session as any)?.accessToken as string | undefined;
+
+  const queryClient = useQueryClient();
 
   // selected services mapping atom (slot -> selected service or null)
   const [selectedServices, setSelectedServices] = useAtom(
     annotationSelectedServicesAtom
   );
+
+  // Utility: normalize a services object so it contains all canonical slots (preserving existing values)
+  const ensureCanonicalServices = (
+    src?: AnnotationSelectedServices | null
+  ): AnnotationSelectedServices => {
+    const out: AnnotationSelectedServices = {};
+    const srcObj = src || {};
+    for (const slot of CANONICAL_SLOTS) {
+      out[slot] = slot in srcObj ? srcObj[slot] ?? null : null;
+    }
+    // Preserve any additional non-canonical keys as well
+    Object.keys(srcObj).forEach((k) => {
+      if (!(k in out)) {
+        out[k] = srcObj[k];
+      }
+    });
+    return out;
+  };
+
+  // Ensure selectedServices always contains canonical slots when the page mounts
+  useEffect(() => {
+    if (!selectedServices) {
+      // initialize atom with canonical empty slots
+      const init: AnnotationSelectedServices = {};
+      for (const slot of CANONICAL_SLOTS) init[slot] = null;
+      setSelectedServices(init);
+      return;
+    }
+    // Fill any missing canonical slots while preserving existing values
+    setSelectedServices((prev) => {
+      const copy: AnnotationSelectedServices = { ...(prev || {}) };
+      let changed = false;
+      for (const slot of CANONICAL_SLOTS) {
+        if (!(slot in copy)) {
+          copy[slot] = null;
+          changed = true;
+        }
+      }
+      return changed ? copy : prev || copy;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Fetch available services from backend (requires JWT)
   const { data: availableServices = [], isLoading: isServicesLoading } =
@@ -80,37 +132,56 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [setAsActive, setSetAsActive] = useState(false);
 
-  // Load active configuration on mount
+  // Load active configuration on mount and normalize it to canonical slots
   useEffect(() => {
     const loadActiveConfig = async () => {
       if (!token) return;
       try {
-        const activeConfig = await trpcContext.fetchQuery([
+        const activeConfig = await queryClient.fetchQuery([
           'document.getActiveConfiguration',
           { token },
         ]);
         if (activeConfig) {
           setCurrentConfigId(activeConfig._id);
           setConfigName(activeConfig.name);
-          // Load services from configuration
+
+          // Load services from configuration and normalize to canonical slots
           const services: AnnotationSelectedServices = {};
+          // populate canonical slots first so order is guaranteed
+          for (const slot of CANONICAL_SLOTS) {
+            services[slot] = null;
+          }
+
           if (activeConfig.services) {
             Object.entries(activeConfig.services).forEach(
               ([slot, svc]: [string, any]) => {
-                if (svc) {
-                  services[slot] = {
-                    id: svc.id || '',
-                    name: svc.name || '',
-                    uri: svc.uri || '',
-                    serviceType: svc.serviceType,
-                  };
+                const normalizedSlot = slot.toUpperCase();
+                if (CANONICAL_SLOTS.includes(normalizedSlot)) {
+                  if (svc) {
+                    services[normalizedSlot] = {
+                      id: svc.id || '',
+                      name: svc.name || '',
+                      uri: svc.uri || '',
+                      serviceType: svc.serviceType,
+                    };
+                  } else {
+                    services[normalizedSlot] = null;
+                  }
                 } else {
-                  services[slot] = null;
+                  // keep unknown slot as-is to preserve any custom entries
+                  services[slot] = svc
+                    ? {
+                        id: svc.id || '',
+                        name: svc.name || '',
+                        uri: svc.uri || '',
+                        serviceType: svc.serviceType,
+                      }
+                    : null;
                 }
               }
             );
           }
-          setSelectedServices(services);
+          setSelectedServices(ensureCanonicalServices(services));
         }
       } catch (err) {
         console.log('No active configuration found');
@@ -119,18 +190,19 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     if (status === 'authenticated') {
       loadActiveConfig();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, token]);
 
-  // UI helper: group services by serviceType
+  // UI helper: group services by serviceType (ensure canonical groups exist)
   const servicesByType = useMemo(() => {
     const groups: Record<string, ServiceRecord[]> = {};
     (availableServices || []).forEach((s: ServiceRecord) => {
-      const t = s.serviceType || 'OTHER';
-      if (!groups[t]) groups[t] = [];
-      groups[t].push(s);
+      const st = (s.serviceType || 'OTHER').toUpperCase();
+      if (!groups[st]) groups[st] = [];
+      groups[st].push(s);
     });
-    // ensure known types exist (empty arrays)
-    for (const t of KNOWN_SERVICE_TYPES) {
+    // ensure canonical types exist
+    for (const t of [...CANONICAL_SLOTS, 'OTHER']) {
       groups[t] = groups[t] || [];
     }
     return groups;
@@ -149,21 +221,21 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       } else {
         copy[slot] = null;
       }
-      return copy;
+      return ensureCanonicalServices(copy);
     });
   };
 
   // Create a new service via TRPC and refresh list; if created, optionally select it
   const handleCreateService = async (selectIntoSlot?: string) => {
     if (!token) {
-      message.warning('You must be signed in to create a service.');
+      message.warning(t('annotationConfig.messages.signInRequired'));
       return;
     }
     const name = newName.trim();
     const uri = newUri.trim();
     const serviceType = (newType || 'OTHER').trim();
     if (!name || !uri) {
-      message.warning('Name and URI are required.');
+      message.warning(t('annotationConfig.messages.nameRequired'));
       return;
     }
     setCreating(true);
@@ -175,7 +247,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         description: '',
         token,
       });
-      await trpcContext.invalidateQueries(['document.getServices']);
+      await queryClient.invalidateQueries(['document.getServices']);
       if (selectIntoSlot && inserted) {
         selectServiceForSlot(selectIntoSlot, {
           _id: inserted._id || inserted.id || inserted._id,
@@ -187,10 +259,12 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       setNewName('');
       setNewUri('');
       setNewType('OTHER');
-      message.success('Service created');
+      message.success(t('annotationConfig.messages.serviceCreated'));
     } catch (err: any) {
       const msg = err?.message || String(err);
-      message.error(`Failed to create service: ${msg}`);
+      message.error(
+        t('annotationConfig.messages.createFailed', { error: msg })
+      );
     } finally {
       setCreating(false);
     }
@@ -199,12 +273,12 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   // Delete service
   const handleDeleteService = async (serviceId: string) => {
     if (!token) {
-      message.warning('You must be signed in to delete a service.');
+      message.warning(t('annotationConfig.messages.signInRequired'));
       return;
     }
     try {
       await deleteServiceMutation.mutateAsync({ id: serviceId, token });
-      await trpcContext.invalidateQueries(['document.getServices']);
+      await queryClient.invalidateQueries(['document.getServices']);
       // If any slot pointed to this service, clear it
       setSelectedServices((prev) => {
         const copy = { ...(prev || {}) };
@@ -213,11 +287,15 @@ export default function AnnotationConfigurationPage(): JSX.Element {
             copy[k] = null;
           }
         });
-        return copy;
+        return ensureCanonicalServices(copy);
       });
-      message.success('Service deleted');
+      message.success(t('annotationConfig.messages.serviceDeleted'));
     } catch (err: any) {
-      message.error(`Failed to delete service: ${err?.message || String(err)}`);
+      message.error(
+        t('annotationConfig.messages.deleteFailed', {
+          error: err?.message || String(err),
+        })
+      );
     }
   };
 
@@ -227,7 +305,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     patch: Partial<ServiceRecord>
   ) => {
     if (!token) {
-      message.warning('You must be signed in to update a service.');
+      message.warning(t('annotationConfig.messages.signInRequired'));
       return;
     }
     try {
@@ -236,18 +314,19 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         ...patch,
         token,
       });
-      await trpcContext.invalidateQueries(['document.getServices']);
-      message.success('Service updated');
+      await queryClient.invalidateQueries(['document.getServices']);
+      message.success(t('annotationConfig.messages.serviceUpdated'));
     } catch (err: any) {
-      message.error(`Failed to update service: ${err?.message || String(err)}`);
+      message.error(
+        t('annotationConfig.messages.updateFailed', {
+          error: err?.message || String(err),
+        })
+      );
     }
   };
 
-  // Pipeline slots to manage (derive from atom keys)
-  const pipelineSlots = useMemo(
-    () => Object.keys(selectedServices || {}),
-    [selectedServices]
-  );
+  // Pipeline slots to render: use canonical ordering so saved configs match backend pipeline
+  const pipelineSlots = CANONICAL_SLOTS;
 
   // Helper to find service record by id
   const findServiceById = (id?: string) =>
@@ -258,32 +337,37 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   // Save current configuration
   const handleSaveConfiguration = async () => {
     if (!token) {
-      message.warning('You must be signed in to save a configuration.');
+      message.warning(t('annotationConfig.messages.signInRequired'));
       return;
     }
     const name = configName.trim();
     if (!name) {
-      message.warning('Configuration name is required.');
+      message.warning(t('annotationConfig.messages.nameRequired'));
       return;
     }
 
     try {
-      // Convert selectedServices to plain object for storage
+      // Convert selectedServices to plain object for storage and ensure canonical keys/order
       const services: Record<string, any> = {};
-      Object.entries(selectedServices || {}).forEach(([slot, svc]) => {
-        services[slot] = svc;
+      for (const slot of CANONICAL_SLOTS) {
+        services[slot] = (selectedServices || {})[slot] ?? null;
+      }
+      // preserve any additional keys the user might have (not strictly necessary)
+      Object.keys(selectedServices || {}).forEach((k) => {
+        if (!(k in services)) {
+          services[k] = selectedServices![k];
+        }
       });
 
       if (currentConfigId) {
         // Update existing configuration
-        console.log('sent token', token);
         await updateConfigurationMutation.mutateAsync({
           id: currentConfigId,
           name,
           services,
           token,
         });
-        message.success('Configuration updated');
+        message.success(t('annotationConfig.messages.configUpdated'));
       } else {
         // Create new configuration and set as active
         const created = await createConfigurationMutation.mutateAsync({
@@ -293,13 +377,15 @@ export default function AnnotationConfigurationPage(): JSX.Element {
           token,
         });
         setCurrentConfigId(created._id);
-        message.success('Configuration saved and activated');
+        message.success(t('annotationConfig.messages.configSaved'));
       }
       await refetchConfigurations();
       setShowSaveModal(false);
     } catch (err: any) {
       message.error(
-        `Failed to save configuration: ${err?.message || String(err)}`
+        t('annotationConfig.messages.saveFailed', {
+          error: err?.message || String(err),
+        })
       );
     }
   };
@@ -307,19 +393,22 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   // Create new configuration
   const handleCreateNewConfiguration = async () => {
     if (!token) {
-      message.warning('You must be signed in to create a configuration.');
+      message.warning(t('annotationConfig.messages.signInRequired'));
       return;
     }
     const name = configName.trim();
     if (!name) {
-      message.warning('Configuration name is required.');
+      message.warning(t('annotationConfig.messages.nameRequired'));
       return;
     }
 
     try {
       const services: Record<string, any> = {};
-      Object.entries(selectedServices || {}).forEach(([slot, svc]) => {
-        services[slot] = svc;
+      for (const slot of CANONICAL_SLOTS) {
+        services[slot] = (selectedServices || {})[slot] ?? null;
+      }
+      Object.keys(selectedServices || {}).forEach((k) => {
+        if (!(k in services)) services[k] = selectedServices![k];
       });
 
       const created = await createConfigurationMutation.mutateAsync({
@@ -332,15 +421,19 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       setConfigName(created.name);
       message.success(
         setAsActive
-          ? 'Configuration created and activated'
-          : 'Configuration created'
+          ? t('annotationConfig.messages.configCreated') +
+              ' and ' +
+              t('annotationConfig.messages.configActivated').toLowerCase()
+          : t('annotationConfig.messages.configCreated')
       );
       await refetchConfigurations();
       setShowSaveModal(false);
       setSetAsActive(false);
     } catch (err: any) {
       message.error(
-        `Failed to create configuration: ${err?.message || String(err)}`
+        t('annotationConfig.messages.saveFailed', {
+          error: err?.message || String(err),
+        })
       );
     }
   };
@@ -353,40 +446,62 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     setCurrentConfigId(config._id);
     setConfigName(config.name);
 
-    // Load services from configuration
+    // Load services from configuration and normalize to canonical slots
     const services: AnnotationSelectedServices = {};
+    for (const slot of CANONICAL_SLOTS) {
+      services[slot] = null;
+    }
+
     if (config.services) {
       Object.entries(config.services).forEach(([slot, svc]: [string, any]) => {
-        if (svc) {
-          services[slot] = {
-            id: svc.id || '',
-            name: svc.name || '',
-            uri: svc.uri || '',
-            serviceType: svc.serviceType,
-          };
+        const normalizedSlot = slot.toUpperCase();
+        if (CANONICAL_SLOTS.includes(normalizedSlot)) {
+          if (svc) {
+            services[normalizedSlot] = {
+              id: svc.id || '',
+              name: svc.name || '',
+              uri: svc.uri || '',
+              serviceType: svc.serviceType,
+            };
+          } else {
+            services[normalizedSlot] = null;
+          }
         } else {
-          services[slot] = null;
+          // preserve unknown keys
+          services[slot] = svc
+            ? {
+                id: svc.id || '',
+                name: svc.name || '',
+                uri: svc.uri || '',
+                serviceType: svc.serviceType,
+              }
+            : null;
         }
       });
     }
-    setSelectedServices(services);
-    message.success(`Loaded configuration: ${config.name}`);
+
+    setSelectedServices(ensureCanonicalServices(services));
+    message.success(
+      t('annotationConfig.messages.configLoaded', { name: config.name })
+    );
   };
 
   // Activate a configuration
   const handleActivateConfiguration = async (configId: string) => {
     if (!token) {
-      message.warning('You must be signed in.');
+      message.warning(t('annotationConfig.messages.signInRequired'));
       return;
     }
     try {
       await activateConfigurationMutation.mutateAsync({ id: configId, token });
       await refetchConfigurations();
       await handleLoadConfiguration(configId);
-      message.success('Configuration activated');
+      message.success(t('annotationConfig.messages.configActivated'));
     } catch (err: any) {
       message.error(
-        `Failed to activate configuration: ${err?.message || String(err)}`
+        t('annotationConfig.messages.activateFailed', {
+          error: err?.message || String(err),
+        })
       );
     }
   };
@@ -394,7 +509,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   // Delete a configuration
   const handleDeleteConfiguration = async (configId: string) => {
     if (!token) {
-      message.warning('You must be signed in.');
+      message.warning(t('annotationConfig.messages.signInRequired'));
       return;
     }
     try {
@@ -404,27 +519,25 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         setCurrentConfigId(null);
         setConfigName('');
       }
-      message.success('Configuration deleted');
+      message.success(t('annotationConfig.messages.configDeleted'));
     } catch (err: any) {
       message.error(
-        `Failed to delete configuration: ${err?.message || String(err)}`
+        t('annotationConfig.messages.deleteFailed', {
+          error: err?.message || String(err),
+        })
       );
     }
   };
 
-  // Reset to new configuration
+  // Reset to new configuration (initialize canonical slots)
   const handleNewConfiguration = () => {
     setCurrentConfigId(null);
     setConfigName('');
     setSetAsActive(false);
-    setSelectedServices({
-      NER: null,
-      NEL: null,
-      CLUSTERING: null,
-      CONSOLIDATION: null,
-      NORMALIZATION: null,
-    });
-    message.info('Started new configuration');
+    const init: AnnotationSelectedServices = {};
+    for (const slot of CANONICAL_SLOTS) init[slot] = null;
+    setSelectedServices(init);
+    message.info(t('annotationConfig.messages.newConfigStarted'));
   };
 
   // Layout: single centered column with stacked cards
@@ -446,10 +559,10 @@ export default function AnnotationConfigurationPage(): JSX.Element {
               marginBottom: 12,
             }}
           >
-            <Text h3>Annotation Configuration</Text>
+            <Text h3>{t('annotationConfig.header')}</Text>
             <div style={{ display: 'flex', gap: 8 }}>
               <Button auto size="sm" onClick={handleNewConfiguration}>
-                New
+                {t('annotationConfig.buttons.new')}
               </Button>
               <Button
                 auto
@@ -463,7 +576,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                   setShowSaveModal(true);
                 }}
               >
-                {currentConfigId ? 'Update' : 'Save As...'}
+                {currentConfigId
+                  ? t('annotationConfig.buttons.update')
+                  : t('annotationConfig.buttons.saveAs')}
               </Button>
             </div>
           </div>
@@ -471,16 +586,20 @@ export default function AnnotationConfigurationPage(): JSX.Element {
           {/* Configuration Selector */}
           <div style={{ marginBottom: 16 }}>
             <Text small css={{ color: '$accents7', marginBottom: 8 }}>
-              Select Configuration:
+              {t('annotationConfig.configSelector.label')}
             </Text>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <Select
-                placeholder="Select a configuration"
+                placeholder={t('annotationConfig.configSelector.placeholder')}
                 style={{ flex: 1, minWidth: 300 }}
                 value={currentConfigId || undefined}
                 onChange={(value) => handleLoadConfiguration(value)}
                 options={configurations.map((config: any) => ({
-                  label: config.name + (config.isActive ? ' (Active)' : ''),
+                  label:
+                    config.name +
+                    (config.isActive
+                      ? t('annotationConfig.configSelector.activeSuffix')
+                      : ''),
                   value: config._id,
                 }))}
               />
@@ -496,7 +615,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     }
                     onClick={() => handleActivateConfiguration(currentConfigId)}
                   >
-                    Set as Active
+                    {t('annotationConfig.configSelector.setActive')}
                   </Button>
                   <Popconfirm
                     title="Delete this configuration?"
@@ -505,7 +624,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     cancelText="No"
                   >
                     <Button auto size="sm" color="error">
-                      Delete
+                      {t('annotationConfig.configSelector.delete')}
                     </Button>
                   </Popconfirm>
                 </>
@@ -519,21 +638,20 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                   color="success"
                   css={{ marginTop: 8, fontWeight: 'bold' }}
                 >
-                  ✓ This configuration is active and will be used for annotation
+                  {t('annotationConfig.configSelector.activeNote')}
                 </Text>
               )}
           </div>
 
           <Text small css={{ color: '$accents7' }}>
-            Configure persisted services and pick which implementation the
-            annotation pipeline should use for each slot.
+            {t('annotationConfig.description')}
           </Text>
         </header>
 
         {/* Add new service */}
         <Card variant="bordered" style={{ marginBottom: 15, padding: 15 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Text b>Add new service</Text>
+            <Text b>{t('annotationConfig.addService.title')}</Text>
 
             {/* CSS grid: 1fr 1fr 160px so Name + URI expand, Type is fixed */}
             <div
@@ -549,12 +667,10 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                 <Input
                   clearable
                   fullWidth
-                  label="Name"
-                  placeholder="e.g. NER-service-1"
+                  label={t('annotationConfig.addService.nameLabel')}
+                  placeholder={t('annotationConfig.addService.namePlaceholder')}
                   value={newName}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setNewName(e.target.value)
-                  }
+                  onChange={(e) => setNewName(e.target.value)}
                 />
               </div>
 
@@ -562,18 +678,16 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                 <Input
                   clearable
                   fullWidth
-                  label="URI"
-                  placeholder="http://localhost:8001/ner"
+                  label={t('annotationConfig.addService.uriLabel')}
+                  placeholder={t('annotationConfig.addService.uriPlaceholder')}
                   value={newUri}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                    setNewUri(e.target.value)
-                  }
+                  onChange={(e) => setNewUri(e.target.value)}
                 />
               </div>
 
               <div>
                 <label style={{ display: 'block', marginBottom: 6 }}>
-                  Type
+                  {t('annotationConfig.addService.typeLabel')}
                 </label>
                 <select
                   value={newType}
@@ -587,9 +701,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     boxSizing: 'border-box',
                   }}
                 >
-                  {KNOWN_SERVICE_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
+                  {KNOWN_SERVICE_TYPES.map((s) => (
+                    <option key={s} value={s}>
+                      {s}
                     </option>
                   ))}
                 </select>
@@ -598,11 +712,12 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
               <Button onPress={() => handleCreateService()} disabled={creating}>
-                {creating ? 'Creating...' : 'Create service'}
+                {creating
+                  ? t('annotationConfig.addService.creating')
+                  : t('annotationConfig.addService.createButton')}
               </Button>
               <Text small css={{ color: '$accents7' }}>
-                Services are persisted in the documents microservice. You must
-                be signed in.
+                {t('annotationConfig.addService.note')}
               </Text>
             </div>
           </div>
@@ -610,10 +725,10 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 
         {/* Available services */}
         <Card variant="bordered" style={{ marginBottom: 15, padding: 15 }}>
-          <Text b>Available services</Text>
+          <Text b>{t('annotationConfig.availableServices.title')}</Text>
           <Spacer y={0.5} />
           {isServicesLoading ? (
-            <Text>Loading services…</Text>
+            <Text>{t('annotationConfig.availableServices.loading')}</Text>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {Object.keys(servicesByType).map((type) => {
@@ -631,7 +746,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     >
                       <Text b>{type}</Text>
                       <Text small css={{ color: '$accents7' }}>
-                        {list.length} service(s)
+                        {t('annotationConfig.availableServices.count', {
+                          n: list.length,
+                        })}
                       </Text>
                     </div>
 
@@ -706,7 +823,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                               }}
                               size="sm"
                             >
-                              Edit
+                              {t('annotationConfig.availableServices.edit')}
                             </Button>
 
                             <Popconfirm
@@ -716,7 +833,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                               cancelText="Cancel"
                             >
                               <Button color="error" size="sm">
-                                Delete
+                                {t('annotationConfig.availableServices.delete')}
                               </Button>
                             </Popconfirm>
                           </div>
@@ -732,10 +849,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 
         {/* Pipeline slot selection (stacked single column) */}
         <Card variant="bordered" style={{ marginBottom: 15, padding: 15 }}>
-          <Text b>Pipeline slot selection</Text>
+          <Text b>{t('annotationConfig.pipeline.title')}</Text>
           <Text small css={{ color: '$accents7', mt: '$2' }}>
-            Pick an implementation for each pipeline slot. Selections are stored
-            locally.
+            {t('annotationConfig.pipeline.description')}
           </Text>
 
           <div
@@ -747,7 +863,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
             }}
           >
             {pipelineSlots.map((slot) => {
-              const current = selectedServices[slot] as SelectedService | null;
+              const current = (selectedServices || {})[
+                slot
+              ] as SelectedService | null;
               const currentId = current?.id;
               const options = servicesByType[slot] || [];
 
@@ -769,12 +887,27 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     }}
                   >
                     <div>
-                      <Text b>{slot}</Text>
+                      <Text b>
+                        {t('annotationConfig.pipeline.slotLabel', { slot })}
+                      </Text>
                       <Text
                         small
                         css={{ color: '$accents7', marginLeft: '10px' }}
                       >
-                        Select a service implementation
+                        {t('annotationConfig.pipeline.selectImpl')}
+                      </Text>
+                      <Text small css={{ color: '$accents7' }}>
+                        {slot === 'NER'
+                          ? 'Named Entity Recognition - identifies entities like persons, organizations, locations.'
+                          : slot === 'NEL'
+                          ? 'Named Entity Linking - links entities to knowledge base entries.'
+                          : slot === 'INDEXER'
+                          ? 'Searches for candidate entities in the knowledge base.'
+                          : slot === 'NILPREDICTION'
+                          ? 'Predicts if entities are NIL (not in knowledge base).'
+                          : slot === 'CLUSTERING'
+                          ? 'Groups similar entities into clusters.'
+                          : 'Consolidates and finalizes annotation results.'}
                       </Text>
                     </div>
                     <div>
@@ -784,7 +917,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                         auto
                         onPress={() => selectServiceForSlot(slot, null)}
                       >
-                        Clear
+                        {t('annotationConfig.pipeline.clear')}
                       </Button>
                     </div>
                   </div>
@@ -798,7 +931,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                   >
                     <div>
                       <label style={{ display: 'block', marginBottom: 6 }}>
-                        Choose service (only services of type: {slot})
+                        {t('annotationConfig.pipeline.chooseService', { slot })}
                       </label>
                       <select
                         value={currentId ?? ''}
@@ -819,10 +952,12 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                           background: 'transparent',
                         }}
                       >
-                        <option value="">-- not selected --</option>
+                        <option value="">
+                          {t('annotationConfig.pipeline.notSelected')}
+                        </option>
                         {options.length === 0 ? (
                           <option value="" disabled>
-                            -- no services for this slot --
+                            {t('annotationConfig.pipeline.noServices')}
                           </option>
                         ) : (
                           options.map((s) => (
@@ -836,7 +971,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 
                     <div>
                       <label style={{ display: 'block', marginBottom: 6 }}>
-                        Selected service preview
+                        {t('annotationConfig.pipeline.previewLabel')}
                       </label>
                       <div
                         style={{
@@ -848,7 +983,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                         <Text small css={{ fontFamily: 'monospace' }}>
                           {current
                             ? `${current.name} — ${current.uri}`
-                            : 'No service selected'}
+                            : t('annotationConfig.pipeline.noService')}
                         </Text>
                       </div>
                     </div>
@@ -863,12 +998,15 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                         <Button
                           auto
                           onPress={() => {
-                            setNewType(
-                              slot in KNOWN_SERVICE_TYPES ? slot : 'OTHER'
-                            );
+                            setNewType(slot as string);
                             Modal.confirm({
-                              title: `Create a new service and select it for slot ${slot}?`,
-                              content: 'Click OK to continue and fill details.',
+                              title: t(
+                                'annotationConfig.pipeline.prefillModalTitle',
+                                { slot }
+                              ),
+                              content: t(
+                                'annotationConfig.pipeline.prefillModalContent'
+                              ),
                               onOk: () => {
                                 const input =
                                   document.querySelector<HTMLInputElement>(
@@ -880,7 +1018,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                           }}
                           size="sm"
                         >
-                          Prefill create form
+                          {t('annotationConfig.pipeline.prefillButton')}
                         </Button>
 
                         <Button
@@ -888,7 +1026,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                           color="success"
                           onPress={() => {
                             Modal.confirm({
-                              title: 'Create & select service',
+                              title: t(
+                                'annotationConfig.pipeline.createSelectModalTitle'
+                              ),
                               content: (
                                 <div
                                   style={{
@@ -899,7 +1039,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                                 >
                                   <input
                                     id={`quick-name-${slot}`}
-                                    placeholder="Service name (e.g. my-ner)"
+                                    placeholder={t(
+                                      'annotationConfig.pipeline.namePlaceholder'
+                                    )}
                                     style={{
                                       width: '100%',
                                       padding: 8,
@@ -910,7 +1052,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                                   />
                                   <input
                                     id={`quick-uri-${slot}`}
-                                    placeholder="Service URI (e.g. http://localhost:8001/ner)"
+                                    placeholder={t(
+                                      'annotationConfig.pipeline.uriPlaceholder'
+                                    )}
                                     style={{
                                       width: '100%',
                                       padding: 8,
@@ -931,7 +1075,11 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                                 const name = nameEl?.value ?? '';
                                 const uri = uriEl?.value ?? '';
                                 if (!name.trim() || !uri.trim()) {
-                                  message.warning('Name and URI required');
+                                  message.warning(
+                                    t(
+                                      'annotationConfig.pipeline.validationWarning'
+                                    )
+                                  );
                                   throw new Error('validation');
                                 }
                                 setCreating(true);
@@ -940,11 +1088,11 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                                     await createServiceMutation.mutateAsync({
                                       name: name.trim(),
                                       uri: uri.trim(),
-                                      serviceType: slot,
+                                      serviceType: slot as string,
                                       description: '',
                                       token: token || '',
                                     });
-                                  await trpcContext.invalidateQueries([
+                                  await queryClient.invalidateQueries([
                                     'document.getServices',
                                   ]);
                                   if (inserted) {
@@ -955,15 +1103,20 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                                       serviceType: inserted.serviceType || slot,
                                     } as ServiceRecord);
                                     message.success(
-                                      'Service created & selected'
+                                      t(
+                                        'annotationConfig.pipeline.successMessage'
+                                      )
                                     );
                                   }
                                 } catch (err: any) {
                                   if ((err as Error).message !== 'validation') {
                                     message.error(
-                                      `Failed to create & select service: ${
-                                        err?.message || String(err)
-                                      }`
+                                      t(
+                                        'annotationConfig.messages.createFailed',
+                                        {
+                                          error: err?.message || String(err),
+                                        }
+                                      )
                                     );
                                   }
                                 } finally {
@@ -974,7 +1127,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                           }}
                           size="sm"
                         >
-                          Create & select
+                          {t('annotationConfig.pipeline.createSelectButton')}
                         </Button>
                       </div>
                     </div>
@@ -986,7 +1139,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         </Card>
 
         <Card variant="bordered" style={{ padding: 10 }}>
-          <Text b>Persisted selected configuration (preview)</Text>
+          <Text b>{t('annotationConfig.preview.title')}</Text>
           <Spacer y={0.5} />
           <div
             style={{
@@ -996,7 +1149,11 @@ export default function AnnotationConfigurationPage(): JSX.Element {
             }}
           >
             <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-              {JSON.stringify(selectedServices, null, 2)}
+              {JSON.stringify(
+                ensureCanonicalServices(selectedServices),
+                null,
+                2
+              )}
             </pre>
           </div>
         </Card>
@@ -1004,7 +1161,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         {/* Save Configuration Modal */}
         <Modal
           title={
-            currentConfigId ? 'Update Configuration' : 'Save New Configuration'
+            currentConfigId
+              ? t('annotationConfig.saveModal.updateTitle')
+              : t('annotationConfig.saveModal.saveTitle')
           }
           visible={showSaveModal}
           onOk={
@@ -1013,25 +1172,24 @@ export default function AnnotationConfigurationPage(): JSX.Element {
               : handleCreateNewConfiguration
           }
           onCancel={() => setShowSaveModal(false)}
-          okText={currentConfigId ? 'Update' : 'Create'}
+          okText={
+            currentConfigId ? t('annotationConfig.buttons.update') : 'Create'
+          }
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Text>Configuration Name:</Text>
+            <Text>{t('annotationConfig.saveModal.nameLabel')}</Text>
             <Input
               value={configName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setConfigName(e.target.value)
-              }
-              placeholder="Enter configuration name"
+              onChange={(e) => setConfigName(e.target.value)}
+              placeholder={t('annotationConfig.saveModal.namePlaceholder')}
             />
             {currentConfigId && (
               <Text small color="warning">
-                This will update the existing configuration &quot;
-                {
-                  configurations.find((c: any) => c._id === currentConfigId)
-                    ?.name
-                }
-                &quot;.
+                {t('annotationConfig.saveModal.updateNote', {
+                  name: configurations.find(
+                    (c: any) => c._id === currentConfigId
+                  )?.name,
+                })}
               </Text>
             )}
             {!currentConfigId && (
@@ -1048,14 +1206,15 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     htmlFor="setAsActive"
                     style={{ cursor: 'pointer', marginBottom: 0 }}
                   >
-                    <Text small>Set as active configuration</Text>
+                    <Text small>
+                      {t('annotationConfig.saveModal.setActiveLabel')}
+                    </Text>
                   </label>
                 </div>
                 <Text small color="primary">
-                  A new configuration will be created.
                   {setAsActive
-                    ? ' It will be set as active and used for annotation.'
-                    : ' You can activate it later from the dropdown.'}
+                    ? t('annotationConfig.saveModal.createNoteActive')
+                    : t('annotationConfig.saveModal.createNoteInactive')}
                 </Text>
               </>
             )}
@@ -1065,3 +1224,14 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     </div>
   );
 }
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  const locale = process.env.LOCALE || 'ita';
+  const localeObj = (await import(`@/translation/${locale}`)).default;
+
+  return {
+    props: {
+      locale: localeObj,
+    },
+  };
+};

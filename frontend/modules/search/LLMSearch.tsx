@@ -5,6 +5,9 @@ import { ChatPanel } from './ChatPanel';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Popover, Button as AntButton } from 'antd';
+import { ChatProvider } from '@/modules/chat/ChatProvider';
+import { useAtom } from 'jotai';
+import { persistedLLMSettingsAtom } from '@/atoms/llmSettings';
 
 type LLMSearchProps = {
   onClose: () => void;
@@ -13,6 +16,7 @@ type LLMSearchProps = {
 const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
   ({ onClose }, ref) => {
     const [devMode, setDevMode] = useState(false);
+    const [settings] = useAtom(persistedLLMSettingsAtom);
 
     const handleModeChange = (ev: SwitchEvent) => {
       setDevMode(ev.target.checked);
@@ -50,9 +54,12 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
               content={
                 <div>
                   <p>
-                    The LLM search module uses the Phi4-mini model with 8-bit
-                    quantization and a context size of ~20k tokens due to
-                    harware limitations.
+                    The model used for generation is:{' '}
+                    <strong>
+                      {settings?.useCustomSettings && settings.model
+                        ? settings.model
+                        : process.env.NEXT_PUBLIC_LLM_NAME || 'unknown'}
+                    </strong>
                   </p>
                 </div>
               }
@@ -77,7 +84,9 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
             </Button>
           </div>
         </div>
-        <ChatPanel devMode={devMode} />
+        <ChatProvider>
+          <ChatPanel devMode={devMode} />
+        </ChatProvider>
       </motion.div>
     );
   }

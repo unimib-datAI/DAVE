@@ -1,5 +1,5 @@
-import type { NextPage } from 'next';
-import { useState, useEffect } from 'react';
+import type { NextPage, GetServerSideProps } from 'next';
+import { useState, useEffect, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
 import styled from '@emotion/styled';
@@ -29,6 +29,7 @@ import {
 } from '@/atoms/collection';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { useQuery, useMutation } from '@/utils/trpc';
+import { useText } from '@/components/TranslationProvider';
 
 const Container = styled.div`
   max-width: 1200px;
@@ -97,7 +98,7 @@ const UserBadge = styled.div`
 `;
 
 interface User {
-  userId: string;
+  id: string;
   email: string;
   name?: string;
 }
@@ -117,25 +118,29 @@ const Collections: NextPage = () => {
     name: '',
     allowedUserIds: [] as string[],
   });
+
+  const t = useText('collections');
+
   useEffect(() => {
-    if (session) console.log('*** jwt ***', session.accessToken);
-  }, [session]);
-  useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (
+      status === 'unauthenticated' &&
+      process.env.NEXT_PUBLIC_USE_AUTH !== 'false'
+    ) {
       router.push('/sign-in');
     }
   }, [status, router]);
 
-  const token = session?.accessToken as string | undefined;
+  const token = (session as any)?.accessToken as string | undefined;
   const tokenAvailable =
     !!token && typeof token === 'string' && token.trim().length > 0;
+  const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
 
   const {
     data: collectionsData,
     isLoading: collectionsLoading,
     refetch: refetchCollections,
   } = useQuery(['collection.getAll', { token }], {
-    enabled: tokenAvailable,
+    enabled: tokenAvailable || authDisabled,
     onSuccess: (data) => {
       if (data) {
         setCollections(data);
@@ -144,7 +149,7 @@ const Collections: NextPage = () => {
   });
 
   const { data: usersData } = useQuery(['user.getAllUsers', { token }], {
-    enabled: tokenAvailable,
+    enabled: tokenAvailable || authDisabled,
     onSuccess: (data) => {
       if (data) {
         setUsers(data);
@@ -152,37 +157,62 @@ const Collections: NextPage = () => {
     },
   });
 
-  const createMutation = useMutation('collection.create', {
+  const createMutation = useMutation(['collection.create'], {
+    onMutate: (variables) => {
+      console.debug('[collection.create] onMutate', variables);
+    },
     onSuccess: () => {
       refetchCollections();
       setModalOpen(false);
       setFormData({ name: '', allowedUserIds: [] });
     },
+    onError: (err) => {
+      console.error('[collection.create] error', err);
+    },
   });
 
-  const updateMutation = useMutation('collection.update', {
+  const updateMutation = useMutation(['collection.update'], {
+    onMutate: (variables) => {
+      console.debug('[collection.update] onMutate', variables);
+    },
     onSuccess: () => {
       refetchCollections();
       setModalOpen(false);
       setFormData({ name: '', allowedUserIds: [] });
     },
+    onError: (err) => {
+      console.error('[collection.update] error', err);
+    },
   });
 
-  const deleteMutation = useMutation('collection.delete', {
+  const deleteMutation = useMutation(['collection.delete'], {
+    onMutate: (variables) => {
+      console.debug('[collection.delete] onMutate', variables);
+    },
     onSuccess: (result) => {
       refetchCollections();
       if (activeCollection?.id === result.collection.id) {
         setActiveCollection(null);
       }
     },
+    onError: (err) => {
+      console.error('[collection.delete] error', err);
+    },
   });
 
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [exportingCollectionId, setExportingCollectionId] = useState<
+    string | null
+  >(null);
+  const [exportJobId, setExportJobId] = useState<string | null>(null);
+  const [exportLogs, setExportLogs] = useState<string>('');
+  const [isExporting, setIsExporting] = useState(false);
 
+  // State and TRPC-driven download flow
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const { data: downloadData, isLoading: isDownloading } = useQuery(
     ['collection.download', { id: downloadingId || '', token }],
     {
-      enabled: !!downloadingId && tokenAvailable,
+      enabled: !!downloadingId && (tokenAvailable || authDisabled),
       onSuccess: (data) => {
         if (data) {
           const blob = new Blob(
@@ -201,6 +231,144 @@ const Collections: NextPage = () => {
     }
   );
 
+  const pollRef = useRef<number | null>(null);
+
+  const cleanupPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  const startExport = async (collectionId: string) => {
+    setExportLogs('');
+    setExportingCollectionId(collectionId);
+    setIsExporting(true);
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_DOCS_BASE_URL || ''}/api/export/start`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token && !authDisabled
+              ? { Authorization: `Bearer ${token}` }
+              : {}),
+          },
+          body: JSON.stringify({ collectionId }),
+        }
+      );
+      if (!res.ok) throw new Error('Failed to start export');
+      const data = await res.json();
+      const jobId = data.jobId;
+      setExportJobId(jobId);
+
+      // start polling for status and logs
+      pollRef.current = window.setInterval(async () => {
+        try {
+          const sRes = await fetch(`/api/export/${jobId}/status`, {
+            headers: { Authorization: token ? `Bearer ${token}` : '' },
+          });
+          if (!sRes.ok) throw new Error('Status fetch failed');
+          const sJson = await sRes.json();
+
+          // fetch logs for progress
+          const lRes = await fetch(`/api/export/${jobId}/logs?tail=4096`, {
+            headers: { Authorization: token ? `Bearer ${token}` : '' },
+          });
+          if (lRes.ok) {
+            const lJson = await lRes.json();
+            setExportLogs(lJson.logs || '');
+          }
+
+          if (sJson && sJson.status) {
+            if (sJson.status === 'completed') {
+              // final logs
+              try {
+                const lFinal = await fetch(
+                  `/api/export/${jobId}/logs?tail=8192`,
+                  {
+                    headers: { Authorization: token ? `Bearer ${token}` : '' },
+                  }
+                );
+                if (lFinal.ok) {
+                  const lj = await lFinal.json();
+                  setExportLogs(lj.logs || '');
+                }
+              } catch (e) {
+                console.warn('Failed to fetch final logs', e);
+              }
+
+              // download file
+              const dlRes = await fetch(`/api/export/${jobId}/download`, {
+                headers: { Authorization: token ? `Bearer ${token}` : '' },
+              });
+              if (!dlRes.ok) {
+                throw new Error('Download failed');
+              }
+              const blob = await dlRes.blob();
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              // attempt to parse filename from headers
+              const cd = dlRes.headers.get('Content-Disposition');
+              const filenameMatch = cd
+                ? cd.match(/filename=\"?([^\";]+)\"?/)
+                : null;
+              const filename = filenameMatch
+                ? filenameMatch[1]
+                : `collection_${collectionId}.zip`;
+              a.href = url;
+              a.download = filename;
+              a.click();
+              window.URL.revokeObjectURL(url);
+
+              cleanupPolling();
+              setExportingCollectionId(null);
+              setExportJobId(null);
+              setIsExporting(false);
+            } else if (sJson.status === 'failed') {
+              // final logs on failure
+              try {
+                const lFinal = await fetch(
+                  `/api/export/${jobId}/logs?tail=8192`,
+                  {
+                    headers: { Authorization: token ? `Bearer ${token}` : '' },
+                  }
+                );
+                if (lFinal.ok) {
+                  const lj = await lFinal.json();
+                  setExportLogs(lj.logs || '');
+                }
+              } catch (e) {
+                console.warn('Failed to fetch logs after failure', e);
+              }
+
+              cleanupPolling();
+              setIsExporting(false);
+              setExportingCollectionId(null);
+              setExportJobId(null);
+            }
+          }
+        } catch (err) {
+          console.error('Export polling error', err);
+          cleanupPolling();
+          setIsExporting(false);
+          setExportingCollectionId(null);
+          setExportJobId(null);
+        }
+      }, 2000);
+    } catch (err) {
+      console.error('Failed to start export', err);
+      setIsExporting(false);
+      setExportingCollectionId(null);
+    }
+  };
+
+  const handleDownload = (collection: Collection) => {
+    // Use TRPC-backed download flow: set downloadingId, the useQuery above will run
+    setDownloadingId(collection.id);
+  };
   useEffect(() => {
     setLoading(collectionsLoading);
   }, [collectionsLoading]);
@@ -221,32 +389,37 @@ const Collections: NextPage = () => {
   };
 
   const handleDelete = async (collectionId: string) => {
-    deleteMutation.mutate({
+    const payload = {
       id: collectionId,
-      token: session?.accessToken,
-    });
-  };
-
-  const handleDownload = (collection: Collection) => {
-    setDownloadingId(collection.id);
+      token: authDisabled ? undefined : token,
+    };
+    console.info('[collections] delete payload', payload);
+    deleteMutation.mutate(payload);
   };
 
   const handleSubmit = async () => {
-    if (!session?.accessToken || !formData.name.trim()) return;
+    // Require a name always
+    if (!formData.name.trim()) return;
+    // Allow creating collections when auth is disabled. Otherwise require a token.
+    if (!authDisabled && !token) return;
 
     if (editingCollection) {
-      updateMutation.mutate({
+      const payload = {
         id: editingCollection.id,
         name: formData.name,
         allowedUserIds: formData.allowedUserIds,
-        token: session.accessToken,
-      });
+        token: authDisabled ? undefined : token,
+      };
+      console.info('[collections] update payload', payload);
+      updateMutation.mutate(payload);
     } else {
-      createMutation.mutate({
+      const payload = {
         name: formData.name,
         allowedUserIds: formData.allowedUserIds,
-        token: session.accessToken,
-      });
+        token: authDisabled ? undefined : token,
+      };
+      console.info('[collections] create payload', payload);
+      createMutation.mutate(payload);
     }
   };
 
@@ -260,7 +433,7 @@ const Collections: NextPage = () => {
   };
 
   const getUserName = (userId: string) => {
-    const user = users.find((u) => u.userId === userId);
+    const user = users.find((u) => u.id === userId);
     return user?.name || user?.email || userId;
   };
 
@@ -278,18 +451,16 @@ const Collections: NextPage = () => {
     <ToolbarLayout>
       <Container>
         <Header>
-          <Text h2>Collections</Text>
+          <Text h2>{t('title')}</Text>
           <Button auto color="primary" icon={<FiPlus />} onPress={handleCreate}>
-            New Collection
+            {t('newCollection')}
           </Button>
         </Header>
 
         {collections.length === 0 ? (
           <Card>
             <Card.Body css={{ textAlign: 'center', padding: '40px' }}>
-              <Text color="$gray600">
-                No collections yet. Create your first one!
-              </Text>
+              <Text color="$gray600">{t('emptyState')}</Text>
             </Card.Body>
           </Card>
         ) : (
@@ -307,13 +478,13 @@ const Collections: NextPage = () => {
                     <Text h4 css={{ margin: 0 }}>
                       {collection.name}
                     </Text>
-                    {collection.ownerId === session?.user?.userId && (
+                    {collection.ownerId === (session?.user as any)?.userId && (
                       <Text
                         size={12}
                         color="$gray600"
                         css={{ marginTop: '4px' }}
                       >
-                        Owner
+                        {t('owner')}
                       </Text>
                     )}
                   </div>
@@ -323,12 +494,16 @@ const Collections: NextPage = () => {
                         e.stopPropagation();
                         handleDownload(collection);
                       }}
-                      title="Download"
+                      title={t('download')}
                       disabled={
-                        isDownloading && downloadingId === collection.id
+                        (isExporting &&
+                          exportingCollectionId === collection.id) ||
+                        (isDownloading && downloadingId === collection.id)
                       }
                     >
-                      {isDownloading && downloadingId === collection.id ? (
+                      {(isExporting &&
+                        exportingCollectionId === collection.id) ||
+                      (isDownloading && downloadingId === collection.id) ? (
                         <Loading size="xs" />
                       ) : (
                         <FiDownload size={18} />
@@ -339,27 +514,27 @@ const Collections: NextPage = () => {
                         e.stopPropagation();
                         handleEdit(collection);
                       }}
-                      title="Edit"
+                      title={t('edit')}
                     >
                       <EditIcon size={18} />
                     </IconBtn>
-                    {collection.ownerId === session?.user?.userId && (
+                    {collection.ownerId === (session?.user as any)?.userId && (
                       <Popconfirm
-                        title="Delete Collection"
-                        description="Are you sure you want to delete this collection?"
+                        title={t('deleteTitle')}
+                        description={t('deleteDescription')}
                         onConfirm={(e) => {
                           e?.stopPropagation();
                           handleDelete(collection.id);
                         }}
                         onCancel={(e) => e?.stopPropagation()}
-                        okText="Yes"
-                        cancelText="No"
+                        okText={t('yes')}
+                        cancelText={t('no')}
                       >
                         <IconBtn
                           onClick={(e) => {
                             e.stopPropagation();
                           }}
-                          title="Delete"
+                          title={t('delete')}
                           style={{ color: '#ef4444' }}
                         >
                           <TrashIcon size={18} />
@@ -377,7 +552,7 @@ const Collections: NextPage = () => {
                           color="$gray600"
                           css={{ marginBottom: '8px' }}
                         >
-                          Shared with:
+                          {t('sharedWith')}
                         </Text>
                         <div
                           style={{
@@ -409,14 +584,14 @@ const Collections: NextPage = () => {
         >
           <Modal.Header>
             <Text h3>
-              {editingCollection ? 'Edit Collection' : 'New Collection'}
+              {editingCollection ? t('editModalTitle') : t('newModalTitle')}
             </Text>
           </Modal.Header>
           <Modal.Body>
             <Input
               fullWidth
-              label="Collection Name"
-              placeholder="Enter collection name"
+              label={t('collectionNameLabel')}
+              placeholder={t('collectionNamePlaceholder')}
               value={formData.name}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, name: e.target.value }))
@@ -424,7 +599,7 @@ const Collections: NextPage = () => {
             />
             <Spacer y={1} />
             <Text size={14} weight="medium">
-              Share with users:
+              {t('shareWithUsers')}
             </Text>
             <Spacer y={0.5} />
             <div
@@ -437,10 +612,10 @@ const Collections: NextPage = () => {
               }}
             >
               {users
-                .filter((user) => user.userId !== session?.user?.userId)
+                .filter((user) => user.id !== (session as any)?.user?.userId)
                 .map((user) => (
                   <label
-                    key={user.userId}
+                    key={user.id}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -458,8 +633,8 @@ const Collections: NextPage = () => {
                   >
                     <input
                       type="checkbox"
-                      checked={formData.allowedUserIds.includes(user.userId)}
-                      onChange={() => toggleUser(user.userId)}
+                      checked={formData.allowedUserIds.includes(user.id)}
+                      onChange={() => toggleUser(user.id)}
                       style={{ marginRight: '12px' }}
                     />
                     <div>
@@ -476,7 +651,7 @@ const Collections: NextPage = () => {
           </Modal.Body>
           <Modal.Footer>
             <Button auto flat onPress={() => setModalOpen(false)}>
-              Cancel
+              {t('cancel')}
             </Button>
             <Button
               auto
@@ -484,13 +659,25 @@ const Collections: NextPage = () => {
               onPress={handleSubmit}
               disabled={createMutation.isLoading || updateMutation.isLoading}
             >
-              {editingCollection ? 'Update' : 'Create'}
+              {editingCollection ? t('update') : t('create')}
             </Button>
           </Modal.Footer>
         </Modal>
       </Container>
     </ToolbarLayout>
   );
+};
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  const localeMap: { [key: string]: string } = { en: 'eng', ita: 'ita' };
+  const locale = localeMap[process.env.LOCALE || 'ita'] || 'ita';
+  const localeObj = (await import(`../../translation/${locale}`)).default;
+
+  return {
+    props: {
+      locale: localeObj,
+    },
+  };
 };
 
 export default Collections;

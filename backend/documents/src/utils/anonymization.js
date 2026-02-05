@@ -25,27 +25,38 @@ async function makeEncryptionRequest(valueToEncrypt) {
   }
 }
 
-export async function makeDecryptionRequest(valueToDecrypt) {
-  try {
-    const res = await axios({
-      method: "post",
-      url: `${endpoint}/transit/decrypt`,
-      headers: {
-        "Content-Type": "application/json",
-      },
-      data: {
-        fieldToDecrypt: valueToDecrypt,
-      },
-    });
-    return res.data;
-  } catch (error) {
-    console.error("Error decrypting value:", valueToDecrypt, error);
-    return {
-      fieldToDecrypt: valueToDecrypt,
-      decryptedData: null,
-      error: error.message,
-    };
+export async function makeDecryptionRequest(valueToDecrypt, retries = 3) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await axios.post(
+        `${endpoint}/transit/decrypt`,
+        { fieldToDecrypt: valueToDecrypt },
+        {
+          headers: { "Content-Type": "application/json" },
+        },
+      );
+
+      return res.data;
+    } catch (error) {
+      lastError = error;
+      console.error(
+        `Decrypt attempt ${attempt} failed for value:`,
+        valueToDecrypt,
+        error.message,
+      );
+
+      // If this was the last attempt, fall through
+      if (attempt === retries) break;
+    }
   }
+
+  return {
+    fieldToDecrypt: valueToDecrypt,
+    decryptedData: null,
+    error: lastError?.message ?? "Unknown error",
+  };
 }
 
 /**
@@ -84,6 +95,7 @@ function replaceSubstring(str, start, end, replacement) {
  * - Adjusts subsequent annotations correctly ACROSS ALL ANNOTATION SETS.
  */
 export async function decode(doc) {
+  // const result = doc.features?.clusters.find((item) => item.title.startsWith());
   if (!doc || typeof doc !== "object") {
     throw new TypeError("decode: doc must be an object");
   }
@@ -100,10 +112,13 @@ export async function decode(doc) {
     return doc;
   }
 
-  // First, decrypt all cluster titles
+  // First, decrypt all cluster titles (unchanged behaviour)
   for (const clusterAnnSet of Object.keys(doc.features.clusters)) {
     for (let i = 0; i < doc.features.clusters[clusterAnnSet].length; i++) {
       const cluster = doc.features.clusters[clusterAnnSet][i];
+      if (cluster.title.includes("O0wBZ")) {
+        console.log("IL BASTARDO", cluster);
+      }
       const encryptedTitle = cluster.title;
       const result = await makeDecryptionRequest(encryptedTitle);
       if (result?.decryptedData) {
@@ -112,8 +127,7 @@ export async function decode(doc) {
     }
   }
 
-  // Helper function to shift all annotations that start at or after a given position
-  // This is critical to prevent index mismatches across annotation sets
+  // Helper: shift all annotations starting at or after fromPosition by delta.
   function shiftAllAnnotations(fromPosition, delta) {
     for (const annsetName of Object.keys(doc.annotation_sets)) {
       const anns = doc.annotation_sets[annsetName].annotations ?? [];
@@ -129,83 +143,109 @@ export async function decode(doc) {
     }
   }
 
+  // Build a global list of annotations across all annotation sets and sort by start.
+  const globalAnns = [];
   for (const annsetName of Object.keys(doc.annotation_sets)) {
     const anns = doc.annotation_sets[annsetName].annotations ?? [];
-    // Sort annotations by start position to ensure correct shifting
-    anns.sort((a, b) => a.start - b.start);
-
-    // Track the last processed end position to detect overlapping annotations
-    let lastProcessedEnd = -1;
-
-    // Walk annotations by index so we can update subsequent annotations safely
-    for (let i = 0; i < anns.length; i++) {
-      const annotation = anns[i];
-      if (
-        !Number.isInteger(annotation.start) ||
-        !Number.isInteger(annotation.end) ||
-        annotation.start < 0 ||
-        annotation.end < annotation.start
-      ) {
-        // skip malformed annotation
-
-        continue;
-      }
-
-      // Skip overlapping annotations - if this annotation starts before the last one ended,
-      // it means it overlaps and would cause boundary corruption
-      if (annotation.start < lastProcessedEnd) {
-        continue;
-      }
-
-      const extracted = getAnnotationDisplayText(
-        annotation.start,
-        annotation.end,
-        doc.text,
-      );
-
-      // Use originalKey instead of encryptionKey
-      const originalKey = annotation.originalKey;
-
-      const result = originalKey
-        ? await makeDecryptionRequest(originalKey)
-        : null;
-      const deAnonymized = result?.decryptedData;
-
-      if (typeof deAnonymized !== "string") {
-        // Log detailed diagnostic information
-        console.error(
-          `[DECODE] FAILED to decrypt! annset=${annsetName} index=${i} start=${annotation.start} end=${annotation.end} extracted='${extracted.substring(0, 30)}' hasOriginalKey=${!!originalKey}`,
-        );
-        // Skip replacement; do not mutate doc.text or annotation indexes for this entry.
-        continue;
-      }
-
-      const originalStart = annotation.start;
-      const originalEnd = annotation.end; // exclusive
-      const oldLen = originalEnd - originalStart;
-      const newLen = deAnonymized.length;
-      const delta = newLen - oldLen;
-
-      // Replace the substring in the document text with the decrypted mention text
-      doc.text = replaceSubstring(
-        doc.text,
-        originalStart,
-        originalEnd,
-        deAnonymized,
-      );
-
-      // Update the current annotation. Because `end` is exclusive:
-      annotation.end = originalStart + newLen;
-
-      // If length changed, shift ALL annotations across ALL sets that come after originalEnd
-      // This fixes the index mismatch bug where annotations in other sets were not shifted
-      if (delta !== 0) {
-        shiftAllAnnotations(originalEnd, delta);
-      }
-
-      // Update last processed end position
-      lastProcessedEnd = annotation.end;
+    for (let idx = 0; idx < anns.length; idx++) {
+      globalAnns.push({ annsetName, annotation: anns[idx] });
     }
+  }
+  globalAnns.sort(
+    (a, b) => (a.annotation.start || 0) - (b.annotation.start || 0),
+  );
+
+  let lastProcessedEnd = -1;
+
+  for (let i = 0; i < globalAnns.length; i++) {
+    const { annsetName, annotation } = globalAnns[i];
+
+    // Validate annotation indexes
+    if (
+      !Number.isInteger(annotation.start) ||
+      !Number.isInteger(annotation.end) ||
+      annotation.start < 0 ||
+      annotation.end <= annotation.start
+    ) {
+      console.log(
+        `[DECODE] skipping malformed annotation annset=${annsetName} idx=${i}`,
+      );
+      continue;
+    }
+
+    // If this annotation overlaps a previously processed one, skip it.
+    if (annotation.start < lastProcessedEnd) {
+      console.log(
+        `[DECODE] skipping overlapping annotation annset=${annsetName} start=${annotation.start} < lastProcessedEnd=${lastProcessedEnd}`,
+      );
+      continue;
+    }
+
+    const extracted = getAnnotationDisplayText(
+      annotation.start,
+      annotation.end,
+      doc.text,
+    );
+
+    // Use ONLY `annotation.originalKey` as the single source of truth for decryption.
+    // Do not attempt to extract tokens from other fields or from the document text.
+    const originalKey = annotation.originalKey;
+    if (!originalKey || typeof originalKey !== "string") {
+      console.error(
+        `[DECODE] missing originalKey for annset=${annsetName} idx=${i} start=${annotation.start} end=${annotation.end}`,
+      );
+      // Do not attempt fallback decryption; leave the annotation as-is.
+      continue;
+    }
+
+    console.log(
+      `[DECODE] annset=${annsetName} idx=${i} using originalKey='${String(originalKey).slice(0, 120)}'`,
+    );
+
+    let deAnonymized = null;
+    if (originalKey.startsWith("vault:")) {
+      const result = await makeDecryptionRequest(originalKey);
+      if (result?.decryptedData && typeof result.decryptedData === "string") {
+        deAnonymized = result.decryptedData;
+      } else {
+        console.error(
+          `[DECODE] Vault failed to decrypt for annset=${annsetName} idx=${i} key='${String(originalKey).slice(0, 120)}' result=${JSON.stringify(result)}`,
+        );
+        continue;
+      }
+    } else {
+      // originalKey is not a vault token; treat it as plaintext (this handles any legacy cases
+      // where the originalKey was stored as plaintext). We still use only this field.
+      deAnonymized = originalKey;
+    }
+
+    if (!annotation.features) annotation.features = {};
+    annotation.features.mention = deAnonymized;
+
+    const originalStart = annotation.start;
+    const originalEnd = annotation.end; // exclusive (current positions)
+    const oldLen = originalEnd - originalStart;
+    const newLen = deAnonymized.length;
+    const delta = newLen - oldLen;
+
+    // Replace the substring in the document text with the decrypted mention text
+    doc.text = replaceSubstring(
+      doc.text,
+      originalStart,
+      originalEnd,
+      deAnonymized,
+    );
+
+    // Update the current annotation end (exclusive)
+    annotation.end = originalStart + newLen;
+
+    // Shift ALL annotations across ALL sets that start at or after originalEnd
+    if (delta !== 0) {
+      shiftAllAnnotations(originalEnd, delta);
+    }
+
+    // Mark last processed end
+    lastProcessedEnd = annotation.end;
   }
 
   if (typeof doc.name === "string") {
@@ -223,7 +263,7 @@ export async function decode(doc) {
  * - Encrypts using API.
  * - Adjusts subsequent annotations correctly ACROSS ALL ANNOTATION SETS.
  */
-export async function encode(doc) {
+export async function encode(doc, anonymizeTypes = null) {
   if (!doc || typeof doc !== "object") {
     throw new TypeError("encode: doc must be an object");
   }
@@ -246,20 +286,22 @@ export async function encode(doc) {
     encryptedTitles[clusterAnnSet] = [];
     for (let i = 0; i < doc.features.clusters[clusterAnnSet].length; i++) {
       const cluster = doc.features.clusters[clusterAnnSet][i];
-      const originalTitle = cluster.title;
-      const result = await makeEncryptionRequest(originalTitle);
-      const encryptedTitle = result.vaultKey || originalTitle;
+      if (anonymizeTypes.includes(cluster.type)) {
+        const originalTitle = cluster.title;
+        const result = await makeEncryptionRequest(originalTitle);
+        const encryptedTitle = result.vaultKey || originalTitle;
 
-      // Update cluster title with encrypted version
-      cluster.title = encryptedTitle;
-      encryptedTitles[clusterAnnSet][i] = encryptedTitle;
+        // Update cluster title with encrypted version
+        cluster.title = encryptedTitle;
+        encryptedTitles[clusterAnnSet][i] = encryptedTitle;
 
-      // For each mention in this cluster, encrypt and store in originalKey
-      if (cluster.mentions) {
-        for (const mention of cluster.mentions) {
-          if (mention.text) {
-            const mentionResult = await makeEncryptionRequest(mention.text);
-            mention.originalKey = mentionResult.vaultKey || mention.text;
+        // For each mention in this cluster, encrypt and store in originalKey
+        if (cluster.mentions) {
+          for (const mention of cluster.mentions) {
+            if (mention.text) {
+              const mentionResult = await makeEncryptionRequest(mention.text);
+              mention.originalKey = mentionResult.vaultKey || mention.text;
+            }
           }
         }
       }
@@ -283,122 +325,147 @@ export async function encode(doc) {
     }
   }
 
+  // Process annotations in global document order to keep encode/decode symmetric
+  // Build a global list of annotations across all annotation sets and sort by start.
+  const globalAnns = [];
   for (const annsetName of Object.keys(doc.annotation_sets)) {
     const anns = doc.annotation_sets[annsetName].annotations ?? [];
-    // Sort annotations by start position to ensure correct shifting
-    anns.sort((a, b) => a.start - b.start);
-    console.log(
-      `[ENCODE] Processing annotation set: ${annsetName}, count: ${anns.length}`,
+    for (let idx = 0; idx < anns.length; idx++) {
+      globalAnns.push({ annsetName, annotation: anns[idx] });
+    }
+  }
+  globalAnns.sort(
+    (a, b) => (a.annotation.start || 0) - (b.annotation.start || 0),
+  );
+
+  // Track the last processed end to avoid overlapping replacements
+  let lastProcessedEnd = -1;
+
+  for (let i = 0; i < globalAnns.length; i++) {
+    const { annsetName, annotation } = globalAnns[i];
+
+    // Skip annotation if anonymizeTypes is provided and type is not in the list
+    if (anonymizeTypes && !anonymizeTypes.includes(annotation.type)) {
+      console.log(
+        `[ENCODE] Skipping annotation type '${annotation.type}' not in anonymizeTypes list`,
+      );
+      continue;
+    }
+
+    // Validate annotation indexes
+    if (
+      !Number.isInteger(annotation.start) ||
+      !Number.isInteger(annotation.end) ||
+      annotation.start < 0 ||
+      annotation.end < annotation.start
+    ) {
+      console.warn(
+        `[ENCODE] Skipping malformed annotation annset=${annsetName} idx=${i}`,
+      );
+      continue;
+    }
+
+    // Skip overlapping annotations - keep behavior consistent with decode
+    if (annotation.start < lastProcessedEnd) {
+      console.warn(
+        `[ENCODE] Skipping overlapping annotation annset=${annsetName} start=${annotation.start} < lastProcessedEnd=${lastProcessedEnd}`,
+      );
+      continue;
+    }
+
+    const text = getAnnotationDisplayText(
+      annotation.start,
+      annotation.end,
+      doc.text,
     );
 
-    // Track the last processed end position to detect overlapping annotations
-    let lastProcessedEnd = -1;
+    console.log(`[ENCODE] Ann ${i}/${globalAnns.length} in ${annsetName}:`);
+    console.log(
+      `  Position: ${annotation.start}-${annotation.end} (len=${annotation.end - annotation.start})`,
+    );
+    console.log(
+      `  Extracted: "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`,
+    );
 
-    for (let i = 0; i < anns.length; i++) {
-      const annotation = anns[i];
-      if (
-        !Number.isInteger(annotation.start) ||
-        !Number.isInteger(annotation.end) ||
-        annotation.start < 0 ||
-        annotation.end < annotation.start
-      ) {
-        console.warn(
-          `[ENCODE] Skipping malformed annotation ${i} in ${annsetName}`,
-        );
-        continue;
-      }
-
-      // Skip overlapping annotations - if this annotation starts before the last one ended,
-      // it means it overlaps and would cause boundary corruption
-      if (annotation.start < lastProcessedEnd) {
-        console.warn(
-          `[ENCODE] Skipping overlapping annotation ${i} in ${annsetName}: start=${annotation.start} < lastProcessedEnd=${lastProcessedEnd}`,
-        );
-        continue;
-      }
-
-      const text = getAnnotationDisplayText(
-        annotation.start,
-        annotation.end,
-        doc.text,
-      );
-
-      console.log(`[ENCODE] Ann ${i}/${anns.length} in ${annsetName}:`);
-      console.log(
-        `  Position: ${annotation.start}-${annotation.end} (len=${annotation.end - annotation.start})`,
-      );
-      console.log(
-        `  Extracted: "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`,
-      );
-
-      // Find the cluster that contains this annotation's ID in its mentions
-      let clusterIndex = -1;
-      const annotationId = annotation.id;
-      if (doc.features.clusters[annsetName]) {
-        for (let j = 0; j < doc.features.clusters[annsetName].length; j++) {
-          const cluster = doc.features.clusters[annsetName][j];
-          if (
-            cluster.mentions &&
-            cluster.mentions.some((mention) => mention.id === annotationId)
-          ) {
-            clusterIndex = j;
-            break;
-          }
+    // Find the cluster that contains this annotation's ID in its mentions
+    let clusterIndex = -1;
+    const annotationId = annotation.id;
+    if (doc.features.clusters[annsetName]) {
+      for (let j = 0; j < doc.features.clusters[annsetName].length; j++) {
+        const cluster = doc.features.clusters[annsetName][j];
+        if (
+          cluster.mentions &&
+          cluster.mentions.some((mention) => mention.id === annotationId)
+        ) {
+          clusterIndex = j;
+          break;
         }
       }
-
-      // Get the encrypted version of the mention text and store in originalKey
-      const result = await makeEncryptionRequest(text);
-      const encryptedMention = result.vaultKey || text;
-      annotation.originalKey = encryptedMention;
-
-      console.log(
-        `  Encrypted mention: "${encryptedMention.substring(0, 50)}${encryptedMention.length > 50 ? "..." : ""}"`,
-      );
-      console.log(`  Cluster index: ${clusterIndex}`);
-
-      // Use the encrypted cluster title as replacement text
-      const replacement =
-        (clusterIndex >= 0 &&
-          encryptedTitles[annsetName] &&
-          encryptedTitles[annsetName][clusterIndex]) ||
-        encryptedMention;
-
-      console.log(
-        `  Replacement (cluster title or mention): "${replacement.substring(0, 50)}${replacement.length > 50 ? "..." : ""}"`,
-      );
-
-      const originalStart = annotation.start;
-      const originalEnd = annotation.end; // exclusive
-      const oldLen = originalEnd - originalStart;
-      const newLen = replacement.length;
-      const delta = newLen - oldLen;
-
-      console.log(`  Delta: ${delta} (old=${oldLen}, new=${newLen})`);
-
-      // Replace the substring
-      doc.text = replaceSubstring(
-        doc.text,
-        originalStart,
-        originalEnd,
-        replacement,
-      );
-
-      // Update the current annotation end (exclusive)
-      annotation.end = originalStart + newLen;
-
-      // Shift ALL annotations across ALL sets that start at or after originalEnd
-      // This fixes the index mismatch bug where annotations in other sets were not shifted
-      if (delta !== 0) {
-        console.log(
-          `  Shifting all annotations starting >= ${originalEnd} by ${delta}`,
-        );
-        shiftAllAnnotations(originalEnd, delta);
-      }
-
-      // Update last processed end position
-      lastProcessedEnd = annotation.end;
     }
+
+    // Get the encrypted version of the mention text and store in originalKey
+    const encResult = await makeEncryptionRequest(text);
+    const encryptedMention = encResult.vaultKey || text;
+    annotation.originalKey = encryptedMention;
+
+    // Ensure annotation.features exists. Do NOT write the encrypted key into features.mention;
+    // `annotation.originalKey` is the single source of truth for the encrypted mention.
+    if (!annotation.features) annotation.features = {};
+
+    // Anonymize the title for linked entities if present (unchanged behaviour)
+    if (annotation.features.title) {
+      const titleResult = await makeEncryptionRequest(
+        annotation.features.title,
+      );
+      annotation.features.title =
+        titleResult.vaultKey || annotation.features.title;
+    }
+
+    console.log(
+      `  Encrypted mention: "${encryptedMention.substring(0, 50)}${encryptedMention.length > 50 ? "..." : ""}"`,
+    );
+    console.log(`  Cluster index: ${clusterIndex}`);
+
+    // Use the encrypted cluster title as replacement text when applicable
+    const replacement =
+      (clusterIndex >= 0 &&
+        encryptedTitles[annsetName] &&
+        encryptedTitles[annsetName][clusterIndex]) ||
+      encryptedMention;
+
+    console.log(
+      `  Replacement (cluster title or mention): "${replacement.substring(0, 50)}${replacement.length > 50 ? "..." : ""}"`,
+    );
+
+    const originalStart = annotation.start;
+    const originalEnd = annotation.end; // exclusive
+    const oldLen = originalEnd - originalStart;
+    const newLen = replacement.length;
+    const delta = newLen - oldLen;
+
+    console.log(`  Delta: ${delta} (old=${oldLen}, new=${newLen})`);
+
+    // Replace the substring in the canonical doc.text using exclusive end
+    doc.text = replaceSubstring(
+      doc.text,
+      originalStart,
+      originalEnd,
+      replacement,
+    );
+
+    // Update the annotation end (exclusive)
+    annotation.end = originalStart + newLen;
+
+    // Shift ALL annotations across ALL sets that start at or after originalEnd
+    if (delta !== 0) {
+      console.log(
+        `  Shifting all annotations starting >= ${originalEnd} by ${delta}`,
+      );
+      shiftAllAnnotations(originalEnd, delta);
+    }
+
+    // Update last processed end position
+    lastProcessedEnd = annotation.end;
   }
 
   if (typeof doc.name === "string") {
@@ -414,9 +481,13 @@ export async function encode(doc) {
 /**
  * Convenience wrapper used by external code
  */
-export async function processDocument(doc, toEncode = true) {
+export async function processDocument(
+  doc,
+  toEncode = true,
+  anonymizeTypes = null,
+) {
   try {
-    return toEncode ? await encode(doc) : await decode(doc);
+    return toEncode ? await encode(doc, anonymizeTypes) : await decode(doc);
   } catch (error) {
     console.error("Error processing document:", error);
     throw error;

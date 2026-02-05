@@ -60,11 +60,11 @@ const actionGroups: ActionGroups[] = [
       action: 'add',
       label: 'leftSidebar.actionsTooltips.add',
     },
-    {
-      Icon: <FiTrash2 />,
-      action: 'delete',
-      label: 'leftSidebar.actionsTooltips.delete',
-    },
+    // {
+    //   Icon: <FiTrash2 />,
+    //   action: 'delete',
+    //   label: 'leftSidebar.actionsTooltips.delete',
+    // },
   ],
   [
     {

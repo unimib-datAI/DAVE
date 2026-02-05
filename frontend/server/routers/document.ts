@@ -89,12 +89,15 @@ const getDocumentById = async (
   deAnonimize?: boolean
 ): Promise<Document> => {
   try {
+    const headers: any = {};
+    const authHeader = getAuthHeader();
+    if (authHeader) {
+      headers.Authorization = authHeader;
+    }
     const document = await fetchJson<any, Document>(
       `${baseURL}/document/${id}/${deAnonimize ?? false}`,
       {
-        headers: {
-          Authorization: getAuthHeader(),
-        },
+        headers,
       }
     );
     console.log('*** current document text ***', document.text);
@@ -136,12 +139,15 @@ const getDocuments = async (
     'documents',
     `${baseURL}/document?q=${q}&page=${cursor}&limit=${limit}`
   );
+  const headers: any = {};
+  const authHeader = getAuthHeader();
+  if (authHeader) {
+    headers.Authorization = authHeader;
+  }
   const res = await fetchJson<any, GetPaginatedDocuments>(
     `${baseURL}/document?q=${q}&page=${cursor}&limit=${limit}`,
     {
-      headers: {
-        Authorization: getAuthHeader(),
-      },
+      headers,
     }
   );
   return res;
@@ -162,13 +168,16 @@ const moveEntitiesToCluster = async (
   destinationCluster: number
 ) => {
   try {
+    const headers: any = {};
+    const authHeader = getAuthHeader();
+    if (authHeader) {
+      headers.Authorization = authHeader;
+    }
     let res = fetchJson<any, Document>(
       `${baseURL}/document/${id}/move-entities`,
       {
         method: 'POST',
-        headers: {
-          Authorization: getAuthHeader(),
-        },
+        headers,
         body: {
           entities: entities,
           annotationSet: annotationSet,
@@ -221,12 +230,15 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       try {
         const { token } = input;
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any[]>(
           `${baseURL}/document/services`,
           {
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -249,14 +261,18 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       const { token, ...body } = input;
       try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any>(
           `${baseURL}/document/services`,
           {
             method: 'POST',
-            headers: {
-              Authorization: getJWTHeader(token),
-              'Content-Type': 'application/json',
-            },
+            headers,
             body,
           }
         );
@@ -282,14 +298,18 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       const { token, id, ...body } = input;
       try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any>(
           `${baseURL}/document/services/${id}`,
           {
             method: 'PUT',
-            headers: {
-              Authorization: getJWTHeader(token),
-              'Content-Type': 'application/json',
-            },
+            headers,
             body,
           }
         );
@@ -310,13 +330,16 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       const { id, token } = input;
       try {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any>(
           `${baseURL}/document/services/${id}`,
           {
             method: 'DELETE',
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -336,12 +359,15 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       try {
         const { token } = input;
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any[]>(
           `${baseURL}/document/configurations`,
           {
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -360,12 +386,15 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       try {
         const { token } = input;
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any>(
           `${baseURL}/document/configurations/active`,
           {
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -394,14 +423,18 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       const { token, ...body } = input;
       try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any>(
           `${baseURL}/document/configurations`,
           {
             method: 'POST',
-            headers: {
-              Authorization: getJWTHeader(token),
-              'Content-Type': 'application/json',
-            },
+            headers,
             body,
           }
         );
@@ -425,14 +458,18 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       const { token, id, ...body } = input;
       try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any>(
           `${baseURL}/document/configurations/${id}`,
           {
             method: 'PUT',
-            headers: {
-              Authorization: getJWTHeader(token),
-              'Content-Type': 'application/json',
-            },
+            headers,
             body,
           }
         );
@@ -453,13 +490,16 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       const { id, token } = input;
       try {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any>(
           `${baseURL}/document/configurations/${id}`,
           {
             method: 'DELETE',
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -479,13 +519,16 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       const { id, token } = input;
       try {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any>(
           `${baseURL}/document/configurations/${id}/activate`,
           {
             method: 'POST',
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
+            headers,
           }
         );
         return result;
@@ -524,13 +567,16 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       const { docId } = input;
       try {
+        const headers: any = {};
+        const authHeader = getAuthHeader();
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         return fetchJson<any, AnnotationSet<EntityAnnotation>[]>(
           `${baseURL}/document/${docId}`,
           {
             method: 'DELETE',
-            headers: {
-              Authorization: getAuthHeader(),
-            },
+            headers,
             body: {
               elasticIndex: process.env.ELASTIC_INDEX,
             },
@@ -553,13 +599,16 @@ export const documents = createRouter()
     }),
     resolve: async ({ input }) => {
       const { docId, annotationSetId } = input;
+      const headers: any = {};
+      const authHeader = getAuthHeader();
+      if (authHeader) {
+        headers.Authorization = authHeader;
+      }
       return fetchJson<any, AnnotationSet<EntityAnnotation>[]>(
         `${baseURL}/document/${docId}/annotation-set/${annotationSetId}`,
         {
           method: 'DELETE',
-          headers: {
-            Authorization: getAuthHeader(),
-          },
+          headers,
         }
       );
     },
@@ -576,6 +625,7 @@ export const documents = createRouter()
     }),
     resolve: async ({ input }) => {
       const { docId, annotationSets, features } = input;
+      const elasticIndex = process.env.ELASTIC_INDEX;
       try {
         // Create an abort controller for timeout handling
         const abortController = new AbortController();
@@ -583,18 +633,23 @@ export const documents = createRouter()
 
         console.log('Saving annotations for document:', docId);
         console.log('Features being saved:', features);
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getAuthHeader();
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, AnnotationSet<EntityAnnotation>[]>(
           `${baseURL}/save`,
           {
             method: 'POST',
-            headers: {
-              Authorization: getAuthHeader(),
-              'Content-Type': 'application/json',
-            },
+            headers,
             body: {
               docId,
               annotationSets,
               features,
+              elasticIndex,
             },
             signal: abortController.signal,
           }
@@ -649,23 +704,34 @@ export const documents = createRouter()
         offset_type: z.string().optional(),
       }),
       collectionId: z.string(),
-      token: z.string(),
+      token: z.string().optional(),
+      toAnonymize: z.boolean(),
+      anonymizeTypes: z.array(z.string()).optional(),
     }),
     resolve: async ({ input }) => {
-      const { document, collectionId, token } = input;
+      const { document, collectionId, token, toAnonymize, anonymizeTypes } =
+        input;
+      // Ensure downstream always has a string token; when auth is disabled or token not provided, use empty string
+      const tokenForApi = token ?? '';
       const elasticIndex = process.env.ELASTIC_INDEX;
 
       try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(tokenForApi);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any>(`${baseURL}/document`, {
           method: 'POST',
-          headers: {
-            Authorization: getJWTHeader(token),
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: {
             ...document,
             collectionId,
             elasticIndex,
+            toAnonymize,
+            anonymizeTypes,
           },
           timeout: 600000,
         });
@@ -690,15 +756,19 @@ export const documents = createRouter()
       const { key } = input;
 
       try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getAuthHeader();
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<
           any,
           { key: string; value: string } | { error: string; key: string }
         >(`${baseURL}/document/deanonymize-key`, {
           method: 'POST',
-          headers: {
-            Authorization: getAuthHeader(),
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: {
             key,
           },
@@ -737,15 +807,19 @@ export const documents = createRouter()
         // Call the endpoint for each key and collect results
         const results = await Promise.allSettled(
           keys.map(async (key) => {
+            const headers: any = {
+              'Content-Type': 'application/json',
+            };
+            const authHeader = getAuthHeader();
+            if (authHeader) {
+              headers.Authorization = authHeader;
+            }
             const result = await fetchJson<
               any,
               { key: string; value: string } | { error: string; key: string }
             >(`${baseURL}/document/deanonymize-key`, {
               method: 'POST',
-              headers: {
-                Authorization: getAuthHeader(),
-                'Content-Type': 'application/json',
-              },
+              headers,
               body: {
                 key,
               },
@@ -783,11 +857,24 @@ export const documents = createRouter()
       text: z.string(),
       collectionId: z.string(),
       name: z.string().optional(),
-      token: z.string(),
+      token: z.string().optional(),
       configurationId: z.string().optional(),
+      toAnonymize: z.boolean(),
+      anonymizeTypes: z.array(z.string()).optional(),
     }),
     resolve: async ({ input }) => {
-      const { text, name, collectionId, token, configurationId } = input;
+      const {
+        text,
+        name,
+        collectionId,
+        token,
+        configurationId,
+        toAnonymize,
+        anonymizeTypes,
+      } = input;
+
+      // Ensure downstream always has a string token; when auth is disabled or token not provided, use empty string
+      const tokenForApi = token ?? '';
 
       // Fetch configuration from database - either specified or active
       let selectedServices: Record<string, any> | undefined;
@@ -796,23 +883,29 @@ export const documents = createRouter()
 
         if (configurationId) {
           // Fetch specific configuration by ID
+          const headers: any = {};
+          const authHeader = getJWTHeader(tokenForApi);
+          if (authHeader) {
+            headers.Authorization = authHeader;
+          }
           const allConfigs = await fetchJson<any, any[]>(
             `${baseURL}/document/configurations`,
             {
-              headers: {
-                Authorization: getJWTHeader(token),
-              },
+              headers,
             }
           );
           configToUse = allConfigs.find((c: any) => c._id === configurationId);
         } else {
           // Fetch active configuration
+          const headers: any = {};
+          const authHeader = getJWTHeader(tokenForApi);
+          if (authHeader) {
+            headers.Authorization = authHeader;
+          }
           configToUse = await fetchJson<any, any>(
             `${baseURL}/document/configurations/active`,
             {
-              headers: {
-                Authorization: getJWTHeader(token),
-              },
+              headers,
             }
           );
         }
@@ -874,6 +967,11 @@ export const documents = createRouter()
       // Map pipeline slots to concrete service URLs (use selected services when provided, else env/default)
       const spacynerURL = resolveUrlForSlot('NER', defaultSpacyner);
       const blinkURL = resolveUrlForSlot('NEL', defaultBlink);
+      const resolvedIndexerURL = resolveUrlForSlot('INDEXER', indexerURL);
+      const resolvedNilPredictionURL = resolveUrlForSlot(
+        'NILPREDICTION',
+        nilpredictionURL
+      );
       const nilclusterURL = resolveUrlForSlot('CLUSTERING', defaultNilcluster);
       const consolidationURL = resolveUrlForSlot(
         'CONSOLIDATION',
@@ -913,7 +1011,7 @@ export const documents = createRouter()
 
         console.log('Step 3: Calling indexer search...');
         // Step 4: Indexer search
-        const indexerRes = await fetchJson<any, any>(indexerURL, {
+        const indexerRes = await fetchJson<any, any>(resolvedIndexerURL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -924,7 +1022,7 @@ export const documents = createRouter()
 
         console.log('Step 4: Calling nilprediction...');
         // Step 5: NIL prediction
-        const nilRes = await fetchJson<any, any>(nilpredictionURL, {
+        const nilRes = await fetchJson<any, any>(resolvedNilPredictionURL, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -972,7 +1070,7 @@ export const documents = createRouter()
         }
 
         console.log('Step 8: Uploading annotated document...');
-        // Step 9: Upload the annotated document
+        // Step 10: Upload the annotated document
         const documentToUpload = {
           ...gdoc,
           name: name || 'Untitled Document',
@@ -981,13 +1079,21 @@ export const documents = createRouter()
           collectionId,
         };
 
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(tokenForApi);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
         const result = await fetchJson<any, any>(`${baseURL}/document`, {
           method: 'POST',
-          headers: {
-            Authorization: getJWTHeader(token),
-            'Content-Type': 'application/json',
+          headers,
+          body: {
+            ...documentToUpload,
+            toAnonymize,
+            anonymizeTypes,
           },
-          body: documentToUpload,
         });
 
         console.log('Document uploaded successfully');

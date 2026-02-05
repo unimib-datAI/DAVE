@@ -334,6 +334,30 @@ export const DocumentController = {
     deAnonimize = false,
   ) => {
     const document = await DocumentController.findOne(id);
+    // Ensure document.text is a string
+    if (typeof document.text !== "string") {
+      console.error(
+        "document.text is not a string, type:",
+        typeof document.text,
+      );
+      document.text = String(document.text || "");
+    }
+    // Ensure document.preview is a string
+    if (typeof document.preview !== "string") {
+      console.error(
+        "document.preview is not a string, type:",
+        typeof document.preview,
+      );
+      document.preview = String(document.preview || "");
+    }
+    // Ensure document.annotation_sets is an array
+    if (!Array.isArray(document.annotation_sets)) {
+      console.error(
+        "document.annotation_sets is not an array, type:",
+        typeof document.annotation_sets,
+      );
+      document.annotation_sets = [];
+    }
     console.log("doc found", document.text.substring(0, 200));
     // convert annotation_sets from list to object
     var new_sets = {};
@@ -378,16 +402,13 @@ export const DocumentController = {
             annot.features = {};
           }
           if (!("mention" in annot.features)) {
-            // console.log(
-            //     `Adding mention ${document.text.substring(
-            //         annot.start,
-            //         annot.end + 2,
-            //     )} `,
-            // );
-            annot.features.mention = document.text.substring(
-              annot.start,
-              annot.end + 1,
+            // Validate start and end to prevent substring errors
+            const start = Math.max(0, annot.start);
+            const end = Math.min(
+              document.text.length,
+              Math.max(start, annot.end + 1),
             );
+            annot.features.mention = document.text.substring(start, end);
           }
           // workaround for issue 1 // TODO remove
           if (typeof annot.id === "string" || annot.id instanceof String) {

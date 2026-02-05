@@ -26,7 +26,8 @@ export default (app) => {
     "/collectioninfo/:id",
     asyncRoute(async (req, res) => {
       const { id } = req.params;
-      const userId = req.user?.sub;
+      const userId = req.user?.sub || req.user?.userId;
+      console.log(`📦 GET /collectioninfo/${id} - userId: ${userId}`);
       const collection = await CollectionController.findById(id);
       if (!collection) {
         return res.status(404).json({ message: "Collection not found" });
@@ -52,11 +53,24 @@ export default (app) => {
   route.get(
     "/",
     asyncRoute(async (req, res) => {
-      const userId = req.user?.sub;
+      const userId = req.user?.sub || req.user?.userId;
+      console.log(
+        "📦 GET /collection - Full req.user object:",
+        JSON.stringify(req.user, null, 2),
+      );
+      console.log("📦 Extracted userId (sub):", req.user?.sub);
+      console.log("📦 Extracted userId (userId):", req.user?.userId);
+      console.log("📦 Final userId being used:", userId);
+
       if (!userId) {
+        console.error("❌ No userId found in request - returning 401");
         return res.status(401).json({ message: "Unauthorized" });
       }
+
       const collections = await CollectionController.findByUserId(userId);
+      console.log(
+        `✅ Found ${collections.length} collections for userId: ${userId}`,
+      );
       return res.json(collections);
     }),
   );
@@ -85,7 +99,8 @@ export default (app) => {
     "/:id",
     asyncRoute(async (req, res) => {
       const { id } = req.params;
-      const userId = req.user?.sub;
+      const userId = req.user?.sub || req.user?.userId;
+      console.log(`📦 GET /collection/${id} - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -108,7 +123,8 @@ export default (app) => {
     "/:id/download",
     asyncRoute(async (req, res) => {
       const { id } = req.params;
-      const userId = req.user?.sub;
+      const userId = req.user?.sub || req.user?.userId;
+      console.log(`📦 GET /collection/${id}/download - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -186,7 +202,10 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       console.log("*** create collection body ***", req.body);
       const { name, allowedUserIds } = req.body;
-      const userId = req.user?.sub;
+      const userId = req.user?.sub || req.user?.userId;
+      console.log(
+        `📦 POST /collection - Creating collection for userId: ${userId}`,
+      );
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -245,7 +264,8 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const { name, allowedUserIds } = req.body;
-      const userId = req.user?.sub;
+      const userId = req.user?.sub || req.user?.userId;
+      console.log(`📦 PUT /collection/${id} - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -289,7 +309,8 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const { elasticIndex } = req.body;
-      const userId = req.user?.sub;
+      const userId = req.user?.sub || req.user?.userId;
+      console.log(`📦 DELETE /collection/${id} - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }

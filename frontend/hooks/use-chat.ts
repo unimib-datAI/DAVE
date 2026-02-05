@@ -1,9 +1,12 @@
 import { activeCollectionAtom } from '@/atoms/collection';
 import { DocumentWithChunk } from '@/server/routers/search';
-import { chatHistoryAtom, conversationRatedAtom } from '@/utils/atoms';
 import { getPromptAndMessage } from '@/utils/textGeneration';
+import { llmSettingsAtom } from '@/atoms/llmSettings';
 import { useAtom } from 'jotai';
 import { useEffect, useState } from 'react';
+import { useChatState, useChatDispatch } from '@/modules/chat/ChatProvider';
+import { useText } from '@/components/TranslationProvider';
+import { globalAnonymizationAtom } from '@/utils/atoms';
 
 export type Message = {
   role: 'system' | 'assistant' | 'user';
@@ -31,30 +34,30 @@ export type GenerateOptions = {
 const defaultSystemPropmt =
   "Sei un assistente che parla ITALIANO o INGLESE, scegli in base alla lingua della DOMANDA e del CONTESTO: se la domanda è formulata in INGLESE rispondi in INGLESE, se è formulata in ITALIANO rispondi in ITALIANO. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio. Se non conosci la risposta, limitati a dire che non lo sai.";
 function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
-  const [chatHistory, setChatHistory] = useAtom(chatHistoryAtom);
+  const chatState = useChatState();
+  const dispatch = useChatDispatch();
   const [activeCollection] = useAtom(activeCollectionAtom);
-  const [conversationRated, setConversationRated] = useAtom(
-    conversationRatedAtom
-  );
+  const [llmSettings] = useAtom(llmSettingsAtom);
+  const [isAnonymized] = useAtom(globalAnonymizationAtom);
+  const t = useText('chat');
 
   // Initialize messages from chat history or initial messages
   const [messages, setMessages] = useState<Message[]>(() => {
-    return chatHistory.messages && chatHistory.messages.length > 0
-      ? chatHistory.messages
+    return chatState.messages && chatState.messages.length > 0
+      ? chatState.messages
       : initialMessages || [];
   });
 
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
 
-  // Update chat history when messages change
+  // Update chat state when messages change
   useEffect(() => {
-    setChatHistory({
-      messages,
-      contexts: [], // Legacy - not used anymore
-      statuses: [], // Legacy - not used anymore
+    dispatch({
+      type: 'setMessages',
+      payload: { messages },
     });
-  }, [messages, setChatHistory]);
+  }, [messages, dispatch]);
 
   const appendMessage = async ({
     message,
@@ -74,14 +77,18 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       context.forEach((item, index) => {
         const docContent = `Nome Documento ${
           item.title
-        } - Contenuto: ${item.chunks.map((chunk) => chunk.text).join(' ')}`;
+        } - Contenuto: ${item.chunks
+          .map((chunk) =>
+            isAnonymized ? chunk.text_anonymized || chunk.text : chunk.text
+          )
+          .join(' ')}`;
         contextStr += `<document id="DOC_${
           index + 1
         }">\n${docContent}\n</document>\n`;
       });
     }
     const questionStr = `<question language="auto">\n${message}\n</question>`;
-    const instructions = `<instructions>\n- Answer the question using ONLY information explicitly stated in the context.\n- Integrate information from multiple documents only if they are consistent.\n- Do NOT infer, speculate, generalize, or rely on external knowledge.\n- The answer MUST be written in the same language as the question.\n- If answering requires translating information from the context, translate faithfully\n  without adding, omitting, or reinterpreting any content.\n- Do NOT mention documents, context, retrieval, or sources explicitly.\n- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:\n  "Le informazioni fornite non sono sufficienti per rispondere con certezza."\n- Use a clear, precise, and domain-appropriate technical style.\n</instructions>`;
+    const instructions = `<instructions>\n- Answer the question using ONLY information explicitly stated in the context.\n- Integrate information from multiple documents only if they are consistent.\n- Do NOT infer, speculate, generalize, or rely on external knowledge.\n- The answer MUST be written in the same language as the question.\n- If answering requires translating information from the context, translate faithfully\n  without adding, omitting, or reinterpreting any content.\n- Do NOT mention documents, context, retrieval, or sources explicitly.\n- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:\n  "The information provided is not sufficient to answer with certainty." and give an explanation about why you can't answer.\n Always assume that the user is asking you about information contained in the documents provided\n- Use a clear, precise, and domain-appropriate technical style.\n Make sure to ALWAYS answer in the same language used by the user to ask the question, don't ming the documents language</instructions>`;
     const fullPrompt = `<input>\n\n<context>\n${contextStr}</context>\n\n${questionStr}\n\n${instructions}\n\n</input>`;
     const content = fullPrompt;
     console.log('received content', content);
@@ -147,6 +154,9 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           ...normalizedOptions,
           messages: apiMessages,
           collectionId: activeCollection,
+          customSettings: llmSettings.useCustomSettings
+            ? llmSettings
+            : undefined,
         }),
       });
 
@@ -227,7 +237,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
         ...prev,
         {
           role: 'assistant',
-          content: 'Sorry, there was an error generating the response.',
+          content: t('errorGeneratingResponse'),
           isDoneStreaming: true,
         },
       ]);
@@ -240,7 +250,10 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
   const restartChat = () => {
     // Reset to initial messages (create a new array)
     setMessages([...initialMessages]);
-    setConversationRated(false);
+    dispatch({
+      type: 'setConversationRated',
+      payload: { rated: false },
+    });
   };
 
   return {

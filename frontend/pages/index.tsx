@@ -1,13 +1,17 @@
 import { useForm } from '@/hooks';
 import { LLMButton } from '@/modules/search/LLMButton';
 import { Searchbar } from '@/modules/search/Searchbar';
-import { Button } from '@nextui-org/react';
+import Button from '@/components/Button/Button';
+
 import { useRouter } from 'next/router';
 import { UploadDocumentsModal } from '@/components/UploadDocumentsModal';
 import { UploadProgressIndicator } from '@/components/UploadProgressIndicator';
 import { useAtom } from 'jotai';
 import { uploadModalOpenAtom } from '@/atoms/upload';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
+import { GetServerSideProps } from 'next';
+import { getSession } from 'next-auth/react';
+import { useText } from '@/components/TranslationProvider';
 
 const Homepage = () => {
   const router = useRouter();
@@ -15,6 +19,7 @@ const Homepage = () => {
   const { register, onSubmit, setValue } = useForm({
     text: '',
   });
+  const t = useText('home');
 
   const handleSubmit = ({ text }: { text: string }) => {
     const url = {
@@ -28,36 +33,45 @@ const Homepage = () => {
     <ToolbarLayout>
       <div className="flex flex-col items-center justify-center text-center w-full gap-14 h-screen">
         <div className="flex flex-col items-center text-center -mt-40">
-          <h1>DAVE</h1>
+          <h1>{t('title')}</h1>
           <h2 className="font-normal">
-            Document{' '}
-            <span className="inline-block underline-yellow">Annotation</span>{' '}
-            <span className=" inline-block underline-blue">Validation</span>
+            {t('subtitle.document')}
+            <span className="inline-block underline-yellow">
+              {t('subtitle.annotation')}
+            </span>{' '}
+            <span className=" inline-block underline-blue">
+              {t('subtitle.validation')}
+            </span>
           </h2>
           <h2 className="-mt-5 font-normal">
             and{' '}
-            <span className="inline-block underline-green">Exploration</span>.
+            <span className="inline-block underline-green">
+              {t('subtitle.exploration')}
+            </span>
+            .
           </h2>
         </div>
 
         <form onSubmit={onSubmit(handleSubmit)} className="w-full max-w-2xl">
-          <Searchbar {...register('text')} />
+          <Searchbar
+            {...register('text')}
+            placeholder={t('searchPlaceholder')}
+          />
         </form>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <Button
-            style={{ zIndex: 1, backgroundColor: 'black' }}
+            auto
+            color="default"
+            css={{ backgroundColor: 'black', color: 'white' }}
             onPress={() => {
               // router.push('/documents');
               handleSubmit({ text: '' });
             }}
           >
-            See all documents
+            {t('buttons.seeAllDocuments')}
           </Button>
-          <Button
-            style={{ zIndex: 1, backgroundColor: '#0070f3' }}
-            onPress={() => setUploadModalOpen(true)}
-          >
-            Upload annotated documents
+          <Button auto color="primary" onPress={() => setUploadModalOpen(true)}>
+            {t('buttons.uploadAnnotatedDocuments')}
           </Button>
         </div>
       </div>
@@ -65,6 +79,31 @@ const Homepage = () => {
       <UploadDocumentsModal />
     </ToolbarLayout>
   );
+};
+
+// Protect this page - require authentication unless USE_AUTH is false
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  if (process.env.USE_AUTH !== 'false') {
+    const session = await getSession(context);
+
+    if (!session) {
+      return {
+        redirect: {
+          destination: '/sign-in',
+          permanent: false,
+        },
+      };
+    }
+  }
+
+  const locale = process.env.LOCALE || 'ita';
+  const localeObj = (await import(`@/translation/${locale}`)).default;
+
+  return {
+    props: {
+      locale: localeObj,
+    },
+  };
 };
 
 export default Homepage;
