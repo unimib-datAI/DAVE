@@ -725,6 +725,7 @@ class AddAnnotationsRequest(BaseModel):
                         "start": 10,
                         "end": 18,
                         "is_linked": False,
+                        "id_ER": "1",
                     }
                 ]
             }
@@ -810,7 +811,6 @@ def add_annotations_to_document(
     index_name: str, document_id: str, req: AddAnnotationsRequest
 ):
     try:
-        print("annotations requests", req)
         # First get the document
         doc_query = {
             "query": {
