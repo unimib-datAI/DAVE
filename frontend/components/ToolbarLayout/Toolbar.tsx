@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { PropsWithChildren } from 'react';
 import { LoginAvatar } from '../LoginAvatar';
 import { CollectionSelector } from '../CollectionSelector';
+import { GlobalAnonymizationToggle } from '../GlobalAnonymizationToggle';
 import { useRouter } from 'next/router';
 import { FiHome } from '@react-icons/all-files/fi/FiHome';
 
@@ -29,6 +30,13 @@ const ToolbarContent = styled.div({
   minWidth: 0,
 });
 
+const RightActions = styled.div({
+  display: 'flex',
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: '8px',
+});
+
 const Logo = styled.a({
   display: 'flex',
   alignItems: 'center',
@@ -52,7 +60,10 @@ const Toolbar = ({ children }: PropsWithChildren<{}>) => {
       <ToolbarContent>
         <CollectionSelector />
         {children}
-        <LoginAvatar />
+        <RightActions>
+          <GlobalAnonymizationToggle />
+          <LoginAvatar />
+        </RightActions>
       </ToolbarContent>
     </Container>
   );

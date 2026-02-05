@@ -36,7 +36,7 @@ const Toolsbar = () => {
         <SelectAnnotationSet />
         <SelectTypeFilter />
         {/*<AnonimizeSwitch />*/}
-        <DeAnonimizeButton />
+        {/*<DeAnonimizeButton />*/}
       </ItemsContainer>
       {isLastView && <FixedItems />}
     </Container>
