@@ -57,7 +57,10 @@ export const keycloakAuthMiddleware = async (req, res, next) => {
   // Extract Bearer token
   const authHeader = req.headers.authorization || "";
   if (!authHeader.startsWith("Bearer ")) {
-    if (process.env.USE_AUTH === "false") {
+    if (
+      process.env.USE_AUTH === "false" ||
+      process.env.ENABLE_AUTH === "false"
+    ) {
       const browserId = req.headers["x-browser-id"] || "anon-user";
       req.user = {
         sub: browserId,
