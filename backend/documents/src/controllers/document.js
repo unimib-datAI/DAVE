@@ -9,6 +9,36 @@ import { CollectionController } from "./collection";
 import axios from "axios";
 import { decode } from "../utils/anonymization";
 
+// Cache for anonymization service health check
+let anonymizationServiceAvailable = null;
+let lastAnonymizationHealthCheck = 0;
+const ANONYMIZATION_HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
+
+async function checkAnonymizationService() {
+  const endpoint =
+    process.env.ANONYMIZATION_ENDPOINT || "http://10.0.0.108:8081";
+  const now = Date.now();
+
+  // Return cached status if checked recently
+  if (
+    anonymizationServiceAvailable !== null &&
+    now - lastAnonymizationHealthCheck < ANONYMIZATION_HEALTH_CHECK_INTERVAL
+  ) {
+    return anonymizationServiceAvailable;
+  }
+
+  try {
+    await axios.get(endpoint, { timeout: 1000 });
+    anonymizationServiceAvailable = true;
+    lastAnonymizationHealthCheck = now;
+    return true;
+  } catch (error) {
+    anonymizationServiceAvailable = false;
+    lastAnonymizationHealthCheck = now;
+    return false;
+  }
+}
+
 const getStringHash = (inputString) => {
   return crypto.createHash("sha256").update(inputString).digest("hex");
 };
@@ -465,10 +495,26 @@ export const DocumentController = {
       }
     }
     if (deAnonimize) {
-      let doc = await decode(document);
-      console.log("doc decoded", doc.text.substring(0, 200));
+      // Check if anonymization service is available before attempting decode
+      const serviceAvailable = await checkAnonymizationService();
 
-      return doc;
+      if (serviceAvailable) {
+        try {
+          let doc = await decode(document);
+          console.log("doc decoded", doc.text.substring(0, 200));
+          return doc;
+        } catch (decryptError) {
+          console.warn(
+            "Decryption failed during getFullDocById, returning original document",
+          );
+          return document;
+        }
+      } else {
+        console.warn(
+          "Anonymization service unavailable, skipping decryption in getFullDocById",
+        );
+        return document;
+      }
     }
 
     return document;
