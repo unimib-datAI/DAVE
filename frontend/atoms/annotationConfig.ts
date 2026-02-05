@@ -27,9 +27,10 @@ export type AnnotationSelectedServices = Record<string, SelectedService | null>;
 export const defaultSelectedServices: AnnotationSelectedServices = {
   NER: null,
   NEL: null,
+  INDEXER: null,
+  NILPREDICTION: null,
   CLUSTERING: null,
   CONSOLIDATION: null,
-  NORMALIZATION: null,
 };
 
 /**

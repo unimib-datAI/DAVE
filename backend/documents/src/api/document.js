@@ -7,7 +7,7 @@ import { z } from "zod";
 import { AnnotationSet, annotationSetDTO } from "../models/annotationSet";
 import { AnnotationSetController } from "../controllers/annotationSet";
 import { Annotation, annotationDTO } from "../models/annotation";
-import { decode, makeDecryptionRequest } from "../utils/anonymization";
+import { encode, decode, makeDecryptionRequest } from "../utils/anonymization";
 
 import axios from "axios";
 
@@ -156,7 +156,48 @@ export default (app) => {
     "/services",
     asyncRoute(async (req, res) => {
       try {
-        const services = await Service.find({}).lean();
+        let services = await Service.find({}).lean();
+
+        // Check and create default services if they don't exist
+        const defaultServices = [
+          {
+            name: "DEFAULT_INDEXER",
+            uri:
+              process.env.ANNOTATION_INDEXER_URL ||
+              "http://indexer:80/api/indexer/search/doc",
+            serviceType: "INDEXER",
+            description: "Default indexer service for entity search",
+          },
+          {
+            name: "DEFAULT_NILPREDICTION",
+            uri:
+              process.env.ANNOTATION_NILPREDICTION_URL ||
+              "http://nilpredictor:80/api/nilprediction/doc",
+            serviceType: "NILPREDICTION",
+            description: "Default NIL prediction service",
+          },
+        ];
+
+        for (const defaultSvc of defaultServices) {
+          const existing = services.find(
+            (s) => s.serviceType === defaultSvc.serviceType,
+          );
+          if (!existing) {
+            try {
+              const svc = serviceDTO(defaultSvc);
+              const inserted = await svc.save();
+              services.push(inserted.toObject());
+              console.log(`Created default service: ${defaultSvc.name}`);
+            } catch (createErr) {
+              console.error(
+                `Failed to create default service ${defaultSvc.name}:`,
+                createErr,
+              );
+              // Continue without failing the request
+            }
+          }
+        }
+
         return res.json(services).status(200);
       } catch (err) {
         console.error("Failed to fetch services", err);
@@ -290,7 +331,7 @@ export default (app) => {
         console.log(
           `Found ${configurations.length} configurations for user ${userId}`,
         );
-        return res.json(configurations).status(200);
+        return res.status(200).json(configurations);
       } catch (err) {
         console.error("Failed to fetch configurations", err);
         return res
@@ -321,7 +362,7 @@ export default (app) => {
             .json({ message: "No active configuration found" });
         }
         console.log(`Found active configuration: ${activeConfig.name}`);
-        return res.json(activeConfig).status(200);
+        return res.status(200).json(activeConfig);
       } catch (err) {
         console.error("Failed to fetch active configuration", err);
         return res
@@ -934,11 +975,19 @@ export default (app) => {
           features: z.object().optional(),
           offset_type: z.string().optional(),
           elasticIndex: z.string().optional(),
+          toAnonymize: z.boolean().optional(),
+          anonymizeTypes: z.array(z.string()).optional(),
         }),
       },
     }),
     asyncRoute(async (req, res, next) => {
-      const { elasticIndex } = req.body;
+      const { elasticIndex, toAnonymize, anonymizeTypes } = req.body;
+
+      // Anonymize the document if requested
+      if (toAnonymize) {
+        req.body = await encode(req.body, anonymizeTypes);
+      }
+
       const doc = await DocumentController.insertFullDocument(req.body);
 
       if (elasticIndex) {

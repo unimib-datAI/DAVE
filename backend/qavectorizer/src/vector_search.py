@@ -44,6 +44,7 @@ Usage Example:
     ```
 """
 
+import json
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
@@ -153,8 +154,15 @@ class VectorSearch:
         response_full_text = []
 
         if retrieval_method in ["full", "dense", "hibrid_no_ner"]:
+            print("=" * 80)
+            print("EXECUTING VECTOR SEARCH")
+            print(f"Query body: {json.dumps(query_body, indent=2)}")
+            print("=" * 80)
             results = self.es_client.search(index=collection_name, body=query_body)
             print(f"DEBUG: Vector search response hits: {len(results['hits']['hits'])}")
+            print(
+                f"DEBUG: Vector search total hits: {results.get('hits', {}).get('total', {})}"
+            )
             for hit in results["hits"]["hits"]:
                 if "inner_hits" in hit and "chunks.vectors" in hit["inner_hits"]:
                     print(
@@ -162,17 +170,41 @@ class VectorSearch:
                     )
 
         if retrieval_method in ["full", "hibrid_no_ner", "full-text"]:
+            print("=" * 80)
+            print("EXECUTING FULL-TEXT SEARCH")
+            print(f"Query body: {json.dumps(query_full_text, indent=2)}")
+            print("=" * 80)
             response_full_text = self.es_client.search(
                 index=collection_name, body=query_full_text
             )
             print(
                 f"DEBUG: Full-text search response hits: {len(response_full_text['hits']['hits'])}"
             )
+            print(
+                f"DEBUG: Full-text search total hits: {response_full_text.get('hits', {}).get('total', {})}"
+            )
             for hit in response_full_text["hits"]["hits"]:
                 if "inner_hits" in hit and "chunks" in hit["inner_hits"]:
                     print(
                         f"DEBUG: Full-text inner_hits for doc {hit['_source']['id']}: {len(hit['inner_hits']['chunks']['hits']['hits'])}"
                     )
+                if "inner_hits" in hit and "chunks.vectors" in hit["inner_hits"]:
+                    print(
+                        f"DEBUG: Full-text inner_hits (chunks.vectors) for doc {hit['_source']['id']}: {len(hit['inner_hits']['chunks.vectors']['hits']['hits'])}"
+                    )
+                    # Print first few chunk texts to verify content
+                    for i, chunk_hit in enumerate(
+                        hit["inner_hits"]["chunks.vectors"]["hits"]["hits"][:3]
+                    ):
+                        print(f"  DEBUG: chunk_hit keys: {chunk_hit.keys()}")
+                        if "_source" in chunk_hit:
+                            print(
+                                f"  DEBUG: _source keys: {chunk_hit['_source'].keys()}"
+                            )
+                            print(f"  DEBUG: _source content: {chunk_hit['_source']}")
+                        if "fields" in chunk_hit:
+                            print(f"  DEBUG: fields keys: {chunk_hit['fields'].keys()}")
+                            print(f"  DEBUG: fields content: {chunk_hit['fields']}")
 
         del embeddings
 
@@ -194,8 +226,9 @@ class VectorSearch:
         for chunk_id in all_chunk_ids:
             rank_vector = vector_ranks.get(chunk_id, float("inf"))
             rank_full_text = full_text_ranks.get(chunk_id, float("inf"))
+            # Boost full-text search importance by giving it 5x weight
             combined_scores[chunk_id] = (1 / (rrf_k + rank_vector)) + (
-                1 / (rrf_k + rank_full_text)
+                5.0 * (1 / (rrf_k + rank_full_text))
             )
 
         final_ranking = sorted(
@@ -305,11 +338,11 @@ class VectorSearch:
         """Build Elasticsearch query bodies for vector and full-text search."""
 
         should_query = (
-            [{"match": {"chunks.vectors.text": query}}]
+            [{"match": {"chunks.vectors.text": {"query": query, "boost": 5.0}}}]
             if retrieval_method == "hibrid_no_ner"
             else [
-                {"match": {"chunks.vectors.text": query}},
-                {"match": {"chunks.vectors.entities": query}},
+                {"match": {"chunks.vectors.text": {"query": query, "boost": 5.0}}},
+                {"match": {"chunks.vectors.entities": {"query": query, "boost": 3.0}}},
             ]
         )
 
@@ -421,14 +454,14 @@ class VectorSearch:
                     "must": {
                         "nested": {
                             "path": "chunks.vectors",
-                            "query": {"bool": {"should": should_query}},
+                            "query": {
+                                "bool": {
+                                    "should": should_query,
+                                    "minimum_should_match": 1,
+                                }
+                            },
                             "inner_hits": {
-                                "_source": False,
-                                "fields": [
-                                    "chunks.vectors.text",
-                                    "chunks.vectors.text_anonymized",
-                                    "_score",
-                                ],
+                                "_source": True,
                                 "size": inner_hits_size,
                             },
                         }
@@ -448,14 +481,9 @@ class VectorSearch:
         nested_query = {
             "nested": {
                 "path": "chunks.vectors",
-                "query": {"bool": {"should": should_query}},
+                "query": {"bool": {"should": should_query, "minimum_should_match": 1}},
                 "inner_hits": {
-                    "_source": False,
-                    "fields": [
-                        "chunks.vectors.text",
-                        "chunks.vectors.text_anonymized",
-                        "_score",
-                    ],
+                    "_source": True,
                     "size": inner_hits_size,
                 },
             }

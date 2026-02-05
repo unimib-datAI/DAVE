@@ -10,6 +10,7 @@ import {
 } from '@nextui-org/react';
 import { FiSliders } from '@react-icons/all-files/fi/FiSliders';
 import { FiFolder } from '@react-icons/all-files/fi/FiFolder';
+import { FiSettings } from '@react-icons/all-files/fi/FiSettings';
 import { signOut, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -31,7 +32,7 @@ const LinkButton = styled.a({
 });
 
 const LoginAvatar = () => {
-  const t = useText('infer');
+  const t = useText('common');
   const { data, status } = useSession();
 
   const handleAction = (key: string | number) => {
@@ -53,52 +54,60 @@ const LoginAvatar = () => {
     );
   }
 
-  if (status === 'unauthenticated') {
+  if (
+    status === 'unauthenticated' &&
+    process.env.NEXT_PUBLIC_USE_AUTH !== 'false'
+  ) {
     return (
       <Link href="/login" passHref>
-        <LinkButton>Login</LinkButton>
+        <LinkButton>{t('toolbar.login')}</LinkButton>
       </Link>
     );
   }
 
+  // When USE_AUTH=false or authenticated, show avatar
+  const displayName = data?.user?.name || 'Anonymous';
+  const avatarText = displayName.slice(0, 1).toUpperCase();
+
   return (
     <Dropdown placement="bottom-left">
       <Dropdown.Trigger>
-        <Avatar
-          size="md"
-          text={data?.user?.name?.slice(0, 1).toUpperCase()}
-          pointer
-        />
+        <Avatar size="md" text={avatarText} pointer />
       </Dropdown.Trigger>
       <Dropdown.Menu
         aria-label="Static Actions"
         onAction={handleAction}
         style={{ minWidth: 500 }}
       >
-        <Dropdown.Item key="profile" icon={<FiSliders />}>
+        {/*<Dropdown.Item key="profile" icon={<FiSliders />}>
           <Link href="/taxonomy" passHref>
             <Text as="a" b color="inherit">
-              Gestisci tassonomia
+              {t('toolbar.manageTaxonomy')}
             </Text>
           </Link>
-        </Dropdown.Item>
+        </Dropdown.Item>*/}
         <Dropdown.Item key="collections" icon={<FiFolder />}>
           <Link href="/collections" passHref>
             <Text as="a" b color="inherit">
-              Manage Collections
+              {t('toolbar.manageCollections')}
             </Text>
           </Link>
         </Dropdown.Item>
-        <Dropdown.Item key="annotation-config" icon={<FiSliders />}>
-          <Link href="/annotation-configuration" passHref>
+        {/* Annotation configuration menu entry removed from avatar.
+            Access annotation configuration from Settings -> Annotation Configuration
+            at /settings/annotation-configuration */}
+        <Dropdown.Item key="settings" icon={<FiSettings />}>
+          <Link href="/settings" passHref>
             <Text as="a" b color="inherit" style={{ paddingTop: 10 }}>
-              Annotation config
+              {t('toolbar.settings')}
             </Text>
           </Link>
         </Dropdown.Item>
-        <Dropdown.Item key="logout" color="error" withDivider>
-          {t('toolbar.logout')}
-        </Dropdown.Item>
+        {process.env.NEXT_PUBLIC_USE_AUTH !== 'false' && (
+          <Dropdown.Item key="logout" color="error" withDivider>
+            {t('toolbar.logout')}
+          </Dropdown.Item>
+        )}
       </Dropdown.Menu>
     </Dropdown>
   );

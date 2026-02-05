@@ -3,7 +3,7 @@ import styled from '@emotion/styled';
 import { Avatar, Card, Grid, Popover } from '@nextui-org/react';
 import Link from 'next/link';
 import { Button } from '../Button';
-import { FaSignOutAlt } from '@react-icons/all-files/fa/FaSignOutAlt';
+import { FiHome } from '@react-icons/all-files/fi/FiHome';
 import { useRouter } from 'next/router';
 import { LoginAvatar } from '../LoginAvatar';
 import { useText } from '../TranslationProvider';
@@ -48,13 +48,15 @@ const LinkButton = styled.a({
 });
 
 const Toolbar = () => {
-  const t = useText('infer');
+  const t = useText('common');
 
   return (
     <Container>
       <Nav>
         <Link href="/infer" passHref>
-          <Logo>🔨 DAVE</Logo>
+          <Logo>
+            <FiHome style={{ marginRight: 8 }} /> DAVE
+          </Logo>
         </Link>
         <Grid.Container direction="row" css={{ width: 'auto', gap: '10px' }}>
           <Link href="/documents" passHref>

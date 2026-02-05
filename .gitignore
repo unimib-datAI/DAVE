@@ -6,7 +6,9 @@ node_modules/
 .pnp.js
 # testing
 /coverage
-
+postgres
+full_docs
+test_data
 # next.js
 .next/
 /out/
@@ -44,3 +46,5 @@ __pycache__
 mongo
 elasticsearch
 backend/models
+
+export_logs

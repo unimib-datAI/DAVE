@@ -37,7 +37,7 @@ const ClustersList = ({ clusters }: ClustersListProps) => {
       return index;
     });
   };
-
+  console.log('clusters list', clusters);
   return (
     <ListContainer>
       {clusters.map((cluster) => (

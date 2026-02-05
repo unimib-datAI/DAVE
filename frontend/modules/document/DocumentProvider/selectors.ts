@@ -245,7 +245,7 @@ export const selectDocumentClusters = createSelector(
 
         // Normalize cluster type using robust case-insensitive mapping
         // Ensure the normalized type is consistently cased
-        const normalizedType = getNormalizedEntityType(cluster.type);
+        const normalizedType = cluster.type;
 
         return {
           ...cluster,
@@ -311,11 +311,10 @@ export const selectFilteredEntityAnnotations = createSelector(
 
     return annotations.filter((ann) => {
       // Use case-insensitive mapping for better matching
-      const normalizedType = getNormalizedEntityType(ann.type);
 
       // Check both the original type and the normalized type (case insensitive)
       return (
-        lowerFilterTypes.has(normalizedType.toLowerCase()) ||
+        lowerFilterTypes.has(ann.type.toLowerCase()) ||
         lowerFilterTypes.has(ann.type.toLowerCase())
       );
     });
@@ -354,8 +353,7 @@ export const selectFilteredEntityAnnotationsWithSearch = createSelector(
     // Apply the filter
     const filteredResults = annotations.filter((ann) => {
       // Also check the normalized type for matching
-      const normalizedType = getNormalizedEntityType(ann.type);
-      if (normalizedType.toLowerCase().includes(searchTerm)) {
+      if (ann.type.toLowerCase().includes(searchTerm)) {
         return true;
       }
 

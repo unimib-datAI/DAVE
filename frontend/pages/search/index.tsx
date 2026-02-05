@@ -15,9 +15,16 @@ import LoadingOverlay from '@/modules/review/LoadingOverlay';
 import Link from 'next/link';
 import { LLMButton } from '@/modules/search/LLMButton';
 import { useAtom } from 'jotai';
-import { facetsDocumentsAtom, selectedFiltersAtom } from '@/utils/atoms';
+import {
+  facetsDocumentsAtom,
+  selectedFiltersAtom,
+  globalAnonymizationAtom,
+} from '@/utils/atoms';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { activeCollectionAtom } from '@/atoms/collection';
+import { GetServerSideProps } from 'next';
+import { getSession } from 'next-auth/react';
+import { useText } from '@/components/TranslationProvider';
 
 const variants = {
   isFetching: { opacity: 0.5 },
@@ -25,7 +32,7 @@ const variants = {
 };
 
 const getFacetsFromUrl = (
-  facets: Record<string, string | string[] | undefined>,
+  facets: Record<string, string | string[] | undefined>
 ) => {
   return Object.keys(facets).reduce(
     (acc, key) => {
@@ -47,15 +54,17 @@ const getFacetsFromUrl = (
     {
       annotations: [] as { type: string; value: string }[],
       metadata: [] as { type: string; value: string }[],
-    },
+    }
   );
 };
 
 const Search = () => {
   const router = useRouter();
+  const t = useText('search');
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const [selectedFilters, setSelectedFiltersRaw] = useAtom(selectedFiltersAtom);
   const [activeCollection] = useAtom(activeCollectionAtom);
+  const [isAnonymized] = useAtom(globalAnonymizationAtom);
   // Wrapper to ensure we never set empty filters
   const setSelectedFilters = (filters: string[]) => {
     const validFilters = filters.filter((f) => f && f.trim() !== '');
@@ -64,7 +73,7 @@ const Search = () => {
   const { text, ...facetsFilters } = router.query;
   const facets = useMemo(
     () => getFacetsFromUrl(facetsFilters),
-    [facetsFilters],
+    [facetsFilters]
   );
   const { register, onSubmit, setValue } = useForm({
     text: '',
@@ -89,6 +98,7 @@ const Search = () => {
         limit: 20,
         collectionId:
           activeCollection && activeCollection.id ? activeCollection.id : 'N/A',
+        isAnonymized,
       },
     ],
     {
@@ -102,7 +112,7 @@ const Search = () => {
           ? firstPage.pagination.current_page - 1
           : undefined,
       keepPreviousData: true,
-    },
+    }
   );
 
   const { ref, inView } = useInView({
@@ -147,13 +157,13 @@ const Search = () => {
 
     // Clean up selectedFilters to remove empty or whitespace-only strings
     const validFilters = selectedFilters.filter(
-      (filter) => filter && filter.trim() !== '',
+      (filter) => filter && filter.trim() !== ''
     );
     if (validFilters.length === 0) return allHits;
 
     // Normalize valid filters for consistent comparison
     const normalizedValidFilters = validFilters.map((f) =>
-      f.toLowerCase().trim(),
+      f.toLowerCase().trim()
     );
 
     const matches = allHits.filter(
@@ -164,14 +174,14 @@ const Search = () => {
             (ann.id_ER &&
               ann.id_ER.trim() !== '' &&
               normalizedValidFilters.includes(
-                ann.id_ER.toLowerCase().trim(),
+                ann.id_ER.toLowerCase().trim()
               )) ||
             (ann.display_name &&
               ann.display_name.trim() !== '' &&
               normalizedValidFilters.includes(
-                ann.display_name.toLowerCase().trim(),
-              )),
-        ),
+                ann.display_name.toLowerCase().trim()
+              ))
+        )
     );
     const nonMatches = allHits.filter(
       (hit) =>
@@ -181,14 +191,14 @@ const Search = () => {
             (ann.id_ER &&
               ann.id_ER.trim() !== '' &&
               normalizedValidFilters.includes(
-                ann.id_ER.toLowerCase().trim(),
+                ann.id_ER.toLowerCase().trim()
               )) ||
             (ann.display_name &&
               ann.display_name.trim() !== '' &&
               normalizedValidFilters.includes(
-                ann.display_name.toLowerCase().trim(),
-              )),
-        ),
+                ann.display_name.toLowerCase().trim()
+              ))
+        )
     );
     return [...matches, ...nonMatches];
   }, [data, selectedFilters]);
@@ -208,7 +218,7 @@ const Search = () => {
           <form onSubmit={onSubmit(handleSubmit)} className="mb-4">
             <Searchbar {...register('text')} loading={isFetching} />
           </form>
-          <h2>Documents</h2>
+          <h2>{t('documents')}</h2>
         </div>
         <motion.div
           style={{ ...(isFetching && { pointerEvents: 'none' }) }}
@@ -221,12 +231,12 @@ const Search = () => {
             <Facets
               facets={data.pages[0].facets}
               selectedFilters={selectedFilters.filter(
-                (f) => f && f.trim() !== '',
+                (f) => f && f.trim() !== ''
               )}
               setSelectedFilters={(filters) => {
                 // Filter out empty strings or whitespace-only strings
                 const validFilters = filters.filter(
-                  (f) => f && f.trim() !== '',
+                  (f) => f && f.trim() !== ''
                 );
                 setSelectedFilters(validFilters);
               }}
@@ -238,11 +248,11 @@ const Search = () => {
           >
             <div className="flex flex-col sticky top-16 bg-white py-6">
               <h4>
-                {`${data.pages[0].pagination.total_hits} results`}
+                {`${data.pages[0].pagination.total_hits} ${t('results')}`}
                 {text &&
                   typeof text === 'string' &&
                   text.trim() !== '' &&
-                  ` for "${text}"`}
+                  ` ${t('for')} "${text}"`}
               </h4>
               {data && <ActiveFiltersList facets={data.pages[0].facets} />}
             </div>
@@ -260,18 +270,18 @@ const Search = () => {
                     Array.isArray(hit.annotations) &&
                     hit.annotations.some((ann: any) => {
                       const normalizedSelectedFilters = selectedFilters.map(
-                        (f) => f.toLowerCase().trim(),
+                        (f) => f.toLowerCase().trim()
                       );
                       return (
                         (ann.id_ER &&
                           ann.id_ER.trim() !== '' &&
                           normalizedSelectedFilters.includes(
-                            ann.id_ER.toLowerCase().trim(),
+                            ann.id_ER.toLowerCase().trim()
                           )) ||
                         (ann.display_name &&
                           ann.display_name.trim() !== '' &&
                           normalizedSelectedFilters.includes(
-                            ann.display_name.toLowerCase().trim(),
+                            ann.display_name.toLowerCase().trim()
                           ))
                       );
                     })
@@ -288,7 +298,7 @@ const Search = () => {
                   onClick={() => fetchNextPage()}
                   className="bg-slate-900 mx-auto"
                 >
-                  Load More
+                  {t('loadMore')}
                 </Button>
               </div>
             )}
@@ -300,6 +310,31 @@ const Search = () => {
   ) : (
     <LoadingOverlay show />
   );
+};
+
+// Protect this page - require authentication
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  if (process.env.USE_AUTH !== 'false') {
+    const session = await getSession(context);
+
+    if (!session) {
+      return {
+        redirect: {
+          destination: '/sign-in',
+          permanent: false,
+        },
+      };
+    }
+  }
+
+  const locale = process.env.LOCALE || 'ita';
+  const localeObj = (await import(`@/translation/${locale}`)).default;
+
+  return {
+    props: {
+      locale: localeObj,
+    },
+  };
 };
 
 export default Search;

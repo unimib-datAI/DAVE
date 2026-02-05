@@ -1,41 +1,53 @@
 // import { Select } from "@/components";
-import { useText } from "@/components";
-import { BaseSelect, Option } from "@/components/BaseSelect";
-import { useForm } from "@/hooks";
-import styled from "@emotion/styled";
-import { Button, Checkbox, Col, FormElement, Input, Modal, Text } from "@nextui-org/react"
-import { ChangeEvent, MouseEvent, useEffect, useMemo, useState } from "react";
-import { selectDocumentTaxonomy, useDocumentDispatch, useSelector } from "../DocumentProvider/selectors";
-import { ascend, ParentNode } from "../../../components/Tree";
+import { useText } from '@/components';
+import { BaseSelect, Option } from '@/components/BaseSelect';
+import { useForm } from '@/hooks';
+import styled from '@emotion/styled';
+import {
+  Button,
+  Checkbox,
+  Col,
+  FormElement,
+  Input,
+  Modal,
+  Text,
+} from '@nextui-org/react';
+import { ChangeEvent, MouseEvent, useEffect, useMemo, useState } from 'react';
+import {
+  selectDocumentTaxonomy,
+  useDocumentDispatch,
+  useSelector,
+} from '../DocumentProvider/selectors';
+import { ascend, ParentNode } from '../../../components/Tree';
 
 type SelectColorProps = {
   value: string;
   onChange: (value: string) => void;
-}
+};
 
 const Row = styled.div({
   display: 'flex',
   flexDirection: 'row',
-  gap: '10px'
-})
+  gap: '10px',
+});
 
 const SelectContainer = styled.div({
-  flexGrow: 1
-})
+  flexGrow: 1,
+});
 
 const ContainerSelectColor = styled.div({
   display: 'flex',
   flexDirection: 'row',
   gap: '10px',
-  alignItems: 'center'
-})
+  alignItems: 'center',
+});
 
 const ColorSquare = styled.div<{ color: string }>(({ color }) => ({
   width: '30px',
   height: '30px',
   borderRadius: '4px',
   background: color,
-  border: '2px solid rgba(0,0,0,0.1)'
+  border: '2px solid rgba(0,0,0,0.1)',
 }));
 
 /**
@@ -44,7 +56,7 @@ const ColorSquare = styled.div<{ color: string }>(({ color }) => ({
 const SelectColor = ({ onChange, value }: SelectColorProps) => {
   const handleChange = (event: ChangeEvent<FormElement>) => {
     onChange(event.target.value);
-  }
+  };
 
   return (
     <ContainerSelectColor>
@@ -56,24 +68,24 @@ const SelectColor = ({ onChange, value }: SelectColorProps) => {
           bordered
           value={value}
           onChange={handleChange}
-          shadow={false} />
+          shadow={false}
+        />
       </SelectContainer>
     </ContainerSelectColor>
-  )
+  );
 };
-
 
 type SelectTypeProps = {
   value: string;
   onChange: (value: string) => void;
-}
+};
 
 const ContainerSelectType = styled.div({
   display: 'flex',
   flexDirection: 'row',
   gap: '10px',
-  alignItems: 'center'
-})
+  alignItems: 'center',
+});
 
 /**
  * Select type form
@@ -84,14 +96,13 @@ const SelectType = ({ onChange, value: valueProp }: SelectTypeProps) => {
   const [checked, setChecked] = useState(false);
   const taxonomy = useSelector(selectDocumentTaxonomy);
 
-
   const handleOnChange = (event: MouseEvent, value: string | string[]) => {
     if (Array.isArray(value)) {
       return;
     }
     setValue(value);
     onChange(value);
-  }
+  };
 
   const handleCheck = () => {
     setChecked((s) => {
@@ -101,13 +112,19 @@ const SelectType = ({ onChange, value: valueProp }: SelectTypeProps) => {
         onChange('');
       }
       return newState;
-    })
-  }
+    });
+  };
 
   return (
     <ContainerSelectType>
-      <Checkbox aria-label="Enable sub-type" isSelected={checked} onChange={handleCheck} />
-      <Text css={{ margin: 0, flexShrink: 0 }}>{t('modals.addType.subClassOf')}</Text>
+      <Checkbox
+        aria-label="Enable sub-type"
+        isSelected={checked}
+        onChange={handleCheck}
+      />
+      <Text css={{ margin: 0, flexShrink: 0 }}>
+        {t('modals.addType.subClassOf')}
+      </Text>
       <SelectContainer>
         <BaseSelect
           value={value}
@@ -118,8 +135,9 @@ const SelectType = ({ onChange, value: valueProp }: SelectTypeProps) => {
             placeholder: t('modals.addType.parentTypeInput'),
             shadow: false,
             bordered: true,
-            disabled: !checked
-          }}>
+            disabled: !checked,
+          }}
+        >
           {Object.values(taxonomy).map((type) => (
             <Option key={type.key} value={type.key} label={type.label}>
               {type.label}
@@ -128,25 +146,24 @@ const SelectType = ({ onChange, value: valueProp }: SelectTypeProps) => {
         </BaseSelect>
       </SelectContainer>
     </ContainerSelectType>
-  )
+  );
 };
 
 type FormProps = {
   onClose: () => void;
-}
+};
 
 type FormState = {
   label: string;
   key: string;
   parent: string;
   color: string;
-}
+};
 
 const FormContainer = styled.form({
   display: 'flex',
   flexDirection: 'column',
-})
-
+});
 
 /**
  * Form to add an annotation type
@@ -157,7 +174,7 @@ const Form = ({ onClose }: FormProps) => {
     label: '',
     key: '',
     parent: '',
-    color: '#AA9CFC'
+    color: '#AA9CFC',
   });
   const taxonomy = useSelector(selectDocumentTaxonomy);
   const dispatch = useDocumentDispatch();
@@ -168,32 +185,33 @@ const Form = ({ onClose }: FormProps) => {
     if (!parent) return;
     const parentNode = ascend(taxonomy, parent) as ParentNode;
     setValue({
-      color: parentNode.color
-    })
-  }, [taxonomy, parent, dispatch])
+      color: parentNode.color,
+    });
+  }, [taxonomy, parent, dispatch]);
 
   const handleOnBlurName = () => {
     if (label === '') return;
     if (key !== '') return;
     const typeKey = label.slice(0, 3).toUpperCase();
-    setValue({ key: typeKey })
-  }
-
+    setValue({ key: typeKey });
+  };
 
   const handleForm = (data: FormState) => {
     dispatch({
       type: 'addTaxonomyType',
-      payload: { type: data }
-    })
+      payload: { type: data },
+    });
     onClose();
-  }
+  };
 
   return (
     <FormContainer onSubmit={onSubmit(handleForm)}>
       <Modal.Header>
         <Col css={{ textAlign: 'left' }}>
-          <Text b size={18}>{t('modals.addType.title')}</Text>
-          <Text color="rgba(0,0,0,0.5)" css={{ lineHeight: 1.1 }} >
+          <Text b size={18}>
+            {t('modals.addType.title')}
+          </Text>
+          <Text color="rgba(0,0,0,0.5)" css={{ lineHeight: 1.1 }}>
             {t('modals.addType.description')}
           </Text>
         </Col>
@@ -211,43 +229,40 @@ const Form = ({ onClose }: FormProps) => {
           <Input
             aria-label="Tag of the type"
             bordered
-            placeholder="Tag"
+            placeholder={t('tag')}
             shadow={false}
             {...register('key')}
           />
         </Row>
-        <SelectType
-          {...register('parent')} />
+        <SelectType {...register('parent')} />
         <SelectColor {...register('color')} />
       </Modal.Body>
       <Modal.Footer>
         <Button auto flat onClick={onClose}>
           {t('modals.addType.btnCancel')}
         </Button>
-        <Button auto type="submit">{t('modals.addType.btnConfirm')}</Button>
+        <Button auto type="submit">
+          {t('modals.addType.btnConfirm')}
+        </Button>
       </Modal.Footer>
     </FormContainer>
-  )
-}
+  );
+};
 
 type AddAnnotationModalProps = {
   open: boolean;
   onClose: () => void;
-}
+};
 
 /**
  * Modal which contains form to add a type
  */
 const AddAnnotationModal = ({ open, onClose }: AddAnnotationModalProps) => {
   return (
-    <Modal
-      aria-labelledby="modal-title"
-      open={open}
-      onClose={onClose}
-    >
+    <Modal aria-labelledby="modal-title" open={open} onClose={onClose}>
       <Form onClose={onClose} />
     </Modal>
-  )
-}
+  );
+};
 
 export default AddAnnotationModal;

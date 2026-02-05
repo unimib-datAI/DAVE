@@ -257,21 +257,20 @@ export const getAnnotationTypes = (
   for (const ann of annotations) {
     // Get the original type and its normalized equivalent
     const originalType = ann.type;
-    const normalizedType = getNormalizedEntityType(originalType);
 
     // Use the node from taxonomy for the normalized type to get the proper label
-    const node = getNode(taxonomy, normalizedType);
+    const node = getNode(taxonomy, originalType);
 
-    if (!groupedMap[normalizedType]) {
-      groupedMap[normalizedType] = {
-        key: normalizedType,
+    if (!groupedMap[originalType]) {
+      groupedMap[originalType] = {
+        key: originalType,
         label: node.label,
         n: 1,
         originalTypes: new Set([originalType]),
       };
     } else {
-      groupedMap[normalizedType].n += 1;
-      groupedMap[normalizedType].originalTypes.add(originalType);
+      groupedMap[originalType].n += 1;
+      groupedMap[originalType].originalTypes.add(originalType);
     }
   }
 
@@ -310,7 +309,7 @@ export const getTypeFilter = (annotations: EntityAnnotation[]) => {
 
   annotations.forEach((ann) => {
     // Always normalize the entity type for consistent grouping
-    const normalizedType = getNormalizedEntityType(ann.type);
+    const normalizedType = ann.type;
 
     // Store with the original casing from the first occurrence
     if (!typeMap.has(normalizedType.toLowerCase())) {

@@ -271,155 +271,153 @@ const addMapping = (key: string, value: string) => {
 };
 
 // Person types
-addMapping('person', 'persona');
-addMapping('PER', 'persona');
-addMapping('PERSON', 'persona');
-addMapping('people', 'persona');
-addMapping('individual', 'persona');
+// addMapping('person', 'persona');
+// addMapping('PER', 'persona');
+// addMapping('PERSON', 'persona');
+// addMapping('people', 'persona');
+// addMapping('individual', 'persona');
 
-// Location types
-addMapping('location', 'luogo');
-addMapping('LOC', 'luogo');
-addMapping('LOCATION', 'luogo');
-addMapping('place', 'luogo');
-addMapping('gpe', 'luogo'); // Geo-political entity
-addMapping('GPE', 'luogo');
+// // Location types
+// addMapping('location', 'luogo');
+// addMapping('LOC', 'luogo');
+// addMapping('LOCATION', 'luogo');
+// addMapping('place', 'luogo');
+// addMapping('gpe', 'luogo'); // Geo-political entity
+// addMapping('GPE', 'luogo');
 
-// Organization types
-addMapping('organization', 'organizzazione');
-addMapping('ORG', 'organizzazione');
-addMapping('ORGANIZATION', 'organizzazione');
-addMapping('org', 'organizzazione');
-addMapping('company', 'organizzazione');
-addMapping('institution', 'organizzazione');
+// // Organization types
+// addMapping('organization', 'organizzazione');
+// addMapping('ORG', 'organizzazione');
+// addMapping('ORGANIZATION', 'organizzazione');
+// addMapping('org', 'organizzazione');
+// addMapping('company', 'organizzazione');
+// addMapping('institution', 'organizzazione');
 
-// Date types
-addMapping('date', 'data');
-addMapping('DATE', 'data');
-addMapping('time', 'data');
-addMapping('TIME', 'data');
-addMapping('temporal', 'data');
+// // Date types
+// addMapping('date', 'data');
+// addMapping('DATE', 'data');
+// addMapping('time', 'data');
+// addMapping('TIME', 'data');
+// addMapping('temporal', 'data');
 
-// Money types
-addMapping('money', 'money');
-addMapping('MONEY', 'money');
-addMapping('MONETARY', 'money');
-addMapping('currency', 'money');
-addMapping('financial', 'money');
-addMapping('denaro', 'money');
+// // Money types
+// addMapping('money', 'money');
+// addMapping('MONEY', 'money');
+// addMapping('MONETARY', 'money');
+// addMapping('currency', 'money');
+// addMapping('financial', 'money');
+// addMapping('denaro', 'money');
 
-// Legal/Document specific types
-addMapping('law', 'norma');
-addMapping('LAW', 'norma');
-addMapping('legal', 'norma');
-addMapping('statute', 'norma');
+// // Legal/Document specific types
+// addMapping('law', 'norma');
+// addMapping('LAW', 'norma');
+// addMapping('legal', 'norma');
+// addMapping('statute', 'norma');
 
-// Identifier types
-addMapping('id', 'id');
-addMapping('ID', 'id');
-addMapping('identifier', 'id');
-addMapping('code', 'id');
+// // Identifier types
+// addMapping('id', 'id');
+// addMapping('ID', 'id');
+// addMapping('identifier', 'id');
+// addMapping('code', 'id');
 
-// Facility types
-addMapping('FAC', 'facility');
-addMapping('fac', 'facility');
-addMapping('facility', 'facility');
-addMapping('building', 'facility');
-addMapping('structure', 'facility');
+// // Facility types
+// addMapping('FAC', 'facility');
+// addMapping('fac', 'facility');
+// addMapping('facility', 'facility');
+// addMapping('building', 'facility');
+// addMapping('structure', 'facility');
 
-// Nationality/Religion/Political types
-addMapping('NORP', 'norp');
-addMapping('norp', 'norp');
-addMapping('nationality', 'norp');
-addMapping('religion', 'norp');
-addMapping('political', 'norp');
+// // Nationality/Religion/Political types
+// addMapping('NORP', 'norp');
+// addMapping('norp', 'norp');
+// addMapping('nationality', 'norp');
+// addMapping('religion', 'norp');
+// addMapping('political', 'norp');
 
-// Numeric types
-addMapping('CARDINAL', 'numeric');
-addMapping('cardinal', 'numeric');
-addMapping('ORDINAL', 'numeric');
-addMapping('ordinal', 'numeric');
-addMapping('QUANTITY', 'numeric');
-addMapping('quantity', 'numeric');
-addMapping('PERCENT', 'numeric');
-addMapping('percent', 'numeric');
-addMapping('number', 'numeric');
-addMapping('NUM', 'numeric');
+// // Numeric types
+// addMapping('CARDINAL', 'numeric');
+// addMapping('cardinal', 'numeric');
+// addMapping('ORDINAL', 'numeric');
+// addMapping('ordinal', 'numeric');
+// addMapping('QUANTITY', 'numeric');
+// addMapping('quantity', 'numeric');
+// addMapping('PERCENT', 'numeric');
+// addMapping('percent', 'numeric');
+// addMapping('number', 'numeric');
+// addMapping('NUM', 'numeric');
 
-// Creative work types
-addMapping('WORK_OF_ART', 'creative_work');
-addMapping('work_of_art', 'creative_work');
-addMapping('artwork', 'creative_work');
-addMapping('creative', 'creative_work');
+// // Creative work types
+// addMapping('WORK_OF_ART', 'creative_work');
+// addMapping('work_of_art', 'creative_work');
+// addMapping('artwork', 'creative_work');
+// addMapping('creative', 'creative_work');
 
-// Event types
-addMapping('EVENT', 'event');
-addMapping('event', 'event');
+// // Event types
+// addMapping('EVENT', 'event');
+// addMapping('event', 'event');
 
-// Product types
-addMapping('PRODUCT', 'product');
-addMapping('product', 'product');
+// // Product types
+// addMapping('PRODUCT', 'product');
+// addMapping('product', 'product');
 
-// Case types (newly added)
-addMapping('CASE', 'case');
-addMapping('case', 'case');
-addMapping('case_number', 'case');
-addMapping('CASE_NUMBER', 'case');
-addMapping('lawsuit', 'case');
-addMapping('LAWSUIT', 'case');
+// // Case types (newly added)
+// addMapping('CASE', 'case');
+// addMapping('case', 'case');
+// addMapping('case_number', 'case');
+// addMapping('CASE_NUMBER', 'case');
+// addMapping('lawsuit', 'case');
+// addMapping('LAWSUIT', 'case');
 
-// Language types
-addMapping('LANGUAGE', 'language');
-addMapping('language', 'language');
+// // Language types
+// addMapping('LANGUAGE', 'language');
+// addMapping('language', 'language');
 
-// Miscellaneous types
-addMapping('misc', 'UNKNOWN');
-addMapping('MISC', 'UNKNOWN');
-addMapping('miscellaneous', 'UNKNOWN');
-addMapping('other', 'UNKNOWN');
-addMapping('OTHER', 'UNKNOWN');
+// // Miscellaneous types
+// addMapping('misc', 'UNKNOWN');
+// addMapping('MISC', 'UNKNOWN');
+// addMapping('miscellaneous', 'UNKNOWN');
+// addMapping('other', 'UNKNOWN');
+// addMapping('OTHER', 'UNKNOWN');
 
-// Default mapping for other unknown types
-addMapping('unknown', 'UNKNOWN');
-addMapping('UNK', 'UNKNOWN');
-addMapping('UNKNOWN', 'UNKNOWN');
+// // Default mapping for other unknown types
+// addMapping('unknown', 'UNKNOWN');
+// addMapping('UNK', 'UNKNOWN');
+// addMapping('UNKNOWN', 'UNKNOWN');
 
 /**
- * Maps entity types from English to Italian equivalents
- * and groups similar entity types together
+ * mapEntityType
+ *
+ * Mapping to localized keys has been disabled. Return the original
+ * entity type unchanged so downstream code works with the raw types
+ * coming from the data source.
  */
 export const mapEntityType = (type: string): string => {
-  return entityTypeMapping[type] || type;
+  // Mapping intentionally disabled - return original type
+  return type;
 };
 
 /**
  * Checks if an entity type represents a person
+ *
+ * This now performs a case-insensitive check against standard English
+ * person type tokens and avoids relying on localized mappings.
  */
 export const isPersonType = (type: string): boolean => {
-  return (
-    type === 'persona' ||
-    type === 'person' ||
-    type === 'Person' ||
-    type === 'PER' ||
-    type === 'PERSON' ||
-    type === 'people' ||
-    type === 'People' ||
-    type === 'individual' ||
-    type === 'Individual'
-  );
+  if (!type) return false;
+  const lower = type.toLowerCase();
+  return /^(person|per|people|individual)s?$/i.test(lower);
 };
 
 export const getNode = (obj: FlatTreeObj, key: string): FlatTreeNode => {
   // First try the original key
   let node = obj[key];
 
-  // If not found, try the mapped key
-  if (!node && entityTypeMapping[key]) {
-    const mappedKey = entityTypeMapping[key];
-    node = obj[mappedKey];
-  }
-
-  // If still not found, fall back to UNKNOWN
+  // NOTE: Previously we attempted a secondary lookup using localized mappings
+  // (entityTypeMapping). That mapping is intentionally disabled now and we
+  // will not perform alternate mapped lookups. This ensures we always use the
+  // raw type keys present in the taxonomy/object.
+  //
+  // If not found, fall back to UNKNOWN
   if (!node) {
     // Avoid infinite recursion by checking if we're already looking for UNKNOWN
     if (key === 'UNKNOWN') {

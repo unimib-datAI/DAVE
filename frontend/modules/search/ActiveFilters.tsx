@@ -6,6 +6,7 @@ import {
   deanonymizeFacetsAtom,
   deanonymizedFacetNamesAtom,
 } from '@/utils/atoms';
+import { useText } from '@/components/TranslationProvider';
 
 const getActiveFilters = (
   facets: ActiveFiltersListProps['facets'],
@@ -81,6 +82,7 @@ type ActiveFiltersListProps = {
 
 const ActiveFiltersList = ({ facets }: ActiveFiltersListProps) => {
   const router = useRouter();
+  const t = useText('search');
   const [deanonymize] = useAtom(deanonymizeFacetsAtom);
   const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
   const activeFilters =
@@ -152,7 +154,7 @@ const ActiveFiltersList = ({ facets }: ActiveFiltersListProps) => {
           onClick={removeAllFilters}
           className="text-xs border-none bg-transparent flex justify-start m-0 p-0 font-semibold underline cursor-pointer"
         >
-          Clear all filters
+          {t('clearAllFilters')}
         </button>
       ) : null}
     </div>

@@ -1,18 +1,21 @@
-import { conversationRatedAtom } from '@/utils/atoms';
 import { FrownOutlined, MehOutlined, SmileOutlined } from '@ant-design/icons';
 import { Col, Flex, message, Rate, Row } from 'antd';
-import { useAtom } from 'jotai';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useMutation } from '@/utils/trpc';
+import {
+  useConversationRated,
+  useChatDispatch,
+} from '@/modules/chat/ChatProvider';
+import { useText } from '@/components/TranslationProvider';
 
 interface RateConversationProps {
   state: Object;
 }
 
 export default function RateConversation({ state }: RateConversationProps) {
-  const [ratedConversation, setRatedConversation] = useAtom(
-    conversationRatedAtom
-  );
+  const t = useText('chat');
+  const ratedConversation = useConversationRated();
+  const dispatch = useChatDispatch();
   const rateConversationMutation = useMutation(['search.rateTheConversation']);
 
   const customIcons: Record<number, React.ReactNode> = {
@@ -36,10 +39,13 @@ export default function RateConversation({ state }: RateConversationProps) {
         conversation: state,
         rating: value,
       });
-      setRatedConversation(true);
-      message.success('Conversation rated successfully');
+      dispatch({
+        type: 'setConversationRated',
+        payload: { rated: true },
+      });
+      message.success(t('conversationRatedSuccessfully'));
     } catch (error) {
-      message.error('Error rating the conversation');
+      message.error(t('errorRatingConversation'));
     }
   }
   return (
@@ -59,7 +65,7 @@ export default function RateConversation({ state }: RateConversationProps) {
             }}
             className="bg-gray-50 rounded-lg"
           >
-            Thank you for your rating
+            {t('thankYouRating')}
           </span>
         </motion.div>
       ) : (
@@ -91,7 +97,7 @@ export default function RateConversation({ state }: RateConversationProps) {
                     marginBottom: 10,
                   }}
                 >
-                  Rate the conversation!
+                  {t('rateConversation')}
                 </span>
 
                 <Rate

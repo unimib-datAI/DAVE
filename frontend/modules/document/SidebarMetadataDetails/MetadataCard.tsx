@@ -52,6 +52,10 @@ const Tag = styled.span<{ color: string }>(({ color }) => ({
 const MetadataCard = ({ title, content }: MetadataCardProps) => {
   const t = useText('document');
 
+  // Translate the title using the metadata fields
+  const translatedTitle =
+    t(`leftSidebar.metadataContent.fields.${title}`) || title;
+
   return (
     <>
       <ClusterContainer>
@@ -65,7 +69,7 @@ const MetadataCard = ({ title, content }: MetadataCardProps) => {
             textOverflow: 'ellipsis',
           }}
         >
-          {title}
+          {translatedTitle}
         </Text>
         <Text size="12px">{content}</Text>
       </ClusterContainer>

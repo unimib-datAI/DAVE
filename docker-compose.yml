@@ -1,5 +1,45 @@
-version: "3"
 services:
+  postgres:
+    restart: $RESTART_POLICY
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+    networks:
+      - dave_net
+    ports:
+      - 127.0.0.1:5432:5432
+
+  keycloak:
+    restart: $RESTART_POLICY
+    image: quay.io/keycloak/keycloak:21.0
+    command: start-dev
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_STRICT_HTTPS: false
+      KC_HEALTH_ENABLED: true
+      KC_METRICS_ENABLED: true
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-vm.chronos.disco.unimib.it}
+      KC_HOSTNAME_PORT: 8007
+      KC_PROXY: edge
+      KC_HTTP_ENABLED: true
+      KC_PROXY_ADDRESS_FORWARDING: true
+    depends_on:
+      - postgres
+    ports:
+      - 0.0.0.0:8080:8080
+    networks:
+      - dave_net
+
   mongo:
     restart: $RESTART_POLICY
     image: mongo:4.4.6 # mongo 5 requires cpu supports AVX
@@ -23,7 +63,13 @@ services:
     build: ./backend/documents
     environment:
       DOCS_PORT: 3001
-      ENABLE_AUTH: true
+      USE_AUTH: $USE_AUTH
+      ENABLE_AUTH: $ENABLE_AUTH
+      USE_KEYCLOAK: ${USE_KEYCLOAK:-true}
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://keycloak:8080/realms/DAVE}
+      KEYCLOAK_ID: ${KEYCLOAK_ID:-dave_client}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       JWT_SECRET: ${DOCUMENTS_JWT_SECRET:-your-secret-key-change-in-production}
       MONGO: $MONGO
       ANONYMIZATION_ENDPOINT: $ANONYMIZATION_ENDPOINT
@@ -50,11 +96,20 @@ services:
         API_BASE_URI: $API_BASE_URI
         API_USERNAME: $API_USERNAME
         API_PASSWORD: $API_PASSWORD
+        USE_AUTH: $USE_AUTH
+        NEXT_PUBLIC_LLM_NAME: $LLM_NAME
+        NEXT_PUBLIC_USE_AUTH: $USE_AUTH
         NEXTAUTH_SECRET: $NEXTAUTH_SECRET
         NEXTAUTH_URL: $NEXTAUTH_URL
+        NEXTAUTH_URL_INTERNAL: ${NEXTAUTH_URL_INTERNAL:-http://localhost:3000}
         NEXT_PUBLIC_BASE_PATH: $NEXT_PUBLIC_BASE_PATH
         NEXT_PUBLIC_FULL_PATH: $NEXT_PUBLIC_FULL_PATH
+        KEYCLOAK_ID: $KEYCLOAK_ID
+        KEYCLOAK_SECRET: $KEYCLOAK_SECRET
+        KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://keycloak:8080/realms/DAVE}
+        NEXT_PUBLIC_KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
         API_LLM: $API_LLM
+
         API_INDEXER: $API_INDEXER
         VARIANT: $VARIANT
         TEXT_GENERATION: $TEXT_GENERATION
@@ -70,10 +125,18 @@ services:
       API_BASE_URI: $API_BASE_URI
       API_USERNAME: $API_USERNAME
       API_PASSWORD: $API_PASSWORD
+      USE_AUTH: $USE_AUTH
+      NEXT_PUBLIC_LLM_NAME: $LLM_NAME
+      NEXT_PUBLIC_USE_AUTH: $USE_AUTH
       NEXTAUTH_SECRET: $NEXTAUTH_SECRET
       NEXTAUTH_URL: $NEXTAUTH_URL
+      NEXTAUTH_URL_INTERNAL: ${NEXTAUTH_URL_INTERNAL:-http://localhost:3000}
       NEXT_PUBLIC_BASE_PATH: $NEXT_PUBLIC_BASE_PATH
       NEXT_PUBLIC_FULL_PATH: $NEXT_PUBLIC_FULL_PATH
+      KEYCLOAK_ID: $KEYCLOAK_ID
+      KEYCLOAK_SECRET: $KEYCLOAK_SECRET
+      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://keycloak:8080/realms/DAVE}
+      NEXT_PUBLIC_KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
       API_LLM: $API_LLM
       API_INDEXER: $API_INDEXER
       VARIANT: $VARIANT

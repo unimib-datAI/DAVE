@@ -73,11 +73,10 @@ const AnnotationTypeFilter = ({
     const groupedAnnotations = new Map<string, EntityAnnotation[]>();
 
     annotations.forEach((annotation) => {
-      const normalizedType = getNormalizedEntityType(annotation.type);
-      if (!groupedAnnotations.has(normalizedType)) {
-        groupedAnnotations.set(normalizedType, []);
+      if (!groupedAnnotations.has(annotation.type)) {
+        groupedAnnotations.set(annotation.type, []);
       }
-      groupedAnnotations.get(normalizedType)!.push(annotation);
+      groupedAnnotations.get(annotation.type)!.push(annotation);
     });
 
     // Convert to the format expected by the component
@@ -137,8 +136,7 @@ const AnnotationTypeFilter = ({
     const lowerItemKey = item.key.toLowerCase();
 
     annotations.forEach((ann) => {
-      const normalizedType = getNormalizedEntityType(ann.type);
-      if (normalizedType.toLowerCase() === lowerItemKey) {
+      if (ann.type.toLowerCase() === lowerItemKey) {
         originalTypes.add(ann.type);
       }
     });

@@ -4,85 +4,92 @@ import Fuse from 'fuse.js';
 import { SearchIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FacetFilter } from './FacetFilter';
-import { DeAnonymizeFacetsButton } from './DeAnonymizeFacetsButton';
+// import { DeAnonymizeFacetsButton } from './DeAnonymizeFacetsButton';
+import { useText } from '@/components/TranslationProvider';
+import { useAtom } from 'jotai';
+import {
+  deanonymizeFacetsAtom,
+  deanonymizedFacetNamesAtom,
+} from '@/utils/atoms';
+import { useMutation } from '@/utils/trpc';
 
 // Entity type grouping map - keys are lowercase
-const entityTypeGroupMap: Record<string, string> = {
-  // Person group
-  person: 'persona',
-  per: 'persona',
-  people: 'persona',
-  individual: 'persona',
-  persona: 'persona',
+// const entityTypeGroupMap: Record<string, string> = {
+//   // Person group
+//   person: 'persona',
+//   per: 'persona',
+//   people: 'persona',
+//   individual: 'persona',
+//   persona: 'persona',
 
-  // Location group
-  location: 'luogo',
-  loc: 'luogo',
-  place: 'luogo',
-  gpe: 'luogo',
-  luogo: 'luogo',
+//   // Location group
+//   location: 'luogo',
+//   loc: 'luogo',
+//   place: 'luogo',
+//   gpe: 'luogo',
+//   luogo: 'luogo',
 
-  // Organization group
-  organization: 'organizzazione',
-  org: 'organizzazione',
-  company: 'organizzazione',
-  institution: 'organizzazione',
-  organizzazione: 'organizzazione',
+//   // Organization group
+//   organization: 'organizzazione',
+//   org: 'organizzazione',
+//   company: 'organizzazione',
+//   institution: 'organizzazione',
+//   organizzazione: 'organizzazione',
 
-  // Date/Time group
-  date: 'data',
-  time: 'data',
-  temporal: 'data',
-  data: 'data',
+//   // Date/Time group
+//   date: 'data',
+//   time: 'data',
+//   temporal: 'data',
+//   data: 'data',
 
-  // Money/Currency group
-  money: 'money',
-  monetary: 'money',
-  currency: 'money',
-  financial: 'money',
-  denaro: 'money',
+//   // Money/Currency group
+//   money: 'money',
+//   monetary: 'money',
+//   currency: 'money',
+//   financial: 'money',
+//   denaro: 'money',
 
-  // Law/Legal group
-  law: 'norma',
-  legal: 'norma',
-  statute: 'norma',
-  regulation: 'norma',
-  norma: 'norma',
+//   // Law/Legal group
+//   law: 'norma',
+//   legal: 'norma',
+//   statute: 'norma',
+//   regulation: 'norma',
+//   norma: 'norma',
 
-  // Facility types
-  fac: 'facility',
-  facility: 'facility',
-  building: 'facility',
-  structure: 'facility',
+//   // Facility types
+//   fac: 'facility',
+//   facility: 'facility',
+//   building: 'facility',
+//   structure: 'facility',
 
-  // Nationality/Religion/Political types
-  norp: 'norp',
-  nationality: 'norp',
-  religion: 'norp',
-  political: 'norp',
+//   // Nationality/Religion/Political types
+//   norp: 'norp',
+//   nationality: 'norp',
+//   religion: 'norp',
+//   political: 'norp',
 
-  // Numeric types
-  cardinal: 'numeric',
-  ordinal: 'numeric',
-  quantity: 'numeric',
-  percent: 'numeric',
-  number: 'numeric',
+//   // Numeric types
+//   cardinal: 'numeric',
+//   ordinal: 'numeric',
+//   quantity: 'numeric',
+//   percent: 'numeric',
+//   number: 'numeric',
 
-  // Creative work types
-  work_of_art: 'creative_work',
-  artwork: 'creative_work',
-  creative: 'creative_work',
+//   // Creative work types
+//   work_of_art: 'creative_work',
+//   artwork: 'creative_work',
+//   creative: 'creative_work',
 
-  // Event types
-  event: 'event',
+//   // Event types
+//   event: 'event',
 
-  // Product types
-  product: 'product',
+//   // Product types
+//   product: 'product',
 
-  // Language types
-  language: 'language',
-};
-
+//   // Language types
+//   language: 'language',
+// };
+const entityTypeGroupMap: Record<string, string> = {};
 // Function to get normalized entity type group
 const getNormalizedEntityGroup = (key: string): string => {
   const lowerKey = key.toLowerCase();
@@ -241,11 +248,53 @@ const Facets = ({
   selectedFilters,
   setSelectedFilters,
 }: FacetsProps) => {
+  const t = useText('search');
   const { register, value } = useForm({
     filter: '',
   });
 
+  const [deanonymize] = useAtom(deanonymizeFacetsAtom);
+  const [deanonymizedNames, setDeanonymizedNames] = useAtom(
+    deanonymizedFacetNamesAtom
+  );
+
+  const deanonymizeMutation = useMutation(['document.deanonymizeKeys']);
+
   const allFacets = useMemo(() => buildFacets(facets), [facets]);
+
+  // Fetch de-anonymized names when global toggle is activated
+  useEffect(() => {
+    const fetchDeAnonymizedNames = async () => {
+      try {
+        const displayNames = new Set<string>();
+
+        facets.annotations.forEach((facet) => {
+          facet.children.forEach((child) => {
+            if (child.display_name && child.display_name.trim() !== '') {
+              displayNames.add(child.display_name);
+            }
+          });
+        });
+
+        const keysArray = Array.from(displayNames);
+
+        if (keysArray.length > 0) {
+          const result = await deanonymizeMutation.mutateAsync({
+            keys: keysArray,
+          });
+
+          setDeanonymizedNames(result);
+        }
+      } catch (error) {
+        console.error('Failed to de-anonymize facet names:', error);
+      }
+    };
+
+    if (deanonymize && Object.keys(deanonymizedNames || {}).length === 0) {
+      fetchDeAnonymizedNames();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deanonymize, facets]);
 
   const fuse = useRef(
     new Fuse(allFacets, {
@@ -253,89 +302,59 @@ const Facets = ({
     })
   );
 
-  const filteredFacets =
-    value.filter.trim() === ''
-      ? allFacets
-      : fuse.current.search(value.filter).map(({ item }) => item);
+  const filteredFacets = useMemo(() => {
+    const baseFiltered =
+      value.filter.trim() === ''
+        ? allFacets
+        : fuse.current.search(value.filter).map(({ item }) => item);
 
-  useEffect(() => {
-    // Reorder facets based on selected filters
-    // console.log('selected filters ', selectedFilters);
-    // console.log('fist facet', filteredFacets[0]);
+    // Create a copy to avoid mutating the original array
+    const sorted = [...baseFiltered];
 
-    // Clean up selected filters to remove empty or whitespace-only strings
-    const cleanedFilters = selectedFilters.filter(
-      (filter) => filter && filter.trim() !== ''
-    );
-
-    // Normalize cleaned filters for consistent comparison
-    const normalizedSelectedFilters = cleanedFilters.map((f) =>
-      f.toLowerCase().trim()
-    );
-
-    filteredFacets.sort((a, b) => {
-      const aSelected =
-        (a.key &&
-          normalizedSelectedFilters.includes(a.key.toLowerCase().trim())) ||
-        a.children.some((child) =>
-          child.ids_ER.some(
-            (id) =>
-              id &&
-              id.trim() !== '' &&
-              normalizedSelectedFilters.includes(id.toLowerCase().trim())
-          )
-        );
-      const bSelected =
-        (b.key &&
-          normalizedSelectedFilters.includes(b.key.toLowerCase().trim())) ||
-        b.children.some((child) =>
-          child.ids_ER.some(
-            (id) =>
-              id &&
-              id.trim() !== '' &&
-              normalizedSelectedFilters.includes(id.toLowerCase().trim())
-          )
-        );
-      return (bSelected ? 1 : 0) - (aSelected ? 1 : 0); // Prioritize selected facets
-    });
-  }, [selectedFilters, filteredFacets]);
-
-  // Reorder filtered facets to prioritize matches
-  if (value.filter.trim() !== '') {
-    filteredFacets.sort((a, b) => {
+    // If there's a filter query, prioritize matches
+    if (value.filter.trim() !== '') {
       const filterLower = value.filter.toLowerCase().trim();
-      const aMatches =
-        (a.key && a.key.toLowerCase().includes(filterLower)) ||
-        a.children.some(
-          (child) =>
-            (child.display_name &&
-              child.display_name.toLowerCase().includes(filterLower)) ||
-            child.ids_ER.some(
-              (id) =>
-                id && id.trim() !== '' && id.toLowerCase().includes(filterLower)
-            )
-        );
-      const bMatches =
-        (b.key && b.key.toLowerCase().includes(filterLower)) ||
-        b.children.some(
-          (child) =>
-            (child.display_name &&
-              child.display_name.toLowerCase().includes(filterLower)) ||
-            child.ids_ER.some(
-              (id) =>
-                id && id.trim() !== '' && id.toLowerCase().includes(filterLower)
-            )
-        );
-      return (bMatches ? 1 : 0) - (aMatches ? 1 : 0); // Prioritize facets that match the filter
-    });
-  }
+      sorted.sort((a, b) => {
+        const aMatches =
+          (a.key && a.key.toLowerCase().includes(filterLower)) ||
+          a.children.some(
+            (child) =>
+              (child.display_name &&
+                child.display_name.toLowerCase().includes(filterLower)) ||
+              child.ids_ER.some(
+                (id) =>
+                  id &&
+                  id.trim() !== '' &&
+                  id.toLowerCase().includes(filterLower)
+              )
+          );
+        const bMatches =
+          (b.key && b.key.toLowerCase().includes(filterLower)) ||
+          b.children.some(
+            (child) =>
+              (child.display_name &&
+                child.display_name.toLowerCase().includes(filterLower)) ||
+              child.ids_ER.some(
+                (id) =>
+                  id &&
+                  id.trim() !== '' &&
+                  id.toLowerCase().includes(filterLower)
+              )
+          );
+        return (bMatches ? 1 : 0) - (aMatches ? 1 : 0);
+      });
+    }
+
+    return sorted;
+  }, [allFacets, value.filter]);
+
   return allFacets.length > 0 ? (
     <div className="sticky top-16 w-72 h-[calc(100vh-4rem)]">
       <div className="overflow-y-auto h-full">
         <div className="flex flex-col pr-6 py-6 gap-8">
           <div className="flex flex-col gap-3">
-            <div className="text-lg font-semibold">Filter</div>
-            <DeAnonymizeFacetsButton
+            <div className="text-lg font-semibold">{t('filter')}</div>
+            {/* <DeAnonymizeFacetsButton
               facets={{
                 annotations: allFacets
                   .filter((f) => f.filterType === 'annotation')
@@ -344,13 +363,13 @@ const Facets = ({
                   .filter((f) => f.filterType === 'metadata')
                   .map(({ filterType, ...rest }) => rest),
               }}
-            />
+            /> */}
             <div className="flex flex-row items-center border-[1px] border-solid border-slate-200 rounded-md p-3 w-full gap-2">
               <SearchIcon size={22} />
               <input
                 className="text-slate-800 resize-none bg-transparent w-full h-full border-none text-base"
                 spellCheck="false"
-                placeholder={`Find filter`}
+                placeholder={t('findFilter')}
                 {...register('filter')}
               />
             </div>

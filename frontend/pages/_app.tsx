@@ -7,14 +7,22 @@ import { withTRPC } from '@trpc/next';
 import { AppRouter } from '@/server/routers/_app';
 import { NextUIProvider } from '@nextui-org/react';
 import { NextPage } from 'next';
-import { ReactElement, ReactNode, useEffect } from 'react';
-import { SessionProvider, useSession, signOut } from 'next-auth/react';
+import { ReactElement, ReactNode, useEffect, useState } from 'react';
+import {
+  SessionProvider,
+  useSession,
+  signOut,
+  getSession,
+} from 'next-auth/react';
 import { useQuery } from '@/utils/trpc';
 import { useRouter } from 'next/router';
+import { useAtom } from 'jotai';
+import { loadLLMSettingsAtom } from '@/atoms/llmSettings';
 
 import { TranslationProvider } from '@/components';
 import TaxonomyProvider from '@/modules/taxonomy/TaxonomyProvider';
 import { UploadProgressIndicator } from '@/components/UploadProgressIndicator';
+import { getBrowserId } from '@/utils/browserId';
 import '@/styles/globals.css';
 
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
@@ -45,6 +53,16 @@ const getTRPCUrl = () => {
   return url;
 };
 
+const getTRPCHeaders = () => {
+  if (typeof window === 'undefined') return {};
+  if (process.env.NEXT_PUBLIC_USE_AUTH === 'false') {
+    return {
+      'X-Browser-ID': getBrowserId(),
+    };
+  }
+  return {};
+};
+
 function MyApp({
   Component,
   pageProps: { session, locale, ...pageProps },
@@ -52,14 +70,81 @@ function MyApp({
 }: AppPropsWithLayout) {
   // Use the layout defined at the page level, if available
   const getLayout = Component.getLayout ?? ((page) => page);
+
+  // A simple version counter used to force a remount of the TranslationProvider subtree
+  // whenever the selected locale changes. This provides a straightforward way to ensure
+  // all components re-render with the newly loaded translations.
+  const [localeVersion, setLocaleVersion] = useState<number>(0);
+
+  // Listen for locale changes (both storage events from other tabs and a custom event)
+  // and bump the version to force remount.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const bump = () => setLocaleVersion((v) => v + 1);
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'locale') bump();
+    };
+    const onLocaleChange = (_e: Event) => bump();
+
+    window.addEventListener('storage', onStorage);
+    window.addEventListener('localeChange', onLocaleChange as EventListener);
+
+    return () => {
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener(
+        'localeChange',
+        onLocaleChange as EventListener
+      );
+    };
+  }, []);
+
   // An internal component that watches the NextAuth session and:
   // - signs the user out if a refresh failure occurred
   // - fetches collections in the background once logged in and on route changes
+  // - proactively refreshes the NextAuth session shortly before the access token expires
   // It must be rendered as a descendant of SessionProvider so that useSession() has access to the session context.
   const AuthWatcher = () => {
     // useSession is safe to call here because AuthWatcher will be rendered inside SessionProvider
-    const { data: currentSession } = useSession();
+    const { data: currentSession, update } = useSession();
     const router = useRouter();
+    const [, loadLLMSettings] = useAtom(loadLLMSettingsAtom);
+
+    // Helper: check if token is expired
+    const isTokenExpired = (token?: string): boolean => {
+      if (!token) return true;
+      try {
+        const parts = token.split('.');
+        if (parts.length < 2) return true;
+        const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(
+          Array.prototype.map
+            .call(atob(payload), (c: string) => {
+              return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+            })
+            .join('')
+        );
+        const parsed = JSON.parse(jsonPayload);
+        if (parsed && parsed.exp) {
+          return Date.now() >= parsed.exp * 1000;
+        }
+        return true;
+      } catch (e) {
+        return true;
+      }
+    };
+
+    // Log user ID whenever session changes
+    useEffect(() => {
+      if (currentSession?.user) {
+        console.log(
+          'User ID:',
+          (currentSession.user as any).userId || 'No ID available'
+        );
+      } else {
+        console.log('User ID: Not logged in');
+      }
+    }, [currentSession]);
 
     // Setup a tRPC query to fetch collections. The query is enabled only when a valid token is present.
     // We use the token stored in the session (session.accessToken). The query runs in background when enabled.
@@ -75,20 +160,13 @@ function MyApp({
     useEffect(() => {
       try {
         if ((currentSession as any)?.error === 'RefreshAccessTokenError') {
-          // log locally and force sign out
-          console.warn(
-            'AuthWatcher: RefreshAccessTokenError detected — signing out user',
-          );
           // sign out and redirect to sign-in page
           signOut({
             callbackUrl: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/sign-in`,
           });
         }
       } catch (e) {
-        console.error(
-          'AuthWatcher: error while handling session refresh error',
-          e,
-        );
+        // Silent error handling
       }
     }, [currentSession]);
 
@@ -96,38 +174,59 @@ function MyApp({
     useEffect(() => {
       try {
         if (token) {
-          console.log(
-            'AuthWatcher: token present — fetching collections in background',
-          );
           // trigger a background refetch
-          collectionsQuery.refetch().catch((err) => {
-            console.warn(
-              'AuthWatcher: background collections fetch failed',
-              err,
-            );
+          collectionsQuery.refetch().catch(() => {
+            // Silent error handling
           });
         }
       } catch (e) {
-        console.error(
-          'AuthWatcher: error while initiating collections fetch',
-          e,
-        );
+        // Silent error handling
       }
       // We intentionally depend on token and the refetch function
     }, [token, collectionsQuery.refetch]);
+
+    // Refresh session every 120 seconds to keep tokens valid
+    useEffect(() => {
+      if (!token) return;
+
+      const interval = window.setInterval(async () => {
+        try {
+          console.log('AuthWatcher: performing periodic session refresh');
+          await update();
+          console.log('AuthWatcher: periodic refresh finished');
+        } catch (err) {
+          console.error('AuthWatcher: periodic refresh failed', err);
+          // If refresh fails, sign out
+          signOut({
+            callbackUrl: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/sign-in`,
+          });
+        }
+      }, 120 * 1000); // 120 seconds
+
+      return () => {
+        window.clearInterval(interval);
+      };
+    }, [token, update]);
+
+    // Refresh immediately if token is expired
+    useEffect(() => {
+      if (!token || !isTokenExpired(token)) return;
+
+      console.log('AuthWatcher: token expired, refreshing immediately');
+      update().catch((err) => {
+        console.error('AuthWatcher: immediate refresh failed', err);
+        signOut({
+          callbackUrl: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/sign-in`,
+        });
+      });
+    }, [token, update]);
 
     // Also refetch collections on every route change (background only if token is defined)
     useEffect(() => {
       const handleRouteChange = () => {
         if (!token) return;
-        console.log(
-          'AuthWatcher: route changed — refetching collections in background',
-        );
-        collectionsQuery.refetch().catch((err) => {
-          console.warn(
-            'AuthWatcher: collections refetch on route change failed',
-            err,
-          );
+        collectionsQuery.refetch().catch(() => {
+          // Silent error handling
         });
       };
 
@@ -136,6 +235,13 @@ function MyApp({
         router.events.off('routeChangeComplete', handleRouteChange);
       };
     }, [router.events, token, collectionsQuery.refetch]);
+
+    // Load LLM settings on mount
+    useEffect(() => {
+      loadLLMSettings().catch(() => {
+        // Silent error handling - will use defaults
+      });
+    }, [loadLLMSettings]);
 
     return null;
   };
@@ -149,7 +255,7 @@ function MyApp({
       <AuthWatcher />
 
       <Global styles={GlobalStyles} />
-      <TranslationProvider locale={locale}>
+      <TranslationProvider key={localeVersion} locale={locale}>
         <TaxonomyProvider>
           <NextUIProvider>
             <Layout>
@@ -171,9 +277,11 @@ export default withTRPC<AppRouter>({
      * @link https://trpc.io/docs/ssr
      */
     const url = getTRPCUrl();
+    const headers = getTRPCHeaders();
 
     return {
       url,
+      headers,
       /**
        * @link https://react-query.tanstack.com/reference/QueryClient
        */

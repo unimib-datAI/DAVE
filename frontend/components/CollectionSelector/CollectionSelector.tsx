@@ -53,7 +53,9 @@ const CollectionSelector = () => {
       },
     ],
     {
-      enabled: status === 'authenticated' && !!session?.accessToken,
+      enabled:
+        process.env.NEXT_PUBLIC_USE_AUTH === 'false' ||
+        (status === 'authenticated' && !!session?.accessToken),
       onSuccess: (data) => {
         if (data) {
           setCollections(data);
@@ -88,7 +90,10 @@ const CollectionSelector = () => {
     );
   }
 
-  if (status === 'unauthenticated' || collections.length === 0) {
+  if (
+    process.env.NEXT_PUBLIC_USE_AUTH !== 'false' &&
+    status === 'unauthenticated'
+  ) {
     return null;
   }
 

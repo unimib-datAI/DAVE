@@ -6,6 +6,7 @@ import {
 import styled from '@emotion/styled';
 import { Collapse, Link, Text } from '@nextui-org/react';
 import { useMemo } from 'react';
+import { useText } from '@/components';
 
 type AnnotationLinkDetailsProps = {
   annotationFeatures:
@@ -47,9 +48,10 @@ type ListAdditionalCandidatesProps = {
 const ListAdditionalCandidates = ({
   candidates,
 }: ListAdditionalCandidatesProps) => {
+  const t = useText('document');
   return (
     <Collapse
-      title={<Text size={15}>{`Altri candidati`}</Text>}
+      title={<Text size={15}>{t('otherCandidates')}</Text>}
       css={{
         padding: 0,
         '& > div:first-of-type': {
@@ -86,6 +88,7 @@ const ListAdditionalCandidates = ({
 const AnnotationLinkDetails = ({
   annotationFeatures,
 }: AnnotationLinkDetailsProps) => {
+  const t = useText('document');
   const candidates = useMemo(() => {
     if (
       !annotationFeatures ||
@@ -122,7 +125,7 @@ const AnnotationLinkDetails = ({
   return (
     <Container>
       <Text size={15} b>
-        Informazioni Links
+        {t('linksInfo')}
       </Text>
       <Section>
         {isNil() ? (
@@ -131,7 +134,7 @@ const AnnotationLinkDetails = ({
             size={14}
             css={{ padding: '10px', margin: '0', background: '#fdf7d5' }}
           >
-            {`L'annotazione è stata riconsociuta come una nuova entità non presente nella base di conoscenza.`}
+            {t('newEntityMessage')}
           </Text>
         ) : (
           <>

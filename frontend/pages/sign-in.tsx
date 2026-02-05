@@ -1,14 +1,11 @@
 import type { GetServerSideProps, NextPage } from 'next';
-import { FormEvent, useEffect } from 'react';
-import { useForm, useInput, useQueryParam } from '@/hooks';
+import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import styled from '@emotion/styled';
-import { useMutation, useQuery } from '@/utils/trpc';
-import { Card, Input, Text, Spacer } from '@nextui-org/react';
+import { signIn, useSession, getSession } from 'next-auth/react';
+import { Card, Text, Spacer } from '@nextui-org/react';
 import { Button } from '@/components';
-import { FaRegUser } from '@react-icons/all-files/fa/FaRegUser';
-import { FaLock } from '@react-icons/all-files/fa/FaLock';
-import { signIn, useSession } from 'next-auth/react';
+import { useText } from '@/components/TranslationProvider';
 
 const Container = styled.div`
   display: flex;
@@ -24,72 +21,90 @@ const Container = styled.div`
 const Box = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 16px;
+  align-items: center;
 `;
 
 /**
- * Login page component
+ * Keycloak login page component
+ * Automatically redirects to Keycloak for authentication
  */
 const Login: NextPage<{}> = () => {
   const { status } = useSession();
-  const signInError = useQueryParam('error');
   const router = useRouter();
-  const { register, value } = useForm({
-    username: '',
-    password: '',
-  });
+  const { error, callbackUrl } = router.query;
+  const t = useText('signIn');
 
-  console.log('value', process.env.NEXT_PUBLIC_FULL_PATH);
-  const onFormSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    console.log('value', process.env.NEXT_PUBLIC_FULL_PATH);
-    try {
-      let res = await signIn('credentials', {
-        ...value,
-      });
-      console.log('res', res);
-      router.push(`${process.env.NEXT_PUBLIC_FULL_PATH}/`);
-    } catch (e) {
-      console.log('error', e);
+  // If user is already authenticated, redirect to home
+  useEffect(() => {
+    if (status === 'authenticated') {
+      // Use callbackUrl if provided, otherwise default to root
+      const redirectUrl = (callbackUrl as string) || '/';
+      router.push(redirectUrl);
     }
+  }, [status, router, callbackUrl]);
+
+  const handleSignIn = () => {
+    // Use callbackUrl if provided, otherwise default to root
+    const redirect = (callbackUrl as string) || '/';
+    signIn('keycloak', { callbackUrl: redirect });
   };
 
   return (
     <Container>
-      <Card css={{ maxWidth: '500px', margin: '0 auto', padding: '12px 16px' }}>
-        <Box as="form" onSubmit={onFormSubmit}>
-          <Text h2 css={{ textAlign: 'center' }}>
-            DAVE 🔨
+      <Card css={{ maxWidth: '500px', margin: '0 auto', padding: '32px 24px' }}>
+        <Box>
+          <Text h2 css={{ textAlign: 'center', marginBottom: '8px' }}>
+            {t('title')}
           </Text>
-          <Spacer y={0.5} />
-          <Input
-            bordered
-            placeholder="Username"
-            aria-label="username"
-            {...register('username')}
-            contentLeft={<FaRegUser />}
-          />
-          <Input.Password
-            bordered
-            placeholder="Password"
-            aria-label="password"
-            {...register('password')}
-            contentLeft={<FaLock />}
-          />
-          {signInError && (
-            <Text color="error">Invalid username or password.</Text>
+          <Text css={{ textAlign: 'center', color: '$gray600' }}>
+            {t('subtitle')}
+          </Text>
+          <Spacer y={1} />
+
+          {error && (
+            <>
+              <Text color="error" css={{ textAlign: 'center' }}>
+                {error === 'OAuthCallback'
+                  ? t('errors.authFailed')
+                  : error === 'AccessDenied'
+                  ? t('errors.accessDenied')
+                  : t('errors.genericError')}
+              </Text>
+              <Spacer y={0.5} />
+            </>
           )}
+
           <Button
-            type="submit"
-            disabled={!value.password || !value.username}
+            onClick={handleSignIn}
+            disabled={status === 'loading' || status === 'authenticated'}
             loading={status === 'loading'}
+            css={{ width: '100%' }}
           >
-            Login
+            {status === 'loading' ? t('button.signingIn') : t('button.signIn')}
           </Button>
+
+          <Text
+            size="$sm"
+            css={{ textAlign: 'center', color: '$gray500', marginTop: '8px' }}
+          >
+            {t('redirectMessage')}
+          </Text>
         </Box>
       </Card>
     </Container>
   );
+};
+
+export const getServerSideProps: GetServerSideProps = async () => {
+  const locale = process.env.LOCALE || 'ita';
+  const localeObj = (await import(`@/translation/${locale}`)).default;
+
+  return {
+    props: {
+      locale: localeObj,
+    },
+  };
 };
 
 export default Login;

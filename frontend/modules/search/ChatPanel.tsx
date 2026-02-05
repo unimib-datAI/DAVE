@@ -17,16 +17,16 @@ import { ButtonSend } from './ButtonSend';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAtom } from 'jotai';
+import { facetsDocumentsAtom, selectedFiltersAtom } from '@/utils/atoms';
 import {
-  chatHistoryAtom,
-  conversationRatedAtom,
-  facetsDocumentsAtom,
-  selectedFiltersAtom,
-} from '@/utils/atoms';
+  useConversationRated,
+  useChatDispatch,
+} from '@/modules/chat/ChatProvider';
 import { current } from 'immer';
 import { Radio } from 'antd';
 import RateConversation from '@/components/RateConversation/RateConversation';
 import { activeCollectionAtom } from '@/atoms/collection';
+import { useText } from '@/components/TranslationProvider';
 
 type Form = GenerateOptions & {
   message: string;
@@ -56,7 +56,7 @@ const Resources = ({ documents, isLoading }: ResourcesProps) => {
       ) : (
         <div className="flex flex-col gap-2">
           <span className="text-base tracking-tighter font-semibold">
-            Resources
+            {t('resources')}
           </span>
           {documents.map((doc) => (
             <div
@@ -86,13 +86,14 @@ type ChatPanel = {
 };
 
 const ChatPanel = ({ devMode }: ChatPanel) => {
+  const t = useText('chat');
   const { state, isStreaming, isLoading, appendMessage, restartChat } = useChat(
     {
       endpoint: '/generate',
       initialMessages: [
         {
           role: 'assistant',
-          content: 'Ciao, come posso aiutarti?',
+          content: t('initialMessage'),
           isDoneStreaming: true,
         },
       ],
@@ -109,9 +110,8 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
           (q) => q.trim() !== ''
         )
       : [];
-  const [conversationRated, setConversationRated] = useAtom(
-    conversationRatedAtom
-  );
+  const conversationRated = useConversationRated();
+  const dispatch = useChatDispatch();
   const mostSimilarDocumentsMutation = useMutation([
     'search.mostSimilarDocuments',
   ]);
@@ -202,7 +202,7 @@ fallback response.`,
           filter_ids: filterIds,
           retrievalMethod: formValues.retrievalMethod,
           force_rag: formValues.force_rag,
-          collectionId: activeCollection ? activeCollection.id : null,
+          collectionId: activeCollection ? activeCollection.id : undefined,
         })
       : undefined;
     appendMessage({ ...formValues, context, devMode });
@@ -236,9 +236,7 @@ fallback response.`,
                     key={index}
                     {...message}
                     context={message.context ? message.context : []}
-                    isDoneStreaming={
-                      state.statuses ? state.statuses[index] : true
-                    }
+                    isDoneStreaming={message.isDoneStreaming ?? true}
                   />
                 );
               } else {
@@ -264,18 +262,18 @@ fallback response.`,
                 disabled={chatState !== 'idle'}
                 className="text-slate-800 resize-none bg-transparent w-full h-full border-none text-sm"
                 spellCheck="false"
-                placeholder={`Type your question here`}
+                placeholder={t('typeQuestionPlaceholder')}
                 {...register('message')}
               />
             </div>
             {(window.location.href.includes('documents') ||
               window.location.href.includes('search')) && (
               <Tooltip
-                content={`Use current ${
+                content={
                   window.location.href.includes('documents')
-                    ? 'document'
-                    : 'search results'
-                } context`}
+                    ? t('useCurrentDocumentContext')
+                    : t('useCurrentSearchResultsContext')
+                }
                 placement="top"
                 color="invert"
               >
@@ -299,10 +297,10 @@ fallback response.`,
               auto={true}
               className="bg-slate-900"
             >
-              Send
+              {t('send')}
             </ButtonSend>
 
-            <Tooltip content="Reset chat" color="invert">
+            <Tooltip content={t('resetChat')} color="invert">
               <Button
                 disabled={isStreaming}
                 type="button"
@@ -334,11 +332,11 @@ fallback response.`,
                       className="w-full"
                       color="invert"
                       placement="left"
-                      content="Select a predefined question to fill in the chat input"
+                      content={t('selectPredefinedQuestionTooltip')}
                     >
                       <div className="flex flex-row justify-between w-full">
                         <span className="text-sm font-semibold">
-                          Predefined Questions
+                          {t('predefinedQuestions')}
                         </span>
                       </div>
                     </Tooltip>
@@ -346,7 +344,7 @@ fallback response.`,
                       <Select
                         id="predefined-questions-select"
                         style={{ width: '100%' }}
-                        placeholder="Select a question"
+                        placeholder={t('selectQuestion')}
                         disabled={isStreaming}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -380,10 +378,12 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content="Higher values (closer to 1) will result in more diverse outputs, while lower values (closer to 0) make the model's output more deterministic."
+                    content={t('temperatureTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
-                      <span className="text-sm font-semibold">Temperature</span>
+                      <span className="text-sm font-semibold">
+                        {t('temperature')}
+                      </span>
                       <span className="text-sm">{value.temperature}</span>
                     </div>
                   </Tooltip>
@@ -400,11 +400,11 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content="This determines the maximum length of the generated text. The model will stop generating further tokens after this limit is reached."
+                    content={t('maxNewTokensTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
                       <span className="text-sm font-semibold">
-                        Max new tokens
+                        {t('maxNewTokens')}
                       </span>
                       <span className="text-sm">{value.max_new_tokens}</span>
                     </div>
@@ -423,10 +423,10 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content="Also known as nucleus sampling. It's an alternative to temperature and controls the randomness in a slightly different way. The model will sample from the smallest possible set of tokens whose cumulative probability exceeds the top_p value."
+                    content={t('topPTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
-                      <span className="text-sm font-semibold">Top p</span>
+                      <span className="text-sm font-semibold">{t('topP')}</span>
                       <span className="text-sm">{value.top_p}</span>
                     </div>
                   </Tooltip>
@@ -443,10 +443,10 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content="Sets the top_k value to use for sampling. It limits the number of tokens that the model can choose from. A higher value will make the model consider more tokens, while a lower value will make it consider fewer tokens."
+                    content={t('topKTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
-                      <span className="text-sm font-semibold">Top k</span>
+                      <span className="text-sm font-semibold">{t('topK')}</span>
                       <span className="text-sm">{value.top_k}</span>
                     </div>
                   </Tooltip>
@@ -463,11 +463,11 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content="This can be used to penalize more frequent tokens, changing how much the model uses common phrases or responses. Positive values will make the model avoid frequent tokens, while negative values will make it prefer frequent tokens."
+                    content={t('frequencyPenaltyTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
                       <span className="text-sm font-semibold">
-                        Frequency penalty
+                        {t('frequencyPenalty')}
                       </span>
                       <span className="text-sm">
                         {value.token_repetition_penalty_max}
@@ -506,7 +506,7 @@ fallback response.`,
                     </div>
                   </Tooltip>*/}
                   <span className="text-sm font-semibold">
-                    Retrieval method
+                    {t('retrievalMethod')}
                   </span>
                   <Radio.Group
                     value={fieldRetrievalMethod.value}
@@ -516,11 +516,13 @@ fallback response.`,
                       fieldRetrievalMethod.onChange(newValue);
                     }}
                   >
-                    <Radio value="full">Hybrid Retrieval</Radio>
-                    <Radio value="hibrid_no_ner">Hibrid Retrieval No NER</Radio>
-                    <Radio value="dense">Dense</Radio>
-                    <Radio value="full-text">Full text</Radio>
-                    <Radio value="none">None</Radio>
+                    <Radio value="full">{t('hybridRetrieval')}</Radio>
+                    <Radio value="hibrid_no_ner">
+                      {t('hybridRetrievalNoNer')}
+                    </Radio>
+                    <Radio value="dense">{t('dense')}</Radio>
+                    <Radio value="full-text">{t('fullText')}</Radio>
+                    <Radio value="none">{t('none')}</Radio>
                   </Radio.Group>
                 </div>
                 <div className="flex flex-col gap-3">
@@ -528,7 +530,7 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content="Forces RAG to be used even if regular retrieval would be sufficient."
+                    content={t('forceRagTooltip')}
                   >
                     <div className="flex flex-row items-center gap-2 w-full">
                       <Checkbox
@@ -540,7 +542,7 @@ fallback response.`,
                         htmlFor="force-rag"
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
-                        Force RAG
+                        {t('forceRag')}
                       </label>
                     </div>
                   </Tooltip>
@@ -550,7 +552,7 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content="Enable Multi-Agent System for enhanced responses using specialized AI agents (Researcher, Writer, Reviewer)"
+                    content={t('useMultiAgentTooltip')}
                   >
                     <div className="flex flex-row items-center gap-2 w-full">
                       <Checkbox
@@ -562,7 +564,7 @@ fallback response.`,
                         htmlFor="use-multi-agent"
                         className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                       >
-                        Use Multi-Agent System
+                        {t('useMultiAgentSystem')}
                       </label>
                     </div>
                   </Tooltip>
@@ -572,11 +574,11 @@ fallback response.`,
                     className="w-full"
                     color="invert"
                     placement="left"
-                    content="Here you can add your system prompt which determins the behaviour of the AI model."
+                    content={t('systemPromptTooltip')}
                   >
                     <div className="flex flex-row justify-between w-full">
                       <span className="text-sm font-semibold">
-                        System prompt
+                        {t('systemPrompt')}
                       </span>
                     </div>
                   </Tooltip>
