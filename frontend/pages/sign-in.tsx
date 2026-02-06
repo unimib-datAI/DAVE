@@ -6,6 +6,7 @@ import { signIn, useSession, getSession } from 'next-auth/react';
 import { Card, Text, Spacer } from '@nextui-org/react';
 import { Button } from '@/components';
 import { useText } from '@/components/TranslationProvider';
+import { isAuthDisabled, getAuthRedirectUrl } from '@/utils/auth';
 
 const Container = styled.div`
   display: flex;
@@ -35,18 +36,30 @@ const Login: NextPage<{}> = () => {
   const { error, callbackUrl } = router.query;
   const t = useText('signIn');
 
+  // If auth is disabled, redirect immediately to home
+  useEffect(() => {
+    if (isAuthDisabled()) {
+      const redirectUrl = getAuthRedirectUrl(callbackUrl as string);
+      router.push(redirectUrl);
+    }
+  }, [router, callbackUrl]);
+
   // If user is already authenticated, redirect to home
   useEffect(() => {
     if (status === 'authenticated') {
       // Use callbackUrl if provided, otherwise default to root
-      const redirectUrl = (callbackUrl as string) || '/';
+      const redirectUrl = getAuthRedirectUrl(callbackUrl as string);
       router.push(redirectUrl);
     }
   }, [status, router, callbackUrl]);
 
   const handleSignIn = () => {
+    // Don't allow sign in if auth is disabled
+    if (isAuthDisabled()) {
+      return;
+    }
     // Use callbackUrl if provided, otherwise default to root
-    const redirect = (callbackUrl as string) || '/';
+    const redirect = getAuthRedirectUrl(callbackUrl as string);
     signIn('keycloak', { callbackUrl: redirect });
   };
 

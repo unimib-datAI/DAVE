@@ -12,6 +12,7 @@ import { FiFolder } from '@react-icons/all-files/fi/FiFolder';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import { useRouter } from 'next/router';
 import { useQuery } from '@/utils/trpc';
+import { isAuthEnabled } from '@/utils/auth';
 
 const Container = styled.div({
   display: 'flex',
@@ -41,6 +42,7 @@ const CollectionButton = styled.button({
 
 const CollectionSelector = () => {
   const router = useRouter();
+  const authEnabled = isAuthEnabled();
   const { data: session, status } = useSession();
   const [activeCollection, setActiveCollection] = useAtom(activeCollectionAtom);
   const [collections, setCollections] = useAtom(collectionsAtom);
@@ -54,8 +56,7 @@ const CollectionSelector = () => {
     ],
     {
       enabled:
-        process.env.NEXT_PUBLIC_USE_AUTH === 'false' ||
-        (status === 'authenticated' && !!session?.accessToken),
+        !authEnabled || (status === 'authenticated' && !!session?.accessToken),
       onSuccess: (data) => {
         if (data) {
           setCollections(data);
@@ -90,10 +91,7 @@ const CollectionSelector = () => {
     );
   }
 
-  if (
-    process.env.NEXT_PUBLIC_USE_AUTH !== 'false' &&
-    status === 'unauthenticated'
-  ) {
+  if (authEnabled && status === 'unauthenticated') {
     return null;
   }
 
