@@ -110,30 +110,6 @@ function MyApp({
     const router = useRouter();
     const [, loadLLMSettings] = useAtom(loadLLMSettingsAtom);
 
-    // Helper: check if token is expired
-    const isTokenExpired = (token?: string): boolean => {
-      if (!token) return true;
-      try {
-        const parts = token.split('.');
-        if (parts.length < 2) return true;
-        const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(
-          Array.prototype.map
-            .call(atob(payload), (c: string) => {
-              return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-            })
-            .join('')
-        );
-        const parsed = JSON.parse(jsonPayload);
-        if (parsed && parsed.exp) {
-          return Date.now() >= parsed.exp * 1000;
-        }
-        return true;
-      } catch (e) {
-        return true;
-      }
-    };
-
     // Log user ID whenever session changes
     useEffect(() => {
       if (currentSession?.user) {
@@ -185,40 +161,127 @@ function MyApp({
       // We intentionally depend on token and the refetch function
     }, [token, collectionsQuery.refetch]);
 
-    // Refresh session every 120 seconds to keep tokens valid
+    // Proactively refresh the session before token expires
     useEffect(() => {
       if (!token) return;
 
-      const interval = window.setInterval(async () => {
+      let timeoutId: NodeJS.Timeout;
+      let intervalId: NodeJS.Timeout;
+
+      const scheduleRefresh = () => {
         try {
-          console.log('AuthWatcher: performing periodic session refresh');
-          await update();
-          console.log('AuthWatcher: periodic refresh finished');
+          const parts = token.split('.');
+          if (parts.length < 2) {
+            console.warn('AuthWatcher: Invalid token format');
+            return;
+          }
+
+          const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            Array.prototype.map
+              .call(atob(payload), (c: string) => {
+                return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+              })
+              .join('')
+          );
+          const parsed = JSON.parse(jsonPayload);
+
+          if (parsed?.exp) {
+            const expiresAt = parsed.exp * 1000;
+            const now = Date.now();
+            const timeUntilExpiry = expiresAt - now;
+
+            // If already expired, refresh immediately
+            if (timeUntilExpiry <= 0) {
+              console.log(
+                'AuthWatcher: token already expired, refreshing immediately'
+              );
+              update().catch((err) => {
+                console.error('AuthWatcher: immediate refresh failed', err);
+                signOut({
+                  callbackUrl: `${
+                    process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+                  }/sign-in`,
+                });
+              });
+              return;
+            }
+
+            // Refresh 60 seconds before expiry (or halfway through if token is very short-lived)
+            const refreshBuffer = Math.min(60 * 1000, timeUntilExpiry / 2);
+            const refreshIn = timeUntilExpiry - refreshBuffer;
+
+            console.log(
+              `AuthWatcher: scheduling refresh in ${Math.round(
+                refreshIn / 1000
+              )}s (token expires in ${Math.round(timeUntilExpiry / 1000)}s)`
+            );
+
+            timeoutId = setTimeout(async () => {
+              try {
+                console.log(
+                  'AuthWatcher: performing scheduled session refresh'
+                );
+                await update();
+                console.log('AuthWatcher: scheduled refresh finished');
+              } catch (err) {
+                console.error('AuthWatcher: scheduled refresh failed', err);
+                signOut({
+                  callbackUrl: `${
+                    process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+                  }/sign-in`,
+                });
+              }
+            }, refreshIn);
+          } else {
+            // Fallback: if we can't read expiry, refresh every 2 minutes
+            console.warn(
+              'AuthWatcher: no expiry in token, using fallback interval'
+            );
+            intervalId = setInterval(async () => {
+              try {
+                console.log(
+                  'AuthWatcher: performing fallback periodic refresh'
+                );
+                await update();
+                console.log('AuthWatcher: fallback refresh finished');
+              } catch (err) {
+                console.error('AuthWatcher: fallback refresh failed', err);
+                signOut({
+                  callbackUrl: `${
+                    process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+                  }/sign-in`,
+                });
+              }
+            }, 120 * 1000);
+          }
         } catch (err) {
-          console.error('AuthWatcher: periodic refresh failed', err);
-          // If refresh fails, sign out
-          signOut({
-            callbackUrl: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/sign-in`,
-          });
+          console.error(
+            'AuthWatcher: error parsing token, using fallback interval',
+            err
+          );
+          // Fallback interval if token parsing fails
+          intervalId = setInterval(async () => {
+            try {
+              await update();
+            } catch (err) {
+              console.error('AuthWatcher: fallback refresh failed', err);
+              signOut({
+                callbackUrl: `${
+                  process.env.NEXT_PUBLIC_BASE_PATH ?? ''
+                }/sign-in`,
+              });
+            }
+          }, 120 * 1000);
         }
-      }, 120 * 1000); // 120 seconds
+      };
+
+      scheduleRefresh();
 
       return () => {
-        window.clearInterval(interval);
+        if (timeoutId) clearTimeout(timeoutId);
+        if (intervalId) clearInterval(intervalId);
       };
-    }, [token, update]);
-
-    // Refresh immediately if token is expired
-    useEffect(() => {
-      if (!token || !isTokenExpired(token)) return;
-
-      console.log('AuthWatcher: token expired, refreshing immediately');
-      update().catch((err) => {
-        console.error('AuthWatcher: immediate refresh failed', err);
-        signOut({
-          callbackUrl: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/sign-in`,
-        });
-      });
     }, [token, update]);
 
     // Also refetch collections on every route change (background only if token is defined)
