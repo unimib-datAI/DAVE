@@ -64,7 +64,7 @@ services:
     environment:
       DOCS_PORT: 3001
       USE_AUTH: $USE_AUTH
-      ENABLE_AUTH: $ENABLE_AUTH
+      ENABLE_AUTH: $USE_AUTH
       USE_KEYCLOAK: ${USE_KEYCLOAK:-true}
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://keycloak:8080/realms/DAVE}
       KEYCLOAK_ID: ${KEYCLOAK_ID:-dave_client}
