@@ -496,22 +496,14 @@ export const DocumentController = {
     }
     if (deAnonimize) {
       // Check if anonymization service is available before attempting decode
-      const serviceAvailable = await checkAnonymizationService();
 
-      if (serviceAvailable) {
-        try {
-          let doc = await decode(document);
-          console.log("doc decoded", doc.text.substring(0, 200));
-          return doc;
-        } catch (decryptError) {
-          console.warn(
-            "Decryption failed during getFullDocById, returning original document",
-          );
-          return document;
-        }
-      } else {
+      try {
+        let doc = await decode(document);
+        console.log("doc decoded", doc.text.substring(0, 200));
+        return doc;
+      } catch (decryptError) {
         console.warn(
-          "Anonymization service unavailable, skipping decryption in getFullDocById",
+          "Decryption failed during getFullDocById, returning original document",
         );
         return document;
       }
