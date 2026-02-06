@@ -8,6 +8,7 @@ import { Popover, Button as AntButton } from 'antd';
 import { ChatProvider } from '@/modules/chat/ChatProvider';
 import { useAtom } from 'jotai';
 import { persistedLLMSettingsAtom } from '@/atoms/llmSettings';
+import { GlobalAnonymizationToggle } from '@/components/GlobalAnonymizationToggle';
 
 type LLMSearchProps = {
   onClose: () => void;
@@ -66,6 +67,7 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
             >
               <AntButton type="primary">Info</AntButton>
             </Popover>
+            <GlobalAnonymizationToggle />
             <Tooltip content="Dev mode" placement="bottom" color="invert">
               <Switch
                 onChange={handleModeChange}
