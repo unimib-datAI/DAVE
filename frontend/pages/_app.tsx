@@ -23,6 +23,7 @@ import { TranslationProvider } from '@/components';
 import TaxonomyProvider from '@/modules/taxonomy/TaxonomyProvider';
 import { UploadProgressIndicator } from '@/components/UploadProgressIndicator';
 import { getBrowserId } from '@/utils/browserId';
+import { isAuthEnabled, getSignInUrl } from '@/utils/auth';
 import '@/styles/globals.css';
 
 export type NextPageWithLayout<P = {}, IP = P> = NextPage<P, IP> & {
@@ -105,6 +106,8 @@ function MyApp({
   // - proactively refreshes the NextAuth session shortly before the access token expires
   // It must be rendered as a descendant of SessionProvider so that useSession() has access to the session context.
   const AuthWatcher = () => {
+    const authEnabled = isAuthEnabled();
+
     // useSession is safe to call here because AuthWatcher will be rendered inside SessionProvider
     const { data: currentSession, update } = useSession();
     const router = useRouter();
@@ -124,9 +127,10 @@ function MyApp({
 
     // Setup a tRPC query to fetch collections. The query is enabled only when a valid token is present.
     // We use the token stored in the session (session.accessToken). The query runs in background when enabled.
+    // When auth is disabled, token will be undefined but the query should still run
     const token = (currentSession as any)?.accessToken;
     const collectionsQuery = useQuery(['collection.getAll', { token }], {
-      enabled: Boolean(token),
+      enabled: authEnabled ? Boolean(token) : true,
       // run in background, avoid refetch on window focus automatically unless desired
       refetchOnWindowFocus: false,
       retry: false,
@@ -134,17 +138,19 @@ function MyApp({
 
     // When we detect a refresh failure, sign the user out and redirect to the sign-in page.
     useEffect(() => {
+      if (!authEnabled) return;
+
       try {
         if ((currentSession as any)?.error === 'RefreshAccessTokenError') {
           // sign out and redirect to sign-in page
           signOut({
-            callbackUrl: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/sign-in`,
+            callbackUrl: getSignInUrl(),
           });
         }
       } catch (e) {
         // Silent error handling
       }
-    }, [currentSession]);
+    }, [currentSession, authEnabled]);
 
     // When session token becomes available, trigger background fetch of collections.
     useEffect(() => {
@@ -163,7 +169,7 @@ function MyApp({
 
     // Proactively refresh the session before token expires
     useEffect(() => {
-      if (!token) return;
+      if (!authEnabled || !token) return;
 
       let timeoutId: NodeJS.Timeout;
       let intervalId: NodeJS.Timeout;
@@ -199,9 +205,7 @@ function MyApp({
               update().catch((err) => {
                 console.error('AuthWatcher: immediate refresh failed', err);
                 signOut({
-                  callbackUrl: `${
-                    process.env.NEXT_PUBLIC_BASE_PATH ?? ''
-                  }/sign-in`,
+                  callbackUrl: getSignInUrl(),
                 });
               });
               return;
@@ -227,9 +231,7 @@ function MyApp({
               } catch (err) {
                 console.error('AuthWatcher: scheduled refresh failed', err);
                 signOut({
-                  callbackUrl: `${
-                    process.env.NEXT_PUBLIC_BASE_PATH ?? ''
-                  }/sign-in`,
+                  callbackUrl: getSignInUrl(),
                 });
               }
             }, refreshIn);
@@ -248,9 +250,7 @@ function MyApp({
               } catch (err) {
                 console.error('AuthWatcher: fallback refresh failed', err);
                 signOut({
-                  callbackUrl: `${
-                    process.env.NEXT_PUBLIC_BASE_PATH ?? ''
-                  }/sign-in`,
+                  callbackUrl: getSignInUrl(),
                 });
               }
             }, 120 * 1000);
@@ -267,9 +267,7 @@ function MyApp({
             } catch (err) {
               console.error('AuthWatcher: fallback refresh failed', err);
               signOut({
-                callbackUrl: `${
-                  process.env.NEXT_PUBLIC_BASE_PATH ?? ''
-                }/sign-in`,
+                callbackUrl: getSignInUrl(),
               });
             }
           }, 120 * 1000);
@@ -282,12 +280,12 @@ function MyApp({
         if (timeoutId) clearTimeout(timeoutId);
         if (intervalId) clearInterval(intervalId);
       };
-    }, [token, update]);
+    }, [token, update, authEnabled]);
 
-    // Also refetch collections on every route change (background only if token is defined)
+    // Also refetch collections on every route change (background only if token is defined or auth is disabled)
     useEffect(() => {
       const handleRouteChange = () => {
-        if (!token) return;
+        if (authEnabled && !token) return;
         collectionsQuery.refetch().catch(() => {
           // Silent error handling
         });
@@ -297,7 +295,7 @@ function MyApp({
       return () => {
         router.events.off('routeChangeComplete', handleRouteChange);
       };
-    }, [router.events, token, collectionsQuery.refetch]);
+    }, [router.events, token, collectionsQuery.refetch, authEnabled]);
 
     // Load LLM settings on mount
     useEffect(() => {
@@ -309,13 +307,15 @@ function MyApp({
     return null;
   };
 
+  const authEnabled = isAuthEnabled();
+
   return (
     <SessionProvider
       session={session}
       basePath={`${process.env.NEXT_PUBLIC_BASE_PATH}/api/auth`}
     >
-      {/* AuthWatcher must be inside SessionProvider so useSession() works */}
-      <AuthWatcher />
+      {/* AuthWatcher only runs when auth is enabled */}
+      {authEnabled && <AuthWatcher />}
 
       <Global styles={GlobalStyles} />
       <TranslationProvider key={localeVersion} locale={locale}>
