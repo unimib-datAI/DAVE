@@ -1010,24 +1010,15 @@ export default (app) => {
           let deAnonymizedDoc;
 
           // Check if anonymization service is available before attempting decode
-          const serviceAvailable = await checkAnonymizationService();
 
-          if (serviceAvailable) {
-            try {
-              // Try to de-anonymize the document for generation context
-              deAnonymizedDoc = await decode(fullDocument);
-              console.log("Document de-anonymized for Elasticsearch indexing");
-            } catch (decryptError) {
-              // If decryption fails, continue with original document
-              console.warn(
-                "Decryption failed, using original text for Elasticsearch",
-              );
-              deAnonymizedDoc = fullDocument;
-            }
-          } else {
-            // Service is down, skip decryption entirely
+          try {
+            // Try to de-anonymize the document for generation context
+            deAnonymizedDoc = await decode(fullDocument);
+            console.log("Document de-anonymized for Elasticsearch indexing");
+          } catch (decryptError) {
+            // If decryption fails, continue with original document
             console.warn(
-              "Anonymization service unavailable, skipping decryption for Elasticsearch",
+              "Decryption failed, using original text for Elasticsearch",
             );
             deAnonymizedDoc = fullDocument;
           }
