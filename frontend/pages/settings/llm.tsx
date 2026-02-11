@@ -239,15 +239,31 @@ const LLMSettingsPage = () => {
     loadStoredSettings();
   }, []);
 
-  const handleInputChange = (
+  const handleInputChange = async (
     field: keyof LLMSettings,
     value: string | boolean
   ) => {
-    setFormData((prev) => ({
-      ...prev,
+    const newFormData = {
+      ...formData,
       [field]: value,
-    }));
+    };
+    setFormData(newFormData);
     setSaveSuccess(false);
+
+    // Auto-save when useCustomSettings toggle is changed
+    if (field === 'useCustomSettings') {
+      setIsSaving(true);
+      try {
+        await setSettings(newFormData);
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      } catch (error) {
+        console.error('Error saving settings:', error);
+        alert(t('messages.saveFailed'));
+      } finally {
+        setIsSaving(false);
+      }
+    }
   };
 
   const handleSave = async () => {
