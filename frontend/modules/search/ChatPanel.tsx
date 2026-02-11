@@ -4,7 +4,11 @@ import { Switch, Tooltip } from '@nextui-org/react';
 import { Select } from 'antd';
 import { Message, SkeletonMessage } from './Message';
 import { Button } from '@/components';
-import { GenerateOptions, useChat } from '@/hooks/use-chat';
+import {
+  GenerateOptions,
+  useChat,
+  Message as ChatMessage,
+} from '@/hooks/use-chat';
 import { FileText, RotateCcw } from 'lucide-react';
 import { ScrollArea } from '@/components/ScrollArea';
 import { Checkbox } from '@/components/Checkbox';
@@ -49,6 +53,7 @@ type ResourcesProps = {
 };
 
 const Resources = ({ documents, isLoading }: ResourcesProps) => {
+  const t = useText('chat');
   return (
     <>
       {!isLoading ? (
@@ -123,20 +128,34 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     token_repetition_penalty_max: 1.15,
     system:
       process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
-      `You are an expert assistant.
-You can operate in any domain and any language.
+      `You are an expert assistant that answers questions based on provided context.
 
-Your task is to answer the user's question using ONLY the information
-explicitly provided in the context.
+<input>
 
-You must not use prior knowledge, assumptions, or external information.
+<context>
+{{CONTEXT}}
+</context>
 
-The answer MUST be written in the same language as the user's question,
-regardless of the language of the context documents.
+<question language="auto">
+{{QUESTION}}
+</question>
 
-If the context does not contain sufficient information to answer the
-question with certainty, you must say so explicitly using the prescribed
-fallback response.`,
+<instructions>
+- Answer the question using ONLY information explicitly stated in the context.
+- Integrate information from multiple documents only if they are consistent.
+- Do NOT infer, speculate, generalize, or rely on external knowledge.
+- The answer MUST be written in the same language as the question.
+- If answering requires translating information from the context, translate faithfully
+  without adding, omitting, or reinterpreting any content.
+- Do NOT mention documents, context, retrieval, or sources explicitly.
+- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:
+  "The information provided is not sufficient to answer with certainty." and give an explanation about why you can't answer.
+Always assume that the user is asking you about information contained in the documents provided
+- Use a clear, precise, and domain-appropriate technical style.
+Make sure to ALWAYS answer in the same language used by the user to ask the question, don't ming the documents language
+</instructions>
+
+</input>`,
     message: '',
     useDocumentContext: true,
     retrievalMethod: 'full',
@@ -588,22 +607,36 @@ fallback response.`,
                       className="text-slate-800 resize-none bg-transparent w-full border-none text-sm h-full"
                       spellCheck="false"
                       rows={10}
-                      placeholder={
+                      defaultValue={
                         process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
-                        `You are an expert assistant.
-You can operate in any domain and any language.
+                        `You are an expert assistant that answers questions based on provided context.
 
-Your task is to answer the user's question using ONLY the information
-explicitly provided in the context.
+<input>
 
-You must not use prior knowledge, assumptions, or external information.
+<context>
+{{CONTEXT}}
+</context>
 
-The answer MUST be written in the same language as the user's question,
-regardless of the language of the context documents.
+<question language="auto">
+{{QUESTION}}
+</question>
 
-If the context does not contain sufficient information to answer the
-question with certainty, you must say so explicitly using the prescribed
-fallback response.`
+<instructions>
+- Answer the question using ONLY information explicitly stated in the context.
+- Integrate information from multiple documents only if they are consistent.
+- Do NOT infer, speculate, generalize, or rely on external knowledge.
+- The answer MUST be written in the same language as the question.
+- If answering requires translating information from the context, translate faithfully
+  without adding, omitting, or reinterpreting any content.
+- Do NOT mention documents, context, retrieval, or sources explicitly.
+- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:
+  "The information provided is not sufficient to answer with certainty." and give an explanation about why you can't answer.
+Always assume that the user is asking you about information contained in the documents provided
+- Use a clear, precise, and domain-appropriate technical style.
+Make sure to ALWAYS answer in the same language used by the user to ask the question, don't ming the documents language
+</instructions>
+
+</input>`
                       }
                       {...register('system')}
                     />
