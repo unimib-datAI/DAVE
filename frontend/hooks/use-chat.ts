@@ -14,6 +14,7 @@ export type Message = {
   usrMessage?: string; // Original user message without system prompt
   context?: DocumentWithChunk[];
   isDoneStreaming?: boolean;
+  devPrompt?: string; // Full prompt with context, question and instructions (for dev mode)
 };
 
 export type UseChatOptions = {
@@ -62,6 +63,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
   const appendMessage = async ({
     message,
     context,
+    devMode,
     ...options
   }: GenerateOptions & {
     message: string;
@@ -90,7 +92,33 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
     const questionStr = `<question language="auto">\n${message}\n</question>`;
     const instructions = `<instructions>\n- Answer the question using ONLY information explicitly stated in the context.\n- Integrate information from multiple documents only if they are consistent.\n- Do NOT infer, speculate, generalize, or rely on external knowledge.\n- The answer MUST be written in the same language as the question.\n- If answering requires translating information from the context, translate faithfully\n  without adding, omitting, or reinterpreting any content.\n- Do NOT mention documents, context, retrieval, or sources explicitly.\n- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:\n  "The information provided is not sufficient to answer with certainty." and give an explanation about why you can't answer.\n Always assume that the user is asking you about information contained in the documents provided\n- Use a clear, precise, and domain-appropriate technical style.\n Make sure to ALWAYS answer in the same language used by the user to ask the question, don't ming the documents language</instructions>`;
     const fullPrompt = `<input>\n\n<context>\n${contextStr}</context>\n\n${questionStr}\n\n${instructions}\n\n</input>`;
-    const content = fullPrompt;
+
+    // Handle system prompt and user message based on devMode
+    let finalSystemPrompt = options.system || '';
+    let userMessageContent = '';
+
+    if (devMode) {
+      // In dev mode: replace placeholders in system prompt, or append if missing
+      if (
+        finalSystemPrompt.includes('{{CONTEXT}}') &&
+        finalSystemPrompt.includes('{{QUESTION}}')
+      ) {
+        // User has placeholders, replace them
+        finalSystemPrompt = finalSystemPrompt
+          .replace('{{CONTEXT}}', contextStr)
+          .replace('{{QUESTION}}', message);
+        userMessageContent = message; // Just send the plain question as user message
+      } else {
+        // User doesn't have placeholders, append context and question to system prompt
+        finalSystemPrompt = `${finalSystemPrompt}\n\nContext:\n${contextStr}\n\nQuestion: ${message}`;
+        userMessageContent = message;
+      }
+    } else {
+      // Not in dev mode: use the original behavior (fullPrompt in user message)
+      userMessageContent = fullPrompt;
+    }
+
+    const content = userMessageContent;
     console.log('received content', content);
     // Create a new user message
     const userMessage: Message = {
@@ -99,6 +127,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       context: context,
       usrMessage: message, // Preserve original user message
       isDoneStreaming: true, // Mark user messages as done streaming immediately
+      devPrompt: devMode ? fullPrompt : undefined,
     };
 
     // Add user message to the conversation - create a new array
@@ -131,7 +160,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
 
       // Get formatted messages with system prompt
       const apiMessages = [
-        { role: 'system', content: options.system },
+        { role: 'system', content: finalSystemPrompt },
         ...tempMessages.map((message) => ({
           role: message.role,
           content: message.content,
