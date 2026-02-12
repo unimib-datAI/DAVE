@@ -15,6 +15,7 @@ export type Message = {
   context?: DocumentWithChunk[];
   isDoneStreaming?: boolean;
   devPrompt?: string; // Full prompt with context, question and instructions (for dev mode)
+  wasAnonymized?: boolean; // Tracks if anonymization was enabled when this message was generated
 };
 
 export type UseChatOptions = {
@@ -128,6 +129,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       usrMessage: message, // Preserve original user message
       isDoneStreaming: true, // Mark user messages as done streaming immediately
       devPrompt: devMode ? fullPrompt : undefined,
+      wasAnonymized: isAnonymized, // Store anonymization state at generation time
     };
 
     // Add user message to the conversation - create a new array
