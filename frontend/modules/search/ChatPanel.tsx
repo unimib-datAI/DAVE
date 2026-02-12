@@ -28,9 +28,11 @@ import {
 } from '@/modules/chat/ChatProvider';
 import { current } from 'immer';
 import { Radio } from 'antd';
+import { useText } from '@/components/TranslationProvider';
 import RateConversation from '@/components/RateConversation/RateConversation';
 import { activeCollectionAtom } from '@/atoms/collection';
-import { useText } from '@/components/TranslationProvider';
+import { llmSettingsAtom } from '@/atoms/llmSettings';
+import { useState, useEffect } from 'react';
 
 type Form = GenerateOptions & {
   message: string;
@@ -107,6 +109,24 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const [activeCollection] = useAtom(activeCollectionAtom);
   const [selectedFilters] = useAtom(selectedFiltersAtom);
+  const [llmSettings] = useAtom(llmSettingsAtom);
+
+  // Local state for input fields
+  const [tempInput, setTempInput] = useState(
+    (llmSettings.defaultTemperature ?? 0.7).toString()
+  );
+  const [maxTokensInput, setMaxTokensInput] = useState(
+    (llmSettings.defaultMaxTokens ?? 1024).toString()
+  );
+  const [topPInput, setTopPInput] = useState(
+    (llmSettings.defaultTopP ?? 0.65).toString()
+  );
+  const [topKInput, setTopKInput] = useState(
+    (llmSettings.defaultTopK ?? 40).toString()
+  );
+  const [freqPenaltyInput, setFreqPenaltyInput] = useState(
+    (llmSettings.defaultFrequencyPenalty ?? 1.15).toString()
+  );
 
   // Parse predefined questions from environment variable
   const predefinedQuestions =
@@ -122,10 +142,10 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
   ]);
 
   const { register, value, onSubmit, setValue } = useForm<Form>({
-    temperature: 0.7,
-    max_new_tokens: 1024,
-    top_p: 0.65,
-    token_repetition_penalty_max: 1.15,
+    temperature: llmSettings.defaultTemperature ?? 0.7,
+    max_new_tokens: llmSettings.defaultMaxTokens ?? 1024,
+    top_p: llmSettings.defaultTopP ?? 0.65,
+    token_repetition_penalty_max: llmSettings.defaultFrequencyPenalty ?? 1.15,
     system:
       process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
       `You are an expert assistant that answers questions based on provided context.
@@ -160,7 +180,7 @@ Make sure to ALWAYS answer in the same language used by the user to ask the ques
     useDocumentContext: true,
     retrievalMethod: 'full',
     useCurrentDocumentContext: false,
-    top_k: 40,
+    top_k: llmSettings.defaultTopK ?? 40,
     force_rag: false,
     useMultiAgent: false,
   });
@@ -403,11 +423,25 @@ Make sure to ALWAYS answer in the same language used by the user to ask the ques
                       <span className="text-sm font-semibold">
                         {t('temperature')}
                       </span>
-                      <span className="text-sm">{value.temperature}</span>
+                      <input
+                        type="text"
+                        className="text-sm w-16 px-1 border rounded"
+                        value={tempInput}
+                        onChange={(e) => {
+                          setTempInput(e.target.value);
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val) && val >= 0 && val <= 1) {
+                            fieldTemperature.onChange(val);
+                          }
+                        }}
+                      />
                     </div>
                   </Tooltip>
                   <Slider
-                    onValueChange={(value) => fieldTemperature.onChange(value)}
+                    onValueChange={(value) => {
+                      setTempInput(value[0].toString());
+                      fieldTemperature.onChange(value);
+                    }}
                     value={[fieldTemperature.value]}
                     max={1}
                     min={0}
@@ -425,12 +459,26 @@ Make sure to ALWAYS answer in the same language used by the user to ask the ques
                       <span className="text-sm font-semibold">
                         {t('maxNewTokens')}
                       </span>
-                      <span className="text-sm">{value.max_new_tokens}</span>
+                      <input
+                        type="text"
+                        className="text-sm w-20 px-1 border rounded"
+                        value={maxTokensInput}
+                        onChange={(e) => {
+                          setMaxTokensInput(e.target.value);
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val) && val >= 100 && val <= 4096) {
+                            fieldMaxNewTokens.onChange(val);
+                          }
+                        }}
+                      />
                     </div>
                   </Tooltip>
 
                   <Slider
-                    onValueChange={(value) => fieldMaxNewTokens.onChange(value)}
+                    onValueChange={(value) => {
+                      setMaxTokensInput(value[0].toString());
+                      fieldMaxNewTokens.onChange(value);
+                    }}
                     value={[fieldMaxNewTokens.value]}
                     max={4096}
                     min={100}
@@ -446,11 +494,25 @@ Make sure to ALWAYS answer in the same language used by the user to ask the ques
                   >
                     <div className="flex flex-row justify-between w-full">
                       <span className="text-sm font-semibold">{t('topP')}</span>
-                      <span className="text-sm">{value.top_p}</span>
+                      <input
+                        type="text"
+                        className="text-sm w-16 px-1 border rounded"
+                        value={topPInput}
+                        onChange={(e) => {
+                          setTopPInput(e.target.value);
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val) && val >= 0 && val <= 1) {
+                            fieldTopP.onChange(val);
+                          }
+                        }}
+                      />
                     </div>
                   </Tooltip>
                   <Slider
-                    onValueChange={(value) => fieldTopP.onChange(value)}
+                    onValueChange={(value) => {
+                      setTopPInput(value[0].toString());
+                      fieldTopP.onChange(value);
+                    }}
                     value={[fieldTopP.value]}
                     max={1}
                     min={0}
@@ -466,14 +528,28 @@ Make sure to ALWAYS answer in the same language used by the user to ask the ques
                   >
                     <div className="flex flex-row justify-between w-full">
                       <span className="text-sm font-semibold">{t('topK')}</span>
-                      <span className="text-sm">{value.top_k}</span>
+                      <input
+                        type="text"
+                        className="text-sm w-16 px-1 border rounded"
+                        value={topKInput}
+                        onChange={(e) => {
+                          setTopKInput(e.target.value);
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val) && val >= 1 && val <= 100) {
+                            fieldTopk.onChange(val);
+                          }
+                        }}
+                      />
                     </div>
                   </Tooltip>
                   <Slider
-                    onValueChange={(value) => fieldTopk.onChange(value)}
+                    onValueChange={(value) => {
+                      setTopKInput(value[0].toString());
+                      fieldTopk.onChange(value);
+                    }}
                     value={[fieldTopk.value]}
-                    max={60}
-                    min={0}
+                    max={100}
+                    min={1}
                     step={1}
                   />
                 </div>
@@ -488,15 +564,25 @@ Make sure to ALWAYS answer in the same language used by the user to ask the ques
                       <span className="text-sm font-semibold">
                         {t('frequencyPenalty')}
                       </span>
-                      <span className="text-sm">
-                        {value.token_repetition_penalty_max}
-                      </span>
+                      <input
+                        type="text"
+                        className="text-sm w-16 px-1 border rounded"
+                        value={freqPenaltyInput}
+                        onChange={(e) => {
+                          setFreqPenaltyInput(e.target.value);
+                          const val = parseFloat(e.target.value);
+                          if (!isNaN(val) && val >= -2 && val <= 2) {
+                            fieldFrequencyPenalty.onChange(val);
+                          }
+                        }}
+                      />
                     </div>
                   </Tooltip>
                   <Slider
-                    onValueChange={(value) =>
-                      fieldFrequencyPenalty.onChange(value)
-                    }
+                    onValueChange={(value) => {
+                      setFreqPenaltyInput(value[0].toString());
+                      fieldFrequencyPenalty.onChange(value);
+                    }}
                     value={[fieldFrequencyPenalty.value]}
                     max={2}
                     min={-2}
