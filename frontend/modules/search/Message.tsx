@@ -17,6 +17,7 @@ type MessageProps = {
   isDoneStreaming?: boolean;
   context?: DocumentWithChunk[];
   usrMessage?: string; // For backward compatibility
+  wasAnonymized?: boolean; // Anonymization state at generation time
 };
 
 function urlToPathArray(url: string) {
@@ -54,9 +55,13 @@ const Message = ({
   context,
   isDoneStreaming,
   usrMessage,
+  wasAnonymized,
 }: MessageProps) => {
   const [isAnonymized, setIsAnonimized] = useAtom(globalAnonymizationAtom);
   const t = useText('chat');
+  // Use the anonymization state from when the message was generated, fallback to current state
+  const effectiveAnonymization =
+    wasAnonymized !== undefined ? wasAnonymized : isAnonymized;
   // Only return early for assistant messages with empty content
   // For user messages, we want to display them even with empty content
   if (role === 'assistant' && (!content || content.trim() === '')) return null;
@@ -177,7 +182,7 @@ const Message = ({
                               <Tooltip
                                 content={
                                   <div className="max-w-xs">
-                                    {isAnonymized
+                                    {effectiveAnonymization
                                       ? chunk.text_anonymized ||
                                         chunk.text ||
                                         ''
@@ -188,7 +193,7 @@ const Message = ({
                               >
                                 <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
                                   {(() => {
-                                    const previewText = isAnonymized
+                                    const previewText = effectiveAnonymization
                                       ? chunk.text_anonymized ||
                                         chunk.text ||
                                         ''
@@ -198,7 +203,7 @@ const Message = ({
                                       : '';
                                   })()}
                                   {(() => {
-                                    const previewText = isAnonymized
+                                    const previewText = effectiveAnonymization
                                       ? chunk.text_anonymized ||
                                         chunk.text ||
                                         ''
