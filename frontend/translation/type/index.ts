@@ -452,7 +452,7 @@ export type Translation = {
         placeholder: string;
         help: string;
       };
-      disableMessageHistory: {
+      enableMessageHistory: {
         label: string;
         help: string;
       };

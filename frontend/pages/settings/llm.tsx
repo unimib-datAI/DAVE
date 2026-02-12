@@ -207,7 +207,7 @@ const LLMSettingsPage = () => {
     apiKey: '',
     model: '',
     useCustomSettings: false,
-    disableMessageHistory: false,
+    enableMessageHistory: true,
   });
 
   const [showApiKey, setShowApiKey] = useState(false);
@@ -291,7 +291,7 @@ const LLMSettingsPage = () => {
           apiKey: '',
           model: '',
           useCustomSettings: false,
-          disableMessageHistory: false,
+          enableMessageHistory: true,
         });
         setSaveSuccess(false);
       } catch (error) {
@@ -525,14 +525,14 @@ const LLMSettingsPage = () => {
           <FormGroup>
             <SwitchWrapper>
               <Switch
-                checked={formData.disableMessageHistory}
+                checked={formData.enableMessageHistory}
                 onChange={async (e) => {
                   const newValue = e.target.checked;
-                  handleInputChange('disableMessageHistory', newValue);
+                  handleInputChange('enableMessageHistory', newValue);
                   // Auto-save immediately
                   const newSettings = {
                     ...formData,
-                    disableMessageHistory: newValue,
+                    enableMessageHistory: newValue,
                   };
                   await setSettings(newSettings);
                 }}
@@ -540,10 +540,10 @@ const LLMSettingsPage = () => {
               />
               <div>
                 <Label style={{ marginBottom: '4px' }}>
-                  {t('form.disableMessageHistory.label')}
+                  {t('form.enableMessageHistory.label')}
                 </Label>
                 <HelpText style={{ marginTop: '0' }}>
-                  {t('form.disableMessageHistory.help')}
+                  {t('form.enableMessageHistory.help')}
                 </HelpText>
               </div>
             </SwitchWrapper>
