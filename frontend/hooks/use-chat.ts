@@ -15,6 +15,7 @@ export type Message = {
   context?: DocumentWithChunk[];
   isDoneStreaming?: boolean;
   devPrompt?: string; // Full prompt with context, question and instructions (for dev mode)
+  wasAnonymized?: boolean; // Tracks if anonymization was enabled when this message was generated
 };
 
 export type UseChatOptions = {
@@ -127,7 +128,8 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       context: context,
       usrMessage: message, // Preserve original user message
       isDoneStreaming: true, // Mark user messages as done streaming immediately
-      devPrompt: devMode ? fullPrompt : undefined,
+      devPrompt: fullPrompt, // Always store the full prompt
+      wasAnonymized: isAnonymized, // Store anonymization state at generation time
     };
 
     // Add user message to the conversation - create a new array
@@ -159,9 +161,14 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       };
 
       // Get formatted messages with system prompt
+      // Filter message history based on disableMessageHistory setting
+      const messagesToSend = llmSettings.disableMessageHistory
+        ? [tempMessages[tempMessages.length - 1]] // Only send the last (current) message
+        : tempMessages; // Send all messages
+
       const apiMessages = [
         { role: 'system', content: finalSystemPrompt },
-        ...tempMessages.map((message) => ({
+        ...messagesToSend.map((message) => ({
           role: message.role,
           content: message.content,
         })),
@@ -221,6 +228,9 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
               role: 'assistant',
               content: chunk,
               isDoneStreaming: false,
+              devPrompt: fullPrompt, // Always store the full prompt
+              context: context,
+              wasAnonymized: isAnonymized,
             },
           ]);
           isFirstChunk = false;

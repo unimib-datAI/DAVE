@@ -177,6 +177,8 @@ export type Translation = {
     conversationRatedSuccessfully: string;
     errorRatingConversation: string;
     errorGeneratingResponse: string;
+    showPrompt: string;
+    hidePrompt: string;
   };
   document: {
     toolbar: {
@@ -448,6 +450,10 @@ export type Translation = {
       model: {
         label: string;
         placeholder: string;
+        help: string;
+      };
+      disableMessageHistory: {
+        label: string;
         help: string;
       };
     };

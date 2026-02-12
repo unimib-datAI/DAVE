@@ -192,6 +192,8 @@ const t: Translation = {
     errorRatingConversation: 'Error rating the conversation',
     errorGeneratingResponse:
       'Sorry, there was an error generating the response.',
+    showPrompt: 'Show Full Prompt',
+    hidePrompt: 'Hide Full Prompt',
   },
   document: {
     toolbar: {
@@ -627,6 +629,10 @@ const t: Translation = {
         label: 'Model Name',
         placeholder: 'gpt-4, phi4-mini, llama-3.1, etc.',
         help: "The model identifier to use. This depends on your API provider:\n• OpenAI: gpt-4, gpt-3.5-turbo\n• Local models: phi4-mini, llama-3.1-8b, etc.\nCheck your API provider's documentation for available models.",
+      },
+      disableMessageHistory: {
+        label: 'Disable Message History',
+        help: 'When enabled, only the current message and system prompt will be sent to the LLM, without previous conversation history. This can reduce token usage but the model will not remember previous messages.',
       },
     },
     test: {
