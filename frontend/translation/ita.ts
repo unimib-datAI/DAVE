@@ -194,6 +194,8 @@ const t: Translation = {
     errorGeneratingResponse:
       'Spiacente, si è verificato un errore nella generazione della risposta.',
     document: 'Documento',
+    showPrompt: 'Mostra Prompt Completo',
+    hidePrompt: 'Nascondi Prompt Completo',
   },
   document: {
     toolbar: {
@@ -630,6 +632,10 @@ const t: Translation = {
         label: 'Nome Modello',
         placeholder: 'gpt-4, phi4-mini, llama-3.1, ecc.',
         help: "L'identificatore del modello da utilizzare. Dipende dal tuo fornitore API:\n• OpenAI: gpt-4, gpt-3.5-turbo\n• Modelli locali: phi4-mini, llama-3.1-8b, ecc.\nControlla la documentazione del tuo fornitore API per i modelli disponibili.",
+      },
+      disableMessageHistory: {
+        label: 'Disabilita Cronologia Messaggi',
+        help: "Quando abilitato, solo il messaggio corrente e il prompt di sistema verranno inviati al LLM, senza la cronologia delle conversazioni precedenti. Questo può ridurre l'uso dei token ma il modello non ricorderà i messaggi precedenti.",
       },
     },
     test: {

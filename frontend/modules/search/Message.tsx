@@ -3,13 +3,14 @@ import { cn } from '@/lib/utils';
 import { DocumentWithChunk } from '@/server/routers/search';
 import { Tooltip } from '@nextui-org/react';
 import { AnimatePresence, Variants, motion } from 'framer-motion';
-import { Sparkles, User, Link2 } from 'lucide-react';
+import { Sparkles, User, Link2, ChevronDown, ChevronUp } from 'lucide-react';
 import Link from 'next/link';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useText } from '@/components/TranslationProvider';
 import { useAtom } from 'jotai';
 import { globalAnonymizationAtom } from '@/utils/atoms';
+import { useState } from 'react';
 
 type MessageProps = {
   role: 'system' | 'assistant' | 'user';
@@ -17,6 +18,8 @@ type MessageProps = {
   isDoneStreaming?: boolean;
   context?: DocumentWithChunk[];
   usrMessage?: string; // For backward compatibility
+  wasAnonymized?: boolean; // Anonymization state at generation time
+  devPrompt?: string; // Full prompt with context for dev mode
 };
 
 function urlToPathArray(url: string) {
@@ -54,9 +57,15 @@ const Message = ({
   context,
   isDoneStreaming,
   usrMessage,
+  wasAnonymized,
+  devPrompt,
 }: MessageProps) => {
   const [isAnonymized, setIsAnonimized] = useAtom(globalAnonymizationAtom);
   const t = useText('chat');
+  const [isPromptExpanded, setIsPromptExpanded] = useState(false);
+  // Use the anonymization state from when the message was generated, fallback to current state
+  const effectiveAnonymization =
+    wasAnonymized !== undefined ? wasAnonymized : isAnonymized;
   // Only return early for assistant messages with empty content
   // For user messages, we want to display them even with empty content
   if (role === 'assistant' && (!content || content.trim() === '')) return null;
@@ -119,6 +128,40 @@ const Message = ({
               <Markdown remarkPlugins={[remarkGfm]}>{displayContent}</Markdown>
             )}
           </div>
+
+          {/* Expandable prompt section for assistant messages */}
+          {role === 'assistant' && devPrompt && (
+            <div className="mt-3">
+              <button
+                onClick={() => setIsPromptExpanded(!isPromptExpanded)}
+                className="flex items-center gap-1.5 text-xs text-slate-600 hover:text-slate-900 transition-colors border-none bg-transparent p-0 cursor-pointer"
+              >
+                {isPromptExpanded ? (
+                  <ChevronUp size={14} />
+                ) : (
+                  <ChevronDown size={14} />
+                )}
+                {isPromptExpanded
+                  ? t('hidePrompt') || 'Hide Full Prompt'
+                  : t('showPrompt') || 'Show Full Prompt'}
+              </button>
+              <AnimatePresence>
+                {isPromptExpanded && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="mt-2 p-3 bg-slate-100 rounded text-xs font-mono whitespace-pre-wrap overflow-x-auto max-h-96 overflow-y-auto">
+                      {devPrompt}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
         </div>
       </motion.div>
 
@@ -177,7 +220,7 @@ const Message = ({
                               <Tooltip
                                 content={
                                   <div className="max-w-xs">
-                                    {isAnonymized
+                                    {effectiveAnonymization
                                       ? chunk.text_anonymized ||
                                         chunk.text ||
                                         ''
@@ -188,7 +231,7 @@ const Message = ({
                               >
                                 <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
                                   {(() => {
-                                    const previewText = isAnonymized
+                                    const previewText = effectiveAnonymization
                                       ? chunk.text_anonymized ||
                                         chunk.text ||
                                         ''
@@ -198,7 +241,7 @@ const Message = ({
                                       : '';
                                   })()}
                                   {(() => {
-                                    const previewText = isAnonymized
+                                    const previewText = effectiveAnonymization
                                       ? chunk.text_anonymized ||
                                         chunk.text ||
                                         ''

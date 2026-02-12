@@ -6,6 +6,7 @@ export type LLMSettings = {
   apiKey: string;
   model: string;
   useCustomSettings: boolean;
+  disableMessageHistory: boolean;
 };
 
 export const DEFAULT_LLM_SETTINGS: LLMSettings = {
@@ -13,6 +14,7 @@ export const DEFAULT_LLM_SETTINGS: LLMSettings = {
   apiKey: '',
   model: '',
   useCustomSettings: false,
+  disableMessageHistory: false,
 };
 
 const STORAGE_KEY = 'dave_llm_settings';
@@ -37,27 +39,21 @@ export const persistedLLMSettingsAtom = atom(
 );
 
 // Atom to load settings from storage on mount
-export const loadLLMSettingsAtom = atom(
-  null,
-  async (get, set) => {
-    try {
-      const storedSettings = await secureRetrieve<LLMSettings>(STORAGE_KEY);
-      if (storedSettings && storedSettings.useCustomSettings) {
-        set(llmSettingsAtom, storedSettings);
-        return storedSettings;
-      }
-    } catch (error) {
-      console.error('Error loading LLM settings:', error);
+export const loadLLMSettingsAtom = atom(null, async (get, set) => {
+  try {
+    const storedSettings = await secureRetrieve<LLMSettings>(STORAGE_KEY);
+    if (storedSettings && storedSettings.useCustomSettings) {
+      set(llmSettingsAtom, storedSettings);
+      return storedSettings;
     }
-    return null;
+  } catch (error) {
+    console.error('Error loading LLM settings:', error);
   }
-);
+  return null;
+});
 
 // Atom to clear settings
-export const clearLLMSettingsAtom = atom(
-  null,
-  async (get, set) => {
-    set(llmSettingsAtom, DEFAULT_LLM_SETTINGS);
-    localStorage.removeItem(STORAGE_KEY);
-  }
-);
+export const clearLLMSettingsAtom = atom(null, async (get, set) => {
+  set(llmSettingsAtom, DEFAULT_LLM_SETTINGS);
+  localStorage.removeItem(STORAGE_KEY);
+});

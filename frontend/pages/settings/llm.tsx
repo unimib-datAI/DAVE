@@ -207,6 +207,7 @@ const LLMSettingsPage = () => {
     apiKey: '',
     model: '',
     useCustomSettings: false,
+    disableMessageHistory: false,
   });
 
   const [showApiKey, setShowApiKey] = useState(false);
@@ -290,6 +291,7 @@ const LLMSettingsPage = () => {
           apiKey: '',
           model: '',
           useCustomSettings: false,
+          disableMessageHistory: false,
         });
         setSaveSuccess(false);
       } catch (error) {
@@ -518,6 +520,33 @@ const LLMSettingsPage = () => {
               <br />
               Check your API provider&apos;s documentation for available models.
             </HelpText>
+          </FormGroup>
+
+          <FormGroup>
+            <SwitchWrapper>
+              <Switch
+                checked={formData.disableMessageHistory}
+                onChange={async (e) => {
+                  const newValue = e.target.checked;
+                  handleInputChange('disableMessageHistory', newValue);
+                  // Auto-save immediately
+                  const newSettings = {
+                    ...formData,
+                    disableMessageHistory: newValue,
+                  };
+                  await setSettings(newSettings);
+                }}
+                color="primary"
+              />
+              <div>
+                <Label style={{ marginBottom: '4px' }}>
+                  {t('form.disableMessageHistory.label')}
+                </Label>
+                <HelpText style={{ marginTop: '0' }}>
+                  {t('form.disableMessageHistory.help')}
+                </HelpText>
+              </div>
+            </SwitchWrapper>
           </FormGroup>
 
           {formData.useCustomSettings && (
