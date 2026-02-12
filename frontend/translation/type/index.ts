@@ -452,6 +452,10 @@ export type Translation = {
         placeholder: string;
         help: string;
       };
+      disableMessageHistory: {
+        label: string;
+        help: string;
+      };
     };
     test: {
       button: string;
