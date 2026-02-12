@@ -457,6 +457,21 @@ export type Translation = {
         help: string;
       };
     };
+    generationDefaults: {
+      title: string;
+      description: string;
+      temperature: string;
+      temperatureHelp: string;
+      maxTokens: string;
+      maxTokensHelp: string;
+      topP: string;
+      topPHelp: string;
+      topK: string;
+      topKHelp: string;
+      frequencyPenalty: string;
+      frequencyPenaltyHelp: string;
+      resetToDefaults: string;
+    };
     test: {
       button: string;
       testing: string;

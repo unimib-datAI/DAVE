@@ -638,6 +638,27 @@ const t: Translation = {
         help: "Quando abilitato, l'intera cronologia della conversazione verrà inviata al LLM, permettendogli di fare riferimento ai messaggi precedenti. Quando disabilitato, solo il messaggio corrente e il prompt di sistema vengono inviati, riducendo l'uso dei token ma perdendo il contesto della conversazione.",
       },
     },
+    generationDefaults: {
+      title: 'Impostazioni Predefinite di Generazione',
+      description:
+        'Imposta i valori predefiniti per i parametri di generazione del testo. Questi verranno utilizzati come valori iniziali quando si avvia una nuova chat.',
+      temperature: 'Temperatura',
+      temperatureHelp:
+        "Controlla la casualità. Valori più bassi rendono l'output più focalizzato e deterministico (0.0-2.0). Predefinito: 0.7",
+      maxTokens: 'Token Massimi',
+      maxTokensHelp:
+        'Lunghezza massima del testo generato (100-4096). Predefinito: 1024',
+      topP: 'Top P',
+      topPHelp:
+        'Soglia di campionamento del nucleo (0.0-1.0). Predefinito: 0.65',
+      topK: 'Top K',
+      topKHelp:
+        'Limita la selezione dei token alle prime K scelte (1-100). Predefinito: 40',
+      frequencyPenalty: 'Penalità di Frequenza',
+      frequencyPenaltyHelp:
+        'Penalizza la ripetizione dei token (1.0-2.0). Valori più alti riducono la ripetizione. Predefinito: 1.15',
+      resetToDefaults: 'Ripristina Predefiniti',
+    },
     test: {
       button: '🔌 Test Connessione',
       testing: 'Test Connessione...',
@@ -646,9 +667,9 @@ const t: Translation = {
       response: 'Risposta:',
     },
     buttons: {
-      save: '💾 Salva Impostazioni',
+      save: 'Salva Impostazioni',
       saving: 'Salvataggio...',
-      clear: '🗑️ Cancella Impostazioni',
+      clear: 'Cancella Impostazioni',
       success: '✓ Impostazioni salvate con successo!',
     },
     proTip: {

@@ -208,12 +208,19 @@ const LLMSettingsPage = () => {
     model: '',
     useCustomSettings: false,
     enableMessageHistory: true,
+    defaultTemperature: 0.7,
+    defaultMaxTokens: 1024,
+    defaultTopP: 0.65,
+    defaultTopK: 40,
+    defaultFrequencyPenalty: 1.15,
   });
 
   const [showApiKey, setShowApiKey] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSavingLLM, setIsSavingLLM] = useState(false);
+  const [saveLLMSuccess, setSaveLLMSuccess] = useState(false);
+  const [isSavingGen, setIsSavingGen] = useState(false);
+  const [saveGenSuccess, setSaveGenSuccess] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState<{
     success: boolean;
@@ -221,15 +228,35 @@ const LLMSettingsPage = () => {
     response?: string;
   } | null>(null);
 
+  // Local string state for numeric fields so users can freely type values
+  const [rawTemperature, setRawTemperature] = useState(
+    String(formData.defaultTemperature)
+  );
+  const [rawMaxTokens, setRawMaxTokens] = useState(
+    String(formData.defaultMaxTokens)
+  );
+  const [rawTopP, setRawTopP] = useState(String(formData.defaultTopP));
+  const [rawTopK, setRawTopK] = useState(String(formData.defaultTopK));
+  const [rawFrequencyPenalty, setRawFrequencyPenalty] = useState(
+    String(formData.defaultFrequencyPenalty)
+  );
+
   useEffect(() => {
     const loadStoredSettings = async () => {
       try {
         const stored = await loadSettings();
+        const data = stored || settings;
         if (stored) {
           setFormData(stored);
         } else {
           setFormData(settings);
         }
+        // Sync raw string state with loaded settings
+        setRawTemperature(String(data.defaultTemperature ?? 0.7));
+        setRawMaxTokens(String(data.defaultMaxTokens ?? 1024));
+        setRawTopP(String(data.defaultTopP ?? 0.65));
+        setRawTopK(String(data.defaultTopK ?? 40));
+        setRawFrequencyPenalty(String(data.defaultFrequencyPenalty ?? 1.15));
       } catch (error) {
         console.error('Error loading settings:', error);
       } finally {
@@ -242,48 +269,63 @@ const LLMSettingsPage = () => {
 
   const handleInputChange = async (
     field: keyof LLMSettings,
-    value: string | boolean
+    value: string | boolean | number
   ) => {
     const newFormData = {
       ...formData,
       [field]: value,
     };
     setFormData(newFormData);
-    setSaveSuccess(false);
+    setSaveLLMSuccess(false);
+    setSaveGenSuccess(false);
 
     // Auto-save when useCustomSettings toggle is changed
     if (field === 'useCustomSettings') {
-      setIsSaving(true);
+      setIsSavingLLM(true);
       try {
         await setSettings(newFormData);
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
+        setSaveLLMSuccess(true);
+        setTimeout(() => setSaveLLMSuccess(false), 3000);
       } catch (error) {
         console.error('Error saving settings:', error);
         alert(t('messages.saveFailed'));
       } finally {
-        setIsSaving(false);
+        setIsSavingLLM(false);
       }
     }
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
+  const handleSaveLLM = async () => {
+    setIsSavingLLM(true);
     try {
       await setSettings(formData);
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
+      setSaveLLMSuccess(true);
+      setTimeout(() => setSaveLLMSuccess(false), 3000);
     } catch (error) {
       console.error('Error saving settings:', error);
       alert(t('messages.saveFailed'));
     } finally {
-      setIsSaving(false);
+      setIsSavingLLM(false);
+    }
+  };
+
+  const handleSaveGen = async () => {
+    setIsSavingGen(true);
+    try {
+      await setSettings(formData);
+      setSaveGenSuccess(true);
+      setTimeout(() => setSaveGenSuccess(false), 3000);
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      alert(t('messages.saveFailed'));
+    } finally {
+      setIsSavingGen(false);
     }
   };
 
   const handleClear = async () => {
     if (confirm(t('messages.confirmClear'))) {
-      setIsSaving(true);
+      setIsSavingLLM(true);
       try {
         await clearSettings();
         setFormData({
@@ -292,13 +334,25 @@ const LLMSettingsPage = () => {
           model: '',
           useCustomSettings: false,
           enableMessageHistory: true,
+          defaultTemperature: 0.7,
+          defaultMaxTokens: 1024,
+          defaultTopP: 0.65,
+          defaultTopK: 40,
+          defaultFrequencyPenalty: 1.15,
         });
-        setSaveSuccess(false);
+        setSaveLLMSuccess(false);
+        setSaveGenSuccess(false);
+        // Sync raw string state with cleared defaults
+        setRawTemperature('0.7');
+        setRawMaxTokens('1024');
+        setRawTopP('0.65');
+        setRawTopK('40');
+        setRawFrequencyPenalty('1.15');
       } catch (error) {
         console.error('Error clearing settings:', error);
         alert(t('messages.clearFailed'));
       } finally {
-        setIsSaving(false);
+        setIsSavingLLM(false);
       }
     }
   };
@@ -522,33 +576,6 @@ const LLMSettingsPage = () => {
             </HelpText>
           </FormGroup>
 
-          <FormGroup>
-            <SwitchWrapper>
-              <Switch
-                checked={formData.enableMessageHistory}
-                onChange={async (e) => {
-                  const newValue = e.target.checked;
-                  handleInputChange('enableMessageHistory', newValue);
-                  // Auto-save immediately
-                  const newSettings = {
-                    ...formData,
-                    enableMessageHistory: newValue,
-                  };
-                  await setSettings(newSettings);
-                }}
-                color="primary"
-              />
-              <div>
-                <Label style={{ marginBottom: '4px' }}>
-                  {t('form.enableMessageHistory.label')}
-                </Label>
-                <HelpText style={{ marginTop: '0' }}>
-                  {t('form.enableMessageHistory.help')}
-                </HelpText>
-              </div>
-            </SwitchWrapper>
-          </FormGroup>
-
           {formData.useCustomSettings && (
             <FormGroup>
               <Button
@@ -607,56 +634,342 @@ const LLMSettingsPage = () => {
               )}
             </FormGroup>
           )}
+
+          <ButtonGroup>
+            <Button
+              auto
+              color="primary"
+              onClick={handleSaveLLM}
+              disabled={isSavingLLM || !formData.useCustomSettings}
+            >
+              {isSavingLLM ? (
+                <Loading size="sm" color="white" />
+              ) : (
+                'Save LLM Settings'
+              )}
+            </Button>
+
+            <Button
+              auto
+              color="error"
+              flat
+              onClick={handleClear}
+              disabled={isSavingLLM}
+            >
+              Clear LLM Settings
+            </Button>
+
+            {saveLLMSuccess && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: '#059669',
+                  fontWeight: 500,
+                }}
+              >
+                ✓ LLM settings saved successfully!
+              </div>
+            )}
+          </ButtonGroup>
+
+          <InfoBox style={{ marginTop: '24px' }}>
+            <div style={{ marginTop: '2px' }}>💡</div>
+            <div>
+              <strong>Pro Tip:</strong> Use the &quot;Test Connection&quot;
+              button above to verify your configuration before saving. This
+              sends a simple test message to ensure your API URL, key, and model
+              are all working correctly. You can always clear settings to revert
+              to defaults if needed.
+            </div>
+          </InfoBox>
         </FormSection>
 
-        <ButtonGroup>
-          <Button
-            auto
-            color="primary"
-            onClick={handleSave}
-            disabled={isSaving || !formData.useCustomSettings}
-          >
-            {isSaving ? (
-              <Loading size="sm" color="white" />
-            ) : (
-              '💾 Save Settings'
-            )}
-          </Button>
+        <FormSection style={{ marginTop: '32px' }}>
+          <SectionTitle>
+            {t('generationDefaults.title') || 'Generation Defaults'}
+          </SectionTitle>
+          <HelpText style={{ marginBottom: '24px' }}>
+            {t('generationDefaults.description') ||
+              'Set default values for text generation parameters. These will be used as initial values when starting a new chat.'}
+          </HelpText>
 
-          <Button
-            auto
-            color="error"
-            flat
-            onClick={handleClear}
-            disabled={isSaving}
-          >
-            🗑️ Clear Settings
-          </Button>
+          <FormGroup>
+            <SwitchWrapper>
+              <Switch
+                checked={formData.enableMessageHistory}
+                onChange={async (e) => {
+                  const newValue = e.target.checked;
+                  handleInputChange('enableMessageHistory', newValue);
+                  // Auto-save immediately
+                  const newSettings = {
+                    ...formData,
+                    enableMessageHistory: newValue,
+                  };
+                  await setSettings(newSettings);
+                }}
+                color="primary"
+              />
+              <div>
+                <Label style={{ marginBottom: '4px' }}>
+                  {t('form.enableMessageHistory.label')}
+                </Label>
+                <HelpText style={{ marginTop: '0' }}>
+                  {t('form.enableMessageHistory.help')}
+                </HelpText>
+              </div>
+            </SwitchWrapper>
+          </FormGroup>
 
-          {saveSuccess && (
+          <FormGroup>
+            <Label htmlFor="defaultTemperature">
+              {t('generationDefaults.temperature') || 'Temperature'}
+            </Label>
+            <Input
+              id="defaultTemperature"
+              fullWidth
+              type="number"
+              step="0.1"
+              min="0"
+              max="2"
+              placeholder="0.7"
+              value={rawTemperature}
+              onChange={(e) => {
+                setRawTemperature(e.target.value);
+                const parsed = parseFloat(e.target.value);
+                if (!isNaN(parsed)) {
+                  handleInputChange('defaultTemperature', parsed);
+                }
+              }}
+              onBlur={() => {
+                const parsed = parseFloat(rawTemperature);
+                if (isNaN(parsed) || rawTemperature.trim() === '') {
+                  const fallback = formData.defaultTemperature ?? 0.7;
+                  setRawTemperature(String(fallback));
+                } else {
+                  const clamped = Math.min(2, Math.max(0, parsed));
+                  setRawTemperature(String(clamped));
+                  handleInputChange('defaultTemperature', clamped);
+                }
+              }}
+              contentRight={null}
+            />
+            <HelpText>
+              {t('generationDefaults.temperatureHelp') ||
+                'Controls randomness. Lower values make output more focused and deterministic (0.0-2.0). Default: 0.7'}
+            </HelpText>
+          </FormGroup>
+
+          <FormGroup>
+            <Label htmlFor="defaultMaxTokens">
+              {t('generationDefaults.maxTokens') || 'Max Tokens'}
+            </Label>
+            <Input
+              id="defaultMaxTokens"
+              fullWidth
+              type="number"
+              step="50"
+              min="100"
+              max="4096"
+              placeholder="1024"
+              value={rawMaxTokens}
+              onChange={(e) => {
+                setRawMaxTokens(e.target.value);
+                const parsed = parseInt(e.target.value);
+                if (!isNaN(parsed)) {
+                  handleInputChange('defaultMaxTokens', parsed);
+                }
+              }}
+              onBlur={() => {
+                const parsed = parseInt(rawMaxTokens);
+                if (isNaN(parsed) || rawMaxTokens.trim() === '') {
+                  const fallback = formData.defaultMaxTokens ?? 1024;
+                  setRawMaxTokens(String(fallback));
+                } else {
+                  const clamped = Math.min(4096, Math.max(100, parsed));
+                  setRawMaxTokens(String(clamped));
+                  handleInputChange('defaultMaxTokens', clamped);
+                }
+              }}
+              contentRight={null}
+            />
+            <HelpText>
+              {t('generationDefaults.maxTokensHelp') ||
+                'Maximum length of generated text (100-4096). Default: 1024'}
+            </HelpText>
+          </FormGroup>
+
+          <FormGroup>
+            <Label htmlFor="defaultTopP">
+              {t('generationDefaults.topP') || 'Top P'}
+            </Label>
+            <Input
+              id="defaultTopP"
+              fullWidth
+              type="number"
+              step="0.05"
+              min="0"
+              max="1"
+              placeholder="0.65"
+              value={rawTopP}
+              onChange={(e) => {
+                setRawTopP(e.target.value);
+                const parsed = parseFloat(e.target.value);
+                if (!isNaN(parsed)) {
+                  handleInputChange('defaultTopP', parsed);
+                }
+              }}
+              onBlur={() => {
+                const parsed = parseFloat(rawTopP);
+                if (isNaN(parsed) || rawTopP.trim() === '') {
+                  const fallback = formData.defaultTopP ?? 0.65;
+                  setRawTopP(String(fallback));
+                } else {
+                  const clamped = Math.min(1, Math.max(0, parsed));
+                  setRawTopP(String(clamped));
+                  handleInputChange('defaultTopP', clamped);
+                }
+              }}
+              contentRight={null}
+            />
+            <HelpText>
+              {t('generationDefaults.topPHelp') ||
+                'Nucleus sampling threshold (0.0-1.0). Default: 0.65'}
+            </HelpText>
+          </FormGroup>
+
+          <FormGroup>
+            <Label htmlFor="defaultTopK">
+              {t('generationDefaults.topK') || 'Top K'}
+            </Label>
+            <Input
+              id="defaultTopK"
+              fullWidth
+              type="number"
+              step="1"
+              min="1"
+              max="100"
+              placeholder="40"
+              value={rawTopK}
+              onChange={(e) => {
+                setRawTopK(e.target.value);
+                const parsed = parseInt(e.target.value);
+                if (!isNaN(parsed)) {
+                  handleInputChange('defaultTopK', parsed);
+                }
+              }}
+              onBlur={() => {
+                const parsed = parseInt(rawTopK);
+                if (isNaN(parsed) || rawTopK.trim() === '') {
+                  const fallback = formData.defaultTopK ?? 40;
+                  setRawTopK(String(fallback));
+                } else {
+                  const clamped = Math.min(100, Math.max(1, parsed));
+                  setRawTopK(String(clamped));
+                  handleInputChange('defaultTopK', clamped);
+                }
+              }}
+              contentRight={null}
+            />
+            <HelpText>
+              {t('generationDefaults.topKHelp') ||
+                'Limits token selection to top K choices (1-100). Default: 40'}
+            </HelpText>
+          </FormGroup>
+
+          <FormGroup>
+            <Label htmlFor="defaultFrequencyPenalty">
+              {t('generationDefaults.frequencyPenalty') || 'Frequency Penalty'}
+            </Label>
+            <Input
+              id="defaultFrequencyPenalty"
+              fullWidth
+              type="number"
+              step="0.05"
+              min="1"
+              max="2"
+              placeholder="1.15"
+              value={rawFrequencyPenalty}
+              onChange={(e) => {
+                setRawFrequencyPenalty(e.target.value);
+                const parsed = parseFloat(e.target.value);
+                if (!isNaN(parsed)) {
+                  handleInputChange('defaultFrequencyPenalty', parsed);
+                }
+              }}
+              onBlur={() => {
+                const parsed = parseFloat(rawFrequencyPenalty);
+                if (isNaN(parsed) || rawFrequencyPenalty.trim() === '') {
+                  const fallback = formData.defaultFrequencyPenalty ?? 1.15;
+                  setRawFrequencyPenalty(String(fallback));
+                } else {
+                  const clamped = Math.min(2, Math.max(1, parsed));
+                  setRawFrequencyPenalty(String(clamped));
+                  handleInputChange('defaultFrequencyPenalty', clamped);
+                }
+              }}
+              contentRight={null}
+            />
+            <HelpText>
+              {t('generationDefaults.frequencyPenaltyHelp') ||
+                'Penalizes token repetition (1.0-2.0). Higher values reduce repetition. Default: 1.15'}
+            </HelpText>
+          </FormGroup>
+
+          <ButtonGroup>
+            <Button
+              auto
+              color="primary"
+              onClick={handleSaveGen}
+              disabled={isSavingGen}
+            >
+              {isSavingGen ? (
+                <>
+                  <Loading size="sm" color="white" /> {t('buttons.saving')}
+                </>
+              ) : (
+                t('buttons.save') || 'Save Generation Defaults'
+              )}
+            </Button>
+            <Button
+              auto
+              color="default"
+              onClick={() => {
+                setFormData({
+                  ...formData,
+                  defaultTemperature: 0.7,
+                  defaultMaxTokens: 1024,
+                  defaultTopP: 0.65,
+                  defaultTopK: 40,
+                  defaultFrequencyPenalty: 1.15,
+                });
+                setRawTemperature('0.7');
+                setRawMaxTokens('1024');
+                setRawTopP('0.65');
+                setRawTopK('40');
+                setRawFrequencyPenalty('1.15');
+              }}
+            >
+              {t('generationDefaults.resetToDefaults') || 'Reset to Defaults'}
+            </Button>
+          </ButtonGroup>
+
+          {saveGenSuccess && (
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                color: '#059669',
-                fontWeight: 500,
+                color: '#16A34A',
+                fontWeight: 600,
+                marginTop: '16px',
               }}
             >
-              ✓ Settings saved successfully!
+              <FiCheckCircle style={{ marginRight: '8px' }} />
+              {t('buttons.success') ||
+                'Generation defaults saved successfully!'}
             </div>
           )}
-        </ButtonGroup>
-
-        <InfoBox style={{ marginTop: '32px' }}>
-          <div style={{ marginTop: '2px' }}>💡</div>
-          <div>
-            <strong>Pro Tip:</strong> Use the &quot;Test Connection&quot; button
-            above to verify your configuration before saving. This sends a
-            simple test message to ensure your API URL, key, and model are all
-            working correctly. You can always clear settings to revert to
-            defaults if needed.
-          </div>
-        </InfoBox>
+        </FormSection>
       </Container>
     </ToolbarLayout>
   );

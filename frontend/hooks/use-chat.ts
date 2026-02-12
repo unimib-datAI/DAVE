@@ -161,10 +161,10 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       };
 
       // Get formatted messages with system prompt
-      // Filter message history based on disableMessageHistory setting
-      const messagesToSend = llmSettings.disableMessageHistory
-        ? [tempMessages[tempMessages.length - 1]] // Only send the last (current) message
-        : tempMessages; // Send all messages
+      // Filter message history based on enableMessageHistory setting
+      const messagesToSend = llmSettings.enableMessageHistory
+        ? tempMessages // Send all messages (history enabled)
+        : [tempMessages[tempMessages.length - 1]]; // Only send the last (current) message
 
       const apiMessages = [
         { role: 'system', content: finalSystemPrompt },
