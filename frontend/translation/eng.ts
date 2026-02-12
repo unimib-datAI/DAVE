@@ -192,6 +192,8 @@ const t: Translation = {
     errorRatingConversation: 'Error rating the conversation',
     errorGeneratingResponse:
       'Sorry, there was an error generating the response.',
+    showPrompt: 'Show Full Prompt',
+    hidePrompt: 'Hide Full Prompt',
   },
   document: {
     toolbar: {

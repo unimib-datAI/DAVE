@@ -194,6 +194,8 @@ const t: Translation = {
     errorGeneratingResponse:
       'Spiacente, si è verificato un errore nella generazione della risposta.',
     document: 'Documento',
+    showPrompt: 'Mostra Prompt Completo',
+    hidePrompt: 'Nascondi Prompt Completo',
   },
   document: {
     toolbar: {

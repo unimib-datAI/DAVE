@@ -177,6 +177,8 @@ export type Translation = {
     conversationRatedSuccessfully: string;
     errorRatingConversation: string;
     errorGeneratingResponse: string;
+    showPrompt: string;
+    hidePrompt: string;
   };
   document: {
     toolbar: {
