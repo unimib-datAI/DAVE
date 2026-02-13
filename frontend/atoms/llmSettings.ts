@@ -13,7 +13,37 @@ export type LLMSettings = {
   defaultTopP: number;
   defaultTopK: number;
   defaultFrequencyPenalty: number;
+  defaultSystemPrompt: string;
 };
+
+export const DEFAULT_SYSTEM_PROMPT = `You are an expert assistant that answers questions based on provided context.
+
+<input>
+
+<context>
+{{CONTEXT}}
+</context>
+
+<question language="auto">
+{{QUESTION}}
+</question>
+
+<instructions>
+- Answer the question using ONLY information explicitly stated in the context.
+- Integrate information from multiple documents only if they are consistent.
+- Do NOT infer, speculate, generalize, or rely on external knowledge.
+- The answer MUST be written in the same language as the question.
+- If answering requires translating information from the context, translate faithfully
+  without adding, omitting, or reinterpreting any content.
+- Do NOT mention documents, context, retrieval, or sources explicitly.
+- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:
+  "The information provided is not sufficient to answer with certainty." and give an explanation about why you can't answer.
+Always assume that the user is asking you about information contained in the documents provided
+- Use a clear, precise, and domain-appropriate technical style.
+Make sure to ALWAYS answer in the same language used by the user to ask the question, don't ming the documents language
+</instructions>
+
+</input>`;
 
 export const DEFAULT_LLM_SETTINGS: LLMSettings = {
   baseURL: '',
@@ -27,6 +57,7 @@ export const DEFAULT_LLM_SETTINGS: LLMSettings = {
   defaultTopP: 0.65,
   defaultTopK: 40,
   defaultFrequencyPenalty: 1.15,
+  defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
 };
 
 // Separate storage keys for independent persistence
@@ -42,6 +73,7 @@ type GenerationDefaults = Pick<
   | 'defaultTopP'
   | 'defaultTopK'
   | 'defaultFrequencyPenalty'
+  | 'defaultSystemPrompt'
 >;
 
 // The fields that belong to custom LLM endpoint (only persisted when useCustomSettings is true)
@@ -67,6 +99,7 @@ export const persistedLLMSettingsAtom = atom(
       defaultTopP: newSettings.defaultTopP,
       defaultTopK: newSettings.defaultTopK,
       defaultFrequencyPenalty: newSettings.defaultFrequencyPenalty,
+      defaultSystemPrompt: newSettings.defaultSystemPrompt,
     };
     await secureStore(GENERATION_DEFAULTS_STORAGE_KEY, generationDefaults);
 

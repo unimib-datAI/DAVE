@@ -639,6 +639,9 @@ const t: Translation = {
       title: 'Generation Defaults',
       description:
         'Set default values for text generation parameters. These will be used as initial values when starting a new chat.',
+      systemPrompt: 'Default System Prompt',
+      systemPromptHelp:
+        'The system prompt sent to the LLM. Use {{CONTEXT}} and {{QUESTION}} as placeholders in dev mode. Leave empty to use the built-in default.',
       temperature: 'Temperature',
       temperatureHelp:
         'Controls randomness. Lower values make output more focused and deterministic (0.0-2.0). Default: 0.7',

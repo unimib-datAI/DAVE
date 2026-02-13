@@ -460,6 +460,8 @@ export type Translation = {
     generationDefaults: {
       title: string;
       description: string;
+      systemPrompt: string;
+      systemPromptHelp: string;
       temperature: string;
       temperatureHelp: string;
       maxTokens: string;

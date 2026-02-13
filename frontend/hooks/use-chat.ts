@@ -121,6 +121,10 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
 
     const content = userMessageContent;
     console.log('received content', content);
+    // Store the actual prompt used: in dev mode, finalSystemPrompt contains the real prompt sent;
+    // otherwise, use the default fullPrompt template.
+    const actualPrompt = devMode ? finalSystemPrompt : fullPrompt;
+
     // Create a new user message
     const userMessage: Message = {
       role: 'user',
@@ -128,7 +132,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       context: context,
       usrMessage: message, // Preserve original user message
       isDoneStreaming: true, // Mark user messages as done streaming immediately
-      devPrompt: fullPrompt, // Always store the full prompt
+      devPrompt: actualPrompt, // Store the actual prompt that was used
       wasAnonymized: isAnonymized, // Store anonymization state at generation time
     };
 
@@ -228,7 +232,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
               role: 'assistant',
               content: chunk,
               isDoneStreaming: false,
-              devPrompt: fullPrompt, // Always store the full prompt
+              devPrompt: actualPrompt, // Store the actual prompt that was used
               context: context,
               wasAnonymized: isAnonymized,
             },

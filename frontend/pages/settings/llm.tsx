@@ -8,6 +8,7 @@ import {
   loadLLMSettingsAtom,
   clearLLMSettingsAtom,
   LLMSettings,
+  DEFAULT_SYSTEM_PROMPT,
 } from '@/atoms/llmSettings';
 import { useEffect, useState } from 'react';
 import {
@@ -213,6 +214,7 @@ const LLMSettingsPage = () => {
     defaultTopP: 0.65,
     defaultTopK: 40,
     defaultFrequencyPenalty: 1.15,
+    defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
   });
 
   const [showApiKey, setShowApiKey] = useState(false);
@@ -246,11 +248,12 @@ const LLMSettingsPage = () => {
       try {
         const stored = await loadSettings();
         const data = stored || settings;
-        if (stored) {
-          setFormData(stored);
-        } else {
-          setFormData(settings);
-        }
+        const mergedData = {
+          ...data,
+          defaultSystemPrompt:
+            data.defaultSystemPrompt || DEFAULT_SYSTEM_PROMPT,
+        };
+        setFormData(mergedData);
         // Sync raw string state with loaded settings
         setRawTemperature(String(data.defaultTemperature ?? 0.7));
         setRawMaxTokens(String(data.defaultMaxTokens ?? 1024));
@@ -339,6 +342,7 @@ const LLMSettingsPage = () => {
           defaultTopP: 0.65,
           defaultTopK: 40,
           defaultFrequencyPenalty: 1.15,
+          defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
         });
         setSaveLLMSuccess(false);
         setSaveGenSuccess(false);
@@ -722,6 +726,27 @@ const LLMSettingsPage = () => {
           </FormGroup>
 
           <FormGroup>
+            <Label htmlFor="defaultSystemPrompt">
+              {t('generationDefaults.systemPrompt') || 'Default System Prompt'}
+            </Label>
+            <Textarea
+              id="defaultSystemPrompt"
+              fullWidth
+              minRows={6}
+              maxRows={20}
+              placeholder={DEFAULT_SYSTEM_PROMPT}
+              value={formData.defaultSystemPrompt}
+              onChange={(e) =>
+                handleInputChange('defaultSystemPrompt', e.target.value)
+              }
+            />
+            <HelpText>
+              {t('generationDefaults.systemPromptHelp') ||
+                'The system prompt sent to the LLM. Use {{CONTEXT}} and {{QUESTION}} as placeholders in dev mode. Leave empty to use the built-in default.'}
+            </HelpText>
+          </FormGroup>
+
+          <FormGroup>
             <Label htmlFor="defaultTemperature">
               {t('generationDefaults.temperature') || 'Temperature'}
             </Label>
@@ -942,6 +967,7 @@ const LLMSettingsPage = () => {
                   defaultTopP: 0.65,
                   defaultTopK: 40,
                   defaultFrequencyPenalty: 1.15,
+                  defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
                 });
                 setRawTemperature('0.7');
                 setRawMaxTokens('1024');
