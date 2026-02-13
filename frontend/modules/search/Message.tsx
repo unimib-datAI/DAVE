@@ -214,59 +214,59 @@ const Message = ({
                         <span className="text-xs leading-tight font-semibold">
                           {t('relevantPassages')}
                         </span>
-                        <div className="flex flex-row items-center flex-wrap gap-2">
+                        <div className="flex flex-row items-center flex-wrap gap-2 z-[9994]">
                           {!doc.full_docs ? (
                             doc.chunks.map((chunk, chunkIndex) => (
-                              <Tooltip
-                                content={
-                                  <div className="max-w-xs">
-                                    {effectiveAnonymization
-                                      ? chunk.text_anonymized ||
-                                        chunk.text ||
-                                        ''
-                                      : chunk.text || ''}
-                                  </div>
-                                }
+                              <div
                                 key={`${chunk.id || ''}-${chunkIndex}`}
+                                style={{ zIndex: 10000, position: 'relative' }}
                               >
-                                <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
-                                  {(() => {
-                                    const previewText = effectiveAnonymization
+                                <Tooltip
+                                  content={(() => {
+                                    const text = effectiveAnonymization
                                       ? chunk.text_anonymized ||
                                         chunk.text ||
                                         ''
                                       : chunk.text || '';
-                                    return previewText
-                                      ? previewText.slice(0, 50)
-                                      : '';
+                                    return text || 'No content available';
                                   })()}
-                                  {(() => {
-                                    const previewText = effectiveAnonymization
-                                      ? chunk.text_anonymized ||
-                                        chunk.text ||
-                                        ''
-                                      : chunk.text || '';
-                                    return previewText &&
-                                      previewText.length > 50
-                                      ? '...'
-                                      : '';
-                                  })()}
-                                </div>
-                              </Tooltip>
+                                >
+                                  <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
+                                    {(() => {
+                                      const previewText = effectiveAnonymization
+                                        ? chunk.text_anonymized ||
+                                          chunk.text ||
+                                          ''
+                                        : chunk.text || '';
+                                      return previewText
+                                        ? previewText.slice(0, 50)
+                                        : '';
+                                    })()}
+                                    {(() => {
+                                      const previewText = effectiveAnonymization
+                                        ? chunk.text_anonymized ||
+                                          chunk.text ||
+                                          ''
+                                        : chunk.text || '';
+                                      return previewText &&
+                                        previewText.length > 50
+                                        ? '...'
+                                        : '';
+                                    })()}
+                                  </div>
+                                </Tooltip>
+                              </div>
                             ))
                           ) : (
-                            <Tooltip
-                              content={
-                                <div className="max-w-xs">
+                            <div
+                              style={{ zIndex: 10000, position: 'relative' }}
+                            >
+                              <Tooltip content={t('fullDocument')}>
+                                <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
                                   {t('fullDocument')}
                                 </div>
-                              }
-                              key={`${doc.id || ''}`}
-                            >
-                              <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
-                                {t('fullDocument')}
-                              </div>
-                            </Tooltip>
+                              </Tooltip>
+                            </div>
                           )}
                         </div>
                       </div>
