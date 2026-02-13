@@ -1,7 +1,7 @@
 import { activeCollectionAtom } from '@/atoms/collection';
 import { DocumentWithChunk } from '@/server/routers/search';
 import { getPromptAndMessage } from '@/utils/textGeneration';
-import { llmSettingsAtom } from '@/atoms/llmSettings';
+import { llmSettingsAtom, DEFAULT_SYSTEM_PROMPT } from '@/atoms/llmSettings';
 import { useAtom } from 'jotai';
 import { useEffect, useState } from 'react';
 import { useChatState, useChatDispatch } from '@/modules/chat/ChatProvider';
@@ -33,8 +33,7 @@ export type GenerateOptions = {
   context?: DocumentWithChunk[];
   useMultiAgent?: boolean;
 };
-const defaultSystemPropmt =
-  "Sei un assistente che parla ITALIANO o INGLESE, scegli in base alla lingua della DOMANDA e del CONTESTO: se la domanda è formulata in INGLESE rispondi in INGLESE, se è formulata in ITALIANO rispondi in ITALIANO. La DOMANDA dell'utente si riferisce ai documenti che ti vengono forniti nel CONTESTO. Rispondi utilizzando solo le informazioni presenti nel CONTESTO. La risposta deve rielaborare le informazioni presenti nel CONTESTO. Argomenta in modo opportuno ed estensivo la risposta alla DOMANDA, devi generare risposte lunghe, non risposte da un paio di righe. Non rispondere con 'Risposta: ' o cose simili, deve essere un messaggio di chat vero e proprio. Se non conosci la risposta, limitati a dire che non lo sai.";
+
 function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
   const chatState = useChatState();
   const dispatch = useChatDispatch();
@@ -90,9 +89,6 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
         }">\n${docContent}\n</document>\n`;
       });
     }
-    const questionStr = `<question language="auto">\n${message}\n</question>`;
-    const instructions = `<instructions>\n- Answer the question using ONLY information explicitly stated in the context.\n- Integrate information from multiple documents only if they are consistent.\n- Do NOT infer, speculate, generalize, or rely on external knowledge.\n- The answer MUST be written in the same language as the question.\n- If answering requires translating information from the context, translate faithfully\n  without adding, omitting, or reinterpreting any content.\n- Do NOT mention documents, context, retrieval, or sources explicitly.\n- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:\n  "The information provided is not sufficient to answer with certainty." and give an explanation about why you can't answer.\n Always assume that the user is asking you about information contained in the documents provided\n- Use a clear, precise, and domain-appropriate technical style.\n Make sure to ALWAYS answer in the same language used by the user to ask the question, don't ming the documents language</instructions>`;
-    const fullPrompt = `<input>\n\n<context>\n${contextStr}</context>\n\n${questionStr}\n\n${instructions}\n\n</input>`;
 
     // Apply generation defaults from llmSettings when options are undefined.
     // Important: when devMode is active we want the values coming from the dev UI
@@ -114,63 +110,24 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
             1.15,
         };
 
-    // Handle system prompt and user message based on devMode
-    // System prompt precedence:
-    // - If devMode is active and the dev UI provided a system value (even an empty string),
-    //   prefer that so the developer can experiment with custom system prompts.
-    // - Otherwise prefer an explicit options.system (truthy), then saved llmSettings,
-    //   then environment var, then internal fallback.
-    let finalSystemPrompt;
-    if (devMode && Object.prototype.hasOwnProperty.call(options, 'system')) {
-      // Respect the system value provided by the dev UI even if it's an empty string
-      finalSystemPrompt = options.system;
-    } else {
-      finalSystemPrompt =
-        options.system ||
-        llmSettings.defaultSystemPrompt ||
-        process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
-        DEFAULT_SYSTEM_PROMPT ||
-        defaultSystemPropmt;
-    }
+    // Determine system prompt: Always use settings prompt, unless in devMode with custom system
+    const defaultSystemPrompt =
+      llmSettings.defaultSystemPrompt || DEFAULT_SYSTEM_PROMPT;
+    let finalSystemPrompt =
+      devMode && options.system !== undefined
+        ? options.system
+        : defaultSystemPrompt;
     let userMessageContent = '';
 
-    if (devMode) {
-      // In dev mode: replace placeholders in system prompt, or append if missing
-      if (
-        finalSystemPrompt.includes('{{CONTEXT}}') &&
-        finalSystemPrompt.includes('{{QUESTION}}')
-      ) {
-        // User has placeholders, replace them
-        finalSystemPrompt = finalSystemPrompt
-          .replace('{{CONTEXT}}', contextStr)
-          .replace('{{QUESTION}}', message);
-        userMessageContent = message; // Just send the plain question as user message
-      } else {
-        // User doesn't have placeholders, append context and question to system prompt
-        finalSystemPrompt = `${finalSystemPrompt}\n\nContext:\n${contextStr}\n\nQuestion: ${message}`;
-        userMessageContent = message;
-      }
-    } else {
-      // Not in dev mode: keep using the fullPrompt as the user message (same as before),
-      // but still send a system prompt (from saved defaults) so the model receives the same
-      // system-level instructions in normal mode as in dev mode.
-      if (llmSettings.defaultSystemPrompt) {
-        userMessageContent = llmSettings.defaultSystemPrompt
-          .replace('{{CONTEXT}}', contextStr)
-          .replace('{{QUESTION}}', message);
-      } else {
-        userMessageContent = fullPrompt;
-      }
-    }
+    // Always build the prompt by replacing placeholders
+    finalSystemPrompt = finalSystemPrompt
+      .replace('{{CONTEXT}}', contextStr)
+      .replace('{{QUESTION}}', message);
+    userMessageContent = finalSystemPrompt; // Send the plain question as user message
 
     const content = userMessageContent;
     console.log('received content', content);
-    // Store the actual prompt used: in dev mode, include both the system prompt and the
-    // user message so the UI shows exactly what was sent to the model; otherwise, use
-    // the default fullPrompt template.
-    const actualPrompt = devMode
-      ? `${finalSystemPrompt}\n\n${userMessageContent}`
-      : content;
+    // Store the fully built system prompt including replaced context and question
 
     // Create a new user message
     const userMessage: Message = {
@@ -179,7 +136,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       context: context,
       usrMessage: message, // Preserve original user message
       isDoneStreaming: true, // Mark user messages as done streaming immediately
-      devPrompt: actualPrompt, // Store the actual prompt that was used
+      devPrompt: userMessageContent, // Store the actual prompt that was used
       wasAnonymized: isAnonymized, // Store anonymization state at generation time
     };
 
@@ -283,7 +240,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
               role: 'assistant',
               content: chunk,
               isDoneStreaming: false,
-              devPrompt: actualPrompt, // Store the actual prompt that was used
+              devPrompt: userMessageContent, // Store the actual prompt that was used
               context: context,
               wasAnonymized: isAnonymized,
             },
