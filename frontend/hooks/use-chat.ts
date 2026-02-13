@@ -94,8 +94,44 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
     const instructions = `<instructions>\n- Answer the question using ONLY information explicitly stated in the context.\n- Integrate information from multiple documents only if they are consistent.\n- Do NOT infer, speculate, generalize, or rely on external knowledge.\n- The answer MUST be written in the same language as the question.\n- If answering requires translating information from the context, translate faithfully\n  without adding, omitting, or reinterpreting any content.\n- Do NOT mention documents, context, retrieval, or sources explicitly.\n- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:\n  "The information provided is not sufficient to answer with certainty." and give an explanation about why you can't answer.\n Always assume that the user is asking you about information contained in the documents provided\n- Use a clear, precise, and domain-appropriate technical style.\n Make sure to ALWAYS answer in the same language used by the user to ask the question, don't ming the documents language</instructions>`;
     const fullPrompt = `<input>\n\n<context>\n${contextStr}</context>\n\n${questionStr}\n\n${instructions}\n\n</input>`;
 
+    // Apply generation defaults from llmSettings when options are undefined.
+    // Important: when devMode is active we want the values coming from the dev UI
+    // to be authoritative — i.e. the dev-mode options should override saved
+    // settings. When not in devMode, fall back to the saved generation defaults.
+    const appliedOptions = devMode
+      ? { ...options } // use dev UI values as-is (ChatPanel initializes them from llmSettings)
+      : {
+          ...options,
+          temperature:
+            options.temperature ?? llmSettings.defaultTemperature ?? 0.7,
+          max_new_tokens:
+            options.max_new_tokens ?? llmSettings.defaultMaxTokens ?? 1024,
+          top_p: options.top_p ?? llmSettings.defaultTopP ?? 0.65,
+          top_k: options.top_k ?? llmSettings.defaultTopK ?? 40,
+          token_repetition_penalty_max:
+            options.token_repetition_penalty_max ??
+            llmSettings.defaultFrequencyPenalty ??
+            1.15,
+        };
+
     // Handle system prompt and user message based on devMode
-    let finalSystemPrompt = options.system || '';
+    // System prompt precedence:
+    // - If devMode is active and the dev UI provided a system value (even an empty string),
+    //   prefer that so the developer can experiment with custom system prompts.
+    // - Otherwise prefer an explicit options.system (truthy), then saved llmSettings,
+    //   then environment var, then internal fallback.
+    let finalSystemPrompt;
+    if (devMode && Object.prototype.hasOwnProperty.call(options, 'system')) {
+      // Respect the system value provided by the dev UI even if it's an empty string
+      finalSystemPrompt = options.system;
+    } else {
+      finalSystemPrompt =
+        options.system ||
+        llmSettings.defaultSystemPrompt ||
+        process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
+        DEFAULT_SYSTEM_PROMPT ||
+        defaultSystemPropmt;
+    }
     let userMessageContent = '';
 
     if (devMode) {
@@ -115,7 +151,9 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
         userMessageContent = message;
       }
     } else {
-      // Not in dev mode: use the original behavior (fullPrompt in user message)
+      // Not in dev mode: keep using the fullPrompt as the user message (same as before),
+      // but still send a system prompt (from saved defaults) so the model receives the same
+      // system-level instructions in normal mode as in dev mode.
       userMessageContent = fullPrompt;
     }
 
@@ -146,22 +184,26 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       // Prepare messages for API - create a new array
       const messagesForAPI = [...messages, userMessage];
 
-      // Normalize options to handle array values
+      // Normalize options to handle array values (use applied defaults)
       const normalizedOptions = {
-        ...options,
-        temperature: Array.isArray(options.temperature)
-          ? options.temperature[0]
-          : options.temperature,
-        max_new_tokens: Array.isArray(options.max_new_tokens)
-          ? options.max_new_tokens[0]
-          : options.max_new_tokens,
-        top_p: Array.isArray(options.top_p) ? options.top_p[0] : options.top_p,
-        top_k: Array.isArray(options.top_k) ? options.top_k[0] : options.top_k,
+        ...appliedOptions,
+        temperature: Array.isArray(appliedOptions.temperature)
+          ? appliedOptions.temperature[0]
+          : appliedOptions.temperature,
+        max_new_tokens: Array.isArray(appliedOptions.max_new_tokens)
+          ? appliedOptions.max_new_tokens[0]
+          : appliedOptions.max_new_tokens,
+        top_p: Array.isArray(appliedOptions.top_p)
+          ? appliedOptions.top_p[0]
+          : appliedOptions.top_p,
+        top_k: Array.isArray(appliedOptions.top_k)
+          ? appliedOptions.top_k[0]
+          : appliedOptions.top_k,
         token_repetition_penalty_max: Array.isArray(
-          options.token_repetition_penalty_max
+          appliedOptions.token_repetition_penalty_max
         )
-          ? options.token_repetition_penalty_max[0]
-          : options.token_repetition_penalty_max,
+          ? appliedOptions.token_repetition_penalty_max[0]
+          : appliedOptions.token_repetition_penalty_max,
       };
 
       // Get formatted messages with system prompt
