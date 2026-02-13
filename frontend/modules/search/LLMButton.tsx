@@ -57,7 +57,7 @@ const LLMButton = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0  p-4 bg-neutral-700/10"
+              className="fixed inset-0 z-30 p-4 bg-neutral-700/10"
             />
             <motion.div
               key={2}
@@ -65,7 +65,7 @@ const LLMButton = () => {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="fixed inset-0  p-4 flex items-center justify-center"
+              className="fixed inset-0 z-30 p-4 flex items-center justify-center"
             >
               <LLMSearch ref={refLLMWindow} onClose={closeLLMWindow} />
             </motion.div>
