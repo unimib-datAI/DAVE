@@ -148,7 +148,18 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           }
         }
       }
-
+      console.log(
+        'calling generation with ',
+        JSON.stringify({
+          model: modelToUse,
+          messages: chatMessages,
+          max_tokens: max_tokens,
+          temperature: temperature,
+          top_p: top_p,
+          stream: true,
+          ...filteredOtherParams,
+        })
+      );
       const stream = await openai.chat.completions.create({
         model: modelToUse,
         messages: chatMessages,
