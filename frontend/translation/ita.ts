@@ -633,10 +633,34 @@ const t: Translation = {
         placeholder: 'gpt-4, phi4-mini, llama-3.1, ecc.',
         help: "L'identificatore del modello da utilizzare. Dipende dal tuo fornitore API:\n• OpenAI: gpt-4, gpt-3.5-turbo\n• Modelli locali: phi4-mini, llama-3.1-8b, ecc.\nControlla la documentazione del tuo fornitore API per i modelli disponibili.",
       },
-      disableMessageHistory: {
-        label: 'Disabilita Cronologia Messaggi',
-        help: "Quando abilitato, solo il messaggio corrente e il prompt di sistema verranno inviati al LLM, senza la cronologia delle conversazioni precedenti. Questo può ridurre l'uso dei token ma il modello non ricorderà i messaggi precedenti.",
+      enableMessageHistory: {
+        label: 'Abilita Cronologia Messaggi',
+        help: "Quando abilitato, l'intera cronologia della conversazione verrà inviata al LLM, permettendogli di fare riferimento ai messaggi precedenti. Quando disabilitato, solo il messaggio corrente e il prompt di sistema vengono inviati, riducendo l'uso dei token ma perdendo il contesto della conversazione.",
       },
+    },
+    generationDefaults: {
+      title: 'Impostazioni Predefinite di Generazione',
+      description:
+        'Imposta i valori predefiniti per i parametri di generazione del testo. Questi verranno utilizzati come valori iniziali quando si avvia una nuova chat.',
+      systemPrompt: 'Prompt di Sistema Predefinito',
+      systemPromptHelp:
+        'Il prompt di sistema inviato al LLM. Usa {{CONTEXT}} e {{QUESTION}} come segnaposto in modalità sviluppatore. Lascia vuoto per usare quello predefinito.',
+      temperature: 'Temperatura',
+      temperatureHelp:
+        "Controlla la casualità. Valori più bassi rendono l'output più focalizzato e deterministico (0.0-2.0). Predefinito: 0.7",
+      maxTokens: 'Token Massimi',
+      maxTokensHelp:
+        'Lunghezza massima del testo generato (100-4096). Predefinito: 1024',
+      topP: 'Top P',
+      topPHelp:
+        'Soglia di campionamento del nucleo (0.0-1.0). Predefinito: 0.65',
+      topK: 'Top K',
+      topKHelp:
+        'Limita la selezione dei token alle prime K scelte (1-100). Predefinito: 40',
+      frequencyPenalty: 'Penalità di Frequenza',
+      frequencyPenaltyHelp:
+        'Penalizza la ripetizione dei token (1.0-2.0). Valori più alti riducono la ripetizione. Predefinito: 1.15',
+      resetToDefaults: 'Ripristina Predefiniti',
     },
     test: {
       button: '🔌 Test Connessione',
@@ -646,9 +670,9 @@ const t: Translation = {
       response: 'Risposta:',
     },
     buttons: {
-      save: '💾 Salva Impostazioni',
+      save: 'Salva Impostazioni',
       saving: 'Salvataggio...',
-      clear: '🗑️ Cancella Impostazioni',
+      clear: 'Cancella Impostazioni',
       success: '✓ Impostazioni salvate con successo!',
     },
     proTip: {

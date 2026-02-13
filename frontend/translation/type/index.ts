@@ -452,10 +452,27 @@ export type Translation = {
         placeholder: string;
         help: string;
       };
-      disableMessageHistory: {
+      enableMessageHistory: {
         label: string;
         help: string;
       };
+    };
+    generationDefaults: {
+      title: string;
+      description: string;
+      systemPrompt: string;
+      systemPromptHelp: string;
+      temperature: string;
+      temperatureHelp: string;
+      maxTokens: string;
+      maxTokensHelp: string;
+      topP: string;
+      topPHelp: string;
+      topK: string;
+      topKHelp: string;
+      frequencyPenalty: string;
+      frequencyPenaltyHelp: string;
+      resetToDefaults: string;
     };
     test: {
       button: string;
