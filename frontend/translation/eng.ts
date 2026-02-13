@@ -630,10 +630,32 @@ const t: Translation = {
         placeholder: 'gpt-4, phi4-mini, llama-3.1, etc.',
         help: "The model identifier to use. This depends on your API provider:\n• OpenAI: gpt-4, gpt-3.5-turbo\n• Local models: phi4-mini, llama-3.1-8b, etc.\nCheck your API provider's documentation for available models.",
       },
-      disableMessageHistory: {
-        label: 'Disable Message History',
-        help: 'When enabled, only the current message and system prompt will be sent to the LLM, without previous conversation history. This can reduce token usage but the model will not remember previous messages.',
+      enableMessageHistory: {
+        label: 'Enable Message History',
+        help: 'When enabled, the full conversation history will be sent to the LLM, allowing it to reference previous messages. When disabled, only the current message and system prompt are sent, reducing token usage but losing conversation context.',
       },
+    },
+    generationDefaults: {
+      title: 'Generation Defaults',
+      description:
+        'Set default values for text generation parameters. These will be used as initial values when starting a new chat.',
+      systemPrompt: 'Default System Prompt',
+      systemPromptHelp:
+        'The system prompt sent to the LLM. Use {{CONTEXT}} and {{QUESTION}} as placeholders in dev mode. Leave empty to use the built-in default.',
+      temperature: 'Temperature',
+      temperatureHelp:
+        'Controls randomness. Lower values make output more focused and deterministic (0.0-2.0). Default: 0.7',
+      maxTokens: 'Max Tokens',
+      maxTokensHelp:
+        'Maximum length of generated text (100-4096). Default: 1024',
+      topP: 'Top P',
+      topPHelp: 'Nucleus sampling threshold (0.0-1.0). Default: 0.65',
+      topK: 'Top K',
+      topKHelp: 'Limits token selection to top K choices (1-100). Default: 40',
+      frequencyPenalty: 'Frequency Penalty',
+      frequencyPenaltyHelp:
+        'Penalizes token repetition (1.0-2.0). Higher values reduce repetition. Default: 1.15',
+      resetToDefaults: 'Reset to Defaults',
     },
     test: {
       button: '🔌 Test Connection',
@@ -643,9 +665,9 @@ const t: Translation = {
       response: 'Response:',
     },
     buttons: {
-      save: '💾 Save Settings',
+      save: 'Save Settings',
       saving: 'Saving...',
-      clear: '🗑️ Clear Settings',
+      clear: 'Clear Settings',
       success: '✓ Settings saved successfully!',
     },
     proTip: {
