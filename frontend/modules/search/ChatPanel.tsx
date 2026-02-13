@@ -31,7 +31,7 @@ import { Radio } from 'antd';
 import { useText } from '@/components/TranslationProvider';
 import RateConversation from '@/components/RateConversation/RateConversation';
 import { activeCollectionAtom } from '@/atoms/collection';
-import { llmSettingsAtom } from '@/atoms/llmSettings';
+import { llmSettingsAtom, DEFAULT_SYSTEM_PROMPT } from '@/atoms/llmSettings';
 import { useState, useEffect } from 'react';
 
 type Form = GenerateOptions & {
@@ -147,35 +147,9 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     top_p: llmSettings.defaultTopP ?? 0.65,
     token_repetition_penalty_max: llmSettings.defaultFrequencyPenalty ?? 1.15,
     system:
+      llmSettings.defaultSystemPrompt ||
       process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
-      `You are an expert assistant that answers questions based on provided context.
-
-<input>
-
-<context>
-{{CONTEXT}}
-</context>
-
-<question language="auto">
-{{QUESTION}}
-</question>
-
-<instructions>
-- Answer the question using ONLY information explicitly stated in the context.
-- Integrate information from multiple documents only if they are consistent.
-- Do NOT infer, speculate, generalize, or rely on external knowledge.
-- The answer MUST be written in the same language as the question.
-- If answering requires translating information from the context, translate faithfully
-  without adding, omitting, or reinterpreting any content.
-- Do NOT mention documents, context, retrieval, or sources explicitly.
-- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:
-  "The information provided is not sufficient to answer with certainty." and give an explanation about why you can't answer.
-Always assume that the user is asking you about information contained in the documents provided
-- Use a clear, precise, and domain-appropriate technical style.
-Make sure to ALWAYS answer in the same language used by the user to ask the question, don't ming the documents language
-</instructions>
-
-</input>`,
+      DEFAULT_SYSTEM_PROMPT,
     message: '',
     useDocumentContext: true,
     retrievalMethod: 'full',

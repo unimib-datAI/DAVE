@@ -642,6 +642,9 @@ const t: Translation = {
       title: 'Impostazioni Predefinite di Generazione',
       description:
         'Imposta i valori predefiniti per i parametri di generazione del testo. Questi verranno utilizzati come valori iniziali quando si avvia una nuova chat.',
+      systemPrompt: 'Prompt di Sistema Predefinito',
+      systemPromptHelp:
+        'Il prompt di sistema inviato al LLM. Usa {{CONTEXT}} e {{QUESTION}} come segnaposto in modalità sviluppatore. Lascia vuoto per usare quello predefinito.',
       temperature: 'Temperatura',
       temperatureHelp:
         "Controlla la casualità. Valori più bassi rendono l'output più focalizzato e deterministico (0.0-2.0). Predefinito: 0.7",
