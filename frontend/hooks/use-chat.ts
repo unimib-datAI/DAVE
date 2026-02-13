@@ -154,14 +154,23 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       // Not in dev mode: keep using the fullPrompt as the user message (same as before),
       // but still send a system prompt (from saved defaults) so the model receives the same
       // system-level instructions in normal mode as in dev mode.
-      userMessageContent = fullPrompt;
+      if (llmSettings.defaultSystemPrompt) {
+        userMessageContent = llmSettings.defaultSystemPrompt
+          .replace('{{CONTEXT}}', contextStr)
+          .replace('{{QUESTION}}', message);
+      } else {
+        userMessageContent = fullPrompt;
+      }
     }
 
     const content = userMessageContent;
     console.log('received content', content);
-    // Store the actual prompt used: in dev mode, finalSystemPrompt contains the real prompt sent;
-    // otherwise, use the default fullPrompt template.
-    const actualPrompt = devMode ? finalSystemPrompt : fullPrompt;
+    // Store the actual prompt used: in dev mode, include both the system prompt and the
+    // user message so the UI shows exactly what was sent to the model; otherwise, use
+    // the default fullPrompt template.
+    const actualPrompt = devMode
+      ? `${finalSystemPrompt}\n\n${userMessageContent}`
+      : content;
 
     // Create a new user message
     const userMessage: Message = {
