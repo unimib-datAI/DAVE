@@ -7,6 +7,8 @@ export const globalAnonymizationAtom = atomWithStorage<boolean>(
   'globalAnonymization',
   true
 );
+
+export const isLoadingAnonymizationAtom = atom<boolean>(false);
 export const documentPageAtom = atom<number>(1);
 export const documentTextAtom = atom<string>('');
 export const facetsDocumentsAtom = atom<FacetedQueryHit[]>([]);
