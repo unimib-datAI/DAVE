@@ -36,9 +36,8 @@ const Homepage = () => {
           <h1>{t('title')}</h1>
           <h2 className="font-normal">
             {t('subtitle.document')}
-            <span className="inline-block underline-yellow">
-              {t('subtitle.annotation')}
-            </span>{' '}
+            <span className="inline-block underline-yellow">Assistant</span>
+            {' for '}
             <span className=" inline-block underline-blue">
               {t('subtitle.validation')}
             </span>
