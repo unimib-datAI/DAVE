@@ -22,7 +22,10 @@ import { createTaxonomy } from './utils';
 import { mapEntityType } from '../../../components/Tree/utils';
 import { useDocumentDispatch } from './selectors';
 import { DocumentContext } from './DocumentContext';
-import { globalAnonymizationAtom } from '@/utils/atoms';
+import {
+  globalAnonymizationAtom,
+  isLoadingAnonymizationAtom,
+} from '@/utils/atoms';
 /**
  * Fetches a document and provides it to the context consumer globally for the page.
  *
@@ -36,6 +39,7 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   // - `globalAnonymizationAtom` = true  -> documents are anonymized
   // - `deAnonimize` = true             -> show real (de-anonymized) document -> inverse of the atom
   const [isAnonymized, setIsAnonymized] = useAtom(globalAnonymizationAtom);
+  const [, setIsLoadingAnonymization] = useAtom(isLoadingAnonymizationAtom);
   const deAnonimize = !isAnonymized;
   const setDeAnonimize = (value: boolean) => {
     // value = true -> user requests de-anonymized view -> set global anonymization to false
@@ -53,8 +57,24 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
 
   // Force refetch when deAnonimize changes to ensure reload even for cached keys
   useEffect(() => {
-    refetch();
-  }, [deAnonimize, refetch]);
+    let active = true;
+    const doRefetch = async () => {
+      // set loading flag while we refetch the document
+      setIsLoadingAnonymization(true);
+      try {
+        await refetch();
+      } finally {
+        // only clear loading if component still mounted / effect still relevant
+        if (active) {
+          setIsLoadingAnonymization(false);
+        }
+      }
+    };
+    doRefetch();
+    return () => {
+      active = false;
+    };
+  }, [deAnonimize, refetch, setIsLoadingAnonymization]);
   // State to hold the document data
   const [documentData, setDocumentData] = useState(data);
   useEffect(() => {
