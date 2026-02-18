@@ -264,40 +264,44 @@ const Facets = ({
 
   const allFacets = useMemo(() => buildFacets(facets), [facets]);
 
-  // Fetch de-anonymized names when global toggle is activated
+  // Fetch de-anonymized names when globa<wl toggle is activated
   useEffect(() => {
     const fetchDeAnonymizedNames = async () => {
       setGlobalLoading(true);
-      try {
-        const displayNames = new Set<string>();
+      setDeanonymizedNames({});
+      if (deanonymize) {
+        try {
+          console.log('triggered de-anon');
+          const displayNames = new Set<string>();
 
-        facets.annotations.forEach((facet) => {
-          facet.children.forEach((child) => {
-            if (child.display_name && child.display_name.trim() !== '') {
-              displayNames.add(child.display_name);
-            }
-          });
-        });
-
-        const keysArray = Array.from(displayNames);
-
-        if (keysArray.length > 0) {
-          const result = await deanonymizeMutation.mutateAsync({
-            keys: keysArray,
+          facets.annotations.forEach((facet) => {
+            facet.children.forEach((child) => {
+              if (child.display_name && child.display_name.trim() !== '') {
+                displayNames.add(child.display_name);
+              }
+            });
           });
 
-          setDeanonymizedNames(result);
+          const keysArray = Array.from(displayNames);
+
+          if (keysArray.length > 0) {
+            const result = await deanonymizeMutation.mutateAsync({
+              keys: keysArray,
+            });
+
+            setDeanonymizedNames(result);
+          }
+        } catch (error) {
+          console.error('Failed to de-anonymize facet names:', error);
+        } finally {
+          setGlobalLoading(false);
         }
-      } catch (error) {
-        console.error('Failed to de-anonymize facet names:', error);
-      } finally {
-        setGlobalLoading(false);
       }
+      setGlobalLoading(false);
     };
 
-    if (deanonymize && Object.keys(deanonymizedNames || {}).length === 0) {
-      fetchDeAnonymizedNames();
-    }
+    fetchDeAnonymizedNames();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deanonymize, facets]);
 
