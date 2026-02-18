@@ -4,6 +4,7 @@ import { useAtom } from 'jotai';
 import {
   deanonymizeFacetsAtom,
   deanonymizedFacetNamesAtom,
+  isLoadingAnonymizationAtom,
 } from '@/utils/atoms';
 import { FacetedQueryOutput } from '@/server/routers/search';
 import { useEffect, useState } from 'react';
@@ -22,12 +23,14 @@ export function DeAnonymizeFacetsButton({
     deanonymizedFacetNamesAtom
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [, setGlobalLoading] = useAtom(isLoadingAnonymizationAtom);
 
   const deanonymizeMutation = useMutation(['document.deanonymizeKeys']);
 
   // Helper to collect display names from facets and fetch de-anonymized values
   const fetchAndSetDeAnonymizedNames = async () => {
     setIsLoading(true);
+    setGlobalLoading(true);
     try {
       const displayNames = new Set<string>();
 
@@ -52,6 +55,7 @@ export function DeAnonymizeFacetsButton({
       console.error('Failed to de-anonymize facet names:', error);
     } finally {
       setIsLoading(false);
+      setGlobalLoading(false);
     }
   };
 

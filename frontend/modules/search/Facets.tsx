@@ -10,6 +10,7 @@ import { useAtom } from 'jotai';
 import {
   deanonymizeFacetsAtom,
   deanonymizedFacetNamesAtom,
+  isLoadingAnonymizationAtom,
 } from '@/utils/atoms';
 import { useMutation } from '@/utils/trpc';
 
@@ -259,12 +260,14 @@ const Facets = ({
   );
 
   const deanonymizeMutation = useMutation(['document.deanonymizeKeys']);
+  const [, setGlobalLoading] = useAtom(isLoadingAnonymizationAtom);
 
   const allFacets = useMemo(() => buildFacets(facets), [facets]);
 
   // Fetch de-anonymized names when global toggle is activated
   useEffect(() => {
     const fetchDeAnonymizedNames = async () => {
+      setGlobalLoading(true);
       try {
         const displayNames = new Set<string>();
 
@@ -287,6 +290,8 @@ const Facets = ({
         }
       } catch (error) {
         console.error('Failed to de-anonymize facet names:', error);
+      } finally {
+        setGlobalLoading(false);
       }
     };
 
