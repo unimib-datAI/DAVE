@@ -87,18 +87,20 @@ const Document: NextPageWithLayout = () => {
       </MultiPane>
       <SidebarAnnotationDetails />
       <NewAnnotationSetModal />
-      <LLMButton />
     </>
   );
 };
 
 Document.getLayout = function getLayout(page: ReactElement) {
   return (
-    <DocumentProvider>
-      <ToolbarLayout toolbarContent={<ToolbarContent />}>
-        <ContentLayout>{page}</ContentLayout>
-      </ToolbarLayout>
-    </DocumentProvider>
+    <>
+      <DocumentProvider>
+        <ToolbarLayout toolbarContent={<ToolbarContent />}>
+          <ContentLayout>{page}</ContentLayout>
+        </ToolbarLayout>
+      </DocumentProvider>
+      <LLMButton />
+    </>
   );
 };
 
