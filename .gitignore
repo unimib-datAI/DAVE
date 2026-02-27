@@ -9,6 +9,7 @@ node_modules/
 postgres
 full_docs
 test_data
+testDocs
 # next.js
 .next/
 /out/
@@ -48,3 +49,5 @@ elasticsearch
 backend/models
 
 export_logs
+output
+cache
