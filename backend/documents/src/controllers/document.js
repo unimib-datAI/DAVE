@@ -358,7 +358,6 @@ export const DocumentController = {
       );
       document.annotation_sets = [];
     }
-    console.log("doc found", document.text.substring(0, 200));
     // convert annotation_sets from list to object
     var new_sets = {};
     for (const annset of document.annotation_sets) {
@@ -396,7 +395,6 @@ export const DocumentController = {
 
       // add mention to annotations features
       if (annset.name.startsWith("entities")) {
-        console.log("*** processing entities annset ***");
         for (const annot of annset.annotations) {
           if (!("features" in annot)) {
             annot.features = {};
