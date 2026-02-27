@@ -21,7 +21,7 @@ def get_facets_annotations(search_res):
     def convert_annotation_bucket(bucket):
         print()
         return {
-            "key": bucket["key"],
+            "key": bucket["key"],  # type like PERSON, ORG, LOCATION
             "n_children": len(bucket["mentions"]["buckets"]),
             "doc_count": bucket["doc_count"],
             "children": sorted(
