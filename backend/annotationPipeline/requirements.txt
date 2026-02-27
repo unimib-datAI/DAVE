@@ -1,0 +1,5 @@
+ReFinED @ https://github.com/amazon-science/ReFinED/archive/refs/tags/V1.zip
+transformers==4.33.2
+fastapi==0.95.2
+uvicorn[standard]==0.22.0
+pandas
