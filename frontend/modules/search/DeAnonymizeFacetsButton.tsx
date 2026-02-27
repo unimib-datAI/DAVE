@@ -42,7 +42,9 @@ export function DeAnonymizeFacetsButton({
         });
       });
 
-      const keysArray = Array.from(displayNames);
+      const keysArray = Array.from(displayNames).filter((key) =>
+        key.startsWith('vault:v1')
+      );
 
       if (keysArray.length > 0) {
         const result = await deanonymizeMutation.mutateAsync({
