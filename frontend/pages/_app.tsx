@@ -136,6 +136,29 @@ function MyApp({
       retry: false,
     });
 
+    // Debug: fetch facets cache for an active collection so we can inspect backend response
+    const debugCollectionId =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('activeCollectionId') ||
+          collectionsQuery.data?.[0]?.id
+        : collectionsQuery.data?.[0]?.id;
+
+    const facetsQuery = useQuery(
+      ['collection.facetsCache', { id: debugCollectionId || '', token }],
+      {
+        enabled:
+          Boolean(debugCollectionId) && (authEnabled ? Boolean(token) : true),
+        refetchOnWindowFocus: false,
+        retry: false,
+        onSuccess: (data) => {
+          console.log('✅ facetsCache success', data);
+        },
+        onError: (err) => {
+          console.error('❌ facetsCache error', err);
+        },
+      }
+    );
+
     // When we detect a refresh failure, sign the user out and redirect to the sign-in page.
     useEffect(() => {
       if (!authEnabled) return;

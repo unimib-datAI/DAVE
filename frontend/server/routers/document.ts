@@ -265,6 +265,10 @@ export const documents = createRouter()
           'Content-Type': 'application/json',
         };
         const authHeader = getJWTHeader(token);
+        console.log(
+          '[trpc.document.fetchFacetDocuments] token provided:',
+          Boolean(token)
+        );
         if (authHeader) {
           headers.Authorization = authHeader;
         }
@@ -615,7 +619,9 @@ export const documents = createRouter()
   })
   .mutation('save', {
     input: z.object({
+      collectionId: z.string(),
       docId: z.string(),
+      token: z.string(),
       annotationSets: z.record(z.string(), z.any()),
       features: z
         .object({
@@ -624,7 +630,7 @@ export const documents = createRouter()
         .optional(),
     }),
     resolve: async ({ input }) => {
-      const { docId, annotationSets, features } = input;
+      const { docId, annotationSets, features, token, collectionId } = input;
       const elasticIndex = process.env.ELASTIC_INDEX;
       try {
         // Create an abort controller for timeout handling
@@ -636,7 +642,7 @@ export const documents = createRouter()
         const headers: any = {
           'Content-Type': 'application/json',
         };
-        const authHeader = getAuthHeader();
+        const authHeader = getJWTHeader(token);
         if (authHeader) {
           headers.Authorization = authHeader;
         }
@@ -646,6 +652,7 @@ export const documents = createRouter()
             method: 'POST',
             headers,
             body: {
+              collectionId: collectionId,
               docId,
               annotationSets,
               features,
@@ -804,43 +811,25 @@ export const documents = createRouter()
       const { keys } = input;
 
       try {
-        // Call the endpoint for each key and collect results
-        const results = await Promise.allSettled(
-          keys.map(async (key) => {
-            const headers: any = {
-              'Content-Type': 'application/json',
-            };
-            const authHeader = getAuthHeader();
-            if (authHeader) {
-              headers.Authorization = authHeader;
-            }
-            const result = await fetchJson<
-              any,
-              { key: string; value: string } | { error: string; key: string }
-            >(`${baseURL}/document/deanonymize-key`, {
-              method: 'POST',
-              headers,
-              body: {
-                key,
-              },
-            });
-            return result;
-          })
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getAuthHeader();
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
+
+        const result = await fetchJson<any, Record<string, string>>(
+          `${baseURL}/document/deanonymize-keys`,
+          {
+            method: 'POST',
+            headers,
+            body: { keys },
+          }
         );
 
-        // Build a map of successful de-anonymizations
-        const deanonymizedMap: Record<string, string> = {};
-
-        results.forEach((result, index) => {
-          if (result.status === 'fulfilled') {
-            const data = result.value;
-            if ('value' in data && !('error' in data)) {
-              deanonymizedMap[keys[index]] = data.value;
-            }
-          }
-        });
-
-        return deanonymizedMap;
+        // Expecting a map of key->value
+        return result || {};
       } catch (error) {
         console.error('Error deanonymizing keys:', error);
         throw new TRPCError({
@@ -848,6 +837,133 @@ export const documents = createRouter()
           message: `Failed to deanonymize keys: ${
             error instanceof Error ? error.message : String(error)
           }`,
+        });
+      }
+    },
+  })
+  .query('getDocumentsByIds', {
+    input: z.object({
+      ids: z.array(z.string()),
+      deAnonimize: z.boolean().optional(),
+    }),
+    resolve: async ({ input }) => {
+      const { ids, deAnonimize } = input;
+      try {
+        const headers: any = {};
+        const authHeader = getAuthHeader();
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
+
+        const results = await Promise.allSettled(
+          ids.map(async (id) => {
+            // Fetch full document from backend and transform into a search-like hit
+            const doc = await fetchJson<any, Document>(
+              `${baseURL}/document/${id}/${deAnonimize ?? false}`,
+              { headers }
+            );
+
+            // Collect annotations from all annotation sets
+            const annotations: EntityAnnotation[] = [];
+            if (doc && doc.annotation_sets) {
+              Object.values(doc.annotation_sets).forEach((set: any) => {
+                if (Array.isArray(set.annotations)) {
+                  annotations.push(...set.annotations);
+                }
+              });
+            }
+
+            // Map to FacetedQueryHit-like shape used in the frontend
+            return {
+              _id: doc._id || String(doc.id),
+              id: doc.id,
+              mongo_id: doc._id,
+              text: doc.preview || doc.text || '',
+              name: doc.name || '',
+              annotations,
+            };
+          })
+        );
+
+        // Return only fulfilled results
+        const hits = results
+          .filter((r) => r.status === 'fulfilled')
+          .map((r: any) => r.value);
+
+        return hits;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error?.message || 'Failed to fetch documents by ids',
+        });
+      }
+    },
+  })
+  .mutation('fetchFacetDocuments', {
+    input: z.object({
+      ids: z.array(z.string()),
+      deAnonimize: z.boolean().optional(),
+      token: z.string().optional(),
+    }),
+    resolve: async ({ input }) => {
+      const { ids, deAnonimize, token } = input;
+      // If auth is enabled but no token supplied, avoid calling backend and return empty
+      if (
+        (!token || typeof token !== 'string' || token.trim().length === 0) &&
+        process.env.USE_AUTH !== 'false'
+      ) {
+        return [];
+      }
+      try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
+
+        // Call backend by-ids endpoint
+        const result = await fetchJson<any, any>(`${baseURL}/document/by-ids`, {
+          method: 'POST',
+          headers,
+          body: {
+            ids,
+            deAnonimize: deAnonimize ?? false,
+          },
+        });
+        console.log(
+          '[trpc.document.fetchFacetDocuments] fetched',
+          Array.isArray(result) ? result.length : 'non-array'
+        );
+        return result || [];
+      } catch (error: any) {
+        // Log detailed error for debugging (including possible FetchError.data)
+        try {
+          console.error('[trpc.document.fetchFacetDocuments] error', error);
+          if (error && typeof error === 'object') {
+            // If fetchJson threw a FetchError with .data, log it
+            // @ts-ignore
+            if (error.data) {
+              // @ts-ignore
+              console.error(
+                '[trpc.document.fetchFacetDocuments] response data:',
+                error.data
+              );
+            }
+            // log stack if available
+            if (error.stack) console.error(error.stack);
+          }
+        } catch (e) {
+          console.error('Failed to log fetchFacetDocuments error', e);
+        }
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message:
+            (error && error.message) ||
+            (error && typeof error === 'object' && JSON.stringify(error)) ||
+            'Failed to fetch facet documents',
         });
       }
     },
@@ -995,6 +1111,7 @@ export const documents = createRouter()
             'Content-Type': 'application/json',
           },
           body: gdoc,
+          timeout: 300000, // 5 minutes
         });
         gdoc = spacynerRes;
 
@@ -1006,6 +1123,7 @@ export const documents = createRouter()
             'Content-Type': 'application/json',
           },
           body: gdoc,
+          timeout: 300000, // 5 minutes
         });
         gdoc = blinkRes;
 
@@ -1017,6 +1135,7 @@ export const documents = createRouter()
             'Content-Type': 'application/json',
           },
           body: gdoc,
+          timeout: 300000, // 5 minutes
         });
         gdoc = indexerRes;
 
@@ -1028,6 +1147,7 @@ export const documents = createRouter()
             'Content-Type': 'application/json',
           },
           body: gdoc,
+          timeout: 300000, // 5 minutes
         });
         gdoc = nilRes;
 
@@ -1039,6 +1159,7 @@ export const documents = createRouter()
             'Content-Type': 'application/json',
           },
           body: gdoc,
+          timeout: 300000, // 5 minutes
         });
         gdoc = nilclusterRes;
 
@@ -1050,6 +1171,7 @@ export const documents = createRouter()
             'Content-Type': 'application/json',
           },
           body: gdoc,
+          timeout: 300000, // 5 minutes
         });
         gdoc = consolidationRes;
 
@@ -1094,6 +1216,7 @@ export const documents = createRouter()
             toAnonymize,
             anonymizeTypes,
           },
+          timeout: 300000, // 5 minutes
         });
 
         console.log('Document uploaded successfully');

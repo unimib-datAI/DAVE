@@ -132,6 +132,39 @@ export const collections = createRouter()
       }
     },
   })
+  // Get facets cache for a collection (proxied to backend /collection/facetsCache/:id)
+  .query('facetsCache', {
+    input: z.object({ id: z.string(), token: z.string().optional() }),
+    async resolve({ input }) {
+      const { id, token } = input;
+      try {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
+
+        const result = await fetchJson<any, any>(
+          `${baseURL}/collection/facetsCache/${encodeURIComponent(id)}`,
+          {
+            method: 'GET',
+            headers,
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code:
+            error?.status === 401
+              ? 'UNAUTHORIZED'
+              : error?.status === 403
+              ? 'FORBIDDEN'
+              : 'INTERNAL_SERVER_ERROR',
+          message: error?.message || 'Failed to fetch facets cache',
+        });
+      }
+    },
+  })
   // Create a new collection
   .mutation('create', {
     input: z.object({
@@ -176,10 +209,13 @@ export const collections = createRouter()
       id: z.string(),
       name: z.string().min(1).optional(),
       allowedUserIds: z.array(z.string()).optional(),
+      config: z
+        .object({ typesToHide: z.array(z.string()).optional() })
+        .optional(),
       token: z.string().optional(),
     }),
     async resolve({ input }) {
-      const { id, name, allowedUserIds, token } = input;
+      const { id, name, allowedUserIds, config, token } = input;
       try {
         const headers: any = {
           'Content-Type': 'application/json',
@@ -196,6 +232,7 @@ export const collections = createRouter()
             body: JSON.stringify({
               name,
               allowedUserIds,
+              config,
             }),
           }
         );

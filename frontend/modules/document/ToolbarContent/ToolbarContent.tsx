@@ -14,6 +14,10 @@ import { MouseEvent, useEffect, useRef, useState } from 'react';
 import SaveStatusIndicator from './SaveStatusIndicator';
 import { AnnotationType } from '../DocumentProvider/types';
 import { EntityAnnotation } from '@/server/routers/document';
+import { useSession } from 'next-auth/react';
+import { message } from 'antd';
+import { useAtom } from 'jotai';
+import { activeCollectionAtom } from '@/atoms/collection';
 
 const Container = styled.div({
   flexGrow: 1,
@@ -28,10 +32,13 @@ const Container = styled.div({
 const ToolbarContent = () => {
   const t = useText('document');
   const document = useSelector(selectDocumentData);
+  const { data: session, status } = useSession();
+  // accessToken is not part of the typed Session interface here, cast to any
+  const token = (session as any)?.accessToken as string | undefined;
   const save = useMutation(['document.save']);
   const router = useRouter();
   const currentAnnotationSetName = useSelector(selectCurrentAnnotationSetName);
-
+  const [currentCollection] = useAtom(activeCollectionAtom);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [saveStatus, setSaveStatus] = useState<
     'idle' | 'saving' | 'saved' | 'error'
@@ -53,6 +60,10 @@ const ToolbarContent = () => {
     if (saveStatus === 'saved' && Date.now() - lastSaveTimeRef.current < 3000) {
       return;
     }
+    if (!token || !currentCollection || !currentCollection?.id) {
+      message.warning('Not Authorized');
+      return;
+    }
 
     setSaveStatus('saving');
     lastSaveTimeRef.current = Date.now();
@@ -60,6 +71,8 @@ const ToolbarContent = () => {
     // Save the document with annotation sets and features
     save.mutate(
       {
+        collectionId: currentCollection.id,
+        token,
         docId: String(document.id),
         annotationSets: document.annotation_sets,
         features: document.features,
