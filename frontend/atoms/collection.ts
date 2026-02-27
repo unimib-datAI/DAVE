@@ -8,12 +8,15 @@ export interface Collection {
   allowedUserIds: string[];
   createdAt: string;
   updatedAt: string;
+  config: {
+    typesToHide: string[];
+  };
 }
 
 // Active collection atom with localStorage persistence
 export const activeCollectionAtom = atomWithStorage<Collection | null>(
   'activeCollection',
-  null,
+  null
 );
 
 // Collections list atom

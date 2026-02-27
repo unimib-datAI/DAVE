@@ -1,6 +1,13 @@
 import { ToolbarLayout, useText } from '@/components';
 import { useContext, useMutation, useQuery } from '@/utils/trpc';
-import { Button, Container, Loading, Table, Text } from '@nextui-org/react';
+import {
+  Button,
+  Container,
+  Loading,
+  Table,
+  Text,
+  Pagination,
+} from '@nextui-org/react';
 import { NextPage } from 'next';
 import { useSession, getSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
@@ -9,7 +16,7 @@ import { FiArrowLeft } from '@react-icons/all-files/fi/FiArrowLeft';
 import styled from '@emotion/styled';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { FiTrash2 } from '@react-icons/all-files/fi/FiTrash2';
-import { message, notification, Popconfirm } from 'antd';
+import { message, notification, Popconfirm, Modal, Select } from 'antd';
 import { useAtom } from 'jotai';
 import { activeCollectionAtom, collectionsAtom } from '@/atoms/collection';
 import { UploadDocumentsModal } from '@/components/UploadDocumentsModal';
@@ -43,8 +50,30 @@ const Collection: NextPage = () => {
   const id = router.query.id as string | undefined;
   const utils = useContext();
   const enabled = Boolean(id && session?.accessToken);
-  const [allCollections] = useAtom(collectionsAtom);
+  const token = (session as any)?.accessToken as string | undefined;
+  const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
+  const [allCollections, setAllCollections] = useAtom(collectionsAtom);
+  const [activeCollection, setActiveCollection] = useAtom(activeCollectionAtom);
   const [, setUploadModalOpen] = useAtom(uploadModalOpenAtom);
+
+  const [typesModalOpen, setTypesModalOpen] = useState(false);
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [page, setPage] = useState(1);
+  const pageSize = 20;
+  const updateMutation = useMutation(['collection.update'], {
+    onSuccess: (res) => {
+      // optionally invalidate or refetch queries
+      try {
+        utils.invalidateQueries(['collection.getAll']);
+        utils.invalidateQueries(['collection.getById', { id }]);
+      } catch (e) {
+        // ignore
+      }
+    },
+    onError: (err) => {
+      console.error('[collection.update] error', err);
+    },
+  });
 
   const [currentCollectionName, setCurrentCollectionName] = useState<
     string | null
@@ -92,8 +121,19 @@ const Collection: NextPage = () => {
     if (allCollections && id) {
       const currentCol = allCollections.find((coll) => coll.id === id);
       if (currentCol) setCurrentCollectionName(currentCol.name);
+      // initialize selected types from active collection or global collections
+      const current =
+        allCollections?.find((c) => c.id === id) || activeCollection;
+      const initial =
+        current?.config?.typesToHide || current?.collectionTypes || [];
+      setSelectedTypes(Array.isArray(initial) ? initial : []);
     }
   }, [allCollections, id]);
+
+  // reset to first page when data for the table changes
+  useEffect(() => {
+    setPage(1);
+  }, [data, id]);
   if (status === 'loading' || isLoading) {
     return (
       <ToolbarLayout>
@@ -108,20 +148,32 @@ const Collection: NextPage = () => {
     <ToolbarLayout>
       <Container>
         <Header>
-          <Button
-            auto
-            icon={<FiArrowLeft />}
-            onPress={() => router.push('/collections')}
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              width: '100%',
+            }}
           >
-            {' '}
-            {t('backToCollections')}{' '}
-          </Button>
+            <Button
+              auto
+              icon={<FiArrowLeft />}
+              onPress={() => router.push('/collections')}
+            >
+              {t('backToCollections')}
+            </Button>
+            <Button auto flat onPress={() => setTypesModalOpen(true)}>
+              {t('editCollectionConfig') || 'Edit collection config'}
+            </Button>
+          </div>
           <Text h2>
             {t('collectionDocuments', {
               name: currentCollectionName || t('untitled'),
             })}
           </Text>
         </Header>
+
         <Table
           aria-label="Collection documents"
           css={{ height: 'auto', minWidth: '100%' }}
@@ -137,42 +189,122 @@ const Collection: NextPage = () => {
             <Table.Column width={100}>{t('tableHeaders.actions')}</Table.Column>
           </Table.Header>
           <Table.Body>
-            {(data ?? []).map((docInfo: collectionDocInfo) => (
-              <Table.Row key={docInfo.id}>
-                <Table.Cell>{docInfo.id.slice(0, 10) + '...'}</Table.Cell>
-                <Table.Cell>
-                  <Text>{docInfo.name}</Text>
-                </Table.Cell>
-                <Table.Cell>
-                  <Text css={{ maxWidth: '500px' }}>
-                    {docInfo.preview
-                      ? docInfo.preview.slice(0, 50) + '...'
-                      : t('noPreview')}
-                  </Text>
-                </Table.Cell>
-                <Table.Cell>
-                  <Popconfirm
-                    okText="Confirm"
-                    cancelText="Cancel"
-                    title={t('deleteDocument')}
-                    description={t('deleteConfirmation')}
-                    onConfirm={() => handleDeleteDocument(docInfo.id)}
-                  >
-                    <Button
-                      auto
-                      style={{ margin: 'auto' }}
-                      size="sm"
-                      color="error"
-                      flat
+            {(data ?? [])
+              .slice((page - 1) * pageSize, page * pageSize)
+              .map((docInfo: collectionDocInfo) => (
+                <Table.Row key={docInfo.id}>
+                  <Table.Cell>{docInfo.id.slice(0, 10) + '...'}</Table.Cell>
+                  <Table.Cell>
+                    <Text>{docInfo.name}</Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Text css={{ maxWidth: '500px' }}>
+                      {docInfo.preview
+                        ? docInfo.preview.slice(0, 50) + '...'
+                        : t('noPreview')}
+                    </Text>
+                  </Table.Cell>
+                  <Table.Cell>
+                    <Popconfirm
+                      okText="Confirm"
+                      cancelText="Cancel"
+                      title={t('deleteDocument')}
+                      description={t('deleteConfirmation')}
+                      onConfirm={() => handleDeleteDocument(docInfo.id)}
                     >
-                      <FiTrash2 />
-                    </Button>
-                  </Popconfirm>
-                </Table.Cell>
-              </Table.Row>
-            ))}
+                      <Button
+                        auto
+                        style={{ margin: 'auto' }}
+                        size="sm"
+                        color="error"
+                        flat
+                      >
+                        <FiTrash2 />
+                      </Button>
+                    </Popconfirm>
+                  </Table.Cell>
+                </Table.Row>
+              ))}
           </Table.Body>
         </Table>
+        {/* Pagination controls: 20 items per page */}
+        <div
+          style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}
+        >
+          <Pagination
+            total={Math.max(1, Math.ceil((data?.length || 0) / pageSize))}
+            page={page}
+            onChange={(p) => setPage(p)}
+          />
+        </div>
+        <Modal
+          title={t('editCollectionConfig') || 'Edit collection config'}
+          open={typesModalOpen}
+          onCancel={() => setTypesModalOpen(false)}
+          onOk={async () => {
+            // update atoms locally
+            try {
+              // update collectionsAtom
+              const updated = allCollections.map((c) =>
+                c.id === id
+                  ? {
+                      ...c,
+                      config: {
+                        ...(c.config || {}),
+                        typesToHide: selectedTypes,
+                      },
+                    }
+                  : c
+              );
+              // update active collection atom
+              const newActive =
+                activeCollection && activeCollection.id === id
+                  ? {
+                      ...activeCollection,
+                      config: {
+                        ...(activeCollection.config || {}),
+                        typesToHide: selectedTypes,
+                      },
+                    }
+                  : activeCollection;
+              // persist via TRPC update mutation
+              try {
+                await updateMutation.mutateAsync({
+                  id: id || '',
+                  config: { typesToHide: selectedTypes },
+                  token: authDisabled ? undefined : token,
+                });
+                // write atoms: update collections array and active collection
+                setAllCollections(updated);
+                setActiveCollection(newActive);
+                message.success(t('typesSaved') || 'Types saved');
+              } catch (e) {
+                console.error('Failed to update collection via TRPC', e);
+                message.error(t('errorSavingTypes') || 'Error saving types');
+              }
+            } catch (e) {
+              message.error(t('errorSavingTypes') || 'Error saving types');
+            } finally {
+              setTypesModalOpen(false);
+            }
+          }}
+        >
+          <Select
+            mode="multiple"
+            style={{ width: '100%' }}
+            placeholder={t('selectTypes') || 'Select types'}
+            value={selectedTypes}
+            onChange={(v) => setSelectedTypes(Array.isArray(v) ? v : [])}
+          >
+            {(
+              allCollections?.find((c) => c.id === id)?.collectionTypes || []
+            ).map((type) => (
+              <Select.Option key={type} value={type}>
+                {type}
+              </Select.Option>
+            ))}
+          </Select>
+        </Modal>
         <UploadDocumentsModal doneUploading={refetch} collectionId={id} />
         <Button
           style={{ zIndex: 1, backgroundColor: '#0070f3', marginTop: 15 }}

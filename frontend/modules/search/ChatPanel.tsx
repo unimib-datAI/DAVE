@@ -182,12 +182,13 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     if (currentUrl.includes('search') && formValues.useCurrentDocumentContext) {
       // Filter documents that have annotations matching the selected filters
       if (selectedFilters.length > 0) {
+        const selectedIds = selectedFilters.map((f: any) => f.id_ER);
         filterIds = facetedDocuemnts
           .filter(
             (doc) =>
               Array.isArray(doc.annotations) &&
               doc.annotations.some((ann: any) =>
-                selectedFilters.includes(ann.id_ER)
+                selectedIds.includes(ann.id_ER)
               )
           )
           .map((doc) => doc.id.toString());
