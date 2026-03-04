@@ -32,7 +32,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       max_tokens = 1000,
       temperature = 0.7,
       top_p = 0.9,
-      model = 'phi4-mini',
+      model,
       useMultiAgent = false,
       customSettings, // Custom LLM settings from frontend
       ...otherParams
@@ -41,18 +41,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     // Determine which settings to use
     let baseURL = process.env.API_LLM || 'http://localhost:8000/v1';
     let apiKey = 'dummy-key'; // Most local servers don't require a real API key
-    let modelToUse = model;
+    // Prefer model from request, then environment, then fallback default
+    const envModel =
+      process.env.LLM_NAME || process.env.DEFAULT_MODEL || 'phi4-mini';
+    let modelToUse = model ?? envModel;
 
     // If custom settings are provided and enabled, use them
     if (customSettings?.useCustomSettings) {
-      console.log('Using custom LLM settings from user configuration');
       baseURL = customSettings.baseURL || baseURL;
       apiKey = customSettings.apiKey || apiKey;
       modelToUse = customSettings.model || modelToUse;
     }
-
-    console.log('OpenAI-compatible server address:', baseURL);
-    console.log('Using model:', modelToUse);
 
     // Initialize OpenAI client with configured settings
     const openai = new OpenAI({
