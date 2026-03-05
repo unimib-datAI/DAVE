@@ -1,10 +1,24 @@
 import { atomWithStorage } from 'jotai/utils';
 
 /**
- * Selected service stored in the pipeline configuration.
- * - `id`: database id of the service (string, e.g. Mongo ObjectId)
- * - `name`: service name (human readable / unique identifier like 'NER', 'NEL', etc)
- * - `uri`: endpoint URI to call the service
+ * A single step in the annotation pipeline.
+ * Steps are executed sequentially; the output of one step is passed as input to the next.
+ *
+ * - `id`: optional reference to a Service document _id
+ * - `name`: human-readable label for this step
+ * - `uri`: endpoint URI to POST the current document to
+ * - `serviceType`: optional free-form label (used for display/grouping only)
+ */
+export type PipelineStep = {
+  id?: string;
+  name: string;
+  uri: string;
+  serviceType?: string;
+};
+
+/**
+ * @deprecated Use PipelineStep[] instead.
+ * Kept only for type-compatibility with any legacy code that may still import it.
  */
 export type SelectedService = {
   id: string;
@@ -14,36 +28,23 @@ export type SelectedService = {
 };
 
 /**
- * Top-level annotation configuration mapping.
- * Keys are pipeline slots/service types (e.g. 'NER', 'NEL', 'CLUSTERING', 'CONSOLIDATION', ...)
- * Values are either a `SelectedService` or null if not selected.
+ * @deprecated Use PipelineStep[] atom instead.
  */
 export type AnnotationSelectedServices = Record<string, SelectedService | null>;
 
 /**
- * Default mapping for pipeline slots. Initially no service is selected for each slot.
- * Extend the keys below if you want other default slots to appear in the UI.
+ * Persistent atom that stores the ordered pipeline steps in localStorage.
+ * Key: 'annotation-pipeline-steps'
+ *
+ * The atom holds an array of PipelineStep objects in the order they will be
+ * called during annotation. Empty array = no pipeline configured.
  */
-export const defaultSelectedServices: AnnotationSelectedServices = {
-  NER: null,
-  NEL: null,
-  INDEXER: null,
-  NILPREDICTION: null,
-  CLUSTERING: null,
-  CONSOLIDATION: null,
-};
+export const annotationSelectedServicesAtom = atomWithStorage<PipelineStep[]>(
+  'annotation-pipeline-steps',
+  []
+);
 
 /**
- * Persistent atom that stores the selected service mapping in localStorage.
- * Key: 'annotation-selected-services'
- *
- * The atom contains a mapping from pipeline slot name -> selected service (id,name,uri)
- * Consumers should write the selected service's id/name/uri into the atom when a user
- * picks a service for a slot. Storing the id allows resolving the service entry against
- * the list of available services fetched from the documents endpoint.
+ * @deprecated Use annotationSelectedServicesAtom which now stores PipelineStep[].
  */
-export const annotationSelectedServicesAtom =
-  atomWithStorage<AnnotationSelectedServices>(
-    'annotation-selected-services',
-    defaultSelectedServices
-  );
+export const defaultSelectedServices: AnnotationSelectedServices = {};

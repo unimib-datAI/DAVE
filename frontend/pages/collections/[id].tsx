@@ -4,7 +4,6 @@ import {
   Button,
   Container,
   Loading,
-  Table,
   Text,
   Pagination,
 } from '@nextui-org/react';
@@ -43,6 +42,44 @@ const Chip = styled.span({
   border: '1px solid rgba(3,102,214,0.12)',
   lineHeight: 1,
 });
+const TableWrapper = styled.div`
+  overflow-x: auto;
+  padding: 0 16px;
+  margin-top: 12px;
+
+  table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 14px;
+  }
+
+  thead th {
+    background: #f5f7fb;
+    font-weight: 700;
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  thead th:first-child {
+    border-top-left-radius: 8px;
+  }
+
+  thead th:last-child {
+    border-top-right-radius: 8px;
+  }
+
+  tbody td {
+    padding: 10px 8px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    vertical-align: top;
+  }
+
+  tbody tr:hover td {
+    background: rgba(0, 0, 0, 0.02);
+  }
+`;
 const Collection: NextPage = () => {
   const t = useText('collections');
   const router = useRouter();
@@ -174,59 +211,72 @@ const Collection: NextPage = () => {
           </Text>
         </Header>
 
-        <Table
-          aria-label="Collection documents"
-          css={{ height: 'auto', minWidth: '100%' }}
-          selectionMode="single"
-          onSelectionChange={(keys) => {
-            console.log(keys);
-          }}
-        >
-          <Table.Header>
-            <Table.Column>{t('tableHeaders.id')}</Table.Column>
-            <Table.Column>{t('tableHeaders.name')}</Table.Column>
-            <Table.Column>{t('tableHeaders.preview')}</Table.Column>
-            <Table.Column width={100}>{t('tableHeaders.actions')}</Table.Column>
-          </Table.Header>
-          <Table.Body>
-            {(data ?? [])
-              .slice((page - 1) * pageSize, page * pageSize)
-              .map((docInfo: collectionDocInfo) => (
-                <Table.Row key={docInfo.id}>
-                  <Table.Cell>{docInfo.id.slice(0, 10) + '...'}</Table.Cell>
-                  <Table.Cell>
-                    <Text>{docInfo.name}</Text>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Text css={{ maxWidth: '500px' }}>
-                      {docInfo.preview
-                        ? docInfo.preview.slice(0, 50) + '...'
-                        : t('noPreview')}
-                    </Text>
-                  </Table.Cell>
-                  <Table.Cell>
-                    <Popconfirm
-                      okText="Confirm"
-                      cancelText="Cancel"
-                      title={t('deleteDocument')}
-                      description={t('deleteConfirmation')}
-                      onConfirm={() => handleDeleteDocument(docInfo.id)}
+        <TableWrapper>
+          <table aria-label="Collection documents">
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'left', padding: '8px' }}>
+                  {t('tableHeaders.id')}
+                </th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>
+                  {t('tableHeaders.name')}
+                </th>
+                <th style={{ textAlign: 'left', padding: '8px' }}>
+                  {t('tableHeaders.preview')}
+                </th>
+                <th style={{ textAlign: 'left', padding: '8px', width: 100 }}>
+                  {t('tableHeaders.actions')}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {(data ?? [])
+                .slice((page - 1) * pageSize, page * pageSize)
+                .map((docInfo: collectionDocInfo) => (
+                  <tr key={docInfo.id}>
+                    <td style={{ padding: '8px', verticalAlign: 'top' }}>
+                      {docInfo.id.slice(0, 10) + '...'}
+                    </td>
+                    <td style={{ padding: '8px', verticalAlign: 'top' }}>
+                      <Text>{docInfo.name}</Text>
+                    </td>
+                    <td
+                      style={{
+                        padding: '8px',
+                        verticalAlign: 'top',
+                        maxWidth: 500,
+                      }}
                     >
-                      <Button
-                        auto
-                        style={{ margin: 'auto' }}
-                        size="sm"
-                        color="error"
-                        flat
+                      <Text css={{ maxWidth: '500px' }}>
+                        {docInfo.preview
+                          ? docInfo.preview.slice(0, 50) + '...'
+                          : t('noPreview')}
+                      </Text>
+                    </td>
+                    <td style={{ padding: '8px', verticalAlign: 'top' }}>
+                      <Popconfirm
+                        okText="Confirm"
+                        cancelText="Cancel"
+                        title={t('deleteDocument')}
+                        description={t('deleteConfirmation')}
+                        onConfirm={() => handleDeleteDocument(docInfo.id)}
                       >
-                        <FiTrash2 />
-                      </Button>
-                    </Popconfirm>
-                  </Table.Cell>
-                </Table.Row>
-              ))}
-          </Table.Body>
-        </Table>
+                        <Button
+                          auto
+                          style={{ margin: 'auto' }}
+                          size="sm"
+                          color="error"
+                          flat
+                        >
+                          <FiTrash2 />
+                        </Button>
+                      </Popconfirm>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </TableWrapper>
         {/* Pagination controls: 20 items per page */}
         <div
           style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}
@@ -289,21 +339,30 @@ const Collection: NextPage = () => {
             }
           }}
         >
-          <Select
-            mode="multiple"
-            style={{ width: '100%' }}
-            placeholder={t('selectTypes') || 'Select types'}
-            value={selectedTypes}
-            onChange={(v) => setSelectedTypes(Array.isArray(v) ? v : [])}
-          >
-            {(
-              allCollections?.find((c) => c.id === id)?.collectionTypes || []
-            ).map((type) => (
-              <Select.Option key={type} value={type}>
-                {type}
-              </Select.Option>
-            ))}
-          </Select>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+            <label htmlFor="types-select" style={{ minWidth: 150 }}>
+              {t('typesToHide') || 'Types to hide'}
+            </label>
+            <div style={{ flex: 1 }}>
+              <Select
+                id="types-select"
+                mode="multiple"
+                style={{ width: '100%' }}
+                placeholder={t('selectTypes') || 'Select types'}
+                value={selectedTypes}
+                onChange={(v) => setSelectedTypes(Array.isArray(v) ? v : [])}
+              >
+                {(
+                  allCollections?.find((c) => c.id === id)?.collectionTypes ||
+                  []
+                ).map((type) => (
+                  <Select.Option key={type} value={type}>
+                    {type}
+                  </Select.Option>
+                ))}
+              </Select>
+            </div>
+          </div>
         </Modal>
         <UploadDocumentsModal doneUploading={refetch} collectionId={id} />
         <Button

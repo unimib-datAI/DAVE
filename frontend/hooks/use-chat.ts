@@ -137,7 +137,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       context: context,
       usrMessage: finalSystemPrompt, // Preserve original user message
       isDoneStreaming: true, // Mark user messages as done streaming immediately
-      devPrompt: userMessageContent, // Store the actual prompt that was used
+      devPrompt: finalSystemPrompt, // Store the actual prompt that was used
       wasAnonymized: isAnonymized, // Store anonymization state at generation time
     };
 
@@ -243,7 +243,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
               role: 'assistant',
               content: chunk,
               isDoneStreaming: false,
-              devPrompt: userMessageContent, // Store the actual prompt that was used
+              devPrompt: finalSystemPrompt, // Store the actual prompt that was used
               context: context,
               wasAnonymized: isAnonymized,
             },

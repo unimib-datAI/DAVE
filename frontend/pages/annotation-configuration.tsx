@@ -1,16 +1,14 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation } from '@/utils/trpc';
 import { useQueryClient } from 'react-query';
 import {
   annotationSelectedServicesAtom,
-  SelectedService,
-  AnnotationSelectedServices,
+  PipelineStep,
 } from '@/atoms/annotationConfig';
 import { Card, Button, Input, Text, Spacer } from '@nextui-org/react';
 import { Modal, Popconfirm, message, Select } from 'antd';
-import { useText } from '@/components/TranslationProvider';
 import { GetServerSideProps } from 'next';
 
 type ServiceRecord = {
@@ -22,76 +20,30 @@ type ServiceRecord = {
   disabled?: boolean;
 };
 
-// Canonical pipeline slots and order used by the backend pipeline.
-// The UI must present and save exactly these keys so backend and UI align.
-const CANONICAL_SLOTS: string[] = [
-  'NER',
-  'NEL',
-  'INDEXER',
-  'NILPREDICTION',
-  'CLUSTERING',
-  'CONSOLIDATION',
-];
-
-// Known service types used in the "Add service" dropdown and grouping
-const KNOWN_SERVICE_TYPES = [...CANONICAL_SLOTS, 'OTHER'] as string[];
-
 export default function AnnotationConfigurationPage(): JSX.Element {
-  const t = useText('settings');
   const { data: session, status } = useSession();
-  // accessToken is not part of the typed Session interface here, cast to any
   const token = (session as any)?.accessToken as string | undefined;
 
   const queryClient = useQueryClient();
 
-  // selected services mapping atom (slot -> selected service or null)
-  const [selectedServices, setSelectedServices] = useAtom(
+  // Pipeline steps atom (ordered array)
+  const [pipelineSteps, setPipelineSteps] = useAtom(
     annotationSelectedServicesAtom
   );
 
-  // Utility: normalize a services object so it contains all canonical slots (preserving existing values)
-  const ensureCanonicalServices = (
-    src?: AnnotationSelectedServices | null
-  ): AnnotationSelectedServices => {
-    const out: AnnotationSelectedServices = {};
-    const srcObj = src || {};
-    for (const slot of CANONICAL_SLOTS) {
-      out[slot] = slot in srcObj ? srcObj[slot] ?? null : null;
-    }
-    // Preserve any additional non-canonical keys as well
-    Object.keys(srcObj).forEach((k) => {
-      if (!(k in out)) {
-        out[k] = srcObj[k];
-      }
-    });
-    return out;
-  };
-
-  // Ensure selectedServices always contains canonical slots when the page mounts
+  // Ensure atom is initialised as an array
   useEffect(() => {
-    if (!selectedServices) {
-      // initialize atom with canonical empty slots
-      const init: AnnotationSelectedServices = {};
-      for (const slot of CANONICAL_SLOTS) init[slot] = null;
-      setSelectedServices(init);
-      return;
+    if (!Array.isArray(pipelineSteps)) {
+      setPipelineSteps([]);
     }
-    // Fill any missing canonical slots while preserving existing values
-    setSelectedServices((prev) => {
-      const copy: AnnotationSelectedServices = { ...(prev || {}) };
-      let changed = false;
-      for (const slot of CANONICAL_SLOTS) {
-        if (!(slot in copy)) {
-          copy[slot] = null;
-          changed = true;
-        }
-      }
-      return changed ? copy : prev || copy;
-    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fetch available services from backend (requires JWT)
+  const steps: PipelineStep[] = Array.isArray(pipelineSteps)
+    ? pipelineSteps
+    : [];
+
+  // Fetch available services
   const { data: availableServices = [], isLoading: isServicesLoading } =
     useQuery(['document.getServices', { token: token ?? '' }], {
       enabled: status === 'authenticated' && !!token,
@@ -106,7 +58,6 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   // Mutations
   const createServiceMutation = useMutation(['document.createService']);
   const deleteServiceMutation = useMutation(['document.deleteService']);
-  const updateServiceMutation = useMutation(['document.updateService']);
   const createConfigurationMutation = useMutation([
     'document.createConfiguration',
   ]);
@@ -120,19 +71,29 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     'document.activateConfiguration',
   ]);
 
-  // Local form state for creating a new service
+  // ── Service creation form ─────────────────────────────────────────────────
   const [newName, setNewName] = useState('');
   const [newUri, setNewUri] = useState('');
-  const [newType, setNewType] = useState<string>('OTHER');
+  const [newType, setNewType] = useState('');
   const [creating, setCreating] = useState(false);
 
-  // Configuration management state
+  // ── Configuration management ──────────────────────────────────────────────
   const [currentConfigId, setCurrentConfigId] = useState<string | null>(null);
   const [configName, setConfigName] = useState('');
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [setAsActive, setSetAsActive] = useState(false);
 
-  // Load active configuration on mount and normalize it to canonical slots
+  // ── Add-step modal state ──────────────────────────────────────────────────
+  const [showAddStepModal, setShowAddStepModal] = useState(false);
+  const [addStepMode, setAddStepMode] = useState<'pick' | 'custom'>('pick');
+  const [addStepServiceId, setAddStepServiceId] = useState<string | undefined>(
+    undefined
+  );
+  const [addStepCustomName, setAddStepCustomName] = useState('');
+  const [addStepCustomUri, setAddStepCustomUri] = useState('');
+  const [addStepCustomType, setAddStepCustomType] = useState('');
+
+  // ── Load active configuration on mount ───────────────────────────────────
   useEffect(() => {
     const loadActiveConfig = async () => {
       if (!token) return;
@@ -144,46 +105,20 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         if (activeConfig) {
           setCurrentConfigId(activeConfig._id);
           setConfigName(activeConfig.name);
-
-          // Load services from configuration and normalize to canonical slots
-          const services: AnnotationSelectedServices = {};
-          // populate canonical slots first so order is guaranteed
-          for (const slot of CANONICAL_SLOTS) {
-            services[slot] = null;
+          // Prefer steps array; fall back to services Map for legacy configs
+          if (
+            Array.isArray(activeConfig.steps) &&
+            activeConfig.steps.length > 0
+          ) {
+            setPipelineSteps(activeConfig.steps as PipelineStep[]);
+          } else if (activeConfig.services) {
+            // Legacy: convert slot-map to steps array
+            setPipelineSteps(legacyServicesToSteps(activeConfig.services));
+          } else {
+            setPipelineSteps([]);
           }
-
-          if (activeConfig.services) {
-            Object.entries(activeConfig.services).forEach(
-              ([slot, svc]: [string, any]) => {
-                const normalizedSlot = slot.toUpperCase();
-                if (CANONICAL_SLOTS.includes(normalizedSlot)) {
-                  if (svc) {
-                    services[normalizedSlot] = {
-                      id: svc.id || '',
-                      name: svc.name || '',
-                      uri: svc.uri || '',
-                      serviceType: svc.serviceType,
-                    };
-                  } else {
-                    services[normalizedSlot] = null;
-                  }
-                } else {
-                  // keep unknown slot as-is to preserve any custom entries
-                  services[slot] = svc
-                    ? {
-                        id: svc.id || '',
-                        name: svc.name || '',
-                        uri: svc.uri || '',
-                        serviceType: svc.serviceType,
-                      }
-                    : null;
-                }
-              }
-            );
-          }
-          setSelectedServices(ensureCanonicalServices(services));
         }
-      } catch (err) {
+      } catch {
         console.log('No active configuration found');
       }
     };
@@ -193,323 +128,255 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, token]);
 
-  // UI helper: group services by serviceType (ensure canonical groups exist)
-  const servicesByType = useMemo(() => {
-    const groups: Record<string, ServiceRecord[]> = {};
-    (availableServices || []).forEach((s: ServiceRecord) => {
-      const st = (s.serviceType || 'OTHER').toUpperCase();
-      if (!groups[st]) groups[st] = [];
-      groups[st].push(s);
-    });
-    // ensure canonical types exist
-    for (const t of [...CANONICAL_SLOTS, 'OTHER']) {
-      groups[t] = groups[t] || [];
-    }
-    return groups;
-  }, [availableServices]);
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-  // Helper to set selected service for a pipeline slot
-  const selectServiceForSlot = (slot: string, svc: ServiceRecord | null) => {
-    setSelectedServices((prev) => {
-      const copy: AnnotationSelectedServices = { ...(prev || {}) };
-      if (svc) {
-        copy[slot] = {
-          id: svc._id,
-          name: svc.name,
+  const legacyServicesToSteps = (services: any): PipelineStep[] => {
+    const LEGACY_SLOTS = [
+      'NER',
+      'NEL',
+      'INDEXER',
+      'NILPREDICTION',
+      'CLUSTERING',
+      'CONSOLIDATION',
+    ];
+    const result: PipelineStep[] = [];
+    for (const slot of LEGACY_SLOTS) {
+      const svc =
+        services[slot] ||
+        (services instanceof Map ? services.get(slot) : undefined);
+      if (svc && svc.uri) {
+        result.push({
+          id: svc.id,
+          name: svc.name || slot,
           uri: svc.uri,
-        } as SelectedService;
-      } else {
-        copy[slot] = null;
+          serviceType: svc.serviceType || slot,
+        });
       }
-      return ensureCanonicalServices(copy);
-    });
+    }
+    return result;
   };
 
-  // Create a new service via TRPC and refresh list; if created, optionally select it
-  const handleCreateService = async (selectIntoSlot?: string) => {
+  const findServiceById = (id?: string): ServiceRecord | undefined =>
+    (availableServices as ServiceRecord[]).find(
+      (s) => s._id === id || (s as any).id === id
+    );
+
+  // ── Service CRUD ──────────────────────────────────────────────────────────
+
+  const handleCreateService = async () => {
     if (!token) {
-      message.warning(t('annotationConfig.messages.signInRequired'));
+      message.warning('Sign in required');
       return;
     }
     const name = newName.trim();
     const uri = newUri.trim();
-    const serviceType = (newType || 'OTHER').trim();
     if (!name || !uri) {
-      message.warning(t('annotationConfig.messages.nameRequired'));
+      message.warning('Name and URI are required');
       return;
     }
     setCreating(true);
     try {
-      const inserted = await createServiceMutation.mutateAsync({
+      await createServiceMutation.mutateAsync({
         name,
         uri,
-        serviceType,
+        serviceType: newType.trim() || 'OTHER',
         description: '',
         token,
       });
       await queryClient.invalidateQueries(['document.getServices']);
-      if (selectIntoSlot && inserted) {
-        selectServiceForSlot(selectIntoSlot, {
-          _id: inserted._id || inserted.id || inserted._id,
-          name: inserted.name,
-          uri: inserted.uri,
-          serviceType: inserted.serviceType || serviceType,
-        } as ServiceRecord);
-      }
       setNewName('');
       setNewUri('');
-      setNewType('OTHER');
-      message.success(t('annotationConfig.messages.serviceCreated'));
+      setNewType('');
+      message.success('Service created');
     } catch (err: any) {
-      const msg = err?.message || String(err);
-      message.error(
-        t('annotationConfig.messages.createFailed', { error: msg })
-      );
+      message.error(`Failed to create service: ${err?.message || String(err)}`);
     } finally {
       setCreating(false);
     }
   };
 
-  // Delete service
   const handleDeleteService = async (serviceId: string) => {
     if (!token) {
-      message.warning(t('annotationConfig.messages.signInRequired'));
+      message.warning('Sign in required');
       return;
     }
     try {
       await deleteServiceMutation.mutateAsync({ id: serviceId, token });
       await queryClient.invalidateQueries(['document.getServices']);
-      // If any slot pointed to this service, clear it
-      setSelectedServices((prev) => {
-        const copy = { ...(prev || {}) };
-        Object.keys(copy).forEach((k) => {
-          if (copy[k] && copy[k]!.id === serviceId) {
-            copy[k] = null;
-          }
-        });
-        return ensureCanonicalServices(copy);
-      });
-      message.success(t('annotationConfig.messages.serviceDeleted'));
-    } catch (err: any) {
-      message.error(
-        t('annotationConfig.messages.deleteFailed', {
-          error: err?.message || String(err),
-        })
+      // Remove any pipeline steps that referenced this service
+      setPipelineSteps((prev) =>
+        (Array.isArray(prev) ? prev : []).filter((s) => s.id !== serviceId)
       );
+      message.success('Service deleted');
+    } catch (err: any) {
+      message.error(`Failed to delete service: ${err?.message || String(err)}`);
     }
   };
 
-  // Update service (basic inline update for URI or name)
-  const handleUpdateService = async (
-    serviceId: string,
-    patch: Partial<ServiceRecord>
-  ) => {
-    if (!token) {
-      message.warning(t('annotationConfig.messages.signInRequired'));
-      return;
-    }
-    try {
-      await updateServiceMutation.mutateAsync({
-        id: serviceId,
-        ...patch,
-        token,
-      });
-      await queryClient.invalidateQueries(['document.getServices']);
-      message.success(t('annotationConfig.messages.serviceUpdated'));
-    } catch (err: any) {
-      message.error(
-        t('annotationConfig.messages.updateFailed', {
-          error: err?.message || String(err),
-        })
-      );
-    }
+  // ── Pipeline step management ──────────────────────────────────────────────
+
+  const handleAddStep = () => {
+    setAddStepMode('pick');
+    setAddStepServiceId(undefined);
+    setAddStepCustomName('');
+    setAddStepCustomUri('');
+    setAddStepCustomType('');
+    setShowAddStepModal(true);
   };
 
-  // Pipeline slots to render: use canonical ordering so saved configs match backend pipeline
-  const pipelineSlots = CANONICAL_SLOTS;
+  const confirmAddStep = () => {
+    let newStep: PipelineStep | null = null;
+    if (addStepMode === 'pick') {
+      const svc = findServiceById(addStepServiceId);
+      if (!svc) {
+        message.warning('Please select a service');
+        return;
+      }
+      newStep = {
+        id: svc._id,
+        name: svc.name,
+        uri: svc.uri,
+        serviceType: svc.serviceType,
+      };
+    } else {
+      const uri = addStepCustomUri.trim();
+      const name = addStepCustomName.trim();
+      if (!uri) {
+        message.warning('URI is required');
+        return;
+      }
+      newStep = {
+        name: name || uri,
+        uri,
+        serviceType: addStepCustomType.trim() || undefined,
+      };
+    }
+    setPipelineSteps((prev) => [
+      ...(Array.isArray(prev) ? prev : []),
+      newStep!,
+    ]);
+    setShowAddStepModal(false);
+  };
 
-  // Helper to find service record by id
-  const findServiceById = (id?: string) =>
-    (availableServices || []).find(
-      (s: ServiceRecord) => s._id === id || (s as any).id === id
-    ) || null;
+  const handleRemoveStep = (index: number) => {
+    setPipelineSteps((prev) => {
+      const arr = Array.isArray(prev) ? [...prev] : [];
+      arr.splice(index, 1);
+      return arr;
+    });
+  };
 
-  // Save current configuration
+  const handleMoveStep = (index: number, direction: 'up' | 'down') => {
+    setPipelineSteps((prev) => {
+      const arr = Array.isArray(prev) ? [...prev] : [];
+      const target = direction === 'up' ? index - 1 : index + 1;
+      if (target < 0 || target >= arr.length) return arr;
+      [arr[index], arr[target]] = [arr[target], arr[index]];
+      return arr;
+    });
+  };
+
+  // ── Configuration CRUD ────────────────────────────────────────────────────
+
+  const handleLoadConfiguration = (configId: string) => {
+    const config = (configurations as any[]).find(
+      (c: any) => c._id === configId
+    );
+    if (!config) return;
+    setCurrentConfigId(config._id);
+    setConfigName(config.name);
+    if (Array.isArray(config.steps) && config.steps.length > 0) {
+      setPipelineSteps(config.steps as PipelineStep[]);
+    } else if (config.services) {
+      setPipelineSteps(legacyServicesToSteps(config.services));
+    } else {
+      setPipelineSteps([]);
+    }
+    message.success(`Loaded: ${config.name}`);
+  };
+
   const handleSaveConfiguration = async () => {
     if (!token) {
-      message.warning(t('annotationConfig.messages.signInRequired'));
+      message.warning('Sign in required');
       return;
     }
     const name = configName.trim();
     if (!name) {
-      message.warning(t('annotationConfig.messages.nameRequired'));
+      message.warning('Configuration name is required');
       return;
     }
-
     try {
-      // Convert selectedServices to plain object for storage and ensure canonical keys/order
-      const services: Record<string, any> = {};
-      for (const slot of CANONICAL_SLOTS) {
-        services[slot] = (selectedServices || {})[slot] ?? null;
-      }
-      // preserve any additional keys the user might have (not strictly necessary)
-      Object.keys(selectedServices || {}).forEach((k) => {
-        if (!(k in services)) {
-          services[k] = selectedServices![k];
-        }
-      });
-
       if (currentConfigId) {
-        // Update existing configuration
         await updateConfigurationMutation.mutateAsync({
           id: currentConfigId,
           name,
-          services,
+          steps: steps,
           token,
         });
-        message.success(t('annotationConfig.messages.configUpdated'));
+        message.success('Configuration updated');
       } else {
-        // Create new configuration and set as active
         const created = await createConfigurationMutation.mutateAsync({
           name,
-          services,
+          steps: steps,
           isActive: true,
           token,
         });
-        setCurrentConfigId(created._id);
-        message.success(t('annotationConfig.messages.configSaved'));
+        setCurrentConfigId((created as any)._id);
+        message.success('Configuration saved');
       }
       await refetchConfigurations();
       setShowSaveModal(false);
     } catch (err: any) {
-      message.error(
-        t('annotationConfig.messages.saveFailed', {
-          error: err?.message || String(err),
-        })
-      );
+      message.error(`Failed to save: ${err?.message || String(err)}`);
     }
   };
 
-  // Create new configuration
   const handleCreateNewConfiguration = async () => {
     if (!token) {
-      message.warning(t('annotationConfig.messages.signInRequired'));
+      message.warning('Sign in required');
       return;
     }
     const name = configName.trim();
     if (!name) {
-      message.warning(t('annotationConfig.messages.nameRequired'));
+      message.warning('Configuration name is required');
       return;
     }
-
     try {
-      const services: Record<string, any> = {};
-      for (const slot of CANONICAL_SLOTS) {
-        services[slot] = (selectedServices || {})[slot] ?? null;
-      }
-      Object.keys(selectedServices || {}).forEach((k) => {
-        if (!(k in services)) services[k] = selectedServices![k];
-      });
-
       const created = await createConfigurationMutation.mutateAsync({
         name,
-        services,
+        steps: steps,
         isActive: setAsActive,
         token,
       });
-      setCurrentConfigId(created._id);
-      setConfigName(created.name);
-      message.success(
-        setAsActive
-          ? t('annotationConfig.messages.configCreated') +
-              ' and ' +
-              t('annotationConfig.messages.configActivated').toLowerCase()
-          : t('annotationConfig.messages.configCreated')
-      );
+      setCurrentConfigId((created as any)._id);
+      setConfigName((created as any).name);
+      message.success('Configuration created');
       await refetchConfigurations();
       setShowSaveModal(false);
       setSetAsActive(false);
     } catch (err: any) {
-      message.error(
-        t('annotationConfig.messages.saveFailed', {
-          error: err?.message || String(err),
-        })
-      );
+      message.error(`Failed to create: ${err?.message || String(err)}`);
     }
   };
 
-  // Load a configuration
-  const handleLoadConfiguration = async (configId: string) => {
-    const config = configurations.find((c: any) => c._id === configId);
-    if (!config) return;
-
-    setCurrentConfigId(config._id);
-    setConfigName(config.name);
-
-    // Load services from configuration and normalize to canonical slots
-    const services: AnnotationSelectedServices = {};
-    for (const slot of CANONICAL_SLOTS) {
-      services[slot] = null;
-    }
-
-    if (config.services) {
-      Object.entries(config.services).forEach(([slot, svc]: [string, any]) => {
-        const normalizedSlot = slot.toUpperCase();
-        if (CANONICAL_SLOTS.includes(normalizedSlot)) {
-          if (svc) {
-            services[normalizedSlot] = {
-              id: svc.id || '',
-              name: svc.name || '',
-              uri: svc.uri || '',
-              serviceType: svc.serviceType,
-            };
-          } else {
-            services[normalizedSlot] = null;
-          }
-        } else {
-          // preserve unknown keys
-          services[slot] = svc
-            ? {
-                id: svc.id || '',
-                name: svc.name || '',
-                uri: svc.uri || '',
-                serviceType: svc.serviceType,
-              }
-            : null;
-        }
-      });
-    }
-
-    setSelectedServices(ensureCanonicalServices(services));
-    message.success(
-      t('annotationConfig.messages.configLoaded', { name: config.name })
-    );
-  };
-
-  // Activate a configuration
   const handleActivateConfiguration = async (configId: string) => {
     if (!token) {
-      message.warning(t('annotationConfig.messages.signInRequired'));
+      message.warning('Sign in required');
       return;
     }
     try {
       await activateConfigurationMutation.mutateAsync({ id: configId, token });
       await refetchConfigurations();
-      await handleLoadConfiguration(configId);
-      message.success(t('annotationConfig.messages.configActivated'));
+      handleLoadConfiguration(configId);
+      message.success('Configuration activated');
     } catch (err: any) {
-      message.error(
-        t('annotationConfig.messages.activateFailed', {
-          error: err?.message || String(err),
-        })
-      );
+      message.error(`Failed to activate: ${err?.message || String(err)}`);
     }
   };
 
-  // Delete a configuration
   const handleDeleteConfiguration = async (configId: string) => {
     if (!token) {
-      message.warning(t('annotationConfig.messages.signInRequired'));
+      message.warning('Sign in required');
       return;
     }
     try {
@@ -519,37 +386,26 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         setCurrentConfigId(null);
         setConfigName('');
       }
-      message.success(t('annotationConfig.messages.configDeleted'));
+      message.success('Configuration deleted');
     } catch (err: any) {
-      message.error(
-        t('annotationConfig.messages.deleteFailed', {
-          error: err?.message || String(err),
-        })
-      );
+      message.error(`Failed to delete: ${err?.message || String(err)}`);
     }
   };
 
-  // Reset to new configuration (initialize canonical slots)
   const handleNewConfiguration = () => {
     setCurrentConfigId(null);
     setConfigName('');
     setSetAsActive(false);
-    const init: AnnotationSelectedServices = {};
-    for (const slot of CANONICAL_SLOTS) init[slot] = null;
-    setSelectedServices(init);
-    message.info(t('annotationConfig.messages.newConfigStarted'));
+    setPipelineSteps([]);
+    message.info('Started new empty configuration');
   };
 
-  // Layout: single centered column with stacked cards
+  // ── Render ────────────────────────────────────────────────────────────────
+
   return (
-    <div
-      style={{
-        padding: 24,
-        display: 'flex',
-        justifyContent: 'center',
-      }}
-    >
+    <div style={{ padding: 24, display: 'flex', justifyContent: 'center' }}>
       <div style={{ width: '100%', maxWidth: 900 }}>
+        {/* Header */}
         <header style={{ marginBottom: 16 }}>
           <div
             style={{
@@ -559,48 +415,39 @@ export default function AnnotationConfigurationPage(): JSX.Element {
               marginBottom: 12,
             }}
           >
-            <Text h3>{t('annotationConfig.header')}</Text>
+            <Text h3>Annotation Pipeline Configuration</Text>
             <div style={{ display: 'flex', gap: 8 }}>
               <Button auto size="sm" onClick={handleNewConfiguration}>
-                {t('annotationConfig.buttons.new')}
+                New
               </Button>
               <Button
                 auto
                 size="sm"
                 color="primary"
-                onClick={() => {
-                  // If no current config, prompt for name first
-                  if (!currentConfigId && !configName) {
-                    setConfigName('');
-                  }
-                  setShowSaveModal(true);
-                }}
+                onClick={() => setShowSaveModal(true)}
               >
-                {currentConfigId
-                  ? t('annotationConfig.buttons.update')
-                  : t('annotationConfig.buttons.saveAs')}
+                {currentConfigId ? 'Update' : 'Save as…'}
               </Button>
             </div>
           </div>
 
-          {/* Configuration Selector */}
-          <div style={{ marginBottom: 16 }}>
-            <Text small css={{ color: '$accents7', marginBottom: 8 }}>
-              {t('annotationConfig.configSelector.label')}
+          {/* Configuration selector */}
+          <div style={{ marginBottom: 12 }}>
+            <Text
+              small
+              css={{ color: '$accents7', display: 'block', marginBottom: 6 }}
+            >
+              Load saved configuration:
             </Text>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <Select
-                placeholder={t('annotationConfig.configSelector.placeholder')}
-                style={{ flex: 1, minWidth: 300 }}
-                value={currentConfigId || undefined}
+                placeholder="Select a configuration…"
+                style={{ flex: 1, minWidth: 280 }}
+                value={currentConfigId ?? undefined}
                 onChange={(value) => handleLoadConfiguration(value)}
-                options={configurations.map((config: any) => ({
-                  label:
-                    config.name +
-                    (config.isActive
-                      ? t('annotationConfig.configSelector.activeSuffix')
-                      : ''),
-                  value: config._id,
+                options={(configurations as any[]).map((c: any) => ({
+                  label: c.name + (c.isActive ? ' ✓ active' : ''),
+                  value: c._id,
                 }))}
               />
               {currentConfigId && (
@@ -610,12 +457,13 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     size="sm"
                     color="success"
                     disabled={
-                      configurations.find((c: any) => c._id === currentConfigId)
-                        ?.isActive
+                      (configurations as any[]).find(
+                        (c: any) => c._id === currentConfigId
+                      )?.isActive
                     }
                     onClick={() => handleActivateConfiguration(currentConfigId)}
                   >
-                    {t('annotationConfig.configSelector.setActive')}
+                    Set active
                   </Button>
                   <Popconfirm
                     title="Delete this configuration?"
@@ -624,572 +472,462 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     cancelText="No"
                   >
                     <Button auto size="sm" color="error">
-                      {t('annotationConfig.configSelector.delete')}
+                      Delete
                     </Button>
                   </Popconfirm>
                 </>
               )}
             </div>
             {currentConfigId &&
-              configurations.find((c: any) => c._id === currentConfigId)
-                ?.isActive && (
+              (configurations as any[]).find(
+                (c: any) => c._id === currentConfigId
+              )?.isActive && (
                 <Text
                   small
                   color="success"
-                  css={{ marginTop: 8, fontWeight: 'bold' }}
+                  css={{ marginTop: 6, fontWeight: 'bold' }}
                 >
-                  {t('annotationConfig.configSelector.activeNote')}
+                  This configuration is currently active
                 </Text>
               )}
           </div>
 
           <Text small css={{ color: '$accents7' }}>
-            {t('annotationConfig.description')}
+            Define an ordered list of pipeline steps. Each step receives the
+            output of the previous one and the result is saved as an annotated
+            document.
           </Text>
         </header>
 
-        {/* Add new service */}
+        {/* ── Available services ──────────────────────────────────────────── */}
         <Card variant="bordered" style={{ marginBottom: 15, padding: 15 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Text b>{t('annotationConfig.addService.title')}</Text>
+          <Text b>Service Registry</Text>
+          <Text
+            small
+            css={{ color: '$accents7', display: 'block', margin: '4px 0 12px' }}
+          >
+            Register services here so you can easily pick them when composing
+            pipeline steps.
+          </Text>
 
-            {/* CSS grid: 1fr 1fr 160px so Name + URI expand, Type is fixed */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 140px',
+              gap: 10,
+              alignItems: 'end',
+              marginBottom: 10,
+            }}
+          >
+            <Input
+              clearable
+              fullWidth
+              label="Service name"
+              placeholder="e.g. SpaCy NER"
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+            />
+            <Input
+              clearable
+              fullWidth
+              label="URI"
+              placeholder="http://spacyner:80/api/spacyner"
+              value={newUri}
+              onChange={(e) => setNewUri(e.target.value)}
+            />
+            <Input
+              clearable
+              fullWidth
+              label="Type (optional)"
+              placeholder="e.g. NER"
+              value={newType}
+              onChange={(e) => setNewType(e.target.value)}
+            />
+          </div>
+          <Button onPress={handleCreateService} disabled={creating} size="sm">
+            {creating ? 'Adding…' : 'Add service'}
+          </Button>
+
+          <Spacer y={0.5} />
+
+          {isServicesLoading ? (
+            <Text small>Loading services…</Text>
+          ) : (availableServices as ServiceRecord[]).length === 0 ? (
+            <Text small css={{ color: '$accents6' }}>
+              No services registered yet.
+            </Text>
+          ) : (
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr 160px',
-                gap: 12,
-                alignItems: 'start',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 6,
+                marginTop: 8,
               }}
-              className="ac-grid"
             >
-              <div>
-                <Input
-                  clearable
-                  fullWidth
-                  label={t('annotationConfig.addService.nameLabel')}
-                  placeholder={t('annotationConfig.addService.namePlaceholder')}
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <Input
-                  clearable
-                  fullWidth
-                  label={t('annotationConfig.addService.uriLabel')}
-                  placeholder={t('annotationConfig.addService.uriPlaceholder')}
-                  value={newUri}
-                  onChange={(e) => setNewUri(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: 6 }}>
-                  {t('annotationConfig.addService.typeLabel')}
-                </label>
-                <select
-                  value={newType}
-                  onChange={(e) => setNewType(e.target.value)}
+              {(availableServices as ServiceRecord[]).map((svc) => (
+                <div
+                  key={svc._id}
                   style={{
-                    width: '100%',
-                    padding: '8px 10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '8px 12px',
                     borderRadius: 6,
+                    background: 'var(--nextui-colors-accents1)',
                     border: '1px solid var(--nextui-colors-border)',
-                    background: 'transparent',
-                    boxSizing: 'border-box',
                   }}
                 >
-                  {KNOWN_SERVICE_TYPES.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <Button onPress={() => handleCreateService()} disabled={creating}>
-                {creating
-                  ? t('annotationConfig.addService.creating')
-                  : t('annotationConfig.addService.createButton')}
-              </Button>
-              <Text small css={{ color: '$accents7' }}>
-                {t('annotationConfig.addService.note')}
-              </Text>
-            </div>
-          </div>
-        </Card>
-
-        {/* Available services */}
-        <Card variant="bordered" style={{ marginBottom: 15, padding: 15 }}>
-          <Text b>{t('annotationConfig.availableServices.title')}</Text>
-          <Spacer y={0.5} />
-          {isServicesLoading ? (
-            <Text>{t('annotationConfig.availableServices.loading')}</Text>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {Object.keys(servicesByType).map((type) => {
-                const list = servicesByType[type] || [];
-                if (list.length === 0) return null;
-                return (
-                  <div key={type}>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: 8,
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <Text b small>
+                      {svc.name}
+                    </Text>
+                    {svc.serviceType && (
+                      <span
+                        style={{
+                          marginLeft: 8,
+                          padding: '1px 7px',
+                          borderRadius: 999,
+                          background: '#e0f0ff',
+                          color: '#0366d6',
+                          fontSize: 11,
+                          fontWeight: 600,
+                        }}
+                      >
+                        {svc.serviceType}
+                      </span>
+                    )}
+                    <Text
+                      small
+                      css={{
+                        color: '$accents6',
+                        display: 'block',
+                        fontFamily: 'monospace',
                       }}
                     >
-                      <Text b>{type}</Text>
-                      <Text small css={{ color: '$accents7' }}>
-                        {t('annotationConfig.availableServices.count', {
-                          n: list.length,
-                        })}
-                      </Text>
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        gap: 8,
-                      }}
-                    >
-                      {list.map((svc) => (
-                        <div
-                          key={svc._id}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: 12,
-                            borderRadius: 8,
-                            border: '1px solid rgba(0,0,0,0.04)',
-                            background: 'var(--nextui-colors-background)',
-                          }}
-                        >
-                          <div style={{ minWidth: 0, marginRight: 12 }}>
-                            <Text b css={{ mb: '$2' }}>
-                              {svc.name}
-                            </Text>
-                            <Text
-                              small
-                              css={{
-                                color: '$accents7',
-                                overflowWrap: 'anywhere',
-                              }}
-                            >
-                              {svc.uri}
-                            </Text>
-                          </div>
-
-                          <div style={{ display: 'flex', gap: 8 }}>
-                            <Button
-                              bordered
-                              onPress={() => {
-                                Modal.confirm({
-                                  title: 'Edit URI',
-                                  content: (
-                                    <div>
-                                      <input
-                                        id={`edit-uri-${svc._id}`}
-                                        defaultValue={svc.uri}
-                                        style={{
-                                          width: '100%',
-                                          padding: 8,
-                                          boxSizing: 'border-box',
-                                          borderRadius: 4,
-                                          border: '1px solid rgba(0,0,0,0.1)',
-                                        }}
-                                      />
-                                    </div>
-                                  ),
-                                  onOk: async () => {
-                                    const el = document.getElementById(
-                                      `edit-uri-${svc._id}`
-                                    ) as HTMLInputElement | null;
-                                    const newUri = el?.value ?? '';
-                                    if (newUri && newUri.trim() !== svc.uri) {
-                                      await handleUpdateService(svc._id, {
-                                        uri: newUri.trim(),
-                                      });
-                                    }
-                                  },
-                                });
-                              }}
-                              size="sm"
-                            >
-                              {t('annotationConfig.availableServices.edit')}
-                            </Button>
-
-                            <Popconfirm
-                              title="Delete this service?"
-                              onConfirm={() => handleDeleteService(svc._id)}
-                              okText="Delete"
-                              cancelText="Cancel"
-                            >
-                              <Button color="error" size="sm">
-                                {t('annotationConfig.availableServices.delete')}
-                              </Button>
-                            </Popconfirm>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                      {svc.uri}
+                    </Text>
                   </div>
-                );
-              })}
+                  <Button
+                    auto
+                    flat
+                    size="xs"
+                    color="success"
+                    onPress={() => {
+                      setPipelineSteps((prev) => [
+                        ...(Array.isArray(prev) ? prev : []),
+                        {
+                          id: svc._id,
+                          name: svc.name,
+                          uri: svc.uri,
+                          serviceType: svc.serviceType,
+                        },
+                      ]);
+                      message.success(
+                        `Added "${svc.name}" as a new pipeline step`
+                      );
+                    }}
+                  >
+                    + Add to pipeline
+                  </Button>
+                  <Popconfirm
+                    title={`Delete service "${svc.name}"?`}
+                    onConfirm={() => handleDeleteService(svc._id)}
+                    okText="Yes"
+                    cancelText="No"
+                  >
+                    <Button auto flat size="xs" color="error">
+                      Delete
+                    </Button>
+                  </Popconfirm>
+                </div>
+              ))}
             </div>
           )}
         </Card>
 
-        {/* Pipeline slot selection (stacked single column) */}
+        {/* ── Pipeline steps ──────────────────────────────────────────────── */}
         <Card variant="bordered" style={{ marginBottom: 15, padding: 15 }}>
-          <Text b>{t('annotationConfig.pipeline.title')}</Text>
-          <Text small css={{ color: '$accents7', mt: '$2' }}>
-            {t('annotationConfig.pipeline.description')}
-          </Text>
-
           <div
             style={{
               display: 'flex',
-              flexDirection: 'column',
-              gap: 12,
-              marginTop: 12,
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 8,
             }}
           >
-            {pipelineSlots.map((slot) => {
-              const current = (selectedServices || {})[
-                slot
-              ] as SelectedService | null;
-              const currentId = current?.id;
-              const options = servicesByType[slot] || [];
+            <div>
+              <Text b>Pipeline Steps</Text>
+              <Text small css={{ color: '$accents7', display: 'block' }}>
+                Steps are executed in order. The document is passed from one
+                step to the next.
+              </Text>
+            </div>
+            <Button auto size="sm" color="primary" onPress={handleAddStep}>
+              + Add step
+            </Button>
+          </div>
 
-              return (
+          {steps.length === 0 ? (
+            <div
+              style={{
+                padding: '24px 0',
+                textAlign: 'center',
+                border: '2px dashed var(--nextui-colors-border)',
+                borderRadius: 8,
+              }}
+            >
+              <Text css={{ color: '$accents6' }}>
+                No steps configured. Add steps from the service registry or
+                click "Add step".
+              </Text>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {steps.map((step, index) => (
                 <div
-                  key={slot}
+                  key={index}
                   style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '10px 14px',
                     borderRadius: 8,
-                    padding: 12,
+                    border: '1px solid var(--nextui-colors-border)',
                     background: 'var(--nextui-colors-background)',
                   }}
                 >
+                  {/* Step number badge */}
                   <div
                     style={{
+                      minWidth: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      background: '#0070f3',
+                      color: '#fff',
                       display: 'flex',
-                      justifyContent: 'space-between',
                       alignItems: 'center',
-                      marginBottom: 8,
+                      justifyContent: 'center',
+                      fontSize: 13,
+                      fontWeight: 700,
+                      flexShrink: 0,
                     }}
                   >
-                    <div>
-                      <Text b>
-                        {t('annotationConfig.pipeline.slotLabel', { slot })}
-                      </Text>
-                      <Text
-                        small
-                        css={{ color: '$accents7', marginLeft: '10px' }}
-                      >
-                        {t('annotationConfig.pipeline.selectImpl')}
-                      </Text>
-                      <Text small css={{ color: '$accents7' }}>
-                        {slot === 'NER'
-                          ? 'Named Entity Recognition - identifies entities like persons, organizations, locations.'
-                          : slot === 'NEL'
-                          ? 'Named Entity Linking - links entities to knowledge base entries.'
-                          : slot === 'INDEXER'
-                          ? 'Searches for candidate entities in the knowledge base.'
-                          : slot === 'NILPREDICTION'
-                          ? 'Predicts if entities are NIL (not in knowledge base).'
-                          : slot === 'CLUSTERING'
-                          ? 'Groups similar entities into clusters.'
-                          : 'Consolidates and finalizes annotation results.'}
-                      </Text>
-                    </div>
-                    <div>
-                      <Button
-                        light
-                        color="error"
-                        auto
-                        onPress={() => selectServiceForSlot(slot, null)}
-                      >
-                        {t('annotationConfig.pipeline.clear')}
-                      </Button>
-                    </div>
+                    {index + 1}
                   </div>
 
-                  <div
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: 10,
-                    }}
-                  >
-                    <div>
-                      <label style={{ display: 'block', marginBottom: 6 }}>
-                        {t('annotationConfig.pipeline.chooseService', { slot })}
-                      </label>
-                      <select
-                        value={currentId ?? ''}
-                        onChange={(e) => {
-                          const id = e.target.value;
-                          if (!id) {
-                            selectServiceForSlot(slot, null);
-                            return;
-                          }
-                          const svc = findServiceById(id);
-                          if (svc) selectServiceForSlot(slot, svc);
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '10px 12px',
-                          borderRadius: 6,
-                          border: '1px solid var(--nextui-colors-border)',
-                          background: 'transparent',
-                        }}
-                      >
-                        <option value="">
-                          {t('annotationConfig.pipeline.notSelected')}
-                        </option>
-                        {options.length === 0 ? (
-                          <option value="" disabled>
-                            {t('annotationConfig.pipeline.noServices')}
-                          </option>
-                        ) : (
-                          options.map((s) => (
-                            <option key={s._id} value={s._id}>
-                              {s.name} — {s.uri}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', marginBottom: 6 }}>
-                        {t('annotationConfig.pipeline.previewLabel')}
-                      </label>
-                      <div
-                        style={{
-                          background: '#dedede',
-                          padding: 10,
-                          borderRadius: 6,
-                        }}
-                      >
-                        <Text small css={{ fontFamily: 'monospace' }}>
-                          {current
-                            ? `${current.name} — ${current.uri}`
-                            : t('annotationConfig.pipeline.noService')}
-                        </Text>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label style={{ display: 'block', marginBottom: 6 }}>
-                        Quick add & select
-                      </label>
-                      <div
-                        style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}
-                      >
-                        <Button
-                          auto
-                          onPress={() => {
-                            setNewType(slot as string);
-                            Modal.confirm({
-                              title: t(
-                                'annotationConfig.pipeline.prefillModalTitle',
-                                { slot }
-                              ),
-                              content: t(
-                                'annotationConfig.pipeline.prefillModalContent'
-                              ),
-                              onOk: () => {
-                                const input =
-                                  document.querySelector<HTMLInputElement>(
-                                    'input[placeholder*="NER-service"]'
-                                  );
-                                input?.focus();
-                              },
-                            });
+                  {/* Step info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <Text b small>
+                        {step.name}
+                      </Text>
+                      {step.serviceType && (
+                        <span
+                          style={{
+                            padding: '1px 7px',
+                            borderRadius: 999,
+                            background: '#e8f5e9',
+                            color: '#388e3c',
+                            fontSize: 11,
+                            fontWeight: 600,
                           }}
-                          size="sm"
                         >
-                          {t('annotationConfig.pipeline.prefillButton')}
-                        </Button>
-
-                        <Button
-                          auto
-                          color="success"
-                          onPress={() => {
-                            Modal.confirm({
-                              title: t(
-                                'annotationConfig.pipeline.createSelectModalTitle'
-                              ),
-                              content: (
-                                <div
-                                  style={{
-                                    display: 'flex',
-                                    gap: 8,
-                                    flexDirection: 'column',
-                                  }}
-                                >
-                                  <input
-                                    id={`quick-name-${slot}`}
-                                    placeholder={t(
-                                      'annotationConfig.pipeline.namePlaceholder'
-                                    )}
-                                    style={{
-                                      width: '100%',
-                                      padding: 8,
-                                      boxSizing: 'border-box',
-                                      borderRadius: 4,
-                                      border: '1px solid rgba(0,0,0,0.1)',
-                                    }}
-                                  />
-                                  <input
-                                    id={`quick-uri-${slot}`}
-                                    placeholder={t(
-                                      'annotationConfig.pipeline.uriPlaceholder'
-                                    )}
-                                    style={{
-                                      width: '100%',
-                                      padding: 8,
-                                      boxSizing: 'border-box',
-                                      borderRadius: 4,
-                                      border: '1px solid rgba(0,0,0,0.1)',
-                                    }}
-                                  />
-                                </div>
-                              ),
-                              onOk: async () => {
-                                const nameEl = document.getElementById(
-                                  `quick-name-${slot}`
-                                ) as HTMLInputElement | null;
-                                const uriEl = document.getElementById(
-                                  `quick-uri-${slot}`
-                                ) as HTMLInputElement | null;
-                                const name = nameEl?.value ?? '';
-                                const uri = uriEl?.value ?? '';
-                                if (!name.trim() || !uri.trim()) {
-                                  message.warning(
-                                    t(
-                                      'annotationConfig.pipeline.validationWarning'
-                                    )
-                                  );
-                                  throw new Error('validation');
-                                }
-                                setCreating(true);
-                                try {
-                                  const inserted =
-                                    await createServiceMutation.mutateAsync({
-                                      name: name.trim(),
-                                      uri: uri.trim(),
-                                      serviceType: slot as string,
-                                      description: '',
-                                      token: token || '',
-                                    });
-                                  await queryClient.invalidateQueries([
-                                    'document.getServices',
-                                  ]);
-                                  if (inserted) {
-                                    selectServiceForSlot(slot, {
-                                      _id: inserted._id || inserted.id,
-                                      name: inserted.name,
-                                      uri: inserted.uri,
-                                      serviceType: inserted.serviceType || slot,
-                                    } as ServiceRecord);
-                                    message.success(
-                                      t(
-                                        'annotationConfig.pipeline.successMessage'
-                                      )
-                                    );
-                                  }
-                                } catch (err: any) {
-                                  if ((err as Error).message !== 'validation') {
-                                    message.error(
-                                      t(
-                                        'annotationConfig.messages.createFailed',
-                                        {
-                                          error: err?.message || String(err),
-                                        }
-                                      )
-                                    );
-                                  }
-                                } finally {
-                                  setCreating(false);
-                                }
-                              },
-                            });
-                          }}
-                          size="sm"
-                        >
-                          {t('annotationConfig.pipeline.createSelectButton')}
-                        </Button>
-                      </div>
+                          {step.serviceType}
+                        </span>
+                      )}
                     </div>
+                    <Text
+                      small
+                      css={{ color: '$accents6', fontFamily: 'monospace' }}
+                    >
+                      {step.uri}
+                    </Text>
+                  </div>
+
+                  {/* Reorder & remove controls */}
+                  <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                    <Button
+                      auto
+                      flat
+                      size="xs"
+                      disabled={index === 0}
+                      onPress={() => handleMoveStep(index, 'up')}
+                      title="Move up"
+                    >
+                      ↑
+                    </Button>
+                    <Button
+                      auto
+                      flat
+                      size="xs"
+                      disabled={index === steps.length - 1}
+                      onPress={() => handleMoveStep(index, 'down')}
+                      title="Move down"
+                    >
+                      ↓
+                    </Button>
+                    <Button
+                      auto
+                      flat
+                      size="xs"
+                      color="error"
+                      onPress={() => handleRemoveStep(index)}
+                      title="Remove step"
+                    >
+                      ✕
+                    </Button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
 
+        {/* ── JSON Preview ────────────────────────────────────────────────── */}
         <Card variant="bordered" style={{ padding: 10 }}>
-          <Text b>{t('annotationConfig.preview.title')}</Text>
-          <Spacer y={0.5} />
-          <div
-            style={{
-              background: '#dedede',
-              padding: 12,
-              borderRadius: 6,
-            }}
-          >
-            <pre style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
-              {JSON.stringify(
-                ensureCanonicalServices(selectedServices),
-                null,
-                2
-              )}
+          <Text b>Preview</Text>
+          <Spacer y={0.3} />
+          <div style={{ background: '#dedede', padding: 12, borderRadius: 6 }}>
+            <pre style={{ margin: 0, whiteSpace: 'pre-wrap', fontSize: 12 }}>
+              {JSON.stringify(steps, null, 2)}
             </pre>
           </div>
         </Card>
 
-        {/* Save Configuration Modal */}
+        {/* ── Add step modal ──────────────────────────────────────────────── */}
+        <Modal
+          title="Add pipeline step"
+          open={showAddStepModal}
+          onOk={confirmAddStep}
+          onCancel={() => setShowAddStepModal(false)}
+          okText="Add"
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button
+                auto
+                size="sm"
+                color={addStepMode === 'pick' ? 'primary' : 'default'}
+                onPress={() => setAddStepMode('pick')}
+              >
+                Pick from registry
+              </Button>
+              <Button
+                auto
+                size="sm"
+                color={addStepMode === 'custom' ? 'primary' : 'default'}
+                onPress={() => setAddStepMode('custom')}
+              >
+                Enter URI directly
+              </Button>
+            </div>
+
+            {addStepMode === 'pick' ? (
+              <>
+                <Text small css={{ color: '$accents7' }}>
+                  Select a registered service to add as a pipeline step:
+                </Text>
+                <Select
+                  placeholder="Select service…"
+                  style={{ width: '100%' }}
+                  value={addStepServiceId}
+                  onChange={(v) => setAddStepServiceId(v)}
+                  options={(availableServices as ServiceRecord[]).map((s) => ({
+                    label: `${s.name}${
+                      s.serviceType ? ` (${s.serviceType})` : ''
+                    } — ${s.uri}`,
+                    value: s._id,
+                  }))}
+                />
+              </>
+            ) : (
+              <>
+                <Text small css={{ color: '$accents7' }}>
+                  Enter the details for a custom step:
+                </Text>
+                <div
+                  style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+                >
+                  <input
+                    placeholder="Step name (e.g. Custom NER)"
+                    value={addStepCustomName}
+                    onChange={(e) => setAddStepCustomName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: 6,
+                      border: '1px solid rgba(0,0,0,0.15)',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <input
+                    placeholder="URI (e.g. http://myner:8080/annotate)"
+                    value={addStepCustomUri}
+                    onChange={(e) => setAddStepCustomUri(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: 6,
+                      border: '1px solid rgba(0,0,0,0.15)',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                  <input
+                    placeholder="Type label (optional, e.g. NER)"
+                    value={addStepCustomType}
+                    onChange={(e) => setAddStepCustomType(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: 6,
+                      border: '1px solid rgba(0,0,0,0.15)',
+                      boxSizing: 'border-box',
+                    }}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </Modal>
+
+        {/* ── Save configuration modal ────────────────────────────────────── */}
         <Modal
           title={
-            currentConfigId
-              ? t('annotationConfig.saveModal.updateTitle')
-              : t('annotationConfig.saveModal.saveTitle')
+            currentConfigId ? 'Update configuration' : 'Save configuration'
           }
-          visible={showSaveModal}
+          open={showSaveModal}
           onOk={
             currentConfigId
               ? handleSaveConfiguration
               : handleCreateNewConfiguration
           }
           onCancel={() => setShowSaveModal(false)}
-          okText={
-            currentConfigId ? t('annotationConfig.buttons.update') : 'Create'
-          }
+          okText={currentConfigId ? 'Update' : 'Create'}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <Text>{t('annotationConfig.saveModal.nameLabel')}</Text>
+            <Text>Configuration name</Text>
             <Input
               value={configName}
               onChange={(e) => setConfigName(e.target.value)}
-              placeholder={t('annotationConfig.saveModal.namePlaceholder')}
+              placeholder="e.g. Full NER+NEL pipeline"
             />
             {currentConfigId && (
               <Text small color="warning">
-                {t('annotationConfig.saveModal.updateNote', {
-                  name: configurations.find(
+                This will update the existing configuration "
+                {
+                  (configurations as any[]).find(
                     (c: any) => c._id === currentConfigId
-                  )?.name,
-                })}
+                  )?.name
+                }
+                ".
               </Text>
             )}
             {!currentConfigId && (
@@ -1206,15 +944,13 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     htmlFor="setAsActive"
                     style={{ cursor: 'pointer', marginBottom: 0 }}
                   >
-                    <Text small>
-                      {t('annotationConfig.saveModal.setActiveLabel')}
-                    </Text>
+                    <Text small>Set as active configuration</Text>
                   </label>
                 </div>
                 <Text small color="primary">
                   {setAsActive
-                    ? t('annotationConfig.saveModal.createNoteActive')
-                    : t('annotationConfig.saveModal.createNoteInactive')}
+                    ? 'This configuration will be used for all new annotation uploads.'
+                    : 'Save without activating – you can activate it later from the selector above.'}
                 </Text>
               </>
             )}

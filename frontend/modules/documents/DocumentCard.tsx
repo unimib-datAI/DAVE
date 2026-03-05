@@ -18,9 +18,8 @@ const IconContainer = styled.div({
 const DocumentCard = ({ id, name, preview }: DocumentCardProps) => {
   const t = useText('documents');
   return (
-    <Link href={`/documents/${id}`} passHref>
+    <Link href={`/documents/${id}`}>
       <Card
-        as="a"
         variant="bordered"
         isPressable
         isHoverable

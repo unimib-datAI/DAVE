@@ -73,9 +73,7 @@ const Message = ({
   // For user messages, prioritize usrMessage if available
   // For other roles, use the regular content
   // Ensure we handle empty strings properly for user messages
-  const displayContent =
-    role === 'user' && usrMessage ? usrMessage : content || '';
-
+  const displayContent = content;
   // Determine if we should show context for this message
   const showContext =
     role === 'user' && context && Array.isArray(context) && context.length > 0;
@@ -197,10 +195,10 @@ const Message = ({
                     </span>
                   </div>
 
-                  <Link href={`/documents/${doc.id || ''}`} passHref>
-                    <a className="text-blue-700 text-base tracking-wide font-medium">
+                  <Link href={`/documents/${doc.id || ''}`}>
+                    <span className="text-blue-700 text-base tracking-wide font-medium">
                       {doc.title || t('document')}
-                    </a>
+                    </span>
                   </Link>
 
                   <div className="text-xs tracking-wide text-slate-700">

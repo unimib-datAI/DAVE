@@ -169,48 +169,7 @@ export default (app) => {
     "/services",
     asyncRoute(async (req, res) => {
       try {
-        let services = await Service.find({}).lean();
-
-        // Check and create default services if they don't exist
-        const defaultServices = [
-          {
-            name: "DEFAULT_INDEXER",
-            uri:
-              process.env.ANNOTATION_INDEXER_URL ||
-              "http://indexer:80/api/indexer/search/doc",
-            serviceType: "INDEXER",
-            description: "Default indexer service for entity search",
-          },
-          {
-            name: "DEFAULT_NILPREDICTION",
-            uri:
-              process.env.ANNOTATION_NILPREDICTION_URL ||
-              "http://nilpredictor:80/api/nilprediction/doc",
-            serviceType: "NILPREDICTION",
-            description: "Default NIL prediction service",
-          },
-        ];
-
-        for (const defaultSvc of defaultServices) {
-          const existing = services.find(
-            (s) => s.serviceType === defaultSvc.serviceType,
-          );
-          if (!existing) {
-            try {
-              const svc = serviceDTO(defaultSvc);
-              const inserted = await svc.save();
-              services.push(inserted.toObject());
-              console.log(`Created default service: ${defaultSvc.name}`);
-            } catch (createErr) {
-              console.error(
-                `Failed to create default service ${defaultSvc.name}:`,
-                createErr,
-              );
-              // Continue without failing the request
-            }
-          }
-        }
-
+        const services = await Service.find({}).lean();
         return res.json(services).status(200);
       } catch (err) {
         console.error("Failed to fetch services", err);
@@ -392,6 +351,9 @@ export default (app) => {
       req: {
         body: z.object({
           name: z.string().min(1),
+          // steps: ordered array of pipeline steps (primary format)
+          steps: z.array(z.any()).optional(),
+          // services: legacy slot-map kept for backward compat
           services: z.record(z.any()).optional(),
           isActive: z.boolean().optional(),
         }),
@@ -410,7 +372,7 @@ export default (app) => {
           return res.status(401).json({ message: "Unauthorized" });
         }
 
-        const { name, services, isActive } = req.body;
+        const { name, steps, services, isActive } = req.body;
 
         // If this is set as active, deactivate all other configurations for this user
         if (isActive) {
@@ -420,7 +382,13 @@ export default (app) => {
           );
         }
 
-        const config = configurationDTO({ userId, name, services, isActive });
+        const config = configurationDTO({
+          userId,
+          name,
+          steps,
+          services,
+          isActive,
+        });
         const inserted = await config.save();
         console.log(
           `Created configuration: ${inserted.name} (${inserted._id})`,
@@ -450,6 +418,9 @@ export default (app) => {
         params: z.object({ id: z.string().min(1) }),
         body: z.object({
           name: z.string().min(1).optional(),
+          // steps: ordered array of pipeline steps (primary format)
+          steps: z.array(z.any()).optional(),
+          // services: legacy slot-map kept for backward compat
           services: z.record(z.any()).optional(),
           isActive: z.boolean().optional(),
         }),
@@ -640,6 +611,7 @@ export default (app) => {
         true,
         false,
         parsedDeAnonimize,
+        true, // lightFeatures: only return fields needed by the frontend
       );
       console.log("doc", document.features.anonymized);
       return res.json(document).status(200);
@@ -667,6 +639,7 @@ export default (app) => {
               true,
               false,
               deAnonimize === true,
+              true, // lightFeatures: only return fields needed by the frontend
             );
 
             // Collect annotations from all annotation sets and ensure id_ER/display_name are present
@@ -770,7 +743,13 @@ export default (app) => {
     asyncRoute(async (req, res, next) => {
       const { id } = req.params;
       console.log("doc id", id);
-      const document = await DocumentController.getFullDocById(id);
+      const document = await DocumentController.getFullDocById(
+        id,
+        false,
+        false,
+        false,
+        true,
+      );
 
       const { entities, annotationSet, sourceCluster, destinationCluster } =
         req.body;
@@ -807,7 +786,13 @@ export default (app) => {
         clusters,
       );
 
-      let doc = await DocumentController.getFullDocById(id);
+      let doc = await DocumentController.getFullDocById(
+        id,
+        false,
+        false,
+        false,
+        true,
+      );
       console.log("doc", doc.features.clusters[annotationSet]);
       return res.json(doc).status(200);
       //   let entObjects = [];
@@ -844,7 +829,13 @@ export default (app) => {
     asyncRoute(async (req, res, next) => {
       const { id } = req.params;
 
-      const document = await DocumentController.getFullDocById(id, true);
+      const document = await DocumentController.getFullDocById(
+        id,
+        true,
+        false,
+        false,
+        true,
+      ); // lightFeatures
 
       return res.json(document).status(200);
     }),

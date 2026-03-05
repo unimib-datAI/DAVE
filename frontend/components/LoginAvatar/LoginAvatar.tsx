@@ -19,7 +19,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { useText } from '../TranslationProvider';
 import { isAuthEnabled } from '@/utils/auth';
 
-const LinkButton = styled.a({
+const LinkButton = styled.div({
   border: 'none',
   outline: 'none',
   padding: '8px 10px',
@@ -79,15 +79,15 @@ const LoginAvatar = () => {
         style={{ minWidth: 500 }}
       >
         <Dropdown.Item key="collections" icon={<FiFolder />}>
-          <Link href="/collections" passHref>
-            <Text as="a" b color="inherit">
+          <Link href="/collections">
+            <Text b color="inherit">
               {t('toolbar.manageCollections')}
             </Text>
           </Link>
         </Dropdown.Item>
         <Dropdown.Item key="settings" icon={<FiSettings />}>
-          <Link href="/settings" passHref>
-            <Text as="a" b color="inherit" style={{ paddingTop: 10 }}>
+          <Link href="/settings">
+            <Text b color="inherit" style={{ paddingTop: 10 }}>
               {t('toolbar.settings')}
             </Text>
           </Link>

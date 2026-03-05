@@ -38,7 +38,7 @@ const SettingsGrid = styled.div({
   marginTop: '24px',
 });
 
-const SettingCard = styled.a({
+const SettingCard = styled.div({
   display: 'flex',
   flexDirection: 'column',
   padding: '24px',
@@ -180,7 +180,7 @@ const SettingsPage = () => {
             </BaseSelect>
           </LanguageCard>
 
-          <Link href="/settings/llm" passHref>
+          <Link href="/settings/llm">
             <SettingCard>
               <IconWrapper>
                 <FiCpu />
@@ -190,7 +190,7 @@ const SettingsPage = () => {
             </SettingCard>
           </Link>
 
-          <Link href="/settings/annotation-configuration" passHref>
+          <Link href="/settings/annotation-configuration">
             <SettingCard>
               <IconWrapper>
                 <FiSliders />
