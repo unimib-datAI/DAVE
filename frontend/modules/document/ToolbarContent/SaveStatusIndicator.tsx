@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import styled from '@emotion/styled';
-import { Text, Tooltip } from '@nextui-org/react';
+import { Text } from '@nextui-org/react';
 import { FiCheck } from '@react-icons/all-files/fi/FiCheck';
 import { FiAlertTriangle } from '@react-icons/all-files/fi/FiAlertTriangle';
 import { FiClock } from '@react-icons/all-files/fi/FiClock';
@@ -164,12 +164,12 @@ const SaveStatusIndicator = ({
     tooltipText = t('toolbar.unsavedChanges');
 
     return (
-      <Tooltip content={tooltipText} placement="bottom">
+      <div title={tooltipText}>
         <StatusContainer style={{ backgroundColor, color: textColor }}>
           <IconWrapper>{icon}</IconWrapper>
           <Text size={12}>{t('toolbar.unsavedChanges')}</Text>
         </StatusContainer>
-      </Tooltip>
+      </div>
     );
   }
 
@@ -207,14 +207,14 @@ const SaveStatusIndicator = ({
 
       // Use special container for saved status - stays until new changes
       return (
-        <Tooltip content={tooltipText} placement="bottom">
+        <div title={tooltipText}>
           <SuccessStatusContainer style={{ backgroundColor, color: textColor }}>
             <IconWrapper>{icon}</IconWrapper>
             <Text size={12} b>
               {t('toolbar.saved')}
             </Text>
           </SuccessStatusContainer>
-        </Tooltip>
+        </div>
       );
     case 'error':
       backgroundColor = '#fef2f2';

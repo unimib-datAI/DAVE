@@ -1,12 +1,16 @@
-import styled from "@emotion/styled";
-import { useSelector, selectCurrentEntity, useDocumentDispatch } from "../DocumentProvider/selectors";
-import AnnotationDetailsContent from "./SidebarAnnotationDetailsContent";
+import styled from '@emotion/styled';
+import {
+  useSelector,
+  selectCurrentEntity,
+  useDocumentDispatch,
+} from '../DocumentProvider/selectors';
+import AnnotationDetailsContent from './SidebarAnnotationDetailsContent';
 import { CSSTransition } from 'react-transition-group';
-import { Portal } from "@/components/Portal";
-import { MouseEvent, useRef } from "react";
+import { Portal } from '@/components/Portal';
+import { MouseEvent, useRef } from 'react';
 import { FiChevronRight } from '@react-icons/all-files/fi/FiChevronRight';
 import { FiChevronLeft } from '@react-icons/all-files/fi/FiChevronLeft';
-import { useDocumentEventListener } from "@/hooks";
+import { useDocumentEventListener } from '@/hooks';
 
 const Container = styled.div({
   display: 'flex',
@@ -15,27 +19,27 @@ const Container = styled.div({
   right: 0,
   top: 0,
   height: '100%',
-  zIndex: 101
-})
+  zIndex: 101,
+});
 
 const SidebarContainer = styled.div({
   display: 'flex',
   flexDirection: 'column',
   height: '100%',
   width: '420px',
-  boxShadow: 'rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px',
+  boxShadow:
+    'rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, rgba(0, 0, 0, 0.05) 0px 4px 6px -2px',
   borderRadius: '4px',
-  background: '#FFF'
-})
-
+  background: '#FFF',
+});
 
 const ActionsContainer = styled.div({
   display: 'flex',
   flexDirection: 'row',
   gap: '10px',
   marginTop: 'auto',
-  padding: '10px'
-})
+  padding: '10px',
+});
 
 const ActionButton = styled.div({
   display: 'flex',
@@ -53,12 +57,12 @@ const ActionButton = styled.div({
     color: 'rgba(255,255,255,1)',
   },
   '&:hover': {
-    transform: 'scale(1.1)'
+    transform: 'scale(1.1)',
   },
   '&:active': {
-    transform: 'scale(1)'
+    transform: 'scale(1)',
   },
-})
+});
 
 const Backdrop = styled.div({
   position: 'fixed',
@@ -66,20 +70,20 @@ const Backdrop = styled.div({
   background: 'rgba(0,0,0,0.1)',
   zIndex: 1000,
   '&.backdrop-enter': {
-    opacity: 0
+    opacity: 0,
   },
   '&.backdrop-enter-active': {
     opacity: 1,
-    transition: 'opacity 0.2s cubic-bezier(0.4,0,0.2,1)'
+    transition: 'opacity 0.2s cubic-bezier(0.4,0,0.2,1)',
   },
   '&.backdrop-exit': {
-    opacity: 1
+    opacity: 1,
   },
   '&.backdrop-exit-active': {
     opacity: 0,
-    transition: 'opacity 0.2s cubic-bezier(0.4,0,0.2,1)'
-  }
-})
+    transition: 'opacity 0.2s cubic-bezier(0.4,0,0.2,1)',
+  },
+});
 
 const AnnotationDetails = () => {
   const annotation = useSelector(selectCurrentEntity);
@@ -93,27 +97,27 @@ const AnnotationDetails = () => {
     dispatch({
       type: 'setUI',
       payload: {
-        selectedEntity: null
-      }
-    })
-  }
+        selectedEntity: null,
+      },
+    });
+  };
 
   const selectNextEntity = () => {
     dispatch({
-      type: 'nextCurrentEntity'
-    })
-  }
+      type: 'nextCurrentEntity',
+    });
+  };
 
   const selectPreviousEntity = () => {
     dispatch({
-      type: 'previousCurrentEntity'
-    })
-  }
+      type: 'previousCurrentEntity',
+    });
+  };
 
   return (
     <Portal elementSelector="sidebar-portal">
       <CSSTransition
-        ref={nodeRef}
+        nodeRef={nodeRef}
         in={!!annotation}
         timeout={200}
         classNames="backdrop"
@@ -130,13 +134,15 @@ const AnnotationDetails = () => {
               </ActionButton>
             </ActionsContainer>
             <SidebarContainer>
-              {annotation && <AnnotationDetailsContent annotation={annotation} />}
+              {annotation && (
+                <AnnotationDetailsContent annotation={annotation} />
+              )}
             </SidebarContainer>
           </Container>
         </Backdrop>
       </CSSTransition>
     </Portal>
-  )
-}
+  );
+};
 
 export default AnnotationDetails;

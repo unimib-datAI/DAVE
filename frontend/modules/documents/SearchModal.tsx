@@ -1,21 +1,20 @@
-import { useInput } from "@/hooks";
-import useDebounce from "@/hooks/use-debounce";
-import { GetPaginatedDocuments } from "@/server/routers/document";
-import { useQuery } from "@/utils/trpc";
-import styled from "@emotion/styled";
-import { Loading, Modal, Text } from "@nextui-org/react";
+import { useInput } from '@/hooks';
+import useDebounce from '@/hooks/use-debounce';
+import { GetPaginatedDocuments } from '@/server/routers/document';
+import { useQuery } from '@/utils/trpc';
+import styled from '@emotion/styled';
+import { Loading, Modal, Text } from '@nextui-org/react';
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
-import { FiFile } from '@react-icons/all-files/fi/FiFile'
-import { FiArrowUpRight } from '@react-icons/all-files/fi/FiArrowUpRight'
-import Link from "next/link";
-import { useEffect, useRef } from "react";
-import { useText } from "@/components";
-
+import { FiFile } from '@react-icons/all-files/fi/FiFile';
+import { FiArrowUpRight } from '@react-icons/all-files/fi/FiArrowUpRight';
+import Link from 'next/link';
+import { useEffect, useRef } from 'react';
+import { useText } from '@/components';
 
 type SearchModalProps = {
   open: boolean;
   onClose: () => void;
-}
+};
 
 const Toolbar = styled.div({
   width: '100%',
@@ -24,41 +23,39 @@ const Toolbar = styled.div({
   alignItems: 'center',
   gap: '10px',
   padding: '14px',
-  borderBottom: '1px solid rgba(0,0,0,0.1)'
-})
+  borderBottom: '1px solid rgba(0,0,0,0.1)',
+});
 
 const SearchBar = styled.input({
   outline: 'none',
   border: 'none',
   flexGrow: 1,
   height: '100%',
-  fontSize: '21px'
-})
+  fontSize: '21px',
+});
 
 const Body = styled.div({
   display: 'flex',
   flexDirection: 'column',
   padding: '14px',
-  height: '508px'
+  height: '508px',
   // height: '1px',
   // minHeight: '300px'
-})
+});
 
 const LoadingEmptyBody = styled.div({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   height: '100%',
-  width: '100%'
-})
-
-
+  width: '100%',
+});
 
 type ResultItemProps = {
-  doc: GetPaginatedDocuments['docs'][number]
-}
+  doc: GetPaginatedDocuments['docs'][number];
+};
 
-const ResultItemContainer = styled.a({
+const ResultItemContainer = styled.div({
   position: 'relative',
   display: 'flex',
   flexDirection: 'row',
@@ -67,17 +64,17 @@ const ResultItemContainer = styled.a({
   padding: '10px 42px 10px 10px',
   borderRadius: '4px',
   '&:not(:last-of-type)': {
-    borderBottom: '1px solid rgba(0,0,0,0.1)'
+    borderBottom: '1px solid rgba(0,0,0,0.1)',
   },
   '&:hover': {
     boxShadow: '0px 0px 0px 2px rgb(0, 114, 245)',
     backgroundColor: 'rgb(0, 114, 245, 0.1)',
-    'svg': {
-      visibility: 'visible'
+    svg: {
+      visibility: 'visible',
     },
   },
-  cursor: 'pointer'
-})
+  cursor: 'pointer',
+});
 
 const ItemActionsContainer = styled.div({
   position: 'absolute',
@@ -91,47 +88,59 @@ const ItemActionsContainer = styled.div({
   transform: 'translateY(-50%)',
   '> svg': {
     color: 'rgb(0, 114, 245)',
-    visibility: 'hidden'
-  }
-})
+    visibility: 'hidden',
+  },
+});
 
 const ResultItem = ({ doc }: ResultItemProps) => {
   return (
-    <Link href={`/documents/${doc.id}`} passHref>
+    <Link href={`/documents/${doc.id}`}>
       <ResultItemContainer>
         <FiFile />
-        <Text css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{doc.name}</Text>
+        <Text
+          css={{
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {doc.name}
+        </Text>
         <ItemActionsContainer>
           <FiArrowUpRight size={18} />
         </ItemActionsContainer>
       </ResultItemContainer>
     </Link>
-
-  )
-}
+  );
+};
 
 type ResultListProps = {
-  docs: GetPaginatedDocuments['docs']
-}
+  docs: GetPaginatedDocuments['docs'];
+};
 
 const ResultListContainer = styled.div({
   display: 'flex',
-  flexDirection: 'column'
-})
+  flexDirection: 'column',
+});
 
 const ResultList = ({ docs }: ResultListProps) => {
   return (
     <ResultListContainer>
-      {docs.map((doc) => <ResultItem key={doc.id} doc={doc} />)}
+      {docs.map((doc) => (
+        <ResultItem key={doc.id} doc={doc} />
+      ))}
     </ResultListContainer>
-  )
-}
+  );
+};
 
 const ModalContent = () => {
   const t = useText('documents');
   const { binds } = useInput();
   const debouncedFilter = useDebounce(binds.value, 500);
-  const { data, isFetching } = useQuery(['document.inifniteDocuments', { q: debouncedFilter, limit: 10 }], { enabled: !!debouncedFilter });
+  const { data, isFetching } = useQuery(
+    ['document.inifniteDocuments', { q: debouncedFilter, limit: 10 }],
+    { enabled: !!debouncedFilter }
+  );
   const refInput = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -146,7 +155,7 @@ const ModalContent = () => {
         <LoadingEmptyBody>
           <Loading size="md" />
         </LoadingEmptyBody>
-      )
+      );
     }
     if (!data) {
       return null;
@@ -154,36 +163,38 @@ const ModalContent = () => {
     if (data.docs.length === 0) {
       return (
         <LoadingEmptyBody>
-          <Text size={24} css={{ color: 'rgba(0,0,0,0.5)' }}>{t('modals.noResults')}</Text>
+          <Text size={24} css={{ color: 'rgba(0,0,0,0.5)' }}>
+            {t('modals.noResults')}
+          </Text>
         </LoadingEmptyBody>
-      )
+      );
     }
-    return <ResultList docs={data.docs} />
-  }
+    return <ResultList docs={data.docs} />;
+  };
 
   return (
     <>
       <Toolbar>
         <FiSearch size={24} />
-        <SearchBar ref={refInput} placeholder={t('modals.searchInput')} spellCheck="false" autoComplete="off" {...binds} />
+        <SearchBar
+          ref={refInput}
+          placeholder={t('modals.searchInput')}
+          spellCheck="false"
+          autoComplete="off"
+          {...binds}
+        />
       </Toolbar>
-      <Body>
-        {renderContent()}
-      </Body>
+      <Body>{renderContent()}</Body>
     </>
-  )
-
-}
+  );
+};
 
 const SearchModal = (props: SearchModalProps) => {
   return (
-    <Modal
-      blur
-      width="650px"
-      {...props}>
+    <Modal blur width="650px" {...props}>
       <ModalContent />
     </Modal>
-  )
+  );
 };
 
 export default SearchModal;

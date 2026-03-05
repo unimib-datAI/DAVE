@@ -420,6 +420,9 @@ export const documents = createRouter()
   .mutation('createConfiguration', {
     input: z.object({
       name: z.string(),
+      // steps: ordered array of pipeline steps (new format)
+      steps: z.array(z.any()).optional(),
+      // services: legacy slot-map kept for backward compat
       services: z.record(z.any()).optional(),
       isActive: z.boolean().optional(),
       token: z.string(),
@@ -455,6 +458,9 @@ export const documents = createRouter()
     input: z.object({
       id: z.string(),
       name: z.string().optional(),
+      // steps: ordered array of pipeline steps (new format)
+      steps: z.array(z.any()).optional(),
+      // services: legacy slot-map kept for backward compat
       services: z.record(z.any()).optional(),
       isActive: z.boolean().optional(),
       token: z.string(),
@@ -1026,15 +1032,24 @@ export const documents = createRouter()
           );
         }
 
-        if (configToUse && configToUse.services) {
-          // Convert MongoDB Map to plain object
-          selectedServices = {};
-          if (configToUse.services instanceof Map) {
-            configToUse.services.forEach((value: any, key: string) => {
-              selectedServices![key] = value;
-            });
-          } else {
-            selectedServices = configToUse.services;
+        if (configToUse) {
+          // New format: steps array takes priority over legacy services map
+          if (
+            Array.isArray(configToUse.steps) &&
+            configToUse.steps.length > 0
+          ) {
+            selectedServices = configToUse.steps;
+          } else if (configToUse.services) {
+            // Legacy: convert MongoDB Map to plain object
+            if (configToUse.services instanceof Map) {
+              const legacyObj: Record<string, any> = {};
+              configToUse.services.forEach((value: any, key: string) => {
+                legacyObj[key] = value;
+              });
+              selectedServices = legacyObj;
+            } else {
+              selectedServices = configToUse.services;
+            }
           }
         }
       } catch (error: any) {
@@ -1042,157 +1057,112 @@ export const documents = createRouter()
         selectedServices = undefined;
       }
 
-      // default fallback URLs (from env or built-in)
-      const defaultSpacyner =
-        process.env.ANNOTATION_SPACYNER_URL ||
-        'http://spacyner:80/api/spacyner';
-      const defaultBlink =
-        process.env.ANNOTATION_BLINK_URL ||
-        'http://biencoder:80/api/blink/biencoder/mention/doc';
-      const indexerURL =
-        process.env.ANNOTATION_INDEXER_URL ||
-        'http://indexer:80/api/indexer/search/doc';
-      const nilpredictionURL =
-        process.env.ANNOTATION_NILPREDICTION_URL ||
-        'http://nilpredictor:80/api/nilprediction/doc';
-      const defaultNilcluster =
-        process.env.ANNOTATION_NILCLUSTER_URL ||
-        'http://clustering:80/api/clustering';
-      const defaultConsolidation =
-        process.env.ANNOTATION_CONSOLIDATION_URL ||
-        'http://consolidation:80/api/consolidation';
       const elasticIndex = process.env.ELASTIC_INDEX;
 
-      // Helper: pick service URI from selectedServices for a slot, falling back to the provided default.
-      // selectedServices entries may either contain a concrete uri, or have a name like "DEFAULT-<TYPE>"
-      // when the frontend indicates fallbacks. We treat any non-empty uri as authoritative; otherwise use default.
-      const resolveUrlForSlot = (slot: string, fallbackUrl: string) => {
-        try {
-          if (!selectedServices) return fallbackUrl;
-          const entry = (selectedServices as Record<string, any>)[slot];
-          if (!entry) return fallbackUrl;
-          const uri = (entry.uri || '').trim();
-          if (uri) return uri;
-          // if no explicit uri provided, assume fallback (DEFAULT-<TYPE> or similar)
-          return fallbackUrl;
-        } catch (e) {
-          return fallbackUrl;
-        }
-      };
+      // Resolve the ordered list of pipeline steps to execute.
+      // New format: configToUse.steps  (array of { name, uri, serviceType? })
+      // Legacy fallback: configToUse.services  (slot-name -> service map)
+      let pipelineSteps: Array<{
+        name: string;
+        uri: string;
+        serviceType?: string;
+      }> = [];
 
-      // Map pipeline slots to concrete service URLs (use selected services when provided, else env/default)
-      const spacynerURL = resolveUrlForSlot('NER', defaultSpacyner);
-      const blinkURL = resolveUrlForSlot('NEL', defaultBlink);
-      const resolvedIndexerURL = resolveUrlForSlot('INDEXER', indexerURL);
-      const resolvedNilPredictionURL = resolveUrlForSlot(
-        'NILPREDICTION',
-        nilpredictionURL
-      );
-      const nilclusterURL = resolveUrlForSlot('CLUSTERING', defaultNilcluster);
-      const consolidationURL = resolveUrlForSlot(
-        'CONSOLIDATION',
-        defaultConsolidation
+      if (selectedServices) {
+        const raw = selectedServices as any;
+        if (Array.isArray(raw)) {
+          // New format: already an array of steps
+          pipelineSteps = (raw as any[]).filter(
+            (s: any) => s && typeof s.uri === 'string' && s.uri.trim()
+          );
+        } else if (typeof raw === 'object') {
+          // Legacy slot-map format: convert to ordered steps using canonical slot order
+          const LEGACY_SLOTS = [
+            'NER',
+            'NEL',
+            'INDEXER',
+            'NILPREDICTION',
+            'CLUSTERING',
+            'CONSOLIDATION',
+          ];
+          const defaultUriForSlot: Record<string, string> = {
+            NER:
+              process.env.ANNOTATION_SPACYNER_URL ||
+              'http://spacyner:80/api/spacyner',
+            NEL:
+              process.env.ANNOTATION_BLINK_URL ||
+              'http://biencoder:80/api/blink/biencoder/mention/doc',
+            INDEXER:
+              process.env.ANNOTATION_INDEXER_URL ||
+              'http://indexer:80/api/indexer/search/doc',
+            NILPREDICTION:
+              process.env.ANNOTATION_NILPREDICTION_URL ||
+              'http://nilpredictor:80/api/nilprediction/doc',
+            CLUSTERING:
+              process.env.ANNOTATION_NILCLUSTER_URL ||
+              'http://clustering:80/api/clustering',
+            CONSOLIDATION:
+              process.env.ANNOTATION_CONSOLIDATION_URL ||
+              'http://consolidation:80/api/consolidation',
+          };
+          for (const slot of LEGACY_SLOTS) {
+            const entry = raw[slot];
+            if (!entry) continue;
+            const uri = (entry.uri || '').trim() || defaultUriForSlot[slot];
+            if (uri) {
+              pipelineSteps.push({
+                name: entry.name || slot,
+                uri,
+                serviceType: slot,
+              });
+            }
+          }
+        }
+      }
+
+      // If no steps configured, fall through to upload without annotation
+      console.log(
+        `Pipeline has ${pipelineSteps.length} steps:`,
+        pipelineSteps.map((s) => `${s.name} -> ${s.uri}`)
       );
 
       try {
-        // Step 1: Create initial gatenlp Document
-        let gdoc = {
+        // Create initial gatenlp Document
+        let gdoc: any = {
           text: text,
           features: {},
           offset_type: 'p',
           annotation_sets: {},
         };
 
-        console.log('Step 1: Calling spacyner...', spacynerURL);
-        // Step 2: SpaCy NER
-        const spacynerRes = await fetchJson<any, any>(spacynerURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-          timeout: 300000, // 5 minutes
-        });
-        gdoc = spacynerRes;
+        // Execute each pipeline step sequentially
+        for (let i = 0; i < pipelineSteps.length; i++) {
+          const step = pipelineSteps[i];
+          console.log(
+            `Pipeline step ${i + 1}/${pipelineSteps.length}: ${step.name} -> ${
+              step.uri
+            }`
+          );
+          gdoc = await fetchJson<any, any>(step.uri, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: gdoc,
+            timeout: 300000, // 5 minutes per step
+          });
+        }
 
-        console.log('Step 2: Calling blink biencoder...');
-        // Step 3: BLINK biencoder mention detection
-        const blinkRes = await fetchJson<any, any>(blinkURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-          timeout: 300000, // 5 minutes
-        });
-        gdoc = blinkRes;
-
-        console.log('Step 3: Calling indexer search...');
-        // Step 4: Indexer search
-        const indexerRes = await fetchJson<any, any>(resolvedIndexerURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-          timeout: 300000, // 5 minutes
-        });
-        gdoc = indexerRes;
-
-        console.log('Step 4: Calling nilprediction...');
-        // Step 5: NIL prediction
-        const nilRes = await fetchJson<any, any>(resolvedNilPredictionURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-          timeout: 300000, // 5 minutes
-        });
-        gdoc = nilRes;
-
-        console.log('Step 5: Calling clustering...');
-        // Step 6: NIL Clustering
-        const nilclusterRes = await fetchJson<any, any>(nilclusterURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-          timeout: 300000, // 5 minutes
-        });
-        gdoc = nilclusterRes;
-
-        console.log('Step 6: Calling consolidation...');
-        // Step 7: Consolidation
-        const consolidationRes = await fetchJson<any, any>(consolidationURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-          timeout: 300000, // 5 minutes
-        });
-        gdoc = consolidationRes;
-
-        console.log('Step 7: Cleaning up encoding features...');
-        // Step 7: Clean up encoding features from linking
-        if (gdoc.annotation_sets && (gdoc.annotation_sets as any).entities_) {
-          const entities =
-            (gdoc.annotation_sets as any).entities_.annotations || [];
+        // Clean up encoding features from linking (artifact of some pipeline steps)
+        if (gdoc.annotation_sets && gdoc.annotation_sets.entities_) {
+          const entities = gdoc.annotation_sets.entities_.annotations || [];
           for (const ann of entities) {
-            if (
-              ann.features &&
-              ann.features.linking &&
-              ann.features.linking.encoding
-            ) {
+            if (ann.features?.linking?.encoding) {
               delete ann.features.linking.encoding;
             }
           }
         }
 
-        console.log('Step 8: Uploading annotated document...');
-        // Step 10: Upload the annotated document
+        console.log('Uploading annotated document...');
+        // Upload the annotated document
         const documentToUpload = {
           ...gdoc,
           name: name || 'Untitled Document',

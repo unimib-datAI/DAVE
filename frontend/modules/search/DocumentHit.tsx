@@ -50,11 +50,8 @@ const DocumentHit = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      <Link
-        href={`/documents/${hit.mongo_id ? hit.mongo_id : hit.id}`}
-        passHref
-      >
-        <a
+      <Link href={`/documents/${hit.mongo_id ? hit.mongo_id : hit.id}`}>
+        <div
           className={`rounded-md overflow-hidden border-[1px] border-solid border-slate-200 p-4 bg-white hover:shadow-lg hover:-translate-y-6 transition-all ${
             highlight ? 'bg-blue-50' : ''
           }`}
@@ -93,7 +90,7 @@ const DocumentHit = ({
               ))}
             </div>
           )}
-        </a>
+        </div>
       </Link>
     </motion.div>
   );

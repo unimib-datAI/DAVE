@@ -29,12 +29,12 @@ const Nav = styled.nav({
   margin: '0 auto',
 });
 
-const Logo = styled.a({
+const Logo = styled.div({
   fontSize: '22px',
   fontWeight: 700,
 });
 
-const LinkButton = styled.a({
+const LinkButton = styled.div({
   border: 'none',
   outline: 'none',
   padding: '8px 10px',

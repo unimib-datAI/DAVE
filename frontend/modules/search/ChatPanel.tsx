@@ -76,8 +76,10 @@ const Resources = ({ documents, isLoading }: ResourcesProps) => {
                   {urlToPathArray(`/documents/${doc.id}`).join(' > ')}
                 </span>
               </div>
-              <Link href={`/documents/${doc.id}`} passHref>
-                <a className="underline text-blue-500 text-xs">{doc.title}</a>
+              <Link href={`/documents/${doc.id}`}>
+                <span className="underline text-blue-500 text-xs">
+                  {doc.title}
+                </span>
               </Link>
               <div className="text-xs">{doc.preview}</div>
             </div>
