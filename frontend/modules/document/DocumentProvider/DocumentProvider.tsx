@@ -4,14 +4,12 @@ import {
   createContext,
   PropsWithChildren,
   useEffect,
-  useReducer,
+  useMemo,
   useState,
 } from 'react';
-import { useAtom } from 'jotai';
-import {
-  DocumentStateContext,
-  DocumentDispatchContext,
-} from './DocumentContext';
+import { useAtom, useAtomValue } from 'jotai';
+import { Provider, createStore } from 'jotai';
+import { documentStateAtom } from './DocumentContext';
 import { Document } from '@/server/routers/document';
 import { documentReducer } from './reducer';
 import { State } from './types';
@@ -20,7 +18,6 @@ import { SkeletonLayout } from '../SkeletonLayout';
 import { orderAnnotations } from '@/lib/ner/core';
 import { createTaxonomy } from './utils';
 import { mapEntityType } from '../../../components/Tree/utils';
-import { useDocumentDispatch } from './selectors';
 import { DocumentContext } from './DocumentContext';
 import {
   globalAnonymizationAtom,
@@ -110,17 +107,18 @@ const DocumentStateProvider = ({
   data,
   children,
 }: PropsWithChildren<DocumentStateProvider>) => {
-  const [state, dispatch] = useReducer(documentReducer, null, () =>
-    initializeState(data)
-  );
+  const store = useMemo(() => {
+    const s = createStore();
+    s.set(documentStateAtom, initializeState(data));
+    return s;
+  }, []);
 
-  return (
-    <DocumentStateContext.Provider value={state}>
-      <DocumentDispatchContext.Provider value={dispatch}>
-        {children}
-      </DocumentDispatchContext.Provider>
-    </DocumentStateContext.Provider>
-  );
+  // Re-initialize when data changes (e.g. after refetch)
+  useEffect(() => {
+    store.set(documentStateAtom, initializeState(data));
+  }, [data, store]);
+
+  return <Provider store={store}>{children}</Provider>;
 };
 
 /**

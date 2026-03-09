@@ -1,3 +1,4 @@
+import { atom } from 'jotai';
 import { createContext } from 'react';
 import { Dispatch, State } from './types';
 
@@ -12,7 +13,4 @@ export const DocumentContext = createContext<DocumentContextType | undefined>(
   undefined
 );
 
-export const DocumentStateContext = createContext<State | undefined>(undefined);
-export const DocumentDispatchContext = createContext<Dispatch | undefined>(
-  undefined
-);
+export const documentStateAtom = atom<State | undefined>(undefined);

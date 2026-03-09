@@ -1,40 +1,47 @@
-import { Candidate } from "@/server/routers/document";
-import { useContext } from "react";
-import { createSelector } from "reselect";
-import { ReviewDispatchContext, ReviewStateContext } from "./ReviewContext";
-import { State } from "./types";
+import { Candidate } from '@/server/routers/document';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { useCallback } from 'react';
+import { createSelector } from 'reselect';
+import { reviewStateAtom } from './ReviewContext';
+import { reviewReducer } from './reducer';
+import { Action, State } from './types';
 
-export const useReviewState = () => {
-  const context = useContext(ReviewStateContext);
-
-  if (context === undefined) {
+export const useReviewState = (): State => {
+  const state = useAtomValue(reviewStateAtom);
+  if (state === undefined) {
     throw new Error('useReviewState must be used within a ReviewProvider');
   }
-
-  return context;
+  return state;
 };
 
-/**
- * Access the document disptach within the DocumentProvider.
- */
 export const useReviewDispatch = () => {
-  const context = useContext(ReviewDispatchContext);
-
-  if (context === undefined) {
-    throw new Error(
-      'useReviewDispatch must be used within a ReviewProvider'
-    );
-  }
-
-  return context;
+  const setAtom = useSetAtom(reviewStateAtom);
+  return useCallback(
+    (action: Action) =>
+      setAtom((prev) =>
+        reviewReducer(
+          prev ?? {
+            id: '',
+            docId: '',
+            name: '',
+            total: 0,
+            doneIds: [],
+            hasNextPage: false,
+            hasPreviousPage: false,
+            currentDocument: undefined,
+            isLoading: true,
+            ui: { totalReviewed: 0, currentItemCursor: 0, lastItemCursor: 0 },
+          },
+          action
+        )
+      ),
+    [setAtom]
+  );
 };
 
-/**
- * An hook to select the state partially
- */
 export function useSelector<T>(cb: (state: State) => T) {
-  const _state = useReviewState();
-  return cb(_state);
+  const state = useReviewState();
+  return cb(state);
 }
 
 export const selectCurrentDocument = (state: State) => state.currentDocument;
@@ -48,14 +55,14 @@ export const selectSourceInfo = (state: State) => ({
   total: state.total,
   doneIds: state.doneIds,
   hasNextPage: state.hasNextPage,
-  hasPreviousPage: state.hasPreviousPage
-})
+  hasPreviousPage: state.hasPreviousPage,
+});
 
 export const selectIsDocDone = createSelector(
   selectDocId,
   selectDoneIds,
   (docId, doneIds) => new Set(doneIds).has(docId)
-)
+);
 
 export const selectListAnnotations = createSelector(
   selectCurrentDocument,
@@ -67,20 +74,25 @@ export const selectListAnnotations = createSelector(
     const annSet = Object.values(doc.annotation_sets)[0];
     const { lastItemCursor } = uiState;
     const { text } = doc;
-    const currentAnnotationItems = annSet.annotations.slice(0, lastItemCursor + 1);
+    const currentAnnotationItems = annSet.annotations.slice(
+      0,
+      lastItemCursor + 1
+    );
 
     return currentAnnotationItems.map((ann) => {
       const startTextOffset = ann.start - 500 < 0 ? 0 : ann.start - 500;
-      const endTextOffset = ann.end + 500 > text.length ? text.length : ann.end + 500;
+      const endTextOffset =
+        ann.end + 500 > text.length ? text.length : ann.end + 500;
       const startAnnRelativeOffset = ann.start - startTextOffset;
-      const endAnnRelativeOffset = startAnnRelativeOffset + (ann.end - ann.start);
+      const endAnnRelativeOffset =
+        startAnnRelativeOffset + (ann.end - ann.start);
       return {
         text: text.slice(startTextOffset, endTextOffset),
         annotation: ann,
         startAnnRelativeOffset,
-        endAnnRelativeOffset
-      }
-    })
+        endAnnRelativeOffset,
+      };
+    });
   }
 );
 
@@ -92,17 +104,20 @@ export const selectCurrentEntities = createSelector(
     }
     const annSet = Object.keys(doc.annotation_sets)[0];
 
-    const candidatesIndex = doc.annotation_sets[annSet].annotations.reduce((acc, ann) => {
-      if (!ann?.features?.additional_candidates) {
-        return acc;
-      }
-      for (const candidate of ann.features.additional_candidates) {
-        if (!(candidate.url in acc)) {
-          acc[candidate.url] = candidate;
+    const candidatesIndex = doc.annotation_sets[annSet].annotations.reduce(
+      (acc, ann) => {
+        if (!ann?.features?.additional_candidates) {
+          return acc;
         }
-      }
-      return acc;
-    }, {} as Record<string, Candidate>);
+        for (const candidate of ann.features.additional_candidates) {
+          if (!(candidate.url in acc)) {
+            acc[candidate.url] = candidate;
+          }
+        }
+        return acc;
+      },
+      {} as Record<string, Candidate>
+    );
 
     return Object.values(candidatesIndex);
   }
@@ -131,7 +146,7 @@ export const selectProgress = createSelector(
         completion: 0,
         totalReviewed: 0,
         total: 0,
-        cursor: 0
+        cursor: 0,
       };
     }
     const annSet = Object.values(doc.annotation_sets)[0];
@@ -140,7 +155,7 @@ export const selectProgress = createSelector(
       completion: (uiState.totalReviewed / annSet.annotations.length) * 100,
       done: uiState.totalReviewed,
       total: annSet.annotations.length,
-      cursor: uiState.currentItemCursor
+      cursor: uiState.currentItemCursor,
     };
   }
 );
@@ -150,16 +165,19 @@ export const selectAvgTime = createSelector(
   selectUIState,
   (doc, uiState) => {
     if (!doc) {
-      return 0
+      return 0;
     }
 
     const annSet = Object.values(doc.annotation_sets)[0];
 
     const { lastItemCursor } = uiState;
-    const items = annSet.annotations.slice(0, lastItemCursor)
+    const items = annSet.annotations.slice(0, lastItemCursor);
     // TODO: there should be a property indicating whether or not the item is already been reviewed
     // const items = listAnnotations.slice(0, listAnnotations.length - 1);
-    return items.length === 0 ? 0 : items.reduce((acc, item) => acc + (item.features.review_time || 0), 0) / items.length;
+    return items.length === 0
+      ? 0
+      : items.reduce((acc, item) => acc + (item.features.review_time || 0), 0) /
+          items.length;
   }
 );
 
@@ -175,11 +193,8 @@ export const selectDocumentToSave = createSelector(
       ...doc,
       features: {
         ...doc.features,
-        avgReviewTime: avgTime
-      }
-    }
+        avgReviewTime: avgTime,
+      },
+    };
   }
 );
-
-
-

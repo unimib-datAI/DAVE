@@ -1,11 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
 import styled from '@emotion/styled';
-import { Text } from '@nextui-org/react';
 import { FiCheck } from '@react-icons/all-files/fi/FiCheck';
 import { FiAlertTriangle } from '@react-icons/all-files/fi/FiAlertTriangle';
 import { FiClock } from '@react-icons/all-files/fi/FiClock';
 import { FiSave } from '@react-icons/all-files/fi/FiSave';
 import { useText } from '@/components';
+import { Tooltip } from '@heroui/react';
 
 // Define styled components
 const StatusContainer = styled.div({
@@ -167,7 +167,9 @@ const SaveStatusIndicator = ({
       <div title={tooltipText}>
         <StatusContainer style={{ backgroundColor, color: textColor }}>
           <IconWrapper>{icon}</IconWrapper>
-          <Text size={12}>{t('toolbar.unsavedChanges')}</Text>
+          <span style={{ fontSize: '12px' }}>
+            {t('toolbar.unsavedChanges')}
+          </span>
         </StatusContainer>
       </div>
     );
@@ -210,9 +212,7 @@ const SaveStatusIndicator = ({
         <div title={tooltipText}>
           <SuccessStatusContainer style={{ backgroundColor, color: textColor }}>
             <IconWrapper>{icon}</IconWrapper>
-            <Text size={12} b>
-              {t('toolbar.saved')}
-            </Text>
+            <strong style={{ fontSize: '12px' }}>{t('toolbar.saved')}</strong>
           </SuccessStatusContainer>
         </div>
       );
@@ -245,11 +245,19 @@ const SaveStatusIndicator = ({
         onClick={status === 'error' && onRetry ? onRetry : undefined}
       >
         <IconWrapper>{icon}</IconWrapper>
-        {status === 'saving' && <Text size={12}>{t('toolbar.saving')}</Text>}
-        {finalShowSavedStatus && <Text size={12}>{t('toolbar.saved')}</Text>}
-        {status === 'error' && <Text size={12}>{t('toolbar.saveError')}</Text>}
+        {status === 'saving' && (
+          <span style={{ fontSize: '12px' }}>{t('toolbar.saving')}</span>
+        )}
+        {finalShowSavedStatus && (
+          <span style={{ fontSize: '12px' }}>{t('toolbar.saved')}</span>
+        )}
+        {status === 'error' && (
+          <span style={{ fontSize: '12px' }}>{t('toolbar.saveError')}</span>
+        )}
         {status === 'idle' && !finalShowSavedStatus && lastSaveTime && (
-          <Text size={12}>{`${t('toolbar.lastSaved')} ${timeAgo}`}</Text>
+          <span style={{ fontSize: '12px' }}>{`${t(
+            'toolbar.lastSaved'
+          )} ${timeAgo}`}</span>
         )}
       </StatusContainer>
     </Tooltip>

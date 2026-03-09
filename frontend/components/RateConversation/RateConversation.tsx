@@ -85,6 +85,7 @@ export default function RateConversation({ state }: RateConversationProps) {
                   paddingLeft: 10,
                   paddingRight: 10,
                   paddingTop: 15,
+                  paddingBottom: 15,
                   display: 'flex', // Ensure the container respects layout
                   alignItems: 'start',
                   flexDirection: 'column',

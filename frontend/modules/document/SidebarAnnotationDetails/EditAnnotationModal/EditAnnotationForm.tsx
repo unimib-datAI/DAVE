@@ -2,7 +2,8 @@ import { Flex, useText } from '@/components';
 import { useForm, useInput } from '@/hooks';
 import { Candidate, EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Button, Input, Modal, Text } from '@nextui-org/react';
+import { Button, Input, ModalBody, ModalFooter } from '@heroui/react';
+import Text from '@/components/HtmlText';
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
 import { Dispatch, SetStateAction, useMemo } from 'react';
 import {
@@ -98,7 +99,7 @@ const EditAnnotationForm = ({
 
   return (
     <Form onSubmit={onSubmit(handleSubmit)}>
-      <Modal.Body css={{ padding: '0px 24px' }}>
+      <ModalBody style={{ padding: '0px 24px' }}>
         <Flex direction="column" gap="10px">
           <Flex direction="column">
             <Text size={20}>{t('modals.editAnnotation.context')}</Text>
@@ -129,9 +130,8 @@ const EditAnnotationForm = ({
           <Input
             aria-label="Search link"
             placeholder={t('modals.editAnnotation.searchLink')}
-            shadow={false}
             {...searchBinds}
-            contentLeft={<FiSearch />}
+            startContent={<FiSearch />}
           />
           <AddLinkItem
             annotation={annotation}
@@ -143,26 +143,19 @@ const EditAnnotationForm = ({
             {...register('linkCandidate')}
           />
         </Flex>
-      </Modal.Body>
-      <Modal.Footer>
+      </ModalBody>
+      <ModalFooter>
         <Button
-          auto
-          flat
-          onClick={() => setVisible(false)}
-          css={{
-            background: 'rgba(0,0,0,0.1)',
-            color: 'rgba(0,0,0,0.6)',
-            '&:hover': {
-              background: 'rgba(0,0,0,0.15)',
-            },
-          }}
+          variant="flat"
+          onPress={() => setVisible(false)}
+          style={{ background: 'rgba(0,0,0,0.1)', color: 'rgba(0,0,0,0.6)' }}
         >
           {t('modals.editAnnotation.btnCancel')}
         </Button>
-        <Button type="submit" auto>
+        <Button type="submit" color="primary">
           {t('modals.editAnnotation.btnConfirm')}
         </Button>
-      </Modal.Footer>
+      </ModalFooter>
     </Form>
   );
 };

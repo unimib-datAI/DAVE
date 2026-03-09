@@ -1,32 +1,38 @@
-import { forEachElement, removeStopScroll, stopScroll } from "@/utils/shared";
-import { useModal as useNextModal } from "@nextui-org/react";
-import { useCallback, useEffect } from "react";
-
-
-
-
+import { removeStopScroll, stopScroll } from '@/utils/shared';
+import { useDisclosure } from '@heroui/react';
+import { useCallback, useEffect } from 'react';
 
 /**
- * Higher order hook which uses the useModal hook from NextUI so that I can apply additional props to the body.
+ * Higher-order hook wrapping HeroUI's useDisclosure, exposing a bindings-style
+ * interface compatible with the rest of the codebase.
  */
 const useModal = () => {
-  const modalProps = useNextModal();
+  const { isOpen, onOpen, onClose, onOpenChange } = useDisclosure();
+
+  const setVisible = useCallback(
+    (open: boolean) => {
+      if (open) onOpen();
+      else onClose();
+    },
+    [onOpen, onClose]
+  );
 
   useEffect(() => {
-    // I do this in the useEffect otherswise properties are overwritten
-    // setTimeout(() => {
-    if (modalProps.bindings.open) {
+    if (isOpen) {
       stopScroll();
     } else {
-      // console.log(modalProps.bindings)
       removeStopScroll();
     }
-    // }, 0)
+  }, [isOpen]);
 
-  }, [modalProps.bindings.open])
-
-
-  return modalProps
+  return {
+    bindings: {
+      open: isOpen,
+      onClose,
+      onOpenChange,
+    },
+    setVisible,
+  };
 };
 
 export default useModal;

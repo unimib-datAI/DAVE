@@ -1,15 +1,11 @@
-import {
-  ButtonProps as NextUIButtonProps,
-  Button as NextUIButton,
-  Loading,
-} from '@nextui-org/react';
+import { ButtonProps as HeroButtonProps, Button, Spinner } from '@heroui/react';
 import { useText } from '@/components/TranslationProvider';
 
-type ButtonProps = NextUIButtonProps & {
+type ButtonSendProps = HeroButtonProps & {
   state: 'searching' | 'generating' | 'idle';
 };
 
-const ButtonSend = ({ state, children, ...props }: ButtonProps) => {
+const ButtonSend = ({ state, children, ...props }: ButtonSendProps) => {
   const t = useText('chat');
   const disabled = state === 'generating' || state === 'searching';
 
@@ -18,7 +14,7 @@ const ButtonSend = ({ state, children, ...props }: ButtonProps) => {
       return (
         <span className="flex flex-row items-center gap-2">
           {t('searchingDocuments')}
-          <Loading color="currentColor" size="sm" />
+          <Spinner color="current" size="sm" />
         </span>
       );
     }
@@ -27,7 +23,7 @@ const ButtonSend = ({ state, children, ...props }: ButtonProps) => {
       return (
         <span className="flex flex-row items-center gap-2">
           {t('generating')}
-          <Loading color="currentColor" size="sm" />
+          <Spinner color="current" size="sm" />
         </span>
       );
     }
@@ -36,9 +32,9 @@ const ButtonSend = ({ state, children, ...props }: ButtonProps) => {
   };
 
   return (
-    <NextUIButton disabled={disabled} {...props}>
+    <Button isDisabled={disabled} {...(props as any)}>
       {renderBtnContent()}
-    </NextUIButton>
+    </Button>
   );
 };
 

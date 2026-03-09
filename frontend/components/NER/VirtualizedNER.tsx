@@ -94,7 +94,10 @@ const VirtualizedNER = memo(
         // Only update if the actual annotations have changed
         JSON.stringify(
           entityAnnotations.map(
-            (ann) => `${ann.id}-${ann.start}-${ann.end}-${ann.type}`
+            (ann) =>
+              `${ann.id}-${ann.start}-${ann.end}-${ann.type}-${(
+                ann.features?.types || []
+              ).join(',')}`
           )
         ),
       ]

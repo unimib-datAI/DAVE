@@ -1,6 +1,5 @@
 import { ProcessedCluster } from '@/modules/document/DocumentProvider/types';
 import { Document } from '@/server/routers/document';
-import { CSS } from '@nextui-org/react';
 
 /**
  * Encode a string to uri component.
@@ -17,7 +16,7 @@ export const toBase64 = (data: string) => {
   return Buffer.from(data).toString('base64');
 };
 
-export const styles = (styles: CSS) => {
+export const styles = (styles: Record<string, any>) => {
   return { css: styles };
 };
 
