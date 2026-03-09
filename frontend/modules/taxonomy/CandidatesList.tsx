@@ -1,6 +1,6 @@
 import { Candidate } from '@/server/routers/taxonomy';
 import styled from '@emotion/styled';
-import { Tooltip, Checkbox, Text } from '@heroui/react';
+import { Tooltip, Checkbox } from '@heroui/react';
 import { FiChevronDown } from '@react-icons/all-files/fi/FiChevronDown';
 import Link from 'next/link';
 import { useMemo, useState, MouseEvent } from 'react';
@@ -99,12 +99,10 @@ const CandidateItem = ({
 
   return (
     <ListItemContainer onClick={handleClick}>
-      <Text css={{ color: 'rgba(0,0,0,0.5)', marginRight: '10px' }}>
+      <span style={{ color: 'rgba(0,0,0,0.5)', marginRight: '10px' }}>
         {index + 1}
-      </Text>
-      <Text as="div" css={{ marginRight: 'auto' }}>
-        {content}
-      </Text>
+      </span>
+      <div style={{ marginRight: 'auto' }}>{content}</div>
       {selectable && (
         <Checkbox onChange={handleClick} isSelected={isSelected} size="lg" />
       )}
@@ -186,9 +184,9 @@ const CandidatesList = ({
       {remainingCandidates > 0 ? (
         <>
           <ListItemContainer>
-            <Text css={{ margin: '0 auto', color: 'rgba(0,0,0,0.7)' }}>
+            <span style={{ margin: '0 auto', color: 'rgba(0,0,0,0.7)' }}>
               {`${remainingCandidates} esempi rimanenti`}
-            </Text>
+            </span>
           </ListItemContainer>
           <ShowMoreButton onClick={handleOnPageChange}>
             <span>Mostra altri</span>
