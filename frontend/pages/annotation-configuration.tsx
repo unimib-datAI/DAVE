@@ -7,7 +7,8 @@ import {
   annotationSelectedServicesAtom,
   PipelineStep,
 } from '@/atoms/annotationConfig';
-import { Card, Button, Input, Text, Spacer } from '@nextui-org/react';
+import { Card, Button, Input, Spacer } from '@heroui/react';
+import Text from '@/components/HtmlText';
 import { Modal, Popconfirm, message, Select } from 'antd';
 import { GetServerSideProps } from 'next';
 

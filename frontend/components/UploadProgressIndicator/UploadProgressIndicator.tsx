@@ -1,7 +1,7 @@
 import { useAtom } from 'jotai';
 import { uploadProgressAtom, uploadModalOpenAtom } from '@/atoms/upload';
 import styled from '@emotion/styled';
-import { Loading } from '@nextui-org/react';
+import { Spinner } from '@heroui/react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 const IndicatorContainer = styled(motion.div)({
@@ -59,12 +59,13 @@ export const UploadProgressIndicator = () => {
           exit={{ opacity: 0, y: 20 }}
           onClick={handleClick}
         >
-          <Loading size="sm" />
+          <Spinner size="sm" />
           <IndicatorText>
             <IndicatorTitle>Uploading documents...</IndicatorTitle>
             <IndicatorSubtitle>
               {uploadProgress.completed} of {uploadProgress.total} completed
-              {uploadProgress.failed > 0 && ` (${uploadProgress.failed} failed)`}
+              {uploadProgress.failed > 0 &&
+                ` (${uploadProgress.failed} failed)`}
             </IndicatorSubtitle>
           </IndicatorText>
         </IndicatorContainer>

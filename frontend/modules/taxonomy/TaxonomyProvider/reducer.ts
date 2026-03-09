@@ -1,27 +1,29 @@
-import { FlatTreeNode, FlatTreeObj } from "@/components/TreeSpecialization";
-import { createImmerReducer } from "@/utils/immerReducer";
-import { original } from "immer";
+import { FlatTreeNode, FlatTreeObj } from '@/components/TreeSpecialization';
+import { createImmerReducer } from '@/utils/immerReducer';
+import { original } from 'immer';
 
 export type State = {
   taxonomy: FlatTreeObj;
-}
+};
 
 export type Dispatch = (action: Action) => void;
 
-type Action =
-  | { type: 'setTaxonomy', payload: FlatTreeObj }
-  | { type: 'addType', payload: FlatTreeNode }
+export type Action =
+  | { type: 'setTaxonomy'; payload: FlatTreeObj }
+  | { type: 'addType'; payload: FlatTreeNode }
   | {
-    type: 'editType', payload: {
-      oldKey: string;
-      newNode: { label: string; key: string; terms: string[]; }
+      type: 'editType';
+      payload: {
+        oldKey: string;
+        newNode: { label: string; key: string; terms: string[] };
+      };
     }
-  }
   | {
-    type: 'deleteType', payload: {
-      key: string;
-    }
-  }
+      type: 'deleteType';
+      payload: {
+        key: string;
+      };
+    };
 // add type
 // edit type
 // delete type
@@ -33,8 +35,8 @@ export const taxonomyReducer = createImmerReducer<State, Action>({
   addType: (state, payload) => {
     state.taxonomy = {
       ...state.taxonomy,
-      [payload.key]: payload
-    }
+      [payload.key]: payload,
+    };
   },
   editType: (state, payload) => {
     const { [payload.oldKey]: oldNode, ...taxonomy } = state.taxonomy;
@@ -43,8 +45,8 @@ export const taxonomyReducer = createImmerReducer<State, Action>({
       if (key === oldNode.key) {
         acc[payload.newNode.key] = {
           ...oldNode,
-          ...payload.newNode
-        }
+          ...payload.newNode,
+        };
       } else {
         acc[key] = state.taxonomy[key];
       }
@@ -58,5 +60,5 @@ export const taxonomyReducer = createImmerReducer<State, Action>({
     const { [payload.key]: _, ...taxonomy } = state.taxonomy;
 
     state.taxonomy = taxonomy;
-  }
-}) 
+  },
+});

@@ -11,15 +11,7 @@ import {
   DEFAULT_SYSTEM_PROMPT,
 } from '@/atoms/llmSettings';
 import { useEffect, useState } from 'react';
-import {
-  Button,
-  Input,
-  Card,
-  Text,
-  Loading,
-  Switch,
-  Textarea,
-} from '@nextui-org/react';
+import { Button, Input, Switch, Textarea, Spinner } from '@heroui/react';
 import { FiSave } from '@react-icons/all-files/fi/FiSave';
 import { FiTrash2 } from '@react-icons/all-files/fi/FiTrash2';
 import { FiEye } from '@react-icons/all-files/fi/FiEye';
@@ -444,7 +436,7 @@ const LLMSettingsPage = () => {
     return (
       <ToolbarLayout>
         <Container>
-          <Loading size="lg" />
+          <Spinner size="lg" />
         </Container>
       </ToolbarLayout>
     );
@@ -479,10 +471,8 @@ const LLMSettingsPage = () => {
         <FormSection>
           <SwitchWrapper>
             <Switch
-              checked={formData.useCustomSettings}
-              onChange={(e) =>
-                handleInputChange('useCustomSettings', e.target.checked)
-              }
+              isSelected={formData.useCustomSettings}
+              onValueChange={(v) => handleInputChange('useCustomSettings', v)}
               color="primary"
             />
             <div>
@@ -513,12 +503,11 @@ const LLMSettingsPage = () => {
             <Label htmlFor="baseURL">API Base URL</Label>
             <Input
               id="baseURL"
-              fullWidth
               placeholder="https://api.openai.com/v1"
               value={formData.baseURL}
               onChange={(e) => handleInputChange('baseURL', e.target.value)}
-              disabled={!formData.useCustomSettings}
-              contentRight={null}
+              isDisabled={!formData.useCustomSettings}
+              className="w-full"
             />
             <HelpText>
               The base URL for your LLM API endpoint. Examples:
@@ -536,13 +525,12 @@ const LLMSettingsPage = () => {
             <PasswordInputWrapper>
               <Input
                 id="apiKey"
-                fullWidth
                 type={showApiKey ? 'text' : 'password'}
                 placeholder="sk-..."
                 value={formData.apiKey}
                 onChange={(e) => handleInputChange('apiKey', e.target.value)}
-                disabled={!formData.useCustomSettings}
-                contentRight={null}
+                isDisabled={!formData.useCustomSettings}
+                className="w-full"
               />
               <TogglePasswordButton
                 type="button"
@@ -563,12 +551,11 @@ const LLMSettingsPage = () => {
             <Label htmlFor="model">Model Name</Label>
             <Input
               id="model"
-              fullWidth
               placeholder="gpt-4, phi4-mini, llama-3.1, etc."
               value={formData.model}
               onChange={(e) => handleInputChange('model', e.target.value)}
-              disabled={!formData.useCustomSettings}
-              contentRight={null}
+              isDisabled={!formData.useCustomSettings}
+              className="w-full"
             />
             <HelpText>
               The model identifier to use. This depends on your API provider:
@@ -583,15 +570,15 @@ const LLMSettingsPage = () => {
           {formData.useCustomSettings && (
             <FormGroup>
               <Button
-                auto
                 color="secondary"
-                onClick={handleTest}
-                disabled={isTesting || !formData.baseURL || !formData.model}
-                style={{ width: '100%' }}
+                onPress={handleTest}
+                isDisabled={isTesting || !formData.baseURL || !formData.model}
+                className="w-full"
               >
                 {isTesting ? (
                   <>
-                    <Loading size="sm" color="white" /> Testing Connection...
+                    <Spinner size="sm" className="text-white" /> Testing
+                    Connection...
                   </>
                 ) : (
                   '🔌 Test Connection'
@@ -641,24 +628,22 @@ const LLMSettingsPage = () => {
 
           <ButtonGroup>
             <Button
-              auto
               color="primary"
-              onClick={handleSaveLLM}
-              disabled={isSavingLLM || !formData.useCustomSettings}
+              onPress={handleSaveLLM}
+              isDisabled={isSavingLLM || !formData.useCustomSettings}
             >
               {isSavingLLM ? (
-                <Loading size="sm" color="white" />
+                <Spinner size="sm" className="text-white" />
               ) : (
                 'Save LLM Settings'
               )}
             </Button>
 
             <Button
-              auto
-              color="error"
-              flat
-              onClick={handleClear}
-              disabled={isSavingLLM}
+              color="danger"
+              variant="flat"
+              onPress={handleClear}
+              isDisabled={isSavingLLM}
             >
               Clear LLM Settings
             </Button>
@@ -701,14 +686,13 @@ const LLMSettingsPage = () => {
           <FormGroup>
             <SwitchWrapper>
               <Switch
-                checked={formData.enableMessageHistory}
-                onChange={async (e) => {
-                  const newValue = e.target.checked;
-                  handleInputChange('enableMessageHistory', newValue);
+                isSelected={formData.enableMessageHistory}
+                onValueChange={async (v) => {
+                  handleInputChange('enableMessageHistory', v);
                   // Auto-save immediately
                   const newSettings = {
                     ...formData,
-                    enableMessageHistory: newValue,
+                    enableMessageHistory: v,
                   };
                   await setSettings(newSettings);
                 }}
@@ -731,7 +715,6 @@ const LLMSettingsPage = () => {
             </Label>
             <Textarea
               id="defaultSystemPrompt"
-              fullWidth
               minRows={6}
               maxRows={20}
               placeholder={DEFAULT_SYSTEM_PROMPT}
@@ -739,6 +722,7 @@ const LLMSettingsPage = () => {
               onChange={(e) =>
                 handleInputChange('defaultSystemPrompt', e.target.value)
               }
+              className="w-full"
             />
             <HelpText>
               {t('generationDefaults.systemPromptHelp') ||
@@ -752,7 +736,6 @@ const LLMSettingsPage = () => {
             </Label>
             <Input
               id="defaultTemperature"
-              fullWidth
               type="number"
               step="0.1"
               min="0"
@@ -777,7 +760,7 @@ const LLMSettingsPage = () => {
                   handleInputChange('defaultTemperature', clamped);
                 }
               }}
-              contentRight={null}
+              className="w-full"
             />
             <HelpText>
               {t('generationDefaults.temperatureHelp') ||
@@ -791,7 +774,6 @@ const LLMSettingsPage = () => {
             </Label>
             <Input
               id="defaultMaxTokens"
-              fullWidth
               type="number"
               step="50"
               min="100"
@@ -816,7 +798,7 @@ const LLMSettingsPage = () => {
                   handleInputChange('defaultMaxTokens', clamped);
                 }
               }}
-              contentRight={null}
+              className="w-full"
             />
             <HelpText>
               {t('generationDefaults.maxTokensHelp') ||
@@ -830,7 +812,6 @@ const LLMSettingsPage = () => {
             </Label>
             <Input
               id="defaultTopP"
-              fullWidth
               type="number"
               step="0.05"
               min="0"
@@ -855,7 +836,7 @@ const LLMSettingsPage = () => {
                   handleInputChange('defaultTopP', clamped);
                 }
               }}
-              contentRight={null}
+              className="w-full"
             />
             <HelpText>
               {t('generationDefaults.topPHelp') ||
@@ -869,7 +850,6 @@ const LLMSettingsPage = () => {
             </Label>
             <Input
               id="defaultTopK"
-              fullWidth
               type="number"
               step="1"
               min="1"
@@ -894,7 +874,7 @@ const LLMSettingsPage = () => {
                   handleInputChange('defaultTopK', clamped);
                 }
               }}
-              contentRight={null}
+              className="w-full"
             />
             <HelpText>
               {t('generationDefaults.topKHelp') ||
@@ -908,7 +888,6 @@ const LLMSettingsPage = () => {
             </Label>
             <Input
               id="defaultFrequencyPenalty"
-              fullWidth
               type="number"
               step="0.05"
               min="1"
@@ -933,7 +912,7 @@ const LLMSettingsPage = () => {
                   handleInputChange('defaultFrequencyPenalty', clamped);
                 }
               }}
-              contentRight={null}
+              className="w-full"
             />
             <HelpText>
               {t('generationDefaults.frequencyPenaltyHelp') ||
@@ -943,23 +922,21 @@ const LLMSettingsPage = () => {
 
           <ButtonGroup>
             <Button
-              auto
               color="primary"
-              onClick={handleSaveGen}
-              disabled={isSavingGen}
+              onPress={handleSaveGen}
+              isDisabled={isSavingGen}
             >
               {isSavingGen ? (
                 <>
-                  <Loading size="sm" color="white" /> {t('buttons.saving')}
+                  <Spinner size="sm" className="text-white" />{' '}
+                  {t('buttons.saving')}
                 </>
               ) : (
                 t('buttons.save') || 'Save Generation Defaults'
               )}
             </Button>
             <Button
-              auto
-              color="default"
-              onClick={() => {
+              onPress={() => {
                 setFormData({
                   ...formData,
                   defaultTemperature: 0.7,

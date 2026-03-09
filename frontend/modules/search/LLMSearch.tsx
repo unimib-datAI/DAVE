@@ -1,4 +1,4 @@
-import { SwitchEvent, Tooltip, Switch, Button } from '@nextui-org/react';
+import { SwitchEvent, Tooltip, Switch, Button } from '@heroui/react';
 import { MessageSquareDashed, Code, X } from 'lucide-react';
 import { forwardRef, useState } from 'react';
 import { ChatPanel } from './ChatPanel';
@@ -71,15 +71,15 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
             <Tooltip content="Dev mode" placement="bottom" color="invert">
               <Switch
                 onChange={handleModeChange}
-                icon={<Code />}
+                thumbIcon={<Code size={12} />}
                 color="success"
-                size="xl"
+                size="lg"
               />
             </Tooltip>
             <Button
               auto
-              className="bg-slate-950"
-              iconRight={<X size={20} />}
+              className="bg-slate-950 text-white"
+              endContent={<X size={16} />}
               onClick={onClose}
             >
               Close

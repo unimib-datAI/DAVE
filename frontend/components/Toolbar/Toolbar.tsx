@@ -1,6 +1,5 @@
 import { useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
-import { Avatar, Card, Grid, Popover } from '@nextui-org/react';
 import Link from 'next/link';
 import { Button } from '../Button';
 import { FiHome } from '@react-icons/all-files/fi/FiHome';
@@ -58,12 +57,12 @@ const Toolbar = () => {
             <FiHome style={{ marginRight: 8 }} /> DAVE
           </Logo>
         </Link>
-        <Grid.Container direction="row" css={{ width: 'auto', gap: '10px' }}>
+        <div style={{ display: 'flex', flexDirection: 'row', gap: '10px' }}>
           <Link href="/documents" passHref>
             <LinkButton>{t('toolbar.browseDocs')}</LinkButton>
           </Link>
           <LoginAvatar />
-        </Grid.Container>
+        </div>
       </Nav>
     </Container>
   );

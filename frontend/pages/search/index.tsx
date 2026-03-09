@@ -127,7 +127,12 @@ const Search = () => {
         token,
       },
     ],
-    { enabled: !!(activeCollection && activeCollection.id) }
+    {
+      enabled: !!(activeCollection && activeCollection.id),
+      staleTime: Infinity, // never re-fetch automatically
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+    }
   );
 
   // Normalize cached facets into `{ annotations, metadata }` shape for components
@@ -337,7 +342,7 @@ const Search = () => {
           <form onSubmit={onSubmit(handleSubmit)} className="mb-4">
             <Searchbar {...register('text')} loading={isFetching} />
           </form>
-          <h2>{t('documents')}</h2>
+          <h2 className="text-2xl font-bold">{t('documents')}</h2>
         </div>
         <motion.div
           style={{ ...(isFetching && { pointerEvents: 'none' }) }}
@@ -373,8 +378,8 @@ const Search = () => {
             className="flex-grow flex flex-col gap-4 p-6"
             style={{ zIndex: 5 }}
           >
-            <div className="flex flex-col sticky top-16 bg-white py-6">
-              <h4>
+            <div className="flex flex-col sticky top-16 bg-white py-6 z-10">
+              <h4 className="text-lg font-semibold">
                 {`${data.pages[0].pagination.total_hits} ${t('results')}`}
                 {text &&
                   typeof text === 'string' &&
@@ -383,15 +388,28 @@ const Search = () => {
               </h4>
               {selectedFilters && selectedFilters.length > 0 && (
                 <div className="flex flex-row flex-wrap gap-2 mt-2">
-                  {selectedFilters.map((selectedFilter) => (
+                  {
+                    // Group selected filters by their display_name so chips with
+                    // identical names are shown once. Clearing a grouped chip
+                    // will remove all filters having that display_name.
+                  }
+                  {Object.entries(
+                    (selectedFilters || []).reduce((acc: any, f: any) => {
+                      const name = (f && f.display_name) || '';
+                      if (!acc[name]) acc[name] = [];
+                      acc[name].push(f.id_ER);
+                      return acc;
+                    }, {})
+                  ).map(([displayName, ids]) => (
                     <FilterChip
-                      key={selectedFilter.id_ER}
-                      value={selectedFilter.display_name}
+                      key={String(displayName) + ids.join('-')}
+                      value={displayName}
                       handleClear={() =>
+                        // remove all filters that have this display name
                         setSelectedFilters(
                           (selectedFilters || [])
                             .filter(
-                              (filter) => filter.id_ER !== selectedFilter.id_ER
+                              (filter) => filter.display_name !== displayName
                             )
                             .map((f) => f.id_ER)
                         )

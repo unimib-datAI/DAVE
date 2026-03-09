@@ -1,12 +1,6 @@
 import { ToolbarLayout, useText } from '@/components';
 import { useContext, useMutation, useQuery } from '@/utils/trpc';
-import {
-  Button,
-  Container,
-  Loading,
-  Text,
-  Pagination,
-} from '@nextui-org/react';
+import { Button, Pagination, Spinner } from '@heroui/react';
 import { NextPage } from 'next';
 import { useSession, getSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
@@ -21,6 +15,12 @@ import { activeCollectionAtom, collectionsAtom } from '@/atoms/collection';
 import { UploadDocumentsModal } from '@/components/UploadDocumentsModal';
 import { uploadModalOpenAtom } from '@/atoms/upload';
 import { GetServerSideProps } from 'next';
+const PageContainer = styled.div`
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+`;
+
 const Header = styled.div`
   display: flex;
   flex-direction: column;
@@ -174,16 +174,16 @@ const Collection: NextPage = () => {
   if (status === 'loading' || isLoading) {
     return (
       <ToolbarLayout>
-        <Container>
-          <Loading size="lg" />
-        </Container>
+        <PageContainer>
+          <Spinner size="lg" />
+        </PageContainer>
       </ToolbarLayout>
     );
   }
 
   return (
     <ToolbarLayout>
-      <Container>
+      <PageContainer>
         <Header>
           <div
             style={{
@@ -194,21 +194,26 @@ const Collection: NextPage = () => {
             }}
           >
             <Button
-              auto
-              icon={<FiArrowLeft />}
+              color="primary"
+              startContent={<FiArrowLeft />}
               onPress={() => router.push('/collections')}
             >
               {t('backToCollections')}
             </Button>
-            <Button auto flat onPress={() => setTypesModalOpen(true)}>
+            <Button
+              variant="flat"
+              style={{ color: 'black' }}
+              onPress={() => setTypesModalOpen(true)}
+              color="secondary"
+            >
               {t('editCollectionConfig') || 'Edit collection config'}
             </Button>
           </div>
-          <Text h2>
+          <h2 className="text-2xl font-bold mt-4">
             {t('collectionDocuments', {
               name: currentCollectionName || t('untitled'),
             })}
-          </Text>
+          </h2>
         </Header>
 
         <TableWrapper>
@@ -238,7 +243,7 @@ const Collection: NextPage = () => {
                       {docInfo.id.slice(0, 10) + '...'}
                     </td>
                     <td style={{ padding: '8px', verticalAlign: 'top' }}>
-                      <Text>{docInfo.name}</Text>
+                      <span>{docInfo.name}</span>
                     </td>
                     <td
                       style={{
@@ -247,11 +252,11 @@ const Collection: NextPage = () => {
                         maxWidth: 500,
                       }}
                     >
-                      <Text css={{ maxWidth: '500px' }}>
+                      <span style={{ maxWidth: 500, display: 'block' }}>
                         {docInfo.preview
                           ? docInfo.preview.slice(0, 50) + '...'
                           : t('noPreview')}
-                      </Text>
+                      </span>
                     </td>
                     <td style={{ padding: '8px', verticalAlign: 'top' }}>
                       <Popconfirm
@@ -262,11 +267,10 @@ const Collection: NextPage = () => {
                         onConfirm={() => handleDeleteDocument(docInfo.id)}
                       >
                         <Button
-                          auto
                           style={{ margin: 'auto' }}
                           size="sm"
-                          color="error"
-                          flat
+                          color="danger"
+                          variant="flat"
                         >
                           <FiTrash2 />
                         </Button>
@@ -366,12 +370,13 @@ const Collection: NextPage = () => {
         </Modal>
         <UploadDocumentsModal doneUploading={refetch} collectionId={id} />
         <Button
-          style={{ zIndex: 1, backgroundColor: '#0070f3', marginTop: 15 }}
+          color="primary"
+          style={{ zIndex: 1, marginTop: 15 }}
           onPress={() => setUploadModalOpen(true)}
         >
           {t('uploadAnnotatedDocuments')}
         </Button>
-      </Container>
+      </PageContainer>
     </ToolbarLayout>
   );
 };

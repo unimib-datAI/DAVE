@@ -3,7 +3,7 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/router';
 import styled from '@emotion/styled';
 import { signIn, useSession, getSession } from 'next-auth/react';
-import { Card, Text, Spacer } from '@nextui-org/react';
+// Use a local styled card to reproduce previous visual layout
 import { Button } from '@/components';
 import { useText } from '@/components/TranslationProvider';
 import { isAuthDisabled, getAuthRedirectUrl } from '@/utils/auth';
@@ -24,6 +24,18 @@ const Box = styled.div`
   flex-direction: column;
   gap: 16px;
   align-items: center;
+`;
+
+const SignCard = styled.div`
+  max-width: 500px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 `;
 
 /**
@@ -65,26 +77,24 @@ const Login: NextPage<{}> = () => {
 
   return (
     <Container>
-      <Card css={{ maxWidth: '500px', margin: '0 auto', padding: '32px 24px' }}>
+      <SignCard>
         <Box>
-          <Text h2 css={{ textAlign: 'center', marginBottom: '8px' }}>
-            {t('title')}
-          </Text>
-          <Text css={{ textAlign: 'center', color: '$gray600' }}>
+          <h2 style={{ textAlign: 'center', marginBottom: 8 }}>{t('title')}</h2>
+          <p style={{ textAlign: 'center', color: '#6b7280' }}>
             {t('subtitle')}
-          </Text>
-          <Spacer y={1} />
+          </p>
+          <div style={{ height: 8 }} />
 
           {error && (
             <>
-              <Text color="error" css={{ textAlign: 'center' }}>
+              <p style={{ textAlign: 'center', color: 'red' }}>
                 {error === 'OAuthCallback'
                   ? t('errors.authFailed')
                   : error === 'AccessDenied'
                   ? t('errors.accessDenied')
                   : t('errors.genericError')}
-              </Text>
-              <Spacer y={0.5} />
+              </p>
+              <div style={{ height: 4 }} />
             </>
           )}
 
@@ -92,19 +102,23 @@ const Login: NextPage<{}> = () => {
             onClick={handleSignIn}
             disabled={status === 'loading' || status === 'authenticated'}
             loading={status === 'loading'}
-            css={{ width: '100%' }}
+            style={{ width: '100%' }}
           >
             {status === 'loading' ? t('button.signingIn') : t('button.signIn')}
           </Button>
 
-          <Text
-            size="$sm"
-            css={{ textAlign: 'center', color: '$gray500', marginTop: '8px' }}
+          <p
+            style={{
+              textAlign: 'center',
+              color: '#9ca3af',
+              marginTop: 8,
+              fontSize: '0.875rem',
+            }}
           >
             {t('redirectMessage')}
-          </Text>
+          </p>
         </Box>
-      </Card>
+      </SignCard>
     </Container>
   );
 };

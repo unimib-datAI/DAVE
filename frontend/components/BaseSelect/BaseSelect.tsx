@@ -1,13 +1,7 @@
 import { useClickOutside, useInput, useWindowEventListener } from '@/hooks';
 import { removeStopScroll, stopScroll } from '@/utils/shared';
 import styled from '@emotion/styled';
-import {
-  Card,
-  Checkbox,
-  FormElement,
-  Input,
-  InputProps,
-} from '@nextui-org/react';
+import { Checkbox, Input, InputProps } from '@heroui/react';
 import { FiChevronDown } from '@react-icons/all-files/fi/FiChevronDown';
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
 import {
@@ -51,7 +45,7 @@ const Container = styled.div({
   flexDirection: 'column',
 });
 
-const PopoverContainer = styled(Card)<{ anchor: Anchor; onTop?: boolean }>(
+const PopoverContainer = styled.div<{ anchor: Anchor; onTop?: boolean }>(
   ({ anchor, onTop }) => ({
     position: 'fixed',
     display: 'flex',
@@ -68,6 +62,10 @@ const PopoverContent = styled.div({
   display: 'flex',
   flexDirection: 'column',
   overflowY: 'auto',
+  background: '#FFFFFF',
+  border: '1px solid rgba(0,0,0,0.1)',
+  borderRadius: '8px',
+  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
   '::-webkit-scrollbar': {
     height: '4px',
     width: '4px',
@@ -276,11 +274,9 @@ const BaseSelect = ({
           {...inputProps}
           autoComplete="off"
           spellCheck="false"
-          contentRight={<FiChevronDown />}
+          endContent={<FiChevronDown />}
           value={prerenderValue()}
-          css={{
-            caretColor: 'transparent',
-          }}
+          style={{ caretColor: 'transparent' }}
         />
       </Container>
       {popoverAnchor && (
@@ -295,12 +291,9 @@ const BaseSelect = ({
                 <Input
                   autoFocus
                   aria-label="Filter select items"
-                  bordered
+                  variant="bordered"
                   placeholder="Filter items"
-                  fullWidth
-                  shadow={false}
-                  animated={false}
-                  contentRight={<FiSearch />}
+                  endContent={<FiSearch />}
                   {...searchBinds}
                 />
               </ContainerSearch>

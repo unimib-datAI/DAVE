@@ -1,24 +1,24 @@
-import { Candidate } from "@/server/routers/document";
-import { useQuery } from "@/utils/trpc";
-import styled from "@emotion/styled";
-import { Collapse, Checkbox, Col, Text, Link } from "@nextui-org/react";
-import { FiArrowUpRight } from "@react-icons/all-files/fi/FiArrowUpRight";
-import { useState, useEffect, useMemo } from "react";
+import { Candidate } from '@/server/routers/document';
+import { useQuery } from '@/utils/trpc';
+import styled from '@emotion/styled';
+import { Collapse, Checkbox, Text, Link } from '@heroui/react';
+import { FiArrowUpRight } from '@react-icons/all-files/fi/FiArrowUpRight';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
-import Skeleton from 'react-loading-skeleton'
-import 'react-loading-skeleton/dist/skeleton.css'
-import { getCandidateId } from "../DocumentProvider/utils";
+import Skeleton from 'react-loading-skeleton';
+import 'react-loading-skeleton/dist/skeleton.css';
+import { getCandidateId } from '../DocumentProvider/utils';
 
 type AnnotationLinkCollapseContentProps = {
   candidate: Candidate;
   fetchData: boolean;
-}
+};
 
 const AnnotationLinkCollapseContainer = styled.div({
   display: 'flex',
   flexDirection: 'column',
-  gap: '10px'
-})
+  gap: '10px',
+});
 
 const ImgContainer = styled.div({
   position: 'relative',
@@ -26,15 +26,20 @@ const ImgContainer = styled.div({
   height: '120px',
   borderRadius: '4px',
   border: '1px solid rgba(0,0,0,0.1)',
-  overflow: 'hidden'
-})
+  overflow: 'hidden',
+});
 
 const Row = styled.div({
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
-  gap: '10px'
-})
+  gap: '10px',
+});
+
+const ColDiv = styled.div({
+  display: 'flex',
+  flexDirection: 'column',
+});
 
 const AnnotationLinkCollapseContentSkeleton = () => {
   return (
@@ -44,16 +49,21 @@ const AnnotationLinkCollapseContentSkeleton = () => {
       <Skeleton width="60%" height="5px" />
       <Skeleton width="70%" height="5px" />
     </>
+  );
+};
 
-  )
-}
-
-const AnnotationLinkCollapseContent = ({ candidate, fetchData }: AnnotationLinkCollapseContentProps) => {
+const AnnotationLinkCollapseContent = ({
+  candidate,
+  fetchData,
+}: AnnotationLinkCollapseContentProps) => {
   const { id, indexer } = candidate;
-  const { data, isLoading } = useQuery(['annotation.getAnnotationDetails', { id, indexer }], {
-    staleTime: Infinity,
-    enabled: fetchData
-  });
+  const { data, isLoading } = useQuery(
+    ['annotation.getAnnotationDetails', { id, indexer }],
+    {
+      staleTime: Infinity,
+      enabled: fetchData,
+    }
+  );
 
   return (
     <AnnotationLinkCollapseContainer>
@@ -61,31 +71,37 @@ const AnnotationLinkCollapseContent = ({ candidate, fetchData }: AnnotationLinkC
         <>
           {data.thumbnail && (
             <ImgContainer>
-              <Image alt="" layout="fill" src={data.thumbnail.source} objectFit="cover" />
+              <Image
+                alt=""
+                layout="fill"
+                src={data.thumbnail.source}
+                objectFit="cover"
+              />
             </ImgContainer>
           )}
-          <Text>
-            {data.extract}
-          </Text>
+          <Text>{data.extract}</Text>
         </>
-      ) : <AnnotationLinkCollapseContentSkeleton />}
-
+      ) : (
+        <AnnotationLinkCollapseContentSkeleton />
+      )}
     </AnnotationLinkCollapseContainer>
-  )
-}
-
+  );
+};
 
 type AnnotationLinkDetailsProps = {
   candidates: Candidate[] | undefined;
   selectedId?: string;
-}
+};
 
-const AnnotationLinkDetails = ({ selectedId, candidates }: AnnotationLinkDetailsProps) => {
+const AnnotationLinkDetails = ({
+  selectedId,
+  candidates,
+}: AnnotationLinkDetailsProps) => {
   const [open, setOpen] = useState<string | undefined>(undefined);
 
   const handleCollapseClick = (id: string) => {
-    setOpen((s) => s === id ? undefined : id);
-  }
+    setOpen((s) => (s === id ? undefined : id));
+  };
 
   useEffect(() => {
     setOpen(selectedId);
@@ -110,7 +126,9 @@ const AnnotationLinkDetails = ({ selectedId, candidates }: AnnotationLinkDetails
 
   return (
     <>
-      <Text size={15} b>Links</Text>
+      <Text size={15} b>
+        Links
+      </Text>
       {candidates && candidates.length > 0 ? (
         <Collapse.Group css={{ padding: 0 }}>
           {candidates.map((candidate) => (
@@ -121,35 +139,49 @@ const AnnotationLinkDetails = ({ selectedId, candidates }: AnnotationLinkDetails
               css={{
                 padding: 0,
                 '& > div:first-of-type': {
-                  padding: '10px 0'
-                }
+                  padding: '10px 0',
+                },
               }}
-              title={(
+              title={
                 <Row>
-                  {selectedId === getCandidateId(candidate) && <Checkbox isSelected aria-label="True candidate" />}
-                  <Col>
-                    <Link onClick={(event) => event.stopPropagation()} href={candidate.url} target="_blank"
+                  {selectedId === getCandidateId(candidate) && (
+                    <Checkbox isSelected aria-label="True candidate" />
+                  )}
+                  <ColDiv>
+                    <Link
+                      onClick={(event) => event.stopPropagation()}
+                      href={candidate.url}
+                      target="_blank"
                       css={{
                         lineHeight: 1.2,
                         fontSize: '14px',
                         display: 'inline-flex',
                         flexDirection: 'row',
                         alignItems: 'center',
-                      }}>
+                      }}
+                    >
                       {candidate.title}
                       <FiArrowUpRight />
                     </Link>
                     <Text size={12}>Score: {candidate.score.toFixed(2)}</Text>
-                  </Col>
+                  </ColDiv>
                 </Row>
-              )}>
-              <AnnotationLinkCollapseContent candidate={candidate} fetchData={open === getCandidateId(candidate)} />
+              }
+            >
+              <AnnotationLinkCollapseContent
+                candidate={candidate}
+                fetchData={open === getCandidateId(candidate)}
+              />
             </Collapse>
           ))}
         </Collapse.Group>
-      ) : <Text css={{ color: 'rgba(0,0,0,0.6)', lineHeight: 1.2 }}>This annotation has not been linked to anything yet.</Text>}
+      ) : (
+        <Text css={{ color: 'rgba(0,0,0,0.6)', lineHeight: 1.2 }}>
+          This annotation has not been linked to anything yet.
+        </Text>
+      )}
     </>
-  )
-}
+  );
+};
 
 export default AnnotationLinkDetails;

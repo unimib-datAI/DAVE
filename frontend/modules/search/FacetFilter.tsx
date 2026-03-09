@@ -1,6 +1,6 @@
 import { useForm } from '@/hooks';
 import { Facet } from '@/server/routers/search';
-import { Checkbox } from '@nextui-org/react';
+import { Checkbox } from '@heroui/react';
 
 import { Option } from 'lucide-react';
 import { Link, Link2, SearchIcon } from 'lucide-react';
@@ -274,8 +274,8 @@ const FacetFilter = ({
                 )
               }
               value={option.display_name}
-              onChange={(checked) => {
-                handleChecked(checked, option.key, option.ids_ER, option);
+              onValueChange={(isSelected) => {
+                handleChecked(isSelected, option.key, option.ids_ER, option);
               }}
             >
               <div className="flex flex-row items-center gap-1">

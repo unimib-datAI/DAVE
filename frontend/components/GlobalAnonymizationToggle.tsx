@@ -4,7 +4,7 @@ import {
   isLoadingAnonymizationAtom,
 } from '@/utils/atoms';
 import { Eye, EyeOff } from 'lucide-react';
-import { Loading } from '@nextui-org/react';
+import { Spinner } from '@heroui/react';
 
 export function GlobalAnonymizationToggle() {
   const [isAnonymized, setIsAnonymized] = useAtom(globalAnonymizationAtom);
@@ -33,7 +33,7 @@ export function GlobalAnonymizationToggle() {
       }
     >
       {isLoading ? (
-        <Loading size="xs" />
+        <Spinner size="sm" />
       ) : !isAnonymized ? (
         <Eye size={18} />
       ) : (
