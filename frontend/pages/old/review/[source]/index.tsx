@@ -1,7 +1,7 @@
 import { Source, SourceDoc } from '@/server/routers/review';
 import { useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
-import { Row, Text } from '@heroui/react';
+
 import { FiFile } from '@react-icons/all-files/fi/FiFile';
 import { FiCheck } from '@react-icons/all-files/fi/FiCheck';
 import { FiChevronLeft } from '@react-icons/all-files/fi/FiChevronLeft';
@@ -89,9 +89,9 @@ const Folder = ({ id, name, nAnnotations, done }: FolderProps) => {
             <FiFile />
           </FolderIconContainer>
           <FolderContent>
-            <Text
-              size="16px"
-              css={{
+            <span
+              style={{
+                fontSize: '16px',
                 fontWeight: 500,
                 textOverflow: 'ellipsis',
                 overflow: 'hidden',
@@ -100,11 +100,10 @@ const Folder = ({ id, name, nAnnotations, done }: FolderProps) => {
               }}
             >
               {name}
-            </Text>
-            <Text
-              size="14px"
-              color="rgba(0,0,0,0.5)"
-            >{`${nAnnotations} annotations`}</Text>
+            </span>
+            <span
+              style={{ fontSize: '14px', color: 'rgba(0,0,0,0.5)' }}
+            >{`${nAnnotations} annotations`}</span>
           </FolderContent>
           {done && (
             <DoneIconContainer>

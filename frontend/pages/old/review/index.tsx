@@ -1,7 +1,7 @@
 import { Source } from '@/server/routers/review';
 import { useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
-import { Row, Text } from '@heroui/react';
+
 import { FiFolder } from '@react-icons/all-files/fi/FiFolder';
 import { FiCheck } from '@react-icons/all-files/fi/FiCheck';
 import { motion } from 'framer-motion';
@@ -86,13 +86,10 @@ const Folder = ({ id, name, total, done }: FolderProps) => {
             <FiFolder />
           </FolderIconContainer>
           <FolderContent>
-            <Text size="16px" css={{ fontWeight: 500 }}>
-              {name}
-            </Text>
-            <Text
-              size="14px"
-              color="rgba(0,0,0,0.5)"
-            >{`${done}/${total} documents`}</Text>
+            <span style={{ fontSize: '16px', fontWeight: 500 }}>{name}</span>
+            <span
+              style={{ fontSize: '14px', color: 'rgba(0,0,0,0.5)' }}
+            >{`${done}/${total} documents`}</span>
           </FolderContent>
           {isDone && (
             <DoneIconContainer>
@@ -116,16 +113,16 @@ const ReviewPage = () => {
 
   return (
     <OuterContainer>
-      <Row css={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        <Text h2>Review folders</Text>
-        <Text
-          css={{
+      <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <h2>Review folders</h2>
+        <span
+          style={{
             fontSize: '24px',
             color: 'rgba(0,0,0,0.5)',
             alignSelf: 'flex-end',
           }}
-        >{`${data?.sources.length} folders`}</Text>
-      </Row>
+        >{`${data?.sources.length} folders`}</span>
+      </div>
       <InnerContainer>
         {data?.sources.map((source) => (
           <Folder key={source.id} {...source} />

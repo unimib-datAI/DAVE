@@ -4,7 +4,7 @@ import { FlatTreeNode } from '@/components/TreeSpecialization';
 import { useForm, useParam } from '@/hooks';
 import { ContentProps } from '@/pages/old/taxonomy';
 import styled from '@emotion/styled';
-import { Input, Text } from '@heroui/react';
+import { Input } from '@heroui/react';
 import { FocusEvent, useEffect, useRef, useState } from 'react';
 import Description from './Description';
 import { useSelector, useTaxonomyDispatch } from './TaxonomyProvider/selectors';
@@ -98,7 +98,7 @@ const NodeManagement = ({
       </Row>
       {(taxonomyNode.parent || addNode) && (
         <>
-          <Text>{`Aggiungi i termini più rappresentativi per il tipo:`}</Text>
+          <span>{`Aggiungi i termini più rappresentativi per il tipo:`}</span>
           <TagList {...register('terms')} />
         </>
       )}
