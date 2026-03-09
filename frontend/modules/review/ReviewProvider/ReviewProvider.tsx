@@ -25,7 +25,11 @@ const reviewInitialState: State = {
 };
 
 const ReviewProvider = ({ children }: PropsWithChildren<{}>) => {
-  const store = useMemo(() => createStore(), []);
+  const store = useMemo(() => {
+    const s = createStore();
+    s.set(reviewStateAtom, reviewInitialState);
+    return s;
+  }, []);
   const [sourceId, routerReady] = useParam<string>('source');
   const [docId] = useParam<string>('doc');
   const { data: sourceData, isFetching: isFetchingSource } = useQuery(

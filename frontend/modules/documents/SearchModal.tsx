@@ -3,7 +3,7 @@ import useDebounce from '@/hooks/use-debounce';
 import { GetPaginatedDocuments } from '@/server/routers/document';
 import { useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
-import { Spinner } from '@heroui/react';
+import { Modal, ModalContent, ModalBody, Spinner } from '@heroui/react';
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
 import { FiFile } from '@react-icons/all-files/fi/FiFile';
 import { FiArrowUpRight } from '@react-icons/all-files/fi/FiArrowUpRight';
@@ -97,15 +97,15 @@ const ResultItem = ({ doc }: ResultItemProps) => {
     <Link href={`/documents/${doc.id}`}>
       <ResultItemContainer>
         <FiFile />
-        <Text
-          css={{
+        <span
+          style={{
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
           }}
         >
           {doc.name}
-        </Text>
+        </span>
         <ItemActionsContainer>
           <FiArrowUpRight size={18} />
         </ItemActionsContainer>
@@ -133,7 +133,7 @@ const ResultList = ({ docs }: ResultListProps) => {
   );
 };
 
-const ModalContent = () => {
+const SearchContent = () => {
   const t = useText('documents');
   const { binds } = useInput();
   const debouncedFilter = useDebounce(binds.value, 500);
@@ -153,7 +153,7 @@ const ModalContent = () => {
     if (isFetching) {
       return (
         <LoadingEmptyBody>
-          <Loading size="md" />
+          <Spinner size="md" />
         </LoadingEmptyBody>
       );
     }
@@ -163,9 +163,9 @@ const ModalContent = () => {
     if (data.docs.length === 0) {
       return (
         <LoadingEmptyBody>
-          <Text size={24} css={{ color: 'rgba(0,0,0,0.5)' }}>
+          <span style={{ fontSize: '24px', color: 'rgba(0,0,0,0.5)' }}>
             {t('modals.noResults')}
-          </Text>
+          </span>
         </LoadingEmptyBody>
       );
     }
@@ -189,10 +189,14 @@ const ModalContent = () => {
   );
 };
 
-const SearchModal = (props: SearchModalProps) => {
+const SearchModal = ({ open, onClose }: SearchModalProps) => {
   return (
-    <Modal blur width="650px" {...props}>
-      <ModalContent />
+    <Modal isOpen={open} onClose={onClose} backdrop="blur" size="2xl">
+      <ModalContent>
+        <ModalBody className="p-0">
+          <SearchContent />
+        </ModalBody>
+      </ModalContent>
     </Modal>
   );
 };

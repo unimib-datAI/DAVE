@@ -1,4 +1,5 @@
 import { useText } from '@/components';
+import useModal from '@/hooks/use-modal';
 import styled from '@emotion/styled';
 import { Input } from '@heroui/react';
 import { FaSistrix } from '@react-icons/all-files/fa/FaSistrix';
