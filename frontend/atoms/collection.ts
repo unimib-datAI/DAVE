@@ -10,6 +10,7 @@ export interface Collection {
   updatedAt: string;
   config: {
     typesToHide: string[];
+    typesOrder?: string[];
   };
 }
 

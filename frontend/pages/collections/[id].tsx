@@ -4,17 +4,41 @@ import { Button, Pagination, Spinner } from '@heroui/react';
 import { NextPage } from 'next';
 import { useSession, getSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, ReactNode } from 'react';
 import { FiArrowLeft } from '@react-icons/all-files/fi/FiArrowLeft';
 import styled from '@emotion/styled';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { FiTrash2 } from '@react-icons/all-files/fi/FiTrash2';
-import { message, notification, Popconfirm, Modal, Select } from 'antd';
+import {
+  message,
+  notification,
+  Popconfirm,
+  Modal,
+  Select,
+  Divider,
+} from 'antd';
 import { useAtom } from 'jotai';
 import { activeCollectionAtom, collectionsAtom } from '@/atoms/collection';
 import { UploadDocumentsModal } from '@/components/UploadDocumentsModal';
 import { uploadModalOpenAtom } from '@/atoms/upload';
 import { GetServerSideProps } from 'next';
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical } from 'lucide-react';
 const PageContainer = styled.div`
   max-width: 1200px;
   margin: 0 auto;
@@ -80,6 +104,51 @@ const TableWrapper = styled.div`
     background: rgba(0, 0, 0, 0.02);
   }
 `;
+const SortableTypeItem = ({
+  id,
+  children,
+}: {
+  id: string;
+  children: ReactNode;
+}) => {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '5px 8px',
+        borderRadius: 6,
+        background: isDragging ? '#e8f0fe' : '#fafafa',
+        border: '1px solid #e8e8e8',
+        marginBottom: 4,
+        opacity: isDragging ? 0.8 : 1,
+        userSelect: 'none',
+      }}
+      {...attributes}
+    >
+      <span
+        style={{ cursor: 'grab', color: '#bbb', display: 'flex' }}
+        {...listeners}
+      >
+        <GripVertical size={14} />
+      </span>
+      {children}
+    </div>
+  );
+};
+
 const Collection: NextPage = () => {
   const t = useText('collections');
   const router = useRouter();
@@ -95,7 +164,12 @@ const Collection: NextPage = () => {
 
   const [typesModalOpen, setTypesModalOpen] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
+  const [typesOrder, setTypesOrder] = useState<string[]>([]);
   const [page, setPage] = useState(1);
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
   const pageSize = 20;
   const updateMutation = useMutation(['collection.update'], {
     onSuccess: (res) => {
@@ -164,6 +238,22 @@ const Collection: NextPage = () => {
       const initial =
         current?.config?.typesToHide || current?.collectionTypes || [];
       setSelectedTypes(Array.isArray(initial) ? initial : []);
+      const allTypes: string[] = Array.isArray(
+        (current as any)?.collectionTypes
+      )
+        ? (current as any).collectionTypes
+        : [];
+      const savedOrder: string[] = Array.isArray(current?.config?.typesOrder)
+        ? (current.config.typesOrder as string[])
+        : [];
+      if (savedOrder.length > 0) {
+        setTypesOrder([
+          ...savedOrder.filter((t) => allTypes.includes(t)),
+          ...allTypes.filter((t) => !savedOrder.includes(t)),
+        ]);
+      } else {
+        setTypesOrder([...allTypes]);
+      }
     }
   }, [allCollections, id]);
 
@@ -206,7 +296,7 @@ const Collection: NextPage = () => {
               onPress={() => setTypesModalOpen(true)}
               color="secondary"
             >
-              {t('editCollectionConfig') || 'Edit collection config'}
+              {t('editCollectionConfig')}
             </Button>
           </div>
           <h2 className="text-2xl font-bold mt-4">
@@ -292,7 +382,7 @@ const Collection: NextPage = () => {
           />
         </div>
         <Modal
-          title={t('editCollectionConfig') || 'Edit collection config'}
+          title={t('editCollectionConfig')}
           open={typesModalOpen}
           onCancel={() => setTypesModalOpen(false)}
           onOk={async () => {
@@ -306,6 +396,7 @@ const Collection: NextPage = () => {
                       config: {
                         ...(c.config || {}),
                         typesToHide: selectedTypes,
+                        typesOrder: typesOrder,
                       },
                     }
                   : c
@@ -318,6 +409,7 @@ const Collection: NextPage = () => {
                       config: {
                         ...(activeCollection.config || {}),
                         typesToHide: selectedTypes,
+                        typesOrder: typesOrder,
                       },
                     }
                   : activeCollection;
@@ -325,19 +417,22 @@ const Collection: NextPage = () => {
               try {
                 await updateMutation.mutateAsync({
                   id: id || '',
-                  config: { typesToHide: selectedTypes },
+                  config: {
+                    typesToHide: selectedTypes,
+                    typesOrder: typesOrder,
+                  },
                   token: authDisabled ? undefined : token,
                 });
                 // write atoms: update collections array and active collection
                 setAllCollections(updated);
                 setActiveCollection(newActive);
-                message.success(t('typesSaved') || 'Types saved');
+                message.success(t('typesSaved'));
               } catch (e) {
                 console.error('Failed to update collection via TRPC', e);
-                message.error(t('errorSavingTypes') || 'Error saving types');
+                message.error(t('errorSavingTypes'));
               }
             } catch (e) {
-              message.error(t('errorSavingTypes') || 'Error saving types');
+              message.error(t('errorSavingTypes'));
             } finally {
               setTypesModalOpen(false);
             }
@@ -345,14 +440,14 @@ const Collection: NextPage = () => {
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
             <label htmlFor="types-select" style={{ minWidth: 150 }}>
-              {t('typesToHide') || 'Types to hide'}
+              {t('typesToHide')}
             </label>
             <div style={{ flex: 1 }}>
               <Select
                 id="types-select"
                 mode="multiple"
                 style={{ width: '100%' }}
-                placeholder={t('selectTypes') || 'Select types'}
+                placeholder={t('selectTypes')}
                 value={selectedTypes}
                 onChange={(v) => setSelectedTypes(Array.isArray(v) ? v : [])}
               >
@@ -366,6 +461,38 @@ const Collection: NextPage = () => {
                 ))}
               </Select>
             </div>
+          </div>
+          <Divider style={{ margin: '16px 0 12px' }} />
+          <div>
+            <div style={{ fontWeight: 500, marginBottom: 8 }}>
+              {t('typesOrder')}
+            </div>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={({ active, over }) => {
+                if (over && active.id !== over.id) {
+                  setTypesOrder((old) =>
+                    arrayMove(
+                      old,
+                      old.indexOf(String(active.id)),
+                      old.indexOf(String(over.id))
+                    )
+                  );
+                }
+              }}
+            >
+              <SortableContext
+                items={typesOrder}
+                strategy={verticalListSortingStrategy}
+              >
+                {typesOrder.map((type) => (
+                  <SortableTypeItem key={type} id={type}>
+                    <span style={{ fontSize: 13 }}>{type}</span>
+                  </SortableTypeItem>
+                ))}
+              </SortableContext>
+            </DndContext>
           </div>
         </Modal>
         <UploadDocumentsModal doneUploading={refetch} collectionId={id} />

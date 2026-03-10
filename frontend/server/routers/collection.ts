@@ -210,7 +210,10 @@ export const collections = createRouter()
       name: z.string().min(1).optional(),
       allowedUserIds: z.array(z.string()).optional(),
       config: z
-        .object({ typesToHide: z.array(z.string()).optional() })
+        .object({
+          typesToHide: z.array(z.string()).optional(),
+          typesOrder: z.array(z.string()).optional(),
+        })
         .optional(),
       token: z.string().optional(),
     }),
