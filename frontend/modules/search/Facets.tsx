@@ -362,6 +362,23 @@ const Facets = ({
 
     return sorted;
   }, [allFacets, value.filter]);
+
+  // Apply collection typesOrder when no text filter is active
+  const orderedFacets = useMemo(() => {
+    const typesOrder = (collection?.config as any)?.typesOrder as
+      | string[]
+      | undefined;
+    if (!typesOrder || typesOrder.length === 0 || value.filter.trim() !== '') {
+      return filteredFacets;
+    }
+    const orderMap = new Map(typesOrder.map((t, i) => [t.toLowerCase(), i]));
+    return [...filteredFacets].sort((a, b) => {
+      const ai = orderMap.get((a.key || '').toLowerCase()) ?? Infinity;
+      const bi = orderMap.get((b.key || '').toLowerCase()) ?? Infinity;
+      return (ai as number) - (bi as number);
+    });
+  }, [filteredFacets, collection?.config, value.filter]);
+
   useEffect(() => {
     console.log('filtered facets', filteredFacets);
   }, [filteredFacets]);
@@ -392,7 +409,7 @@ const Facets = ({
             </div>
           </div>
 
-          {filteredFacets.map(({ filterType, ...facet }) => {
+          {orderedFacets.map(({ filterType, ...facet }) => {
             if (
               !collection?.config ||
               !collection?.config.typesToHide ||

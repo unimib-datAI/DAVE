@@ -130,6 +130,12 @@ export type Translation = {
     cancel: string;
     update: string;
     create: string;
+    editCollectionConfig: string;
+    typesToHide: string;
+    selectTypes: string;
+    typesSaved: string;
+    errorSavingTypes: string;
+    typesOrder: string;
   };
   chat: {
     initialMessage: string;

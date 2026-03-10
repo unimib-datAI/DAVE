@@ -136,6 +136,12 @@ const t: Translation = {
     cancel: 'Annulla',
     update: 'Aggiorna',
     create: 'Crea',
+    editCollectionConfig: 'Modifica configurazione collezione',
+    typesToHide: 'Tipi da nascondere',
+    selectTypes: 'Seleziona tipi',
+    typesSaved: 'Tipi salvati',
+    errorSavingTypes: 'Errore nel salvataggio dei tipi',
+    typesOrder: 'Ordine dei filtri facet',
   },
   chat: {
     initialMessage: 'Ciao, come posso aiutarti?',
