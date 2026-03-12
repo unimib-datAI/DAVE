@@ -2,7 +2,8 @@ import { Flex, useText } from '@/components';
 import { BaseSelect, Option } from '@/components/BaseSelect';
 import { useForm } from '@/hooks';
 import styled from '@emotion/styled';
-import { Button, Input, Modal, Text } from '@nextui-org/react';
+import { Button, Input, Modal } from '@heroui/react';
+import Text from '@/components/HtmlText';
 import {
   selectAllEntityAnnotationSets,
   selectNewAnnotationModalOpen,

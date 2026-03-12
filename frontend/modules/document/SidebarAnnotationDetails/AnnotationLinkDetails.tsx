@@ -4,7 +4,9 @@ import {
   Candidate,
 } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Collapse, Link, Text } from '@nextui-org/react';
+import { Link } from '@heroui/react';
+import { useState, ReactNode } from 'react';
+import Text from '@/components/HtmlText';
 import { useMemo } from 'react';
 import { useText } from '@/components';
 
@@ -50,15 +52,7 @@ const ListAdditionalCandidates = ({
 }: ListAdditionalCandidatesProps) => {
   const t = useText('document');
   return (
-    <Collapse
-      title={<Text size={15}>{t('otherCandidates')}</Text>}
-      css={{
-        padding: 0,
-        '& > div:first-of-type': {
-          padding: '10px 0',
-        },
-      }}
-    >
+    <Collapsible title={<Text size={15}>{t('otherCandidates')}</Text>}>
       <List>
         {candidates.map((candidate, index) => (
           <ListItemContainer key={candidate.url}>
@@ -81,7 +75,27 @@ const ListAdditionalCandidates = ({
           </ListItemContainer>
         ))}
       </List>
-    </Collapse>
+    </Collapsible>
+  );
+};
+
+type CollapsibleProps = {
+  title: ReactNode;
+  children: ReactNode;
+};
+
+const Collapsible = ({ title, children }: CollapsibleProps) => {
+  const [open, setOpen] = useState(true);
+  return (
+    <div style={{ padding: 0 }}>
+      <div
+        onClick={() => setOpen((s) => !s)}
+        style={{ cursor: 'pointer', padding: '10px 0' }}
+      >
+        {title}
+      </div>
+      {open ? <div>{children}</div> : null}
+    </div>
   );
 };
 

@@ -1,5 +1,4 @@
 import styled from '@emotion/styled';
-import { Button, Col, Divider, Text } from '@nextui-org/react';
 import TextAnnotationDetails from './AnnotationTextDetails';
 import AnnotationLinkDetails from './AnnotationLinkDetails';
 import { EditAnnotationModal } from './EditAnnotationModal';
@@ -15,6 +14,7 @@ import { getCandidateId } from '../DocumentProvider/utils';
 import { Flex, IconButton, useText } from '@/components';
 import { FiX } from '@react-icons/all-files/fi/FiX';
 import { useDocumentEventListener } from '@/hooks';
+import { Button } from '@heroui/react';
 
 type AnnotationDetailsProps = {
   annotation: EntityAnnotation;
@@ -97,31 +97,33 @@ const AnnotationDetailsContent = ({ annotation }: AnnotationDetailsProps) => {
     <>
       <Container>
         <DetailsContainer>
-          <Col>
+          <div>
             <Flex
               direction="row"
               alignItems="center"
               justifyContent="space-between"
             >
-              <Text b size={18}>
+              <strong style={{ fontSize: '18px' }}>
                 {t('rightSidebar.title')}
-              </Text>
+              </strong>
               <IconButton onClick={handleCloseClick}>
                 <FiX size={16} />
               </IconButton>
             </Flex>
 
-            <Text
-              css={{
+            <span
+              style={{
                 fontSize: '16px',
                 lineHeight: '1',
                 color: 'rgba(0,0,0,0.5)',
               }}
             >
               {t('rightSidebar.description')}
-            </Text>
-          </Col>
-          <Divider />
+            </span>
+          </div>
+          <hr
+            style={{ border: 'none', borderTop: '1px solid rgba(0,0,0,0.1)' }}
+          />
           <TextAnnotationDetails text={text} annotation={annotation} />
           {/* <Divider /> */}
           {/* {`NIL: ${linkingFeatures?.is_nil}`} */}
@@ -129,7 +131,13 @@ const AnnotationDetailsContent = ({ annotation }: AnnotationDetailsProps) => {
           <AnnotationLinkDetails annotationFeatures={annotationFeatures} />
         </DetailsContainer>
         <ButtonContainer>
-          <Button onClick={() => setVisible(true)}>
+          <Button
+            color="primary"
+            onPress={() => {
+              console.log('pressed');
+              setVisible(true);
+            }}
+          >
             {t('rightSidebar.editBtn')}
           </Button>
         </ButtonContainer>

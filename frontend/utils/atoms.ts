@@ -12,7 +12,8 @@ export const isLoadingAnonymizationAtom = atom<boolean>(false);
 export const documentPageAtom = atom<number>(1);
 export const documentTextAtom = atom<string>('');
 export const facetsDocumentsAtom = atom<FacetedQueryHit[]>([]);
-export const selectedFiltersAtom = atom<string[]>([]);
+export type SelectedFilter = { id_ER: string; display_name: string };
+export const selectedFiltersAtom = atom<SelectedFilter[]>([]);
 
 // `deanonymizeFacetsAtom` is now a derived writable atom that maps to the global anonymization toggle.
 // - `globalAnonymizationAtom` = true  -> documents/facets are anonymized

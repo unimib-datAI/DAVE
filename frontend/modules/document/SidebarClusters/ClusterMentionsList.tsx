@@ -1,6 +1,5 @@
 import { Cluster, EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Text } from '@nextui-org/react';
 import { Fragment, MouseEvent, useState, useCallback } from 'react';
 import { scrollEntityIntoView } from '../DocumentProvider/utils';
 import { FiArrowRight } from '@react-icons/all-files/fi/FiArrowRight';

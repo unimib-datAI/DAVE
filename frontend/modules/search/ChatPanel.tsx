@@ -1,9 +1,9 @@
 import { Slider } from '@/components/Slider';
 import { useForm } from '@/hooks';
-import { Switch, Tooltip } from '@nextui-org/react';
+import { Button, Switch, Tooltip } from '@heroui/react';
 import { Select } from 'antd';
 import { Message, SkeletonMessage } from './Message';
-import { Button } from '@/components';
+// import { Button } from '@/components';
 import {
   GenerateOptions,
   useChat,
@@ -76,8 +76,10 @@ const Resources = ({ documents, isLoading }: ResourcesProps) => {
                   {urlToPathArray(`/documents/${doc.id}`).join(' > ')}
                 </span>
               </div>
-              <Link href={`/documents/${doc.id}`} passHref>
-                <a className="underline text-blue-500 text-xs">{doc.title}</a>
+              <Link href={`/documents/${doc.id}`}>
+                <span className="underline text-blue-500 text-xs">
+                  {doc.title}
+                </span>
               </Link>
               <div className="text-xs">{doc.preview}</div>
             </div>
@@ -182,12 +184,13 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
     if (currentUrl.includes('search') && formValues.useCurrentDocumentContext) {
       // Filter documents that have annotations matching the selected filters
       if (selectedFilters.length > 0) {
+        const selectedIds = selectedFilters.map((f: any) => f.id_ER);
         filterIds = facetedDocuemnts
           .filter(
             (doc) =>
               Array.isArray(doc.annotations) &&
               doc.annotations.some((ann: any) =>
-                selectedFilters.includes(ann.id_ER)
+                selectedIds.includes(ann.id_ER)
               )
           )
           .map((doc) => doc.id.toString());
@@ -273,7 +276,7 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
             <div className="flex flex-row items-center border-[1px] border-solid border-slate-200 rounded-md p-2 w-full gap-2">
               <input
                 disabled={chatState !== 'idle'}
-                className="text-slate-800 resize-none bg-transparent w-full h-full border-none text-sm"
+                className="text-slate-800 resize-none bg-transparent w-full h-full border-none text-sm outline-none focus:outline-none focus:ring-0"
                 spellCheck="false"
                 placeholder={t('typeQuestionPlaceholder')}
                 {...register('message')}
@@ -308,18 +311,18 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
               state={chatState}
               type="submit"
               auto={true}
-              className="bg-slate-900"
+              className="bg-slate-900 text-white flex-shrink-0 whitespace-nowrap"
             >
               {t('send')}
             </ButtonSend>
 
-            <Tooltip content={t('resetChat')} color="invert">
+            <Tooltip content={t('resetChat')}>
               <Button
+                color="primary"
                 disabled={isStreaming}
                 type="button"
-                onClick={restartChat}
-                auto={true}
-                className="bg-slate-900"
+                onPress={restartChat}
+                className="bg-slate-900 text-white"
               >
                 <RotateCcw />
               </Button>

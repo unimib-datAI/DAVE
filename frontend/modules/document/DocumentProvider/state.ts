@@ -158,7 +158,7 @@ export const initialUIState: Omit<UIState, 'taxonomy'> = {
   // taxonomy: flattenTree(baseTaxonomy),
   ui: {
     action: {
-      value: 'select',
+      value: 'clusters',
     },
     leftActionBarOpen: true,
     newAnnotationModalOpen: false,

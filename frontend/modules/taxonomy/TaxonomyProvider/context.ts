@@ -1,6 +1,4 @@
-import { createContext } from "react";
-import { Dispatch, State } from "./reducer";
+import { atom } from 'jotai';
+import { State } from './reducer';
 
-
-export const TaxonomyStateContext = createContext<State | undefined>(undefined);
-export const TaxonomyDispatchContext = createContext<Dispatch | undefined>(undefined);
+export const taxonomyStateAtom = atom<State | undefined>(undefined);

@@ -135,6 +135,12 @@ const t: Translation = {
     cancel: 'Cancel',
     update: 'Update',
     create: 'Create',
+    editCollectionConfig: 'Edit collection config',
+    typesToHide: 'Types to hide',
+    selectTypes: 'Select types',
+    typesSaved: 'Types saved',
+    errorSavingTypes: 'Error saving types',
+    typesOrder: 'Facet filters order',
   },
   chat: {
     initialMessage: 'Hi, how can i help you?',

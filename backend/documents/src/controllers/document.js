@@ -223,8 +223,8 @@ export const DocumentController = {
 
     return Document.paginate(query, options);
   },
-  findOne: async (id) => {
-    const doc = await Document.findOne({ id }).lean();
+  findOne: async (id, docProjection = null) => {
+    const doc = await Document.findOne({ id }, docProjection || {}).lean();
     if (!doc) {
       throw new HTTPError({
         code: HTTP_ERROR_CODES.NOT_FOUND,
@@ -237,11 +237,22 @@ export const DocumentController = {
 
     const annotationSets = await AnnotationSet.find({ docId: id }).lean();
 
+    // When a doc projection is provided (light fetch for the frontend), also strip
+    // heavy-but-unused subfields from every annotation:
+    //   - features.ner        : NLP pipeline metadata, never displayed
+    //   - features.linking.candidates : full candidate roster; only top_candidate
+    //                                   and is_nil are read by the frontend
+    //   - __v                 : Mongoose internal version key
+    const annProjection = docProjection
+      ? { __v: 0, "features.ner": 0, "features.linking.candidates": 0 }
+      : {};
+
     const annotationSetsWithAnnotations = await Promise.all(
       annotationSets.map(async (annSet) => {
-        const annotations = await Annotation.find({
-          annotationSetId: annSet._id,
-        }).lean();
+        const annotations = await Annotation.find(
+          { annotationSetId: annSet._id },
+          annProjection,
+        ).lean();
         return {
           ...annSet,
           annotations,
@@ -332,8 +343,63 @@ export const DocumentController = {
     anonymous = false,
     clusters = false,
     deAnonimize = false,
+    lightFeatures = false,
   ) => {
-    const document = await DocumentController.findOne(id);
+    // Whitelist of features sub-fields needed by the frontend.
+    // Only applied when lightFeatures=true (i.e. for frontend-facing API routes).
+    // Export / pipeline routes should call with lightFeatures=false to preserve
+    // the full features object.
+    const FEATURES_PROJECTION = lightFeatures
+      ? {
+          id: 1,
+          _id: 1,
+          name: 1,
+          preview: 1,
+          text: 1,
+          offset_type: 1,
+          collectionId: 1,
+          // Core features used by DocumentProvider / reducer
+          "features.clusters": 1,
+          "features.anonymized": 1,
+          // DocumentMetadataFeatures fields shown in SidebarMetadataDetails
+          "features.annoruolo": 1,
+          "features.annosentenza": 1,
+          "features.attestazione": 1,
+          "features.cf_giudice": 1,
+          "features.codicegl": 1,
+          "features.codiceoggetto": 1,
+          "features.codiceruolo": 1,
+          "features.codicesezione": 1,
+          "features.codicestato": 1,
+          "features.codiceufficio": 1,
+          "features.controparte": 1,
+          "features.doc_meta_autore": 1,
+          "features.do_meta_data_creazione": 1,
+          "features.doc_meta_tipo": 1,
+          "features.fascicoloprecedente_annoruolo": 1,
+          "features.fascicoloprecedente_annosentenza": 1,
+          "features.fascicoloprecedente_codiceufficio": 1,
+          "features.fascicoloprecedente_idfasc": 1,
+          "features.fascicoloprecedente_numeroruolo": 1,
+          "features.fascicoloprecedente_numerosentenza": 1,
+          "features.fascicoloprecedente_registro": 1,
+          "features.gradogiudizio": 1,
+          "features.id": 1,
+          "features.idatto": 1,
+          "features.idfasc": 1,
+          "features.name": 1,
+          "features.neo4j_id": 1,
+          "features.nomegiudice": 1,
+          "features.number_of_messages": 1,
+          "features.numeroruolo": 1,
+          "features.numerosentenza": 1,
+          "features.parte": 1,
+          "features.participants": 1,
+          "features.start_time": 1,
+          "features.title": 1,
+        }
+      : null;
+    const document = await DocumentController.findOne(id, FEATURES_PROJECTION);
     // Ensure document.text is a string
     if (typeof document.text !== "string") {
       console.error(
@@ -358,7 +424,6 @@ export const DocumentController = {
       );
       document.annotation_sets = [];
     }
-    console.log("doc found", document.text.substring(0, 200));
     // convert annotation_sets from list to object
     var new_sets = {};
     for (const annset of document.annotation_sets) {
@@ -396,7 +461,6 @@ export const DocumentController = {
 
       // add mention to annotations features
       if (annset.name.startsWith("entities")) {
-        console.log("*** processing entities annset ***");
         for (const annot of annset.annotations) {
           if (!("features" in annot)) {
             annot.features = {};

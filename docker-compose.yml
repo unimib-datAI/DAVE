@@ -97,6 +97,7 @@ services:
         API_USERNAME: $API_USERNAME
         API_PASSWORD: $API_PASSWORD
         USE_AUTH: $USE_AUTH
+        LLM_NAME: $LLM_NAME
         NEXT_PUBLIC_LLM_NAME: $LLM_NAME
         NEXT_PUBLIC_USE_AUTH: $USE_AUTH
         NEXTAUTH_SECRET: $NEXTAUTH_SECRET
@@ -126,6 +127,7 @@ services:
       API_USERNAME: $API_USERNAME
       API_PASSWORD: $API_PASSWORD
       USE_AUTH: $USE_AUTH
+      LLM_NAME: $LLM_NAME
       NEXT_PUBLIC_LLM_NAME: $LLM_NAME
       NEXT_PUBLIC_USE_AUTH: $USE_AUTH
       NEXTAUTH_SECRET: $NEXTAUTH_SECRET
@@ -213,6 +215,24 @@ services:
       - ./backend/qavectorizer/src:/workspace
       - ./backend/models:/root/models
       - ./backend/models/qavectorizer:/root/.cache/huggingface
+
+  annotation_pipeline:
+    restart: $RESTART_POLICY
+    build:
+      context: ./backend/annotationPipeline
+      dockerfile: Dockerfile
+    environment:
+      - ANNOTATION_PIPELINE_PORT=${ANNOTATION_PIPELINE_PORT:-8002}
+      - HF_HOME=/root/.cache
+      - TRANSFORMERS_CACHE=/root/.cache
+      - HF_DATASETS_CACHE=/root/.cache
+    networks:
+      - dave_net
+    volumes:
+      - ./backend/annotationPipeline:/app
+      - ./cache:/root/.cache
+    ports:
+      - "127.0.0.1:${ANNOTATION_PIPELINE_PORT:-8002}:8002"
 networks:
   dave_net:
     driver: bridge

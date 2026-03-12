@@ -1,4 +1,4 @@
-import { Card, Col, Divider, Row, Text } from '@nextui-org/react';
+import { Card, CardBody, CardFooter } from '@heroui/react';
 import Link from 'next/link';
 import { FaFileAlt } from '@react-icons/all-files/fa/FaFileAlt';
 import styled from '@emotion/styled';
@@ -18,9 +18,8 @@ const IconContainer = styled.div({
 const DocumentCard = ({ id, name, preview }: DocumentCardProps) => {
   const t = useText('documents');
   return (
-    <Link href={`/documents/${id}`} passHref>
+    <Link href={`/documents/${id}`}>
       <Card
-        as="a"
         variant="bordered"
         isPressable
         isHoverable

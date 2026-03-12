@@ -1,13 +1,13 @@
 import { useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
 import {
-  Popover,
-  Avatar,
-  Button,
   Dropdown,
-  User,
-  Text,
-} from '@nextui-org/react';
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
+  Avatar,
+  Spinner,
+} from '@heroui/react';
 import { FiSliders } from '@react-icons/all-files/fi/FiSliders';
 import { FiFolder } from '@react-icons/all-files/fi/FiFolder';
 import { FiSettings } from '@react-icons/all-files/fi/FiSettings';
@@ -19,7 +19,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { useText } from '../TranslationProvider';
 import { isAuthEnabled } from '@/utils/auth';
 
-const LinkButton = styled.a({
+const LinkButton = styled.div({
   border: 'none',
   outline: 'none',
   padding: '8px 10px',
@@ -69,35 +69,32 @@ const LoginAvatar = () => {
   const authEnabled = isAuthEnabled();
 
   return (
-    <Dropdown placement="bottom-left">
-      <Dropdown.Trigger>
-        <Avatar size="md" text={avatarText} pointer />
-      </Dropdown.Trigger>
-      <Dropdown.Menu
-        aria-label="Static Actions"
-        onAction={handleAction}
-        style={{ minWidth: 500 }}
+    <Dropdown placement="bottom-end">
+      <DropdownTrigger>
+        <Avatar name={avatarText} size="sm" style={{ cursor: 'pointer' }} />
+      </DropdownTrigger>
+      <DropdownMenu
+        aria-label="User actions"
+        onAction={(key) => handleAction(key as string)}
       >
-        <Dropdown.Item key="collections" icon={<FiFolder />}>
-          <Link href="/collections" passHref>
-            <Text as="a" b color="inherit">
+        <DropdownItem key="collections" startContent={<FiFolder />}>
+          <Link href="/collections">
+            <span style={{ fontWeight: 700 }}>
               {t('toolbar.manageCollections')}
-            </Text>
+            </span>
           </Link>
-        </Dropdown.Item>
-        <Dropdown.Item key="settings" icon={<FiSettings />}>
-          <Link href="/settings" passHref>
-            <Text as="a" b color="inherit" style={{ paddingTop: 10 }}>
-              {t('toolbar.settings')}
-            </Text>
+        </DropdownItem>
+        <DropdownItem key="settings" startContent={<FiSettings />}>
+          <Link href="/settings">
+            <span style={{ fontWeight: 700 }}>{t('toolbar.settings')}</span>
           </Link>
-        </Dropdown.Item>
+        </DropdownItem>
         {authEnabled && (
-          <Dropdown.Item key="logout" color="error" withDivider>
+          <DropdownItem key="logout" color="danger">
             {t('toolbar.logout')}
-          </Dropdown.Item>
+          </DropdownItem>
         )}
-      </Dropdown.Menu>
+      </DropdownMenu>
     </Dropdown>
   );
 };

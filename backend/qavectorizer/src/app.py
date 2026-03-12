@@ -1055,7 +1055,8 @@ async def query_elastic_index(
     # get all docs if req.text is empty
     # if (req.text == "" or req.text == None or req.text == " ") and (req.metadata == None or len(req.metadata) == 0) and (req.annotations == None or len(req.annotations) == 0):
     print(query)
-    # Execute main query and log it. If it returns zero hits, run lightweight diagnostics and a fallback search without collection filter
+
+    # Execute main query for documents (fast, no aggregations)
     try:
         search_res = es_client.search(
             index=index_name,
@@ -1063,6 +1064,7 @@ async def query_elastic_index(
             source_excludes=["chunks", "annotation_sets"],
             from_=from_offset,
             query=query,
+            timeout="10s",
         )
     except Exception as e:
         logging.error(f"Error executing main ES search: {e}")
@@ -1082,11 +1084,38 @@ async def query_elastic_index(
         )
 
     hits = get_hits(search_res)
-
-    annotations_facets = get_facets_annotations_no_agg(search_res)
-    annotations_facets = group_facets(annotations_facets)
-    metadata_facets = get_facets_metadata(search_res)
     total_hits = search_res["hits"]["total"]["value"]
+
+    # Fetch a larger sample of documents for facet calculation (fast query, just for facets)
+    facet_sample_size = min(200, total_hits)  # Get up to 200 docs for facets
+
+    if facet_sample_size > 20:  # Only do separate query if we need more docs
+        try:
+            facet_res = es_client.search(
+                index=index_name,
+                size=facet_sample_size,
+                _source=[
+                    "annotations",
+                    "metadata",
+                ],  # Only fetch what we need for facets
+                query=query,
+                timeout="5s",
+            )
+            # Use the larger sample for facets
+            annotations_facets = get_facets_annotations_no_agg(facet_res)
+            annotations_facets = group_facets(annotations_facets)
+            metadata_facets = get_facets_metadata(facet_res)
+        except Exception as e:
+            logging.warning(f"Facet query failed, using page results: {e}")
+            # Fallback to current page
+            annotations_facets = get_facets_annotations_no_agg(search_res)
+            annotations_facets = group_facets(annotations_facets)
+            metadata_facets = get_facets_metadata(search_res)
+    else:
+        # Use the current page results for facets
+        annotations_facets = get_facets_annotations_no_agg(search_res)
+        annotations_facets = group_facets(annotations_facets)
+        metadata_facets = get_facets_metadata(search_res)
 
     num_pages = total_hits // req.documents_per_page
     if (
@@ -1094,6 +1123,7 @@ async def query_elastic_index(
     ):  # if there is a remainder, add one more page
         num_pages += 1
     print(f"length of results: {len(hits)}")
+    print(f"annotations aggregated: {annotations_facets}")
     return {
         "hits": hits,
         "facets": {"annotations": annotations_facets, "metadata": metadata_facets},

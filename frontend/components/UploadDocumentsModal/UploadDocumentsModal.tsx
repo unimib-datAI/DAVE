@@ -1,11 +1,14 @@
 import {
   Modal,
-  Text,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
   Button,
   Progress,
   Checkbox,
   Input,
-} from '@nextui-org/react';
+} from '@heroui/react';
 import { useAtom } from 'jotai';
 import { uploadModalOpenAtom, uploadProgressAtom } from '@/atoms/upload';
 
@@ -443,315 +446,343 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
 
   return (
     <Modal
-      open={isOpen}
-      onClose={handleClose}
-      closeButton={!uploadProgress.isUploading}
+      isOpen={isOpen}
+      onOpenChange={(v) => {
+        if (!v) handleClose();
+      }}
     >
-      <Modal.Header>
-        <Text b size={18}>
-          {t('header')}
-        </Text>
-      </Modal.Header>
-      <Modal.Body>
-        <div style={{ marginBottom: '1rem' }}>
-          <Checkbox isSelected={toAnonymize} onChange={setToAnonymize}>
-            {t('anonymize')}
-          </Checkbox>
-          {toAnonymize && (
-            <div style={{ marginTop: '0.5rem', marginLeft: '1.5rem' }}>
-              <Text size={12} css={{ marginBottom: '0.25rem' }}>
-                {t('anonymizeTypesLabel')}
-              </Text>
-
-              {activeTab === 'json' ? (
-                // Ant Design Select for JSON tab
-                <Select
-                  mode="multiple"
-                  placeholder={t('anonymizeTypesPlaceholder')}
-                  value={anonymizeTypes}
-                  onChange={(values: any) => {
-                    const vals = Array.isArray(values) ? values : [values];
-                    setAnonymizeTypes(vals as string[]);
-                    // ensure the free-text input remains in sync
-                    setAnonymizeTypesInput((vals as string[]).join(', '));
-                  }}
-                  loading={loadingJsonEntityTypes}
-                  allowClear
-                  style={{ width: '100%' }}
-                  options={jsonEntityTypes.map((type) => ({
-                    label: type,
-                    value: type,
-                  }))}
-                  getPopupContainer={(trigger) =>
-                    trigger.parentElement || document.body
-                  }
-                  dropdownStyle={{ zIndex: 10000 }}
-                />
-              ) : (
-                // Free-text Input for TXT tab (comma-separated)
-                <>
-                  <Input
-                    placeholder={t('anonymizeTypesPlaceholder')}
-                    value={anonymizeTypesInput}
-                    onChange={(e) => {
-                      setAnonymizeTypesInput(e.target.value);
-                    }}
-                    onBlur={() => {
-                      const types = anonymizeTypesInput
-                        .split(',')
-                        .map((type) => type.trim())
-                        .filter((type) => type.length > 0);
-                      setAnonymizeTypes(types);
-                    }}
-                    css={{ width: '100%' }}
-                  />
-                  <Text size={10} css={{ color: '#666', marginTop: '0.25rem' }}>
-                    {t('anonymizeTypesHelp')}
-                  </Text>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-        <Tabs.Root value={activeTab} onValueChange={handleTabChange}>
-          <TabsList>
-            <TabsTrigger value="json">{t('tabs.json')}</TabsTrigger>
-            <TabsTrigger value="txt">{t('tabs.txt')}</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="json">
-            <UploadContainer>
-              {!uploadProgress.isUploading && uploadProgress.total === 0 && (
-                <>
-                  <FileInputLabel
-                    htmlFor="json-file-upload"
-                    isDragOver={isDragOver && activeTab === 'json'}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, 'json')}
-                  >
-                    <FiUpload size={32} />
-                    <Text css={{ marginTop: '0.5rem' }}>
-                      {isDragOver
-                        ? t('jsonTab.dropFiles')
-                        : t('jsonTab.clickSelect')}
-                    </Text>
-                    <Text
-                      size={12}
-                      css={{ color: '#888', marginTop: '0.25rem' }}
-                    >
-                      {t('jsonTab.description')}
-                    </Text>
-                  </FileInputLabel>
-                  <FileInput
-                    ref={fileInputRef}
-                    id="json-file-upload"
-                    type="file"
-                    accept=".json"
-                    multiple
-                    onChange={(e) => handleFileSelect(e, 'json')}
-                  />
-                </>
-              )}
-
-              {selectedFiles.length > 0 && !uploadProgress.isUploading && (
-                <FileList>
-                  <Text b size={14}>
-                    {t('selectedFiles', { n: selectedFiles.length })}
-                  </Text>
-                  {selectedFiles.map((file, index) => (
-                    <FileItem key={index}>
-                      <Text size={14}>{file.name}</Text>
-                      <Button
-                        auto
-                        light
-                        size="xs"
-                        icon={<FiX />}
-                        onPress={() => handleRemoveFile(index)}
-                      />
-                    </FileItem>
-                  ))}
-                </FileList>
-              )}
-            </UploadContainer>
-          </TabsContent>
-
-          <TabsContent value="txt">
-            <UploadContainer>
-              {/* Configuration Selector */}
+      <ModalContent>
+        {(close) => (
+          <>
+            <ModalHeader>
+              <strong style={{ fontSize: 18 }}>{t('header')}</strong>
+            </ModalHeader>
+            <ModalBody>
               <div style={{ marginBottom: '1rem' }}>
-                <Text size={14} b css={{ marginBottom: '0.5rem' }}>
-                  {t('txtTab.configLabel')}
-                </Text>
-                <Select
-                  style={{ width: '100%' }}
-                  placeholder={t('txtTab.configPlaceholder')}
-                  value={selectedConfigId}
-                  onChange={(value) => {
-                    console.log('Select onChange called with:', value);
-                    setSelectedConfigId(value);
-                  }}
-                  allowClear
-                  getPopupContainer={(trigger) =>
-                    trigger.parentElement || document.body
+                <Checkbox
+                  checked={toAnonymize}
+                  onChange={(e: any) =>
+                    setToAnonymize(Boolean(e?.target?.checked ?? e))
                   }
-                  dropdownStyle={{ zIndex: 10000 }}
-                  options={[
-                    ...(activeConfig
-                      ? [
-                          {
-                            label: `${activeConfig.name} (Active)`,
-                            value: activeConfig._id,
-                          },
-                        ]
-                      : []),
-                    ...configurations
-                      .filter((c: any) => c._id !== activeConfig?._id)
-                      .map((config: any) => ({
-                        label: config.name,
-                        value: config._id,
-                      })),
-                  ]}
-                ></Select>
-                <Text size={12} css={{ color: '#666', marginTop: '0.25rem' }}>
-                  {selectedConfigId
-                    ? t('txtTab.configText', {
-                        name:
-                          configurations.find(
-                            (c: any) => c._id === selectedConfigId
-                          )?.name || 'Selected',
-                      })
-                    : activeConfig
-                    ? t('txtTab.configActive', { name: activeConfig.name })
-                    : t('txtTab.configDefault')}
-                </Text>
+                >
+                  {t('anonymize')}
+                </Checkbox>
+                {toAnonymize && (
+                  <div style={{ marginTop: '0.5rem', marginLeft: '1.5rem' }}>
+                    <span style={{ display: 'block', marginBottom: '0.25rem' }}>
+                      {t('anonymizeTypesLabel')}
+                    </span>
+
+                    {activeTab === 'json' ? (
+                      // Ant Design Select for JSON tab
+                      <Select
+                        mode="multiple"
+                        placeholder={t('anonymizeTypesPlaceholder')}
+                        value={anonymizeTypes}
+                        onChange={(values: any) => {
+                          const vals = Array.isArray(values)
+                            ? values
+                            : [values];
+                          setAnonymizeTypes(vals as string[]);
+                          setAnonymizeTypesInput((vals as string[]).join(', '));
+                        }}
+                        loading={loadingJsonEntityTypes}
+                        allowClear
+                        style={{ width: '100%' }}
+                        options={jsonEntityTypes.map((type) => ({
+                          label: type,
+                          value: type,
+                        }))}
+                        getPopupContainer={(trigger) =>
+                          trigger.parentElement || document.body
+                        }
+                        dropdownStyle={{ zIndex: 10000 }}
+                      />
+                    ) : (
+                      <>
+                        <Input
+                          placeholder={t('anonymizeTypesPlaceholder')}
+                          value={anonymizeTypesInput}
+                          onChange={(e) =>
+                            setAnonymizeTypesInput(e.target.value)
+                          }
+                          onBlur={() => {
+                            const types = anonymizeTypesInput
+                              .split(',')
+                              .map((type) => type.trim())
+                              .filter((type) => type.length > 0);
+                            setAnonymizeTypes(types);
+                          }}
+                          style={{ width: '100%' }}
+                        />
+                        <span
+                          style={{
+                            fontSize: 10,
+                            color: '#666',
+                            marginTop: '0.25rem',
+                            display: 'block',
+                          }}
+                        >
+                          {t('anonymizeTypesHelp')}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
 
-              {!uploadProgress.isUploading && uploadProgress.total === 0 && (
-                <>
-                  <FileInputLabel
-                    htmlFor="txt-file-upload"
-                    isDragOver={isDragOver && activeTab === 'txt'}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={(e) => handleDrop(e, 'txt')}
-                  >
-                    <FiUpload size={32} />
-                    <Text css={{ marginTop: '0.5rem' }}>
-                      {isDragOver
-                        ? t('txtTab.dropFiles')
-                        : t('txtTab.clickSelect')}
-                    </Text>
-                    <Text
-                      size={12}
-                      css={{ color: '#888', marginTop: '0.25rem' }}
-                    >
-                      {t('txtTab.description')}
-                    </Text>
-                  </FileInputLabel>
-                  <FileInput
-                    ref={txtFileInputRef}
-                    id="txt-file-upload"
-                    type="file"
-                    accept=".txt"
-                    multiple
-                    onChange={(e) => handleFileSelect(e, 'txt')}
-                  />
-                </>
-              )}
+              <Tabs.Root value={activeTab} onValueChange={handleTabChange}>
+                <TabsList>
+                  <TabsTrigger value="json">{t('tabs.json')}</TabsTrigger>
+                  <TabsTrigger value="txt">{t('tabs.txt')}</TabsTrigger>
+                </TabsList>
 
-              {selectedFiles.length > 0 && !uploadProgress.isUploading && (
-                <FileList>
-                  <Text b size={14}>
-                    {t('selectedFiles', { n: selectedFiles.length })}
-                  </Text>
-                  {selectedFiles.map((file, index) => (
-                    <FileItem key={index}>
-                      <Text size={14}>{file.name}</Text>
-                      <Button
-                        auto
-                        light
-                        size="xs"
-                        icon={<FiX />}
-                        onPress={() => handleRemoveFile(index)}
+                <TabsContent value="json">
+                  <UploadContainer>
+                    {!uploadProgress.isUploading &&
+                      uploadProgress.total === 0 && (
+                        <>
+                          <FileInputLabel
+                            htmlFor="json-file-upload"
+                            isDragOver={isDragOver && activeTab === 'json'}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, 'json')}
+                          >
+                            <FiUpload size={32} />
+                            <span
+                              style={{ marginTop: '0.5rem', display: 'block' }}
+                            >
+                              {isDragOver
+                                ? t('jsonTab.dropFiles')
+                                : t('jsonTab.clickSelect')}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 12,
+                                color: '#888',
+                                marginTop: '0.25rem',
+                                display: 'block',
+                              }}
+                            >
+                              {t('jsonTab.description')}
+                            </span>
+                          </FileInputLabel>
+                          <FileInput
+                            ref={fileInputRef}
+                            id="json-file-upload"
+                            type="file"
+                            accept=".json"
+                            multiple
+                            onChange={(e) => handleFileSelect(e, 'json')}
+                          />
+                        </>
+                      )}
+
+                    {selectedFiles.length > 0 &&
+                      !uploadProgress.isUploading && (
+                        <FileList>
+                          <strong style={{ fontSize: 14 }}>
+                            {t('selectedFiles', { n: selectedFiles.length })}
+                          </strong>
+                          {selectedFiles.map((file, index) => (
+                            <FileItem key={index}>
+                              <span style={{ fontSize: 14 }}>{file.name}</span>
+                              <Button onPress={() => handleRemoveFile(index)}>
+                                <FiX />
+                              </Button>
+                            </FileItem>
+                          ))}
+                        </FileList>
+                      )}
+                  </UploadContainer>
+                </TabsContent>
+
+                <TabsContent value="txt">
+                  <UploadContainer>
+                    <div style={{ marginBottom: '1rem' }}>
+                      <strong
+                        style={{
+                          fontSize: 14,
+                          marginBottom: '0.5rem',
+                          display: 'block',
+                        }}
+                      >
+                        {t('txtTab.configLabel')}
+                      </strong>
+                      <Select
+                        style={{ width: '100%' }}
+                        placeholder={t('txtTab.configPlaceholder')}
+                        value={selectedConfigId}
+                        onChange={(value) => setSelectedConfigId(value)}
+                        allowClear
+                        getPopupContainer={(trigger) =>
+                          trigger.parentElement || document.body
+                        }
+                        dropdownStyle={{ zIndex: 10000 }}
+                        options={[
+                          ...(activeConfig
+                            ? [
+                                {
+                                  label: `${activeConfig.name} (Active)`,
+                                  value: activeConfig._id,
+                                },
+                              ]
+                            : []),
+                          ...configurations
+                            .filter((c: any) => c._id !== activeConfig?._id)
+                            .map((config: any) => ({
+                              label: config.name,
+                              value: config._id,
+                            })),
+                        ]}
                       />
-                    </FileItem>
-                  ))}
-                </FileList>
+                      <span
+                        style={{
+                          color: '#666',
+                          marginTop: '0.25rem',
+                          display: 'block',
+                        }}
+                      >
+                        {selectedConfigId
+                          ? t('txtTab.configText', {
+                              name:
+                                configurations.find(
+                                  (c: any) => c._id === selectedConfigId
+                                )?.name || 'Selected',
+                            })
+                          : activeConfig
+                          ? t('txtTab.configActive', {
+                              name: activeConfig.name,
+                            })
+                          : t('txtTab.configDefault')}
+                      </span>
+                    </div>
+
+                    {!uploadProgress.isUploading &&
+                      uploadProgress.total === 0 && (
+                        <>
+                          <FileInputLabel
+                            htmlFor="txt-file-upload"
+                            isDragOver={isDragOver && activeTab === 'txt'}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, 'txt')}
+                          >
+                            <FiUpload size={32} />
+                            <span
+                              style={{ marginTop: '0.5rem', display: 'block' }}
+                            >
+                              {isDragOver
+                                ? t('txtTab.dropFiles')
+                                : t('txtTab.clickSelect')}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: 12,
+                                color: '#888',
+                                marginTop: '0.25rem',
+                                display: 'block',
+                              }}
+                            >
+                              {t('txtTab.description')}
+                            </span>
+                          </FileInputLabel>
+                          <FileInput
+                            ref={txtFileInputRef}
+                            id="txt-file-upload"
+                            type="file"
+                            accept=".txt"
+                            multiple
+                            onChange={(e) => handleFileSelect(e, 'txt')}
+                          />
+                        </>
+                      )}
+
+                    {selectedFiles.length > 0 &&
+                      !uploadProgress.isUploading && (
+                        <FileList>
+                          <strong style={{ fontSize: 14 }}>
+                            {t('selectedFiles', { n: selectedFiles.length })}
+                          </strong>
+                          {selectedFiles.map((file, index) => (
+                            <FileItem key={index}>
+                              <span style={{ fontSize: 14 }}>{file.name}</span>
+                              <Button onPress={() => handleRemoveFile(index)}>
+                                <FiX />
+                              </Button>
+                            </FileItem>
+                          ))}
+                        </FileList>
+                      )}
+                  </UploadContainer>
+                </TabsContent>
+
+                {uploadProgress.isUploading && (
+                  <div>
+                    <strong style={{ fontSize: 14 }}>
+                      {activeTab === 'txt'
+                        ? t('uploading.txt')
+                        : t('uploading.json')}
+                    </strong>
+                    <Progress
+                      value={progressPercentage}
+                      color="primary"
+                      style={{ marginTop: '1rem' }}
+                    />
+                  </div>
+                )}
+
+                {!uploadProgress.isUploading && uploadProgress.total > 0 && (
+                  <div>
+                    <strong style={{ color: '#0a0', fontSize: 14 }}>
+                      {t('complete')}
+                    </strong>
+                    <span style={{ display: 'block', marginTop: '0.5rem' }}>
+                      {t('success', {
+                        completed: uploadProgress.completed,
+                        total: uploadProgress.total,
+                        failed: uploadProgress.failed,
+                      })}
+                    </span>
+                  </div>
+                )}
+
+                {uploadProgress.errors.length > 0 && (
+                  <ErrorList>
+                    <strong style={{ color: '#c00', fontSize: 14 }}>
+                      {t('errors')}
+                    </strong>
+                    {uploadProgress.errors.map((error, index) => (
+                      <ErrorItem key={index}>
+                        <strong>{error.fileName}:</strong> {error.error}
+                      </ErrorItem>
+                    ))}
+                  </ErrorList>
+                )}
+              </Tabs.Root>
+            </ModalBody>
+            <ModalFooter>
+              <Button
+                onPress={handleClose}
+                isDisabled={uploadProgress.isUploading}
+              >
+                {uploadProgress.isUploading
+                  ? t('buttons.uploading')
+                  : t('buttons.close')}
+              </Button>
+              {selectedFiles.length > 0 && !uploadProgress.isUploading && (
+                <Button
+                  onPress={handleUpload}
+                  isDisabled={uploadProgress.isUploading}
+                >
+                  {t('buttons.upload', { n: selectedFiles.length })}
+                </Button>
               )}
-            </UploadContainer>
-          </TabsContent>
-
-          {uploadProgress.isUploading && (
-            <div>
-              <Text b size={14}>
-                {activeTab === 'txt' ? t('uploading.txt') : t('uploading.json')}
-              </Text>
-              {/*<Text size={12} css={{ marginTop: '0.5rem', color: '#666' }}>
-                {t('progress', {
-                  completed: uploadProgress.completed,
-                  total: uploadProgress.total,
-                  failed: uploadProgress.failed,
-                })}
-              </Text>*/}
-              <Progress
-                value={progressPercentage}
-                color="primary"
-                css={{ marginTop: '1rem' }}
-              />
-            </div>
-          )}
-
-          {!uploadProgress.isUploading && uploadProgress.total > 0 && (
-            <div>
-              <Text b size={14} css={{ color: '#0a0' }}>
-                {t('complete')}
-              </Text>
-              <Text size={12} css={{ marginTop: '0.5rem' }}>
-                {t('success', {
-                  completed: uploadProgress.completed,
-                  total: uploadProgress.total,
-                  failed: uploadProgress.failed,
-                })}
-              </Text>
-            </div>
-          )}
-
-          {uploadProgress.errors.length > 0 && (
-            <ErrorList>
-              <Text b size={14} css={{ color: '#c00' }}>
-                {t('errors')}
-              </Text>
-              {uploadProgress.errors.map((error, index) => (
-                <ErrorItem key={index}>
-                  <strong>{error.fileName}:</strong> {error.error}
-                </ErrorItem>
-              ))}
-            </ErrorList>
-          )}
-        </Tabs.Root>
-      </Modal.Body>
-      <Modal.Footer>
-        <Button
-          auto
-          flat
-          onPress={handleClose}
-          disabled={uploadProgress.isUploading}
-        >
-          {uploadProgress.isUploading
-            ? t('buttons.uploading')
-            : t('buttons.close')}
-        </Button>
-        {selectedFiles.length > 0 && !uploadProgress.isUploading && (
-          <Button
-            auto
-            onPress={handleUpload}
-            disabled={uploadProgress.isUploading}
-          >
-            {t('buttons.upload', { n: selectedFiles.length })}
-          </Button>
+            </ModalFooter>
+          </>
         )}
-      </Modal.Footer>
+      </ModalContent>
     </Modal>
   );
 };

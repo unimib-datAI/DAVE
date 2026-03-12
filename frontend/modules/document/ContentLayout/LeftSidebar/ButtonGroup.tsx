@@ -1,7 +1,6 @@
 import { IconButton, useText } from '@/components';
 import styled from '@emotion/styled';
-import { Tooltip } from '@nextui-org/react';
-import { MouseEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { MouseEvent, ReactNode, useMemo, useState } from 'react';
 import { FiNavigation } from '@react-icons/all-files/fi/FiNavigation';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import { FiList } from '@react-icons/all-files/fi/FiList';
@@ -102,16 +101,6 @@ const ButtonGroup = () => {
       );
     });
   }, [action]);
-  //used to set default action when open
-  useEffect(() => {
-    dispatch({
-      type: 'changeAction',
-      payload: {
-        action: 'clusters',
-      },
-    });
-  }, [dispatch]);
-
   const handleButtonClick = (
     e: MouseEvent<HTMLButtonElement>,
     group: number,
@@ -141,23 +130,20 @@ const ButtonGroup = () => {
       {groups.map((group, i) => (
         <GroupContainer key={i}>
           {group.map((item, j) => (
-            <Tooltip
+            <div
               key={j}
-              content={t(item.label)}
-              placement="right"
-              color="invert"
-              visible={tooltipOpen === `${i}.${j}`}
+              title={t(item.label)}
+              onMouseEnter={() => handleToolTipOpen(i, j)}
+              onMouseLeave={() => setTooltipOpen(null)}
             >
               <IconButton
-                onMouseEnter={() => handleToolTipOpen(i, j)}
-                onMouseLeave={() => setTooltipOpen(null)}
                 onClick={(e) => handleButtonClick(e, i, j)}
                 active={item.active}
                 data-action={item.action}
               >
                 {item.Icon}
               </IconButton>
-            </Tooltip>
+            </div>
           ))}
         </GroupContainer>
       ))}

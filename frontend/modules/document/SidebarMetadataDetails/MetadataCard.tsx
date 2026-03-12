@@ -1,6 +1,5 @@
 import { useText } from '@/components';
 import styled from '@emotion/styled';
-import { Text } from '@nextui-org/react';
 import { darken } from 'polished';
 
 type MetadataCardProps = {
@@ -59,19 +58,19 @@ const MetadataCard = ({ title, content }: MetadataCardProps) => {
   return (
     <>
       <ClusterContainer>
-        <Text
-          b
-          css={{
+        <strong
+          style={{
             textAlign: 'start',
             width: '100%',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
+            display: 'block',
           }}
         >
           {translatedTitle}
-        </Text>
-        <Text size="12px">{content}</Text>
+        </strong>
+        <span style={{ fontSize: '12px' }}>{content}</span>
       </ClusterContainer>
     </>
   );

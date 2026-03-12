@@ -1,6 +1,7 @@
 import { Cluster } from '@/server/routers/document';
 import { beautifyString, groupBy, isEmptyObject } from '@/utils/shared';
-import { useContext, useMemo } from 'react';
+import { useContext, useMemo, useCallback } from 'react';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { createSelector } from 'reselect';
 import {
   buildTreeFromFlattenedObject,
@@ -11,40 +12,38 @@ import {
 } from '../../../components/Tree';
 import { getNormalizedEntityType } from './utils';
 import SelectAnnotationSet from '../Toolsbar/SelectAnnotationSet';
-import {
-  DocumentContext,
-  DocumentStateContext,
-  DocumentDispatchContext,
-} from './DocumentContext';
-import { ProcessedCluster, State } from './types';
+import { DocumentContext, documentStateAtom } from './DocumentContext';
+import { ProcessedCluster, State, Action } from './types';
 import { getAnnotationTypes, getCandidateId, getEntityIndex } from './utils';
+import { documentReducer } from './reducer';
 
 /**
  * Access the document state within the DocumentProvider.
  */
-export const useDocumentState = () => {
-  const context = useContext(DocumentStateContext);
-
-  if (context === undefined) {
+export const useDocumentState = (): State => {
+  const state = useAtomValue(documentStateAtom);
+  if (state === undefined) {
     throw new Error('useDocumentState must be used within a DocumentProvider');
   }
-
-  return context;
+  return state;
 };
 
 /**
- * Access the document disptach within the DocumentProvider.
+ * Access the document dispatch within the DocumentProvider.
  */
 export const useDocumentDispatch = () => {
-  const context = useContext(DocumentDispatchContext);
-
-  if (context === undefined) {
-    throw new Error(
-      'useDocumentDispatch must be used within a DocumentProvider'
-    );
-  }
-
-  return context;
+  const setAtom = useSetAtom(documentStateAtom);
+  return useCallback(
+    (action: Action) =>
+      setAtom((prev) => {
+        if (prev === undefined)
+          throw new Error(
+            'useDocumentDispatch must be used within a DocumentProvider'
+          );
+        return documentReducer(prev, action);
+      }),
+    [setAtom]
+  );
 };
 
 /**
@@ -66,8 +65,8 @@ export const useDocumentContext = () => {
  * An hook to select the state partially
  */
 export function useSelector<T>(cb: (state: State) => T) {
-  const _state = useDocumentState();
-  return cb(_state);
+  const state = useDocumentState();
+  return cb(state);
 }
 
 // input selectors just select part of the state

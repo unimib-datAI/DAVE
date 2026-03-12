@@ -1,42 +1,31 @@
-import { buildTreeFromFlattenedObject } from "@/components/TreeSpecialization";
-import { useContext } from "react";
-import { createSelector } from "reselect";
-import { TaxonomyDispatchContext, TaxonomyStateContext } from "./context";
-import { State } from "./reducer";
+import { buildTreeFromFlattenedObject } from '@/components/TreeSpecialization';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { useCallback } from 'react';
+import { createSelector } from 'reselect';
+import { taxonomyStateAtom } from './context';
+import { Action, State, taxonomyReducer } from './reducer';
 
-/**
- * Access the document state within the DocumentProvider.
- */
-export const useTaxonomyState = () => {
-  const context = useContext(TaxonomyStateContext);
-
-  if (context === undefined) {
+export const useTaxonomyState = (): State => {
+  const state = useAtomValue(taxonomyStateAtom);
+  if (state === undefined) {
     throw new Error('useTaxonomyState must be used within a TaxonomyProvider');
   }
-
-  return context;
+  return state;
 };
 
-/**
- * Access the document disptach within the DocumentProvider.
- */
 export const useTaxonomyDispatch = () => {
-  const context = useContext(TaxonomyDispatchContext);
-
-  if (context === undefined) {
-    throw new Error(
-      'useTaxonomyDispatch must be used within a TaxonomyProvider'
-    );
-  }
-
-  return context;
+  const setAtom = useSetAtom(taxonomyStateAtom);
+  return useCallback(
+    (action: Action) =>
+      setAtom((prev) => taxonomyReducer(prev ?? { taxonomy: {} }, action)),
+    [setAtom]
+  );
 };
 
 export function useSelector<T>(cb: (state: State) => T) {
-  const _state = useTaxonomyState();
-  return cb(_state);
+  const state = useTaxonomyState();
+  return cb(state);
 }
-
 
 // SELECTORS
 export const selectFlatTaxonomy = (state: State) => state.taxonomy;

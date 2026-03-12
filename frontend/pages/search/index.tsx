@@ -1,5 +1,6 @@
 import { useClickOutside, useForm } from '@/hooks';
-import { useInfiniteQuery } from '@/utils/trpc';
+import { useInfiniteQuery, useQuery } from '@/utils/trpc';
+import { useSession, getSession } from 'next-auth/react';
 import { MessageCircle, SearchIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { Fragment, useEffect, useMemo, useState } from 'react';
@@ -20,11 +21,12 @@ import {
   selectedFiltersAtom,
   globalAnonymizationAtom,
 } from '@/utils/atoms';
+import { deanonymizedFacetNamesAtom } from '@/utils/atoms';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { GetServerSideProps } from 'next';
-import { getSession } from 'next-auth/react';
 import { useText } from '@/components/TranslationProvider';
+import FilterChip from '@/components/FilterChip';
 
 const variants = {
   isFetching: { opacity: 0.5 },
@@ -61,15 +63,14 @@ const getFacetsFromUrl = (
 const Search = () => {
   const router = useRouter();
   const t = useText('search');
-  const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
+  const [facetedDocuments, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const [selectedFilters, setSelectedFiltersRaw] = useAtom(selectedFiltersAtom);
+  const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
+  const [seelctedFiltersDetails, setSelectedFiltersDetails] = useState([]);
   const [activeCollection] = useAtom(activeCollectionAtom);
   const [isAnonymized] = useAtom(globalAnonymizationAtom);
-  // Wrapper to ensure we never set empty filters
-  const setSelectedFilters = (filters: string[]) => {
-    const validFilters = filters.filter((f) => f && f.trim() !== '');
-    setSelectedFiltersRaw(validFilters);
-  };
+  // Wrapper to ensure we never set empty filters. (Defined below after we build
+  // `filterIdToDisplayName` so we can populate `display_name`.)
   const { text, ...facetsFilters } = router.query;
   const facets = useMemo(
     () => getFacetsFromUrl(facetsFilters),
@@ -115,6 +116,31 @@ const Search = () => {
     }
   );
 
+  // Fetch facets cache for active collection via tRPC
+  const { data: session } = useSession();
+  const token = (session as any)?.accessToken;
+  const { data: facetsCache } = useQuery(
+    [
+      'collection.facetsCache',
+      {
+        id: activeCollection && activeCollection.id ? activeCollection.id : '',
+        token,
+      },
+    ],
+    {
+      enabled: !!(activeCollection && activeCollection.id),
+      staleTime: Infinity, // never re-fetch automatically
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+    }
+  );
+
+  // Normalize cached facets into `{ annotations, metadata }` shape for components
+  const normalizedCachedFacets =
+    Array.isArray(facetsCache) && facetsCache.length > 0
+      ? { annotations: facetsCache, metadata: [] }
+      : undefined;
+
   const { ref, inView } = useInView({
     threshold: 0,
   });
@@ -125,45 +151,141 @@ const Search = () => {
     }
   }, [inView]);
   useEffect(() => {
-    console.log('faceted data', data);
     if (data) {
-      let newFacetedDocuments = data.pages.flatMap((page) => {
-        return page.hits;
-      });
+      const newFacetedDocuments = data.pages.flatMap((page) => page.hits);
       console.log('newFacetedDocuments', newFacetedDocuments);
-      setFacetedDocuments(newFacetedDocuments);
+      // Merge new hits with previously loaded facet-fetched documents, preserving already-loaded items
+      setFacetedDocuments((prev = []) => {
+        const seen = new Set<string>(prev.map((d: any) => String(d.id)));
+        const merged = [...prev];
+        for (const doc of newFacetedDocuments) {
+          const id = String(doc.id);
+          if (!seen.has(id)) {
+            merged.push(doc);
+            seen.add(id);
+          }
+        }
+        return merged;
+      });
     }
   }, [data]);
 
-  // Build id_ER to display_name map from facets
+  // Reset facetedDocuments when the search text or active collection changes
+  useEffect(() => {
+    setFacetedDocuments([]);
+  }, [text, activeCollection?.id]);
+  // Log facetedDocuments whenever it changes (helps debug merges from facet fetches)
+  useEffect(() => {
+    console.log(
+      '[page] facetedDocuments atom changed, count:',
+      (facetedDocuments || []).length
+    );
+  }, [facetedDocuments]);
+
+  // Build id_ER to display_name map from facets (prefer cache when available)
   const filterIdToDisplayName = useMemo(() => {
     const map: Record<string, string> = {};
-    if (data && data.pages[0].facets && data.pages[0].facets.annotations) {
-      data.pages[0].facets.annotations.forEach((facet) => {
-        facet.children.forEach((child) => {
-          child.ids_ER.forEach((id) => {
+    const source = facetsCache || (data && data.pages?.[0]?.facets);
+    if (!source) return map;
+
+    // If backend returned an array (cached format)
+    if (Array.isArray(source)) {
+      source.forEach((group: any) => {
+        (group.children || []).forEach((child: any) => {
+          (child.ids_ER || []).forEach((id: string) => {
+            map[id] =
+              child.display_name || child.displayName || child.key || '';
+          });
+        });
+      });
+      return map;
+    }
+
+    if (source.annotations) {
+      source.annotations.forEach((facet: any) => {
+        (facet.children || []).forEach((child: any) => {
+          (child.ids_ER || []).forEach((id: string) => {
             map[id] = child.display_name;
           });
         });
       });
     }
     return map;
-  }, [data]);
+  }, [facetsCache, data]);
+
+  // Wrapper to ensure we never set empty filters. Accepts an array of `id_ER` strings
+  // and stores objects of shape `{ id_ER, display_name }` in the atom.
+  const setSelectedFilters = (filters: string[]) => {
+    const validFilters = filters.filter((f) => f && f.trim() !== '');
+    const unique = Array.from(new Set(validFilters));
+    const mapped = unique.map((id) => ({
+      id_ER: id,
+      display_name:
+        // prefer deanonymized name when available
+        (filterIdToDisplayName[id] &&
+          deanonymizedNames[filterIdToDisplayName[id]]) ||
+        filterIdToDisplayName[id] ||
+        '',
+    }));
+    setSelectedFiltersRaw(mapped);
+  };
 
   // Reorder documents based on selectedFilters
   const reorderedDocuments = useMemo(() => {
-    if (!data) return [];
-    const allHits = data.pages.flatMap((page) => page.hits);
+    console.log('filters', selectedFilters);
+    // Merge backend hits with any documents fetched via facets (facetedDocuments)
+    const backendHits = data ? data.pages.flatMap((page) => page.hits) : [];
+    const facetFetchedHits = facetedDocuments || [];
 
-    // Clean up selectedFilters to remove empty or whitespace-only strings
+    // Debug: log ids from backendHits and facetedDocuments to detect mismatches/duplicates
+    try {
+      const backendIds = backendHits.map((h: any) => String(h.id));
+      const facetIds = facetFetchedHits.map((h: any) => String(h.id));
+      console.log(
+        '[reorder] backendIds count',
+        backendIds.length,
+        'sample:',
+        backendIds.slice(0, 10)
+      );
+      console.log(
+        '[reorder] facetIds count',
+        facetIds.length,
+        'sample:',
+        facetIds.slice(0, 10)
+      );
+    } catch (e) {}
+
+    // Merge and deduplicate by _id (prefer backendHits ordering)
+    const seen = new Set<string>();
+    const merged: any[] = [];
+
+    backendHits.forEach((h: any) => {
+      const id = String(h.id);
+      if (!seen.has(id)) {
+        merged.push(h);
+        seen.add(id);
+      }
+    });
+
+    facetFetchedHits.forEach((h: any) => {
+      const id = String(h.id);
+      if (!seen.has(id)) {
+        merged.push(h);
+        seen.add(id);
+      }
+    });
+
+    const allHits = merged;
+
+    // Clean up selectedFilters to remove empty or whitespace-only entries
     const validFilters = selectedFilters.filter(
-      (filter) => filter && filter.trim() !== ''
+      (filter) => filter && filter.id_ER && filter.id_ER.trim() !== ''
     );
     if (validFilters.length === 0) return allHits;
 
-    // Normalize valid filters for consistent comparison
+    // Normalize valid filters for consistent comparison (use `id_ER`)
     const normalizedValidFilters = validFilters.map((f) =>
-      f.toLowerCase().trim()
+      f.id_ER.toLowerCase().trim()
     );
 
     const matches = allHits.filter(
@@ -200,10 +322,12 @@ const Search = () => {
               ))
         )
     );
+    console.log('processed documents', [...matches, ...nonMatches]);
     return [...matches, ...nonMatches];
-  }, [data, selectedFilters]);
+  }, [data, selectedFilters, facetedDocuments]);
 
   const handleSubmit = ({ text }: { text: string }) => {
+    setSelectedFilters([]);
     const url = {
       pathname: router.pathname,
       query: { text },
@@ -218,7 +342,7 @@ const Search = () => {
           <form onSubmit={onSubmit(handleSubmit)} className="mb-4">
             <Searchbar {...register('text')} loading={isFetching} />
           </form>
-          <h2>{t('documents')}</h2>
+          <h2 className="text-2xl font-bold">{t('documents')}</h2>
         </div>
         <motion.div
           style={{ ...(isFetching && { pointerEvents: 'none' }) }}
@@ -227,12 +351,20 @@ const Search = () => {
           animate={isFetching ? 'isFetching' : 'isNotFetching'}
           transition={{ duration: 0.5 }}
         >
-          {data && (
+          {(facetsCache || (data && data.pages?.[0]?.facets)) && (
             <Facets
-              facets={data.pages[0].facets}
-              selectedFilters={selectedFilters.filter(
-                (f) => f && f.trim() !== ''
-              )}
+              facets={facetsCache || data.pages[0].facets}
+              selectedFilters={(selectedFilters || [])
+                .filter((f) => f && f.id_ER && f.id_ER.trim() !== '')
+                .map((f) => f.id_ER)}
+              // pass currently loaded backend hit ids so facets don't re-fetch documents already present
+              loadedDocIds={
+                data
+                  ? data.pages
+                      .flatMap((p) => p.hits)
+                      .map((h: any) => String(h.id))
+                  : []
+              }
               setSelectedFilters={(filters) => {
                 // Filter out empty strings or whitespace-only strings
                 const validFilters = filters.filter(
@@ -246,15 +378,51 @@ const Search = () => {
             className="flex-grow flex flex-col gap-4 p-6"
             style={{ zIndex: 5 }}
           >
-            <div className="flex flex-col sticky top-16 bg-white py-6">
-              <h4>
+            <div className="flex flex-col sticky top-16 bg-white py-6 z-10">
+              <h4 className="text-lg font-semibold">
                 {`${data.pages[0].pagination.total_hits} ${t('results')}`}
                 {text &&
                   typeof text === 'string' &&
                   text.trim() !== '' &&
                   ` ${t('for')} "${text}"`}
               </h4>
-              {data && <ActiveFiltersList facets={data.pages[0].facets} />}
+              {selectedFilters && selectedFilters.length > 0 && (
+                <div className="flex flex-row flex-wrap gap-2 mt-2">
+                  {
+                    // Group selected filters by their display_name so chips with
+                    // identical names are shown once. Clearing a grouped chip
+                    // will remove all filters having that display_name.
+                  }
+                  {Object.entries(
+                    (selectedFilters || []).reduce((acc: any, f: any) => {
+                      const name = (f && f.display_name) || '';
+                      if (!acc[name]) acc[name] = [];
+                      acc[name].push(f.id_ER);
+                      return acc;
+                    }, {})
+                  ).map(([displayName, ids]) => (
+                    <FilterChip
+                      key={String(displayName) + ids.join('-')}
+                      value={displayName}
+                      handleClear={() =>
+                        // remove all filters that have this display name
+                        setSelectedFilters(
+                          (selectedFilters || [])
+                            .filter(
+                              (filter) => filter.display_name !== displayName
+                            )
+                            .map((f) => f.id_ER)
+                        )
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+              {(normalizedCachedFacets || (data && data.pages[0].facets)) && (
+                <ActiveFiltersList
+                  facets={normalizedCachedFacets || data.pages[0].facets}
+                />
+              )}
             </div>
             <div
               className="grid gap-x-8 gap-y-8"
@@ -269,8 +437,10 @@ const Search = () => {
                   highlight={
                     Array.isArray(hit.annotations) &&
                     hit.annotations.some((ann: any) => {
-                      const normalizedSelectedFilters = selectedFilters.map(
-                        (f) => f.toLowerCase().trim()
+                      const normalizedSelectedFilters = (
+                        selectedFilters || []
+                      ).map((f) =>
+                        f && f.id_ER ? f.id_ER.toLowerCase().trim() : ''
                       );
                       return (
                         (ann.id_ER &&
@@ -286,7 +456,7 @@ const Search = () => {
                       );
                     })
                   }
-                  selectedFilters={selectedFilters}
+                  selectedFilters={(selectedFilters || []).map((f) => f.id_ER)}
                   filterIdToDisplayName={filterIdToDisplayName}
                 />
               ))}

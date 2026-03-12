@@ -77,6 +77,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
     let contextStr = '';
     if (context) {
       context.forEach((item, index) => {
+        console.log('context item', item);
         const docContent = `Nome Documento ${
           item.title
         } - Contenuto: ${item.chunks
@@ -84,8 +85,8 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
             isAnonymized ? chunk.text_anonymized || chunk.text : chunk.text
           )
           .join(' ')}`;
-        contextStr += `<document id="DOC_${
-          index + 1
+        contextStr += `<document id="DOC_${index + 1}" name="${
+          item.title
         }">\n${docContent}\n</document>\n`;
       });
     }
@@ -123,7 +124,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
     finalSystemPrompt = finalSystemPrompt
       .replace('{{CONTEXT}}', contextStr)
       .replace('{{QUESTION}}', message);
-    userMessageContent = finalSystemPrompt; // Send the plain question as user message
+    userMessageContent = message; // Send the plain question as user message
 
     const content = userMessageContent;
     console.log('received content', content);
@@ -132,11 +133,11 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
     // Create a new user message
     const userMessage: Message = {
       role: 'user',
-      content: content,
+      content: message,
       context: context,
-      usrMessage: message, // Preserve original user message
+      usrMessage: finalSystemPrompt, // Preserve original user message
       isDoneStreaming: true, // Mark user messages as done streaming immediately
-      devPrompt: userMessageContent, // Store the actual prompt that was used
+      devPrompt: finalSystemPrompt, // Store the actual prompt that was used
       wasAnonymized: isAnonymized, // Store anonymization state at generation time
     };
 
@@ -174,9 +175,11 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
 
       // Get formatted messages with system prompt
       // Filter message history based on enableMessageHistory setting
-      const messagesToSend = llmSettings.enableMessageHistory
-        ? tempMessages // Send all messages (history enabled)
-        : [tempMessages[tempMessages.length - 1]]; // Only send the last (current) message
+      const messagesToSend = (
+        llmSettings.enableMessageHistory
+          ? tempMessages // Send all messages (history enabled)
+          : [tempMessages[tempMessages.length - 1]]
+      ).filter((message) => message.role !== 'system'); // Only send the last (current) message
 
       const apiMessages = [
         { role: 'system', content: finalSystemPrompt },
@@ -240,7 +243,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
               role: 'assistant',
               content: chunk,
               isDoneStreaming: false,
-              devPrompt: userMessageContent, // Store the actual prompt that was used
+              devPrompt: finalSystemPrompt, // Store the actual prompt that was used
               context: context,
               wasAnonymized: isAnonymized,
             },

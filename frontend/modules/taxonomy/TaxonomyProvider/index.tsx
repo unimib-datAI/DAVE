@@ -1,39 +1,16 @@
-import { FlatTreeObj } from "@/components/TreeSpecialization";
-import { PropsWithChildren, useReducer } from "react";
-import { flatTaxonomy } from "../taxonomy";
-import { TaxonomyDispatchContext, TaxonomyStateContext } from "./context";
-import { taxonomyReducer } from "./reducer";
+import { PropsWithChildren, useMemo } from 'react';
+import { Provider, createStore } from 'jotai';
+import { flatTaxonomy } from '../taxonomy';
+import { taxonomyStateAtom } from './context';
 
 const TaxonomyProvider = ({ children }: PropsWithChildren<{}>) => {
-  // query taxonomy
-  // check if loading
-  // if loading return skeleton / null for now
+  const store = useMemo(() => {
+    const s = createStore();
+    s.set(taxonomyStateAtom, { taxonomy: flatTaxonomy });
+    return s;
+  }, []);
 
-  return (
-    <TaxonomyStateProvider data={flatTaxonomy}>
-      {children}
-    </TaxonomyStateProvider>
-  )
-
-};
-
-type TaxonomyStateProviderProps = PropsWithChildren<{
-  data: FlatTreeObj
-}>
-
-const TaxonomyStateProvider = ({
-  data,
-  children,
-}: TaxonomyStateProviderProps) => {
-  const [state, dispatch] = useReducer(taxonomyReducer, { taxonomy: data });
-
-  return (
-    <TaxonomyStateContext.Provider value={state}>
-      <TaxonomyDispatchContext.Provider value={dispatch}>
-        {children}
-      </TaxonomyDispatchContext.Provider>
-    </TaxonomyStateContext.Provider>
-  )
+  return <Provider store={store}>{children}</Provider>;
 };
 
 export default TaxonomyProvider;

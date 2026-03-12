@@ -6,7 +6,6 @@ import {
 import useModal from '@/hooks/use-modal';
 import { isEmptyObject } from '@/utils/shared';
 import styled from '@emotion/styled';
-import { Divider, Text } from '@nextui-org/react';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import { FiUpload } from '@react-icons/all-files/fi/FiUpload';
 import { useEffect, useState } from 'react';
@@ -125,18 +124,18 @@ const SidebarAddAnnotation = () => {
     <>
       <Container>
         <ContentTitle>
-          <Text b>{t('leftSidebar.addContent.title')}</Text>
-          <Text
-            css={{
+          <strong>{t('leftSidebar.addContent.title')}</strong>
+          <span
+            style={{
               fontSize: '14px',
               lineHeight: '1',
               color: 'rgba(0,0,0,0.5)',
             }}
           >
             {t('leftSidebar.addContent.description')}
-          </Text>
+          </span>
         </ContentTitle>
-        <Divider css={{ background: '#F3F3F5' }} />
+        <hr style={{ border: 'none', borderTop: '1px solid #F3F3F5' }} />
         <TreeContainer>
           <Tree
             items={taxonomyTree}
@@ -145,21 +144,21 @@ const SidebarAddAnnotation = () => {
             selected={activeType}
           />
         </TreeContainer>
-        <Divider css={{ background: '#F3F3F5' }} />
+        <hr style={{ border: 'none', borderTop: '1px solid #F3F3F5' }} />
         <ItemContainer onClick={() => setAddTypeVisible(true)}>
           <FiPlus />
-          <Text css={{ fontSize: '18px' }}>
+          <span style={{ fontSize: '18px' }}>
             {t('leftSidebar.addContent.addType')}
-          </Text>
+          </span>
         </ItemContainer>
-        <Divider css={{ background: '#F3F3F5' }} />
+        <hr style={{ border: 'none', borderTop: '1px solid #F3F3F5' }} />
         <ItemContainer>
           <FiUpload />
-          <Text css={{ fontSize: '18px' }}>
+          <span style={{ fontSize: '18px' }}>
             {t('leftSidebar.addContent.loadTaxonomy')}
-          </Text>
+          </span>
         </ItemContainer>
-        <Divider css={{ background: '#F3F3F5' }} />
+        <hr style={{ border: 'none', borderTop: '1px solid #F3F3F5' }} />
       </Container>
       <AddAnnotationModal {...bindingsAddType} />
       <ConfirmationDialog

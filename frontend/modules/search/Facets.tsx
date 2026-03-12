@@ -13,14 +13,11 @@ import {
   isLoadingAnonymizationAtom,
 } from '@/utils/atoms';
 import { useMutation } from '@/utils/trpc';
+import { activeCollectionAtom } from '@/atoms/collection';
 
-// Entity type grouping map - keys are lowercase
-// const entityTypeGroupMap: Record<string, string> = {
-//   // Person group
-//   person: 'persona',
-//   per: 'persona',
-//   people: 'persona',
-//   individual: 'persona',
+// This component expects `facets` to already be grouped (the cache format).
+// We keep a small adapter to convert either the cached grouped array
+// or the original `facets` object into the simple UI format used below.
 //   persona: 'persona',
 
 //   // Location group
@@ -101,6 +98,8 @@ type FacetsProps = {
   facets: FacetedQueryOutput['facets'];
   selectedFilters: string[];
   setSelectedFilters: (filters: string[]) => void;
+  // list of currently loaded backend hit ids (mongo_id/_id/id) to avoid re-fetching
+  loadedDocIds?: string[];
 };
 
 const facetsAnnotationsOrder = [
@@ -198,56 +197,63 @@ const facetsAnnotationsOrder = [
 ];
 const facetsMetadataOrder = ['anno sentenza', 'anno ruolo'];
 
-const buildFacets = (facets: FacetedQueryOutput['facets']) => {
-  // Group annotation facets by normalized entity type
-  const groupedAnnotations = new Map<string, (typeof facets.annotations)[0]>();
+// Convert incoming facets (either cache array or live facets object)
+// into a simple list of groups the UI can render.
+const toGroupedFacets = (facetsInput: any) => {
+  if (!facetsInput) return [] as any[];
 
-  // Process all annotations to group them
-  facets.annotations.forEach((facet) => {
-    const normalizedGroup = getNormalizedEntityGroup(facet.key);
+  // If the cache returns an array of grouped facets, use it directly
+  if (Array.isArray(facetsInput)) {
+    return (facetsInput as any[]).map((group) => ({
+      filterType: 'annotation',
+      key: group.key || group.name || '',
+      n_children: (group.children || []).length,
+      children: (group.children || []).map((child: any) => ({
+        display_name: child.display_name || child.displayName || '',
+        ids_ER: Array.isArray(child.ids_ER)
+          ? child.ids_ER
+          : child.ids_ER
+          ? [child.ids_ER]
+          : [],
+        doc_ids: Array.isArray(child.doc_ids)
+          ? child.doc_ids
+          : child.doc_ids
+          ? [child.doc_ids]
+          : [],
+        is_linked: !!child.is_linked,
+        key: child.key || child.id || '',
+      })),
+    }));
+  }
 
-    if (!groupedAnnotations.has(normalizedGroup)) {
-      // Use first occurrence as the base for the group
-      groupedAnnotations.set(normalizedGroup, {
-        ...facet,
-        key: normalizedGroup, // Use normalized key for the group
-        n_children: facet.n_children,
-        children: [...facet.children],
-      });
-    } else {
-      // Merge children into existing group
-      const existingGroup = groupedAnnotations.get(normalizedGroup)!;
-      existingGroup.n_children += facet.n_children;
-      existingGroup.children.push(...facet.children);
-    }
-  });
-  console.log('grouped ann', groupedAnnotations);
+  // Fallback: if given the live facets object, map annotations as-is
+  if (facetsInput && facetsInput.annotations) {
+    return (facetsInput.annotations || []).map((f: any) => ({
+      filterType: 'annotation',
+      key: f.key,
+      n_children: (f.children || []).length,
+      children: (f.children || []).map((c: any) => ({
+        display_name: c.display_name || c.displayName || '',
+        ids_ER: Array.isArray(c.ids_ER) ? c.ids_ER : c.ids_ER ? [c.ids_ER] : [],
+        doc_ids: Array.isArray(c.doc_ids)
+          ? c.doc_ids
+          : c.doc_ids
+          ? [c.doc_ids]
+          : [],
+        is_linked: !!c.is_linked,
+        key: c.key || c.id || '',
+      })),
+    }));
+  }
 
-  // Convert grouped annotations back to array
-  const annotations = Array.from(groupedAnnotations.values())
-    .map((facet) => ({ filterType: 'annotation', ...facet }))
-    .sort((a, b) => {
-      return (
-        facetsAnnotationsOrder.indexOf(a.key) -
-        facetsAnnotationsOrder.indexOf(b.key)
-      );
-    });
-
-  const metadata = facets.metadata
-    .map((facet) => ({ filterType: 'metadata', ...facet }))
-    .sort((a, b) => {
-      return (
-        facetsMetadataOrder.indexOf(a.key) - facetsMetadataOrder.indexOf(b.key)
-      );
-    });
-
-  return [...metadata, ...annotations];
+  return [] as any[];
 };
 
 const Facets = ({
   facets,
   selectedFilters,
   setSelectedFilters,
+  loadedDocIds,
 }: FacetsProps) => {
   const t = useText('search');
   const { register, value } = useForm({
@@ -258,58 +264,58 @@ const Facets = ({
   const [deanonymizedNames, setDeanonymizedNames] = useAtom(
     deanonymizedFacetNamesAtom
   );
-
+  const [collection] = useAtom(activeCollectionAtom);
   const deanonymizeMutation = useMutation(['document.deanonymizeKeys']);
   const [, setGlobalLoading] = useAtom(isLoadingAnonymizationAtom);
 
-  const allFacets = useMemo(() => buildFacets(facets), [facets]);
+  const allFacets = useMemo(() => toGroupedFacets(facets), [facets]);
 
-  // Fetch de-anonymized names when globa<wl toggle is activated
+  // Fetch de-anonymized names when global toggle is activated
   useEffect(() => {
     const fetchDeAnonymizedNames = async () => {
       setGlobalLoading(true);
       setDeanonymizedNames({});
-      if (deanonymize) {
-        try {
-          console.log('triggered de-anon');
-          const displayNames = new Set<string>();
-
-          facets.annotations.forEach((facet) => {
-            facet.children.forEach((child) => {
-              if (child.display_name && child.display_name.trim() !== '') {
-                displayNames.add(child.display_name);
-              }
-            });
-          });
-
-          const keysArray = Array.from(displayNames);
-
-          if (keysArray.length > 0) {
-            const result = await deanonymizeMutation.mutateAsync({
-              keys: keysArray,
-            });
-
-            setDeanonymizedNames(result);
-          }
-        } catch (error) {
-          console.error('Failed to de-anonymize facet names:', error);
-        } finally {
-          setGlobalLoading(false);
-        }
+      if (!deanonymize) {
+        setGlobalLoading(false);
+        return;
       }
-      setGlobalLoading(false);
+
+      try {
+        const displayNames = new Set<string>();
+        // allFacets is an array of groups with children
+        allFacets.forEach((group: any) => {
+          (group.children || []).forEach((child: any) => {
+            if (child.display_name && child.display_name.trim() !== '') {
+              displayNames.add(child.display_name);
+            }
+          });
+        });
+
+        const keysArray = Array.from(displayNames).filter((displayName) =>
+          displayName.startsWith('vault:v1')
+        );
+
+        if (keysArray.length > 0) {
+          const result = await deanonymizeMutation.mutateAsync({
+            keys: keysArray,
+          });
+          setDeanonymizedNames(result);
+        }
+      } catch (error) {
+        console.error('Failed to de-anonymize facet names:', error);
+      } finally {
+        setGlobalLoading(false);
+      }
     };
 
     fetchDeAnonymizedNames();
-
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deanonymize, facets]);
+  }, [deanonymize, allFacets]);
 
-  const fuse = useRef(
-    new Fuse(allFacets, {
-      keys: ['key', 'display_name'],
-    })
-  );
+  const fuse = useRef<any>(null);
+  useEffect(() => {
+    fuse.current = new Fuse(allFacets, { keys: ['key', 'display_name'] });
+  }, [allFacets]);
 
   const filteredFacets = useMemo(() => {
     const baseFiltered =
@@ -357,6 +363,25 @@ const Facets = ({
     return sorted;
   }, [allFacets, value.filter]);
 
+  // Apply collection typesOrder when no text filter is active
+  const orderedFacets = useMemo(() => {
+    const typesOrder = (collection?.config as any)?.typesOrder as
+      | string[]
+      | undefined;
+    if (!typesOrder || typesOrder.length === 0 || value.filter.trim() !== '') {
+      return filteredFacets;
+    }
+    const orderMap = new Map(typesOrder.map((t, i) => [t.toLowerCase(), i]));
+    return [...filteredFacets].sort((a, b) => {
+      const ai = orderMap.get((a.key || '').toLowerCase()) ?? Infinity;
+      const bi = orderMap.get((b.key || '').toLowerCase()) ?? Infinity;
+      return (ai as number) - (bi as number);
+    });
+  }, [filteredFacets, collection?.config, value.filter]);
+
+  useEffect(() => {
+    console.log('filtered facets', filteredFacets);
+  }, [filteredFacets]);
   return allFacets.length > 0 ? (
     <div className="sticky top-16 w-72 h-[calc(100vh-4rem)]">
       <div className="overflow-y-auto h-full">
@@ -384,38 +409,87 @@ const Facets = ({
             </div>
           </div>
 
-          {filteredFacets.map(({ filterType, ...facet }) => (
-            <FacetFilter
-              key={`${facet.key}-${filterType}`}
-              facet={facet}
-              filterType={filterType}
-              highlight={
-                value.filter.trim() !== '' &&
-                ((facet.key &&
-                  facet.key
-                    .toLowerCase()
-                    .includes(value.filter.toLowerCase())) ||
-                  facet.children.some((child) =>
-                    child.ids_ER.some(
-                      (id) =>
-                        id &&
-                        id.trim() !== '' &&
-                        id.toLowerCase().includes(value.filter.toLowerCase())
-                    )
-                  ))
-              }
-              selectedFilters={selectedFilters}
-              onFilterChange={(filterType, updatedFilters) => {
-                // Filter out empty or whitespace-only strings before setting
-                const cleanedFilters = updatedFilters.filter(
-                  (filter) => filter && filter.trim() !== ''
+          {orderedFacets.map(({ filterType, ...facet }) => {
+            if (
+              !collection?.config ||
+              !collection?.config.typesToHide ||
+              collection.config.typesToHide.length === 0
+            ) {
+              return (
+                <FacetFilter
+                  key={`${facet.key}-${filterType}`}
+                  facet={facet}
+                  filterType={filterType}
+                  highlight={
+                    value.filter.trim() !== '' &&
+                    ((facet.key &&
+                      facet.key
+                        .toLowerCase()
+                        .includes(value.filter.toLowerCase())) ||
+                      facet.children.some((child) =>
+                        child.ids_ER.some(
+                          (id) =>
+                            id &&
+                            id.trim() !== '' &&
+                            id
+                              .toLowerCase()
+                              .includes(value.filter.toLowerCase())
+                        )
+                      ))
+                  }
+                  selectedFilters={selectedFilters}
+                  onFilterChange={(filterType, updatedFilters) => {
+                    // Filter out empty or whitespace-only strings before setting
+                    const cleanedFilters = updatedFilters.filter(
+                      (filter) => filter && filter.trim() !== ''
+                    );
+                    // Remove duplicates while preserving order
+                    const uniqueFilters = Array.from(new Set(cleanedFilters));
+                    setSelectedFilters(uniqueFilters);
+                  }}
+                  loadedDocIds={loadedDocIds}
+                />
+              );
+            } else {
+              if (!collection.config.typesToHide.includes(facet.key)) {
+                return (
+                  <FacetFilter
+                    key={`${facet.key}-${filterType}`}
+                    facet={facet}
+                    filterType={filterType}
+                    highlight={
+                      value.filter.trim() !== '' &&
+                      ((facet.key &&
+                        facet.key
+                          .toLowerCase()
+                          .includes(value.filter.toLowerCase())) ||
+                        facet.children.some((child) =>
+                          child.ids_ER.some(
+                            (id) =>
+                              id &&
+                              id.trim() !== '' &&
+                              id
+                                .toLowerCase()
+                                .includes(value.filter.toLowerCase())
+                          )
+                        ))
+                    }
+                    selectedFilters={selectedFilters}
+                    onFilterChange={(filterType, updatedFilters) => {
+                      // Filter out empty or whitespace-only strings before setting
+                      const cleanedFilters = updatedFilters.filter(
+                        (filter) => filter && filter.trim() !== ''
+                      );
+                      // Remove duplicates while preserving order
+                      const uniqueFilters = Array.from(new Set(cleanedFilters));
+                      setSelectedFilters(uniqueFilters);
+                    }}
+                    loadedDocIds={loadedDocIds}
+                  />
                 );
-                // Remove duplicates while preserving order
-                const uniqueFilters = Array.from(new Set(cleanedFilters));
-                setSelectedFilters(uniqueFilters);
-              }}
-            />
-          ))}
+              }
+            }
+          })}
         </div>
       </div>
     </div>

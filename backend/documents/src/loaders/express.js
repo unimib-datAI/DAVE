@@ -1,4 +1,5 @@
 import express from "express";
+import compression from "compression";
 import api from "../api";
 import { keycloakAuthMiddleware } from "../middlewares/keycloak-auth";
 import {
@@ -11,6 +12,9 @@ import { setupSwagger } from "./swagger";
 
 export const expressLoader = () => {
   const app = express();
+
+  // Enable gzip/deflate compression for responses
+  app.use(compression());
 
   app.use(
     express.urlencoded({

@@ -265,6 +265,10 @@ export const documents = createRouter()
           'Content-Type': 'application/json',
         };
         const authHeader = getJWTHeader(token);
+        console.log(
+          '[trpc.document.fetchFacetDocuments] token provided:',
+          Boolean(token)
+        );
         if (authHeader) {
           headers.Authorization = authHeader;
         }
@@ -416,6 +420,9 @@ export const documents = createRouter()
   .mutation('createConfiguration', {
     input: z.object({
       name: z.string(),
+      // steps: ordered array of pipeline steps (new format)
+      steps: z.array(z.any()).optional(),
+      // services: legacy slot-map kept for backward compat
       services: z.record(z.any()).optional(),
       isActive: z.boolean().optional(),
       token: z.string(),
@@ -451,6 +458,9 @@ export const documents = createRouter()
     input: z.object({
       id: z.string(),
       name: z.string().optional(),
+      // steps: ordered array of pipeline steps (new format)
+      steps: z.array(z.any()).optional(),
+      // services: legacy slot-map kept for backward compat
       services: z.record(z.any()).optional(),
       isActive: z.boolean().optional(),
       token: z.string(),
@@ -615,7 +625,9 @@ export const documents = createRouter()
   })
   .mutation('save', {
     input: z.object({
+      collectionId: z.string(),
       docId: z.string(),
+      token: z.string(),
       annotationSets: z.record(z.string(), z.any()),
       features: z
         .object({
@@ -624,7 +636,7 @@ export const documents = createRouter()
         .optional(),
     }),
     resolve: async ({ input }) => {
-      const { docId, annotationSets, features } = input;
+      const { docId, annotationSets, features, token, collectionId } = input;
       const elasticIndex = process.env.ELASTIC_INDEX;
       try {
         // Create an abort controller for timeout handling
@@ -636,7 +648,7 @@ export const documents = createRouter()
         const headers: any = {
           'Content-Type': 'application/json',
         };
-        const authHeader = getAuthHeader();
+        const authHeader = getJWTHeader(token);
         if (authHeader) {
           headers.Authorization = authHeader;
         }
@@ -646,6 +658,7 @@ export const documents = createRouter()
             method: 'POST',
             headers,
             body: {
+              collectionId: collectionId,
               docId,
               annotationSets,
               features,
@@ -804,43 +817,25 @@ export const documents = createRouter()
       const { keys } = input;
 
       try {
-        // Call the endpoint for each key and collect results
-        const results = await Promise.allSettled(
-          keys.map(async (key) => {
-            const headers: any = {
-              'Content-Type': 'application/json',
-            };
-            const authHeader = getAuthHeader();
-            if (authHeader) {
-              headers.Authorization = authHeader;
-            }
-            const result = await fetchJson<
-              any,
-              { key: string; value: string } | { error: string; key: string }
-            >(`${baseURL}/document/deanonymize-key`, {
-              method: 'POST',
-              headers,
-              body: {
-                key,
-              },
-            });
-            return result;
-          })
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getAuthHeader();
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
+
+        const result = await fetchJson<any, Record<string, string>>(
+          `${baseURL}/document/deanonymize-keys`,
+          {
+            method: 'POST',
+            headers,
+            body: { keys },
+          }
         );
 
-        // Build a map of successful de-anonymizations
-        const deanonymizedMap: Record<string, string> = {};
-
-        results.forEach((result, index) => {
-          if (result.status === 'fulfilled') {
-            const data = result.value;
-            if ('value' in data && !('error' in data)) {
-              deanonymizedMap[keys[index]] = data.value;
-            }
-          }
-        });
-
-        return deanonymizedMap;
+        // Expecting a map of key->value
+        return result || {};
       } catch (error) {
         console.error('Error deanonymizing keys:', error);
         throw new TRPCError({
@@ -848,6 +843,133 @@ export const documents = createRouter()
           message: `Failed to deanonymize keys: ${
             error instanceof Error ? error.message : String(error)
           }`,
+        });
+      }
+    },
+  })
+  .query('getDocumentsByIds', {
+    input: z.object({
+      ids: z.array(z.string()),
+      deAnonimize: z.boolean().optional(),
+    }),
+    resolve: async ({ input }) => {
+      const { ids, deAnonimize } = input;
+      try {
+        const headers: any = {};
+        const authHeader = getAuthHeader();
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
+
+        const results = await Promise.allSettled(
+          ids.map(async (id) => {
+            // Fetch full document from backend and transform into a search-like hit
+            const doc = await fetchJson<any, Document>(
+              `${baseURL}/document/${id}/${deAnonimize ?? false}`,
+              { headers }
+            );
+
+            // Collect annotations from all annotation sets
+            const annotations: EntityAnnotation[] = [];
+            if (doc && doc.annotation_sets) {
+              Object.values(doc.annotation_sets).forEach((set: any) => {
+                if (Array.isArray(set.annotations)) {
+                  annotations.push(...set.annotations);
+                }
+              });
+            }
+
+            // Map to FacetedQueryHit-like shape used in the frontend
+            return {
+              _id: doc._id || String(doc.id),
+              id: doc.id,
+              mongo_id: doc._id,
+              text: doc.preview || doc.text || '',
+              name: doc.name || '',
+              annotations,
+            };
+          })
+        );
+
+        // Return only fulfilled results
+        const hits = results
+          .filter((r) => r.status === 'fulfilled')
+          .map((r: any) => r.value);
+
+        return hits;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error?.message || 'Failed to fetch documents by ids',
+        });
+      }
+    },
+  })
+  .mutation('fetchFacetDocuments', {
+    input: z.object({
+      ids: z.array(z.string()),
+      deAnonimize: z.boolean().optional(),
+      token: z.string().optional(),
+    }),
+    resolve: async ({ input }) => {
+      const { ids, deAnonimize, token } = input;
+      // If auth is enabled but no token supplied, avoid calling backend and return empty
+      if (
+        (!token || typeof token !== 'string' || token.trim().length === 0) &&
+        process.env.USE_AUTH !== 'false'
+      ) {
+        return [];
+      }
+      try {
+        const headers: any = {
+          'Content-Type': 'application/json',
+        };
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
+
+        // Call backend by-ids endpoint
+        const result = await fetchJson<any, any>(`${baseURL}/document/by-ids`, {
+          method: 'POST',
+          headers,
+          body: {
+            ids,
+            deAnonimize: deAnonimize ?? false,
+          },
+        });
+        console.log(
+          '[trpc.document.fetchFacetDocuments] fetched',
+          Array.isArray(result) ? result.length : 'non-array'
+        );
+        return result || [];
+      } catch (error: any) {
+        // Log detailed error for debugging (including possible FetchError.data)
+        try {
+          console.error('[trpc.document.fetchFacetDocuments] error', error);
+          if (error && typeof error === 'object') {
+            // If fetchJson threw a FetchError with .data, log it
+            // @ts-ignore
+            if (error.data) {
+              // @ts-ignore
+              console.error(
+                '[trpc.document.fetchFacetDocuments] response data:',
+                error.data
+              );
+            }
+            // log stack if available
+            if (error.stack) console.error(error.stack);
+          }
+        } catch (e) {
+          console.error('Failed to log fetchFacetDocuments error', e);
+        }
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message:
+            (error && error.message) ||
+            (error && typeof error === 'object' && JSON.stringify(error)) ||
+            'Failed to fetch facet documents',
         });
       }
     },
@@ -910,15 +1032,24 @@ export const documents = createRouter()
           );
         }
 
-        if (configToUse && configToUse.services) {
-          // Convert MongoDB Map to plain object
-          selectedServices = {};
-          if (configToUse.services instanceof Map) {
-            configToUse.services.forEach((value: any, key: string) => {
-              selectedServices![key] = value;
-            });
-          } else {
-            selectedServices = configToUse.services;
+        if (configToUse) {
+          // New format: steps array takes priority over legacy services map
+          if (
+            Array.isArray(configToUse.steps) &&
+            configToUse.steps.length > 0
+          ) {
+            selectedServices = configToUse.steps;
+          } else if (configToUse.services) {
+            // Legacy: convert MongoDB Map to plain object
+            if (configToUse.services instanceof Map) {
+              const legacyObj: Record<string, any> = {};
+              configToUse.services.forEach((value: any, key: string) => {
+                legacyObj[key] = value;
+              });
+              selectedServices = legacyObj;
+            } else {
+              selectedServices = configToUse.services;
+            }
           }
         }
       } catch (error: any) {
@@ -926,151 +1057,112 @@ export const documents = createRouter()
         selectedServices = undefined;
       }
 
-      // default fallback URLs (from env or built-in)
-      const defaultSpacyner =
-        process.env.ANNOTATION_SPACYNER_URL ||
-        'http://spacyner:80/api/spacyner';
-      const defaultBlink =
-        process.env.ANNOTATION_BLINK_URL ||
-        'http://biencoder:80/api/blink/biencoder/mention/doc';
-      const indexerURL =
-        process.env.ANNOTATION_INDEXER_URL ||
-        'http://indexer:80/api/indexer/search/doc';
-      const nilpredictionURL =
-        process.env.ANNOTATION_NILPREDICTION_URL ||
-        'http://nilpredictor:80/api/nilprediction/doc';
-      const defaultNilcluster =
-        process.env.ANNOTATION_NILCLUSTER_URL ||
-        'http://clustering:80/api/clustering';
-      const defaultConsolidation =
-        process.env.ANNOTATION_CONSOLIDATION_URL ||
-        'http://consolidation:80/api/consolidation';
       const elasticIndex = process.env.ELASTIC_INDEX;
 
-      // Helper: pick service URI from selectedServices for a slot, falling back to the provided default.
-      // selectedServices entries may either contain a concrete uri, or have a name like "DEFAULT-<TYPE>"
-      // when the frontend indicates fallbacks. We treat any non-empty uri as authoritative; otherwise use default.
-      const resolveUrlForSlot = (slot: string, fallbackUrl: string) => {
-        try {
-          if (!selectedServices) return fallbackUrl;
-          const entry = (selectedServices as Record<string, any>)[slot];
-          if (!entry) return fallbackUrl;
-          const uri = (entry.uri || '').trim();
-          if (uri) return uri;
-          // if no explicit uri provided, assume fallback (DEFAULT-<TYPE> or similar)
-          return fallbackUrl;
-        } catch (e) {
-          return fallbackUrl;
-        }
-      };
+      // Resolve the ordered list of pipeline steps to execute.
+      // New format: configToUse.steps  (array of { name, uri, serviceType? })
+      // Legacy fallback: configToUse.services  (slot-name -> service map)
+      let pipelineSteps: Array<{
+        name: string;
+        uri: string;
+        serviceType?: string;
+      }> = [];
 
-      // Map pipeline slots to concrete service URLs (use selected services when provided, else env/default)
-      const spacynerURL = resolveUrlForSlot('NER', defaultSpacyner);
-      const blinkURL = resolveUrlForSlot('NEL', defaultBlink);
-      const resolvedIndexerURL = resolveUrlForSlot('INDEXER', indexerURL);
-      const resolvedNilPredictionURL = resolveUrlForSlot(
-        'NILPREDICTION',
-        nilpredictionURL
-      );
-      const nilclusterURL = resolveUrlForSlot('CLUSTERING', defaultNilcluster);
-      const consolidationURL = resolveUrlForSlot(
-        'CONSOLIDATION',
-        defaultConsolidation
+      if (selectedServices) {
+        const raw = selectedServices as any;
+        if (Array.isArray(raw)) {
+          // New format: already an array of steps
+          pipelineSteps = (raw as any[]).filter(
+            (s: any) => s && typeof s.uri === 'string' && s.uri.trim()
+          );
+        } else if (typeof raw === 'object') {
+          // Legacy slot-map format: convert to ordered steps using canonical slot order
+          const LEGACY_SLOTS = [
+            'NER',
+            'NEL',
+            'INDEXER',
+            'NILPREDICTION',
+            'CLUSTERING',
+            'CONSOLIDATION',
+          ];
+          const defaultUriForSlot: Record<string, string> = {
+            NER:
+              process.env.ANNOTATION_SPACYNER_URL ||
+              'http://spacyner:80/api/spacyner',
+            NEL:
+              process.env.ANNOTATION_BLINK_URL ||
+              'http://biencoder:80/api/blink/biencoder/mention/doc',
+            INDEXER:
+              process.env.ANNOTATION_INDEXER_URL ||
+              'http://indexer:80/api/indexer/search/doc',
+            NILPREDICTION:
+              process.env.ANNOTATION_NILPREDICTION_URL ||
+              'http://nilpredictor:80/api/nilprediction/doc',
+            CLUSTERING:
+              process.env.ANNOTATION_NILCLUSTER_URL ||
+              'http://clustering:80/api/clustering',
+            CONSOLIDATION:
+              process.env.ANNOTATION_CONSOLIDATION_URL ||
+              'http://consolidation:80/api/consolidation',
+          };
+          for (const slot of LEGACY_SLOTS) {
+            const entry = raw[slot];
+            if (!entry) continue;
+            const uri = (entry.uri || '').trim() || defaultUriForSlot[slot];
+            if (uri) {
+              pipelineSteps.push({
+                name: entry.name || slot,
+                uri,
+                serviceType: slot,
+              });
+            }
+          }
+        }
+      }
+
+      // If no steps configured, fall through to upload without annotation
+      console.log(
+        `Pipeline has ${pipelineSteps.length} steps:`,
+        pipelineSteps.map((s) => `${s.name} -> ${s.uri}`)
       );
 
       try {
-        // Step 1: Create initial gatenlp Document
-        let gdoc = {
+        // Create initial gatenlp Document
+        let gdoc: any = {
           text: text,
           features: {},
           offset_type: 'p',
           annotation_sets: {},
         };
 
-        console.log('Step 1: Calling spacyner...', spacynerURL);
-        // Step 2: SpaCy NER
-        const spacynerRes = await fetchJson<any, any>(spacynerURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-        });
-        gdoc = spacynerRes;
+        // Execute each pipeline step sequentially
+        for (let i = 0; i < pipelineSteps.length; i++) {
+          const step = pipelineSteps[i];
+          console.log(
+            `Pipeline step ${i + 1}/${pipelineSteps.length}: ${step.name} -> ${
+              step.uri
+            }`
+          );
+          gdoc = await fetchJson<any, any>(step.uri, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: gdoc,
+            timeout: 300000, // 5 minutes per step
+          });
+        }
 
-        console.log('Step 2: Calling blink biencoder...');
-        // Step 3: BLINK biencoder mention detection
-        const blinkRes = await fetchJson<any, any>(blinkURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-        });
-        gdoc = blinkRes;
-
-        console.log('Step 3: Calling indexer search...');
-        // Step 4: Indexer search
-        const indexerRes = await fetchJson<any, any>(resolvedIndexerURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-        });
-        gdoc = indexerRes;
-
-        console.log('Step 4: Calling nilprediction...');
-        // Step 5: NIL prediction
-        const nilRes = await fetchJson<any, any>(resolvedNilPredictionURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-        });
-        gdoc = nilRes;
-
-        console.log('Step 5: Calling clustering...');
-        // Step 6: NIL Clustering
-        const nilclusterRes = await fetchJson<any, any>(nilclusterURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-        });
-        gdoc = nilclusterRes;
-
-        console.log('Step 6: Calling consolidation...');
-        // Step 7: Consolidation
-        const consolidationRes = await fetchJson<any, any>(consolidationURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: gdoc,
-        });
-        gdoc = consolidationRes;
-
-        console.log('Step 7: Cleaning up encoding features...');
-        // Step 7: Clean up encoding features from linking
-        if (gdoc.annotation_sets && (gdoc.annotation_sets as any).entities_) {
-          const entities =
-            (gdoc.annotation_sets as any).entities_.annotations || [];
+        // Clean up encoding features from linking (artifact of some pipeline steps)
+        if (gdoc.annotation_sets && gdoc.annotation_sets.entities_) {
+          const entities = gdoc.annotation_sets.entities_.annotations || [];
           for (const ann of entities) {
-            if (
-              ann.features &&
-              ann.features.linking &&
-              ann.features.linking.encoding
-            ) {
+            if (ann.features?.linking?.encoding) {
               delete ann.features.linking.encoding;
             }
           }
         }
 
-        console.log('Step 8: Uploading annotated document...');
-        // Step 10: Upload the annotated document
+        console.log('Uploading annotated document...');
+        // Upload the annotated document
         const documentToUpload = {
           ...gdoc,
           name: name || 'Untitled Document',
@@ -1094,6 +1186,7 @@ export const documents = createRouter()
             toAnonymize,
             anonymizeTypes,
           },
+          timeout: 300000, // 5 minutes
         });
 
         console.log('Document uploaded successfully');

@@ -1,41 +1,56 @@
-import { useText } from "@/components";
-import { useDraftState } from "@/hooks";
-import { ModalProps, Modal, Text } from "@nextui-org/react";
-import { selectCurrentEntity } from "../../DocumentProvider/selectors";
-import { useViewIndex } from "../../ViewProvider/ViewProvider";
-import EditAnnotationForm from "./EditAnnotationForm";
+import { useText } from '@/components';
+import { useDraftState } from '@/hooks';
+import { Modal, ModalContent, ModalHeader } from '@heroui/react';
+import { selectCurrentEntity } from '../../DocumentProvider/selectors';
+import EditAnnotationForm from './EditAnnotationForm';
 
-type EditModalProps = ModalProps & {
+type EditModalProps = {
   setVisible: (value: boolean) => void;
-}
+  open?: boolean;
+  onClose?: () => void;
+  onOpenChange?: (isOpen: boolean) => void;
+};
 
-const EditAnnotationModal = ({ setVisible, ...props }: EditModalProps) => {
+const EditAnnotationModal = ({
+  setVisible,
+  open,
+  onClose,
+  onOpenChange,
+}: EditModalProps) => {
   const t = useText('document');
   const [annotation, setAnnotation] = useDraftState(selectCurrentEntity);
 
-  if (!annotation) {
-    return null;
-  }
+  if (!annotation) return null;
 
   return (
     <Modal
-      scroll
-      width="800px"
+      size="3xl"
+      scrollBehavior="inside"
       aria-labelledby="edit-entity-modal"
-      css={{ maxHeight: '100%' }}
-      {...props}
+      isOpen={open ?? false}
+      onClose={onClose}
+      onOpenChange={onOpenChange}
+      isDismissable={false}
+      classNames={{ wrapper: 'z-[1001]', backdrop: 'z-[1001]' }}
     >
-      <Modal.Header>
-        <Text size={24}>
-          {t('modals.editAnnotation.title')}
-        </Text>
-      </Modal.Header>
-      <EditAnnotationForm
-        annotation={annotation}
-        setAnnotation={setAnnotation}
-        setVisible={setVisible} />
+      <ModalContent>
+        {() => (
+          <>
+            <ModalHeader>
+              <h2 style={{ margin: 0, fontSize: 24 }}>
+                {t('modals.editAnnotation.title')}
+              </h2>
+            </ModalHeader>
+            <EditAnnotationForm
+              annotation={annotation}
+              setAnnotation={setAnnotation}
+              setVisible={setVisible}
+            />
+          </>
+        )}
+      </ModalContent>
     </Modal>
-  )
+  );
 };
 
 export default EditAnnotationModal;

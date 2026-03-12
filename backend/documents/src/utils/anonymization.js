@@ -27,28 +27,29 @@ async function makeEncryptionRequest(valueToEncrypt) {
 
 export async function makeDecryptionRequest(valueToDecrypt, retries = 3) {
   let lastError;
+  if (valueToDecrypt.startsWith("vault:v1")) {
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        const res = await axios.post(
+          `${endpoint}/transit/decrypt`,
+          { fieldToDecrypt: valueToDecrypt },
+          {
+            headers: { "Content-Type": "application/json" },
+          },
+        );
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const res = await axios.post(
-        `${endpoint}/transit/decrypt`,
-        { fieldToDecrypt: valueToDecrypt },
-        {
-          headers: { "Content-Type": "application/json" },
-        },
-      );
+        return res.data;
+      } catch (error) {
+        lastError = error;
+        console.error(
+          `Decrypt attempt ${attempt} failed for value:`,
+          valueToDecrypt,
+          error.message,
+        );
 
-      return res.data;
-    } catch (error) {
-      lastError = error;
-      console.error(
-        `Decrypt attempt ${attempt} failed for value:`,
-        valueToDecrypt,
-        error.message,
-      );
-
-      // If this was the last attempt, fall through
-      if (attempt === retries) break;
+        // If this was the last attempt, fall through
+        if (attempt === retries) break;
+      }
     }
   }
 
@@ -57,6 +58,88 @@ export async function makeDecryptionRequest(valueToDecrypt, retries = 3) {
     decryptedData: null,
     error: lastError?.message ?? "Unknown error",
   };
+}
+
+/**
+ * Attempt to decrypt multiple values in a single batch request.
+ * Falls back to per-key decryption if the anonymization service doesn't support batch.
+ * Returns an array of results matching the input order where each item is
+ * { fieldToDecrypt, decryptedData, error? }
+ */
+export async function makeBatchDecryptionRequest(valuesToDecrypt, retries = 1) {
+  if (!Array.isArray(valuesToDecrypt) || valuesToDecrypt.length === 0) {
+    return [];
+  }
+
+  // Only attempt batch for values that look like vault tokens; non-vault tokens
+  // will be returned unchanged as decryptedData.
+  const results = valuesToDecrypt.map((v) => ({
+    fieldToDecrypt: v,
+    decryptedData: null,
+    error: null,
+  }));
+
+  const vaultValues = valuesToDecrypt.filter(
+    (v) => typeof v === "string" && v.startsWith("vault:"),
+  );
+  if (vaultValues.length === 0) {
+    // no vault values to call the service for
+    return results.map((r) => ({ ...r, decryptedData: r.fieldToDecrypt }));
+  }
+
+  // Try the anonymization service batch endpoint. Many deployments expose
+  // a batch decrypt route; we try /transit/decrypt/batch but fall back to
+  // individual calls if it's not available.
+  try {
+    // The anonymization service expects a plain JSON array of strings
+    // (see OpenAPI: request body is [ "string" ]). It returns a map
+    // of original->decrypted values. Send the array directly.
+    const res = await axios.post(
+      `${endpoint}/transit/decrypt/batch`,
+      vaultValues,
+      { headers: { "Content-Type": "application/json" } },
+    );
+
+    const data = res.data;
+    // Normalize response: accept either an array of { fieldToDecrypt, decryptedData }
+    // or an object map { [field]: decryptedValue }.
+    const map = new Map();
+    if (Array.isArray(data)) {
+      for (const item of data) {
+        if (item && item.fieldToDecrypt)
+          map.set(item.fieldToDecrypt, item.decryptedData ?? null);
+      }
+    } else if (data && typeof data === "object") {
+      // map values: if data has keys equal to fields
+      for (const k of Object.keys(data)) {
+        map.set(k, data[k]);
+      }
+    }
+
+    return valuesToDecrypt.map((v) => {
+      if (!v || typeof v !== "string")
+        return { fieldToDecrypt: v, decryptedData: v };
+      if (!v.startsWith("vault:"))
+        return { fieldToDecrypt: v, decryptedData: v };
+      const decrypted = map.has(v) ? map.get(v) : null;
+      return {
+        fieldToDecrypt: v,
+        decryptedData: decrypted,
+        error: decrypted ? null : "Not decrypted",
+      };
+    });
+  } catch (err) {
+    // If the batch endpoint is not available (404, 405) or fails, fall back
+    // to individual decryption requests to preserve existing behavior.
+    console.warn(
+      "Batch decryption failed, falling back to per-key decryption",
+      err.message,
+    );
+    const perKey = await Promise.all(
+      valuesToDecrypt.map((v) => makeDecryptionRequest(v)),
+    );
+    return perKey;
+  }
 }
 
 /**
@@ -113,6 +196,47 @@ export async function decode(doc) {
   }
 
   // First, decrypt all cluster titles (unchanged behaviour)
+  // Collect all keys that need decryption (cluster titles + annotation originalKeys)
+  const keysToDecryptSet = new Set();
+  for (const clusterAnnSet of Object.keys(doc.features.clusters)) {
+    for (let i = 0; i < doc.features.clusters[clusterAnnSet].length; i++) {
+      const cluster = doc.features.clusters[clusterAnnSet][i];
+      const encryptedTitle = cluster.title;
+      if (
+        typeof encryptedTitle === "string" &&
+        encryptedTitle.startsWith("vault:")
+      ) {
+        keysToDecryptSet.add(encryptedTitle);
+      }
+    }
+  }
+
+  for (const annsetName of Object.keys(doc.annotation_sets)) {
+    const anns = doc.annotation_sets[annsetName].annotations ?? [];
+    for (const annotation of anns) {
+      const originalKey = annotation.originalKey;
+      if (typeof originalKey === "string" && originalKey.startsWith("vault:")) {
+        keysToDecryptSet.add(originalKey);
+      }
+    }
+  }
+
+  const keysToDecrypt = Array.from(keysToDecryptSet);
+  let decryptedResultsMap = new Map();
+  if (keysToDecrypt.length > 0) {
+    try {
+      const batchResults = await makeBatchDecryptionRequest(keysToDecrypt);
+      for (const r of batchResults) {
+        if (r && r.fieldToDecrypt) {
+          decryptedResultsMap.set(r.fieldToDecrypt, r.decryptedData ?? null);
+        }
+      }
+    } catch (e) {
+      console.error("Batch decryption failed in decode():", e);
+    }
+  }
+
+  // Apply decrypted cluster titles
   for (const clusterAnnSet of Object.keys(doc.features.clusters)) {
     for (let i = 0; i < doc.features.clusters[clusterAnnSet].length; i++) {
       const cluster = doc.features.clusters[clusterAnnSet][i];
@@ -120,9 +244,12 @@ export async function decode(doc) {
         console.log("IL BASTARDO", cluster);
       }
       const encryptedTitle = cluster.title;
-      const result = await makeDecryptionRequest(encryptedTitle);
-      if (result?.decryptedData) {
-        cluster.title = result.decryptedData;
+      if (
+        typeof encryptedTitle === "string" &&
+        encryptedTitle.startsWith("vault:")
+      ) {
+        const decrypted = decryptedResultsMap.get(encryptedTitle);
+        if (decrypted) cluster.title = decrypted;
       }
     }
   }
@@ -204,12 +331,12 @@ export async function decode(doc) {
 
     let deAnonymized = null;
     if (originalKey.startsWith("vault:")) {
-      const result = await makeDecryptionRequest(originalKey);
-      if (result?.decryptedData && typeof result.decryptedData === "string") {
-        deAnonymized = result.decryptedData;
+      const decrypted = decryptedResultsMap.get(originalKey);
+      if (decrypted && typeof decrypted === "string") {
+        deAnonymized = decrypted;
       } else {
         console.error(
-          `[DECODE] Vault failed to decrypt for annset=${annsetName} idx=${i} key='${String(originalKey).slice(0, 120)}' result=${JSON.stringify(result)}`,
+          `[DECODE] Vault failed to decrypt for annset=${annsetName} idx=${i} key='${String(originalKey).slice(0, 120)}' decrypted=${String(decrypted)}`,
         );
         continue;
       }

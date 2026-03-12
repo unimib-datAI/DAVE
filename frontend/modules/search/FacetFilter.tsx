@@ -1,16 +1,19 @@
 import { useForm } from '@/hooks';
 import { Facet } from '@/server/routers/search';
-import { Checkbox } from '@nextui-org/react';
+import { Checkbox } from '@heroui/react';
 
 import { Option } from 'lucide-react';
 import { Link, Link2, SearchIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
+import { useSession } from 'next-auth/react';
 import { useRef, useState } from 'react';
 import { useAtom } from 'jotai';
 import {
   deanonymizeFacetsAtom,
   deanonymizedFacetNamesAtom,
+  facetsDocumentsAtom,
 } from '@/utils/atoms';
+import { useMutation } from '@/utils/trpc';
 import { useText } from '@/components/TranslationProvider';
 
 type FacetFilterProps = {
@@ -19,6 +22,7 @@ type FacetFilterProps = {
   highlight?: boolean;
   onFilterChange: (filterType: string, updatedFilters: string[]) => void;
   selectedFilters: string[];
+  loadedDocIds?: string[];
 };
 
 const getFilters = (
@@ -46,10 +50,15 @@ const FacetFilter = ({
   highlight,
   onFilterChange,
   selectedFilters,
+  loadedDocIds,
 }: FacetFilterProps) => {
   const t = useText('search');
+  const { data: session } = useSession();
   const [deanonymize] = useAtom(deanonymizeFacetsAtom);
   const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
+  const [facetedDocuments, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
+  const getDocsByIdsMutation = useMutation(['document.fetchFacetDocuments']);
+  const [fetching, setFetching] = useState(false);
 
   const { register, value } = useForm({
     filter: '',
@@ -114,6 +123,73 @@ const FacetFilter = ({
     keys: string[],
     option: any
   ) => {
+    // If checking, and option provides doc_ids, ensure missing docs are fetched
+    (async () => {
+      if (
+        checked &&
+        (option as any).doc_ids &&
+        (option as any).doc_ids.length > 0
+      ) {
+        try {
+          console.log('loaded doc ids', loadedDocIds);
+          const docIds = (option as any).doc_ids.map((d: any) => String(d));
+          const missingDocIds = docIds.filter(
+            (docId: string) => !loadedDocIds?.includes(docId)
+          );
+          const existingDocs = facetedDocuments || [];
+          const existingIds = new Set(
+            existingDocs.map((d: any) => String(d.id))
+          );
+          // include currently loaded backend hit ids so we don't re-fetch docs already in results
+          (loadedDocIds || []).forEach((id) => existingIds.add(String(id)));
+          const missing = docIds.filter((id: string) => !existingIds.has(id));
+          if (missingDocIds.length > 0) {
+            // fetch missing via tRPC
+            setFetching(true);
+            // include session token when available so backend keycloak accepts the request
+            const token = (session as any)?.accessToken;
+            console.log('facet: fetching missing docs', { missing, token });
+            const result = await getDocsByIdsMutation.mutateAsync({
+              ids: missingDocIds,
+              token,
+            });
+            if (result && Array.isArray(result) && result.length > 0) {
+              // merge into facetsDocumentsAtom using updater to avoid races/duplicates
+              setFacetedDocuments((prev: any[]) => {
+                const existingIds = new Set(prev.map((d: any) => String(d.id)));
+                const toAdd: any[] = [];
+                result.forEach((hit: any) => {
+                  const hitId = String(hit.id);
+                  if (!existingIds.has(hitId)) {
+                    existingIds.add(hitId);
+                    toAdd.push(hit);
+                  }
+                });
+                const merged = [...prev, ...toAdd];
+                console.log(
+                  'facet: fetched hits, merging. merged count:',
+                  merged.length
+                );
+                try {
+                  console.log(
+                    'facet: sample fetched hit annotations keys:',
+                    toAdd[0]?.annotations?.slice(0, 5).map((a: any) => ({
+                      id_ER: a.id_ER,
+                      display_name: a.display_name,
+                    }))
+                  );
+                } catch (e) {}
+                return merged;
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Failed to fetch missing docs for facet:', err);
+        } finally {
+          setFetching(false);
+        }
+      }
+    })();
     // Normalize all keys to lowercase and filter out empty strings
     const normalizedKey = key.toLowerCase().trim();
     const normalizedIds = keys
@@ -179,8 +255,6 @@ const FacetFilter = ({
 
       <div className="flex flex-col">
         {children.map((option) => {
-          if (!option.display_name.includes('vault:v1'))
-            console.log('***option', option);
           return (
             <Checkbox
               key={option.key}
@@ -199,9 +273,9 @@ const FacetFilter = ({
                     )
                 )
               }
-              value={option.key}
-              onChange={(checked) => {
-                handleChecked(checked, option.key, option.ids_ER, option);
+              value={option.display_name}
+              onValueChange={(isSelected) => {
+                handleChecked(isSelected, option.key, option.ids_ER, option);
               }}
             >
               <div className="flex flex-row items-center gap-1">

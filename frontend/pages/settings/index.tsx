@@ -7,7 +7,8 @@ import { FiCpu } from '@react-icons/all-files/fi/FiCpu';
 import { FiSettings } from '@react-icons/all-files/fi/FiSettings';
 import { FiGlobe } from '@react-icons/all-files/fi/FiGlobe';
 import { FiSliders } from '@react-icons/all-files/fi/FiSliders';
-import { Card, Text, Spacer } from '@nextui-org/react';
+import { Card, Spacer } from '@heroui/react';
+import Text from '@/components/HtmlText';
 import { BaseSelect, Option } from '@/components/BaseSelect';
 import { useText } from '@/components/TranslationProvider';
 import { useEffect, useState } from 'react';
@@ -38,7 +39,7 @@ const SettingsGrid = styled.div({
   marginTop: '24px',
 });
 
-const SettingCard = styled.a({
+const SettingCard = styled.div({
   display: 'flex',
   flexDirection: 'column',
   padding: '24px',
@@ -180,7 +181,7 @@ const SettingsPage = () => {
             </BaseSelect>
           </LanguageCard>
 
-          <Link href="/settings/llm" passHref>
+          <Link href="/settings/llm">
             <SettingCard>
               <IconWrapper>
                 <FiCpu />
@@ -190,7 +191,7 @@ const SettingsPage = () => {
             </SettingCard>
           </Link>
 
-          <Link href="/settings/annotation-configuration" passHref>
+          <Link href="/settings/annotation-configuration">
             <SettingCard>
               <IconWrapper>
                 <FiSliders />

@@ -3,15 +3,7 @@ import { useText } from '@/components';
 import { BaseSelect, Option } from '@/components/BaseSelect';
 import { useForm } from '@/hooks';
 import styled from '@emotion/styled';
-import {
-  Button,
-  Checkbox,
-  Col,
-  FormElement,
-  Input,
-  Modal,
-  Text,
-} from '@nextui-org/react';
+import { Button, Checkbox, FormElement, Input, Modal } from '@heroui/react';
 import { ChangeEvent, MouseEvent, useEffect, useMemo, useState } from 'react';
 import {
   selectDocumentTaxonomy,
@@ -122,9 +114,9 @@ const SelectType = ({ onChange, value: valueProp }: SelectTypeProps) => {
         isSelected={checked}
         onChange={handleCheck}
       />
-      <Text css={{ margin: 0, flexShrink: 0 }}>
+      <span style={{ margin: 0, flexShrink: 0 }}>
         {t('modals.addType.subClassOf')}
-      </Text>
+      </span>
       <SelectContainer>
         <BaseSelect
           value={value}
@@ -163,6 +155,10 @@ type FormState = {
 const FormContainer = styled.form({
   display: 'flex',
   flexDirection: 'column',
+});
+
+const HeaderLeft = styled.div({
+  textAlign: 'left',
 });
 
 /**
@@ -207,14 +203,14 @@ const Form = ({ onClose }: FormProps) => {
   return (
     <FormContainer onSubmit={onSubmit(handleForm)}>
       <Modal.Header>
-        <Col css={{ textAlign: 'left' }}>
-          <Text b size={18}>
+        <HeaderLeft>
+          <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
             {t('modals.addType.title')}
-          </Text>
-          <Text color="rgba(0,0,0,0.5)" css={{ lineHeight: 1.1 }}>
+          </h3>
+          <p style={{ color: 'rgba(0,0,0,0.5)', lineHeight: 1.1, margin: 0 }}>
             {t('modals.addType.description')}
-          </Text>
-        </Col>
+          </p>
+        </HeaderLeft>
       </Modal.Header>
       <Modal.Body>
         <Row>
