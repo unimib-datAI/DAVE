@@ -6,7 +6,7 @@ import {
   EntityAnnotation,
 } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Tooltip } from '@nextui-org/react';
+import { Tooltip } from '@heroui/react';
 import { darken } from 'polished';
 import {
   ReactNode,
@@ -345,7 +345,9 @@ const EntityNode = React.memo(EntityNodeInner, (prevProps, nextProps) => {
     prevProps.text === nextProps.text &&
     prevProps.start === nextProps.start &&
     prevProps.annotation.id === nextProps.annotation.id &&
-    prevProps.annotation.type === nextProps.annotation.type
+    prevProps.annotation.type === nextProps.annotation.type &&
+    JSON.stringify(prevProps.annotation.features?.types) ===
+      JSON.stringify(nextProps.annotation.features?.types)
   );
 });
 

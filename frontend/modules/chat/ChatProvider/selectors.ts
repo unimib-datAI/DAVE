@@ -1,30 +1,35 @@
-import { useContext } from 'react';
-import { ChatDispatchContext, ChatStateContext } from './ChatContext';
-import { State } from './types';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { useCallback } from 'react';
+import { chatStateAtom } from './ChatContext';
+import { chatReducer } from './reducer';
+import { Action, State } from './types';
+import { initialState } from './state';
 
-export const useChatState = () => {
-  const context = useContext(ChatStateContext);
-  if (context === undefined) {
+export const useChatState = (): State => {
+  const state = useAtomValue(chatStateAtom);
+  if (state === undefined) {
     throw new Error('useChatState must be used within a ChatProvider');
   }
-  return context;
+  return state;
 };
 
 export const useChatDispatch = () => {
-  const context = useContext(ChatDispatchContext);
-  if (context === undefined) {
-    throw new Error('useChatDispatch must be used within a ChatProvider');
-  }
-  return context;
+  const setAtom = useSetAtom(chatStateAtom);
+  return useCallback(
+    (action: Action) =>
+      setAtom((prev) => chatReducer(prev ?? initialState, action)),
+    [setAtom]
+  );
 };
 
 export function useSelector<T>(cb: (state: State) => T) {
-  const _state = useChatState();
-  return cb(_state);
+  const state = useChatState();
+  return cb(state);
 }
 
 // Convenience selectors
 export const useMessages = () => useSelector((state) => state.messages);
 export const useContexts = () => useSelector((state) => state.contexts);
 export const useStatuses = () => useSelector((state) => state.statuses);
-export const useConversationRated = () => useSelector((state) => state.conversationRated);
+export const useConversationRated = () =>
+  useSelector((state) => state.conversationRated);

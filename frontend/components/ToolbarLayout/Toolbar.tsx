@@ -37,7 +37,7 @@ const RightActions = styled.div({
   gap: '8px',
 });
 
-const Logo = styled.a({
+const Logo = styled.div({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',

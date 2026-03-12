@@ -43,20 +43,17 @@ const DocumentHit = ({
     <motion.div
       key={hit._id}
       layout
-      className={`flex flex-col ${
-        highlight ? 'border-4 border-blue-500 bg-blue-50 shadow-lg' : ''
-      }`}
+      className="flex flex-col"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      <Link
-        href={`/documents/${hit.mongo_id ? hit.mongo_id : hit.id}`}
-        passHref
-      >
-        <a
-          className={`rounded-md overflow-hidden border-[1px] border-solid border-slate-200 p-4 bg-white hover:shadow-lg hover:-translate-y-6 transition-all ${
-            highlight ? 'bg-blue-50' : ''
+      <Link href={`/documents/${hit.mongo_id ? hit.mongo_id : hit.id}`}>
+        <div
+          className={`rounded-md overflow-hidden border-solid p-4 bg-white hover:shadow-lg hover:-translate-y-6 transition-all ${
+            highlight
+              ? 'border-l-4 border-l-blue-400 border-t border-r border-b border-slate-200 shadow-md'
+              : 'border border-slate-200'
           }`}
         >
           <div className="h-36 overflow-ellipsis overflow-hidden mb-2 text-sm">
@@ -93,7 +90,7 @@ const DocumentHit = ({
               ))}
             </div>
           )}
-        </a>
+        </div>
       </Link>
     </motion.div>
   );

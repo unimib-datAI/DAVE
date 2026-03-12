@@ -1,7 +1,6 @@
 import { Flex, useText } from '@/components';
 import { EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Text } from '@nextui-org/react';
 import { scrollEntityIntoView } from '../DocumentProvider/utils';
 import EntityContext from './EntityContext';
 import TypesHierarchy from './TypesHierarchy';
@@ -35,22 +34,20 @@ const TextAnnotationDetails = ({ text, annotation }: TextAnnotationDetails) => {
 
   return (
     <>
-      <Text size={15} b>
+      <strong style={{ fontSize: '15px' }}>
         {t('rightSidebar.entityContext')}
-      </Text>
+      </strong>
       <TextAnnotationDetailsContainer
         onClick={() => scrollEntityIntoView(annotation.id)}
       >
         <EntityContext text={text} annotation={annotation} />
       </TextAnnotationDetailsContainer>
-      <Text size={15} b>
+      <strong style={{ fontSize: '15px' }}>
         {t('rightSidebar.typeHierarchy')}
-      </Text>
+      </strong>
       {types.map((type, index) => (
         <Flex key={type} direction="row" alignItems="center" gap="5px">
-          <Text size={11} b>
-            {index + 1}.
-          </Text>
+          <strong style={{ fontSize: '11px' }}>{index + 1}.</strong>
           <TypesHierarchy type={type} />
         </Flex>
       ))}

@@ -5,16 +5,16 @@ import { useRouter } from 'next/router';
 import styled from '@emotion/styled';
 import {
   Card,
-  Text,
+  CardBody,
   Button,
   Input,
   Modal,
-  Table,
-  Dropdown,
-  Loading,
-  Spacer,
-  Grid,
-} from '@nextui-org/react';
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  Spinner,
+} from '@heroui/react';
 import { Popconfirm } from 'antd';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import { FiEdit2 as EditIcon } from '@react-icons/all-files/fi/FiEdit2';
@@ -441,7 +441,7 @@ const Collections: NextPage = () => {
     return (
       <ToolbarLayout>
         <Container>
-          <Loading size="lg" />
+          <Spinner size="lg" />
         </Container>
       </ToolbarLayout>
     );
@@ -451,17 +451,21 @@ const Collections: NextPage = () => {
     <ToolbarLayout>
       <Container>
         <Header>
-          <Text h2>{t('title')}</Text>
-          <Button auto color="primary" icon={<FiPlus />} onPress={handleCreate}>
+          <h2 className="text-2xl font-bold">{t('title')}</h2>
+          <Button
+            color="primary"
+            startContent={<FiPlus />}
+            onPress={handleCreate}
+          >
             {t('newCollection')}
           </Button>
         </Header>
 
         {collections.length === 0 ? (
           <Card>
-            <Card.Body css={{ textAlign: 'center', padding: '40px' }}>
-              <Text color="$gray600">{t('emptyState')}</Text>
-            </Card.Body>
+            <CardBody style={{ textAlign: 'center', padding: '40px' }}>
+              <span style={{ color: '#9CA3AF' }}>{t('emptyState')}</span>
+            </CardBody>
           </Card>
         ) : (
           collections.map((collection) => (
@@ -475,17 +479,20 @@ const Collections: NextPage = () => {
               <CollectionCard style={{ cursor: 'pointer' }}>
                 <CardHeader>
                   <div>
-                    <Text h4 css={{ margin: 0 }}>
+                    <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
                       {collection.name}
-                    </Text>
+                    </h4>
                     {collection.ownerId === (session?.user as any)?.userId && (
-                      <Text
-                        size={12}
-                        color="$gray600"
-                        css={{ marginTop: '4px' }}
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: '#9CA3AF',
+                          marginTop: 4,
+                          display: 'block',
+                        }}
                       >
                         {t('owner')}
-                      </Text>
+                      </span>
                     )}
                   </div>
                   <Actions>
@@ -504,7 +511,7 @@ const Collections: NextPage = () => {
                       {(isExporting &&
                         exportingCollectionId === collection.id) ||
                       (isDownloading && downloadingId === collection.id) ? (
-                        <Loading size="xs" />
+                        <Spinner size="sm" />
                       ) : (
                         <FiDownload size={18} />
                       )}
@@ -547,13 +554,16 @@ const Collections: NextPage = () => {
                   {collection.allowedUserIds &&
                     collection.allowedUserIds.length > 0 && (
                       <div>
-                        <Text
-                          size={13}
-                          color="$gray600"
-                          css={{ marginBottom: '8px' }}
+                        <span
+                          style={{
+                            fontSize: 13,
+                            color: '#9CA3AF',
+                            marginBottom: 8,
+                            display: 'block',
+                          }}
                         >
                           {t('sharedWith')}
-                        </Text>
+                        </span>
                         <div
                           style={{
                             display: 'flex',
@@ -577,91 +587,100 @@ const Collections: NextPage = () => {
         )}
 
         <Modal
-          closeButton
-          open={modalOpen}
+          isOpen={modalOpen}
           onClose={() => setModalOpen(false)}
-          width="600px"
+          size="2xl"
         >
-          <Modal.Header>
-            <Text h3>
-              {editingCollection ? t('editModalTitle') : t('newModalTitle')}
-            </Text>
-          </Modal.Header>
-          <Modal.Body>
-            <Input
-              fullWidth
-              label={t('collectionNameLabel')}
-              placeholder={t('collectionNamePlaceholder')}
-              value={formData.name}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, name: e.target.value }))
-              }
-            />
-            <Spacer y={1} />
-            <Text size={14} weight="medium">
-              {t('shareWithUsers')}
-            </Text>
-            <Spacer y={0.5} />
-            <div
-              style={{
-                maxHeight: '300px',
-                overflowY: 'auto',
-                border: '1px solid #e5e7eb',
-                borderRadius: '8px',
-                padding: '8px',
-              }}
-            >
-              {users
-                .filter((user) => user.id !== (session as any)?.user?.userId)
-                .map((user) => (
-                  <label
-                    key={user.id}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      padding: '8px',
-                      cursor: 'pointer',
-                      borderRadius: '6px',
-                      transition: 'background 150ms ease',
-                    }}
-                    onMouseEnter={(e) =>
-                      (e.currentTarget.style.background = '#f9fafb')
-                    }
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = 'transparent')
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      checked={formData.allowedUserIds.includes(user.id)}
-                      onChange={() => toggleUser(user.id)}
-                      style={{ marginRight: '12px' }}
-                    />
-                    <div>
-                      <Text size={14}>{user.name || user.email}</Text>
-                      {user.name && (
-                        <Text size={12} color="$gray600">
-                          {user.email}
-                        </Text>
-                      )}
-                    </div>
-                  </label>
-                ))}
-            </div>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button auto flat onPress={() => setModalOpen(false)}>
-              {t('cancel')}
-            </Button>
-            <Button
-              auto
-              color="primary"
-              onPress={handleSubmit}
-              disabled={createMutation.isLoading || updateMutation.isLoading}
-            >
-              {editingCollection ? t('update') : t('create')}
-            </Button>
-          </Modal.Footer>
+          <ModalContent>
+            <ModalHeader>
+              <h3 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>
+                {editingCollection ? t('editModalTitle') : t('newModalTitle')}
+              </h3>
+            </ModalHeader>
+            <ModalBody>
+              <Input
+                label={t('collectionNameLabel')}
+                placeholder={t('collectionNamePlaceholder')}
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
+              />
+              <div style={{ height: 16 }} />
+              <span style={{ fontSize: 14, fontWeight: 500 }}>
+                {t('shareWithUsers')}
+              </span>
+              <div style={{ height: 8 }} />
+              <div
+                style={{
+                  maxHeight: '300px',
+                  overflowY: 'auto',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '8px',
+                }}
+              >
+                {users
+                  .filter((user) => user.id !== (session as any)?.user?.userId)
+                  .map((user) => (
+                    <label
+                      key={user.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        padding: '8px',
+                        cursor: 'pointer',
+                        borderRadius: '6px',
+                        transition: 'background 150ms ease',
+                      }}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = '#f9fafb')
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = 'transparent')
+                      }
+                    >
+                      <input
+                        type="checkbox"
+                        checked={formData.allowedUserIds.includes(user.id)}
+                        onChange={() => toggleUser(user.id)}
+                        style={{ marginRight: '12px' }}
+                      />
+                      <div>
+                        <span style={{ fontSize: 14 }}>
+                          {user.name || user.email}
+                        </span>
+                        {user.name && (
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color: '#9CA3AF',
+                              display: 'block',
+                            }}
+                          >
+                            {user.email}
+                          </span>
+                        )}
+                      </div>
+                    </label>
+                  ))}
+              </div>
+            </ModalBody>
+            <ModalFooter>
+              <Button variant="flat" onPress={() => setModalOpen(false)}>
+                {t('cancel')}
+              </Button>
+              <Button
+                color="primary"
+                onPress={handleSubmit}
+                isDisabled={
+                  createMutation.isLoading || updateMutation.isLoading
+                }
+              >
+                {editingCollection ? t('update') : t('create')}
+              </Button>
+            </ModalFooter>
+          </ModalContent>
         </Modal>
       </Container>
     </ToolbarLayout>

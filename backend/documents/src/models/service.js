@@ -5,25 +5,12 @@ import mongoose from "mongoose";
  * Stores minimal configuration for an annotation pipeline service:
  *  - name: unique identifier for the service entry (display name)
  *  - uri: endpoint to call the service
- *  - serviceType: logical grouping/type used in selects (e.g. "NER", "NEL", "CLUSTERING", "CONSOLIDATION", etc.)
+ *  - serviceType: free-form label used for grouping/display (no enum restriction)
  *
  * The schema uses timestamps so createdAt/updatedAt are automatically kept.
  */
 
 const { Schema } = mongoose;
-
-/**
- * Allowed service types. Extend as needed by the application.
- */
-const ALLOWED_SERVICE_TYPES = [
-  "NER",
-  "NEL",
-  "INDEXER",
-  "NILPREDICTION",
-  "CLUSTERING",
-  "CONSOLIDATION",
-  "OTHER",
-];
 
 const serviceSchema = new Schema(
   {
@@ -39,11 +26,10 @@ const serviceSchema = new Schema(
       required: true,
       trim: true,
     },
-    // Logical service type used to group/select services (e.g. NER, NEL)
+    // Logical service type used to group/select services - free-form, any string is valid
     serviceType: {
       type: String,
-      enum: ALLOWED_SERVICE_TYPES,
-      required: true,
+      required: false,
       default: "OTHER",
       trim: true,
       index: true,
@@ -84,15 +70,10 @@ export const serviceDTO = (body) => {
   // Accept either `serviceType` or `type` from input, fallback to OTHER
   const serviceType = body.serviceType || body.type || "OTHER";
 
-  // Normalize serviceType to a known value if possible
-  const normalizedType = ALLOWED_SERVICE_TYPES.includes(serviceType)
-    ? serviceType
-    : "OTHER";
-
   return new Service({
     name,
     uri,
-    serviceType: normalizedType,
+    serviceType,
     description,
     disabled,
   });

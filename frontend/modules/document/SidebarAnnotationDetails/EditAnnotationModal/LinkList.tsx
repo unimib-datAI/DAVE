@@ -1,7 +1,7 @@
 import { Flex } from '@/components';
 import { Candidate } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { Checkbox, Text, Link } from '@nextui-org/react';
+import { Checkbox } from '@heroui/react';
 import { MouseEvent } from 'react';
 import { getCandidateId } from '../../DocumentProvider/utils';
 
@@ -47,14 +47,19 @@ const LinkItem = ({ candidate, selected, onClick }: LinkItemProps) => {
       />
       <LinkItemDetailsContainer>
         <Flex direction="row" gap="10px" alignItems="center">
-          <Text>{candidate.title}</Text>
+          <span>{candidate.title}</span>
           {/* <Text size={12} css={{ color: 'rgba(0,0,0,0.7)' }}>
             Score: {candidate.score.toFixed(2)}
           </Text> */}
         </Flex>
-        <Link href={candidate.url} target="_blank" css={{ fontSize: '12px' }}>
+        <a
+          href={candidate.url}
+          target="_blank"
+          rel="noreferrer"
+          style={{ fontSize: '12px' }}
+        >
           {candidate.url}
-        </Link>
+        </a>
       </LinkItemDetailsContainer>
     </ItemContainer>
   );
@@ -68,7 +73,9 @@ type LinkListProps = {
 
 const LinkList = ({ candidates, value, onChange }: LinkListProps) => {
   if (!candidates || candidates.length === 0) {
-    return <Text css={{ color: 'rgba(0,0,0,0.7)' }}>There are no links.</Text>;
+    return (
+      <span style={{ color: 'rgba(0,0,0,0.7)' }}>There are no links.</span>
+    );
   }
 
   return (

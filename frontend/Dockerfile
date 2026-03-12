@@ -1,5 +1,5 @@
 # Use node alpine as it's a small node image
-FROM node:18-alpine
+FROM node:20-alpine
 
 ARG ACCESS_USERNAME
 ARG ACCESS_PASSWORD

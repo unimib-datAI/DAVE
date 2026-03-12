@@ -1,30 +1,13 @@
-import { useParam, useQueryParam } from "@/hooks";
-import { GetDocumentProps, GetSourceProps } from "@/server/routers/review";
-import { useQuery } from "@/utils/trpc";
-import styled from "@emotion/styled";
-import { PropsWithChildren, useEffect, useReducer } from "react";
-import { reviewReducer } from "./reducer";
-import { ReviewDispatchContext, ReviewStateContext } from "./ReviewContext";
-import { State } from "./types";
+import { useParam } from '@/hooks';
+import { GetDocumentProps, GetSourceProps } from '@/server/routers/review';
+import { useQuery } from '@/utils/trpc';
+import { PropsWithChildren, useEffect, useMemo } from 'react';
+import { Provider, createStore, useSetAtom } from 'jotai';
+import { reviewReducer } from './reducer';
+import { reviewStateAtom } from './ReviewContext';
+import { State } from './types';
 
-const ReviewProvider = ({ children }: PropsWithChildren<{}>) => {
-  const [sourceId, routerReady] = useParam<string>('source');
-  const [docId] = useParam<string>('doc');
-  const { data: sourceData, isFetching: isFetchingSource } = useQuery(['review.getSource', { sourceId, docId }], { enabled: routerReady, staleTime: Infinity, cacheTime: 0 });
-  const { data: docData, isFetching: isFetchingDocData } = useQuery(['review.getDocument', { sourceId, docId }], { enabled: routerReady, staleTime: Infinity, cacheTime: 0 });
-
-  const isLoading = isFetchingDocData || isFetchingSource || !docData || !sourceData;
-
-  return <ReviewStateProvider sourceData={sourceData} docData={docData} isLoading={isLoading}>{children}</ReviewStateProvider>;
-};
-
-type ReviewStateProviderProps = {
-  sourceData: GetSourceProps | undefined;
-  docData: GetDocumentProps | undefined;
-  isLoading: boolean;
-}
-
-const initialState = {
+const reviewInitialState: State = {
   id: '',
   docId: '',
   name: '',
@@ -38,63 +21,98 @@ const initialState = {
     totalReviewed: 0,
     currentItemCursor: 0,
     lastItemCursor: 0,
-  }
-}
+  },
+};
 
-const ReviewStateProvider = ({
+const ReviewProvider = ({ children }: PropsWithChildren<{}>) => {
+  const store = useMemo(() => {
+    const s = createStore();
+    s.set(reviewStateAtom, reviewInitialState);
+    return s;
+  }, []);
+  const [sourceId, routerReady] = useParam<string>('source');
+  const [docId] = useParam<string>('doc');
+  const { data: sourceData, isFetching: isFetchingSource } = useQuery(
+    ['review.getSource', { sourceId, docId }],
+    { enabled: routerReady, staleTime: Infinity, cacheTime: 0 }
+  );
+  const { data: docData, isFetching: isFetchingDocData } = useQuery(
+    ['review.getDocument', { sourceId, docId }],
+    { enabled: routerReady, staleTime: Infinity, cacheTime: 0 }
+  );
+  const isLoading =
+    isFetchingDocData || isFetchingSource || !docData || !sourceData;
+
+  return (
+    <Provider store={store}>
+      <ReviewStateInitializer
+        sourceData={sourceData}
+        docData={docData}
+        isLoading={isLoading}
+      >
+        {children}
+      </ReviewStateInitializer>
+    </Provider>
+  );
+};
+
+type ReviewStateInitializerProps = PropsWithChildren<{
+  sourceData: GetSourceProps | undefined;
+  docData: GetDocumentProps | undefined;
+  isLoading: boolean;
+}>;
+
+const ReviewStateInitializer = ({
   sourceData,
   docData,
   isLoading,
   children,
-}: PropsWithChildren<ReviewStateProviderProps>) => {
-  const [state, dispatch] = useReducer(reviewReducer, initialState);
+}: ReviewStateInitializerProps) => {
+  const setAtom = useSetAtom(reviewStateAtom);
 
   useEffect(() => {
-    dispatch({
-      type: 'setState',
-      payload: {
-        data: initializeState({ sourceData, docData, isLoading: false })
-      }
-    })
-  }, [sourceData, docData, isLoading]);
+    setAtom(
+      reviewReducer(reviewInitialState, {
+        type: 'setState',
+        payload: {
+          data: initializeState({ sourceData, docData, isLoading: false }),
+        },
+      })
+    );
+  }, [sourceData, docData, isLoading, setAtom]);
 
-  const initializeState = ({ docData, sourceData, isLoading }: ReviewStateProviderProps): State => {
-    if (!docData || !sourceData) {
-      return initialState;
-    }
-
-    const annSet = Object.values(docData.currentDocument.annotation_sets)[0];
-
-    if (!annSet) {
-      throw new Error('No annotation set to review')
-    }
-    const { doneIds } = sourceData;
-    const { docId } = docData;
-
-    const doneIdsSet = new Set(doneIds);
-    const docDone = doneIdsSet.has(docId);
-
-    return {
-      ...docData,
-      ...sourceData,
-      isLoading,
-      ui: {
-        totalReviewed: docDone ? annSet.annotations.length : 0,
-        currentItemCursor: 0,
-        lastItemCursor: docDone ? annSet.annotations.length - 1 : 0
-      }
-    }
-  }
-
-  return (
-    <ReviewStateContext.Provider value={state}>
-      <ReviewDispatchContext.Provider value={dispatch}>
-        {children}
-      </ReviewDispatchContext.Provider>
-    </ReviewStateContext.Provider>
-  );
+  return <>{children}</>;
 };
 
+const initializeState = ({
+  docData,
+  sourceData,
+  isLoading,
+}: Omit<ReviewStateInitializerProps, 'children'>): State => {
+  if (!docData || !sourceData) {
+    return reviewInitialState;
+  }
 
+  const annSet = Object.values(docData.currentDocument.annotation_sets)[0];
+
+  if (!annSet) {
+    throw new Error('No annotation set to review');
+  }
+
+  const { doneIds } = sourceData;
+  const { docId } = docData;
+  const docDone = new Set(doneIds).has(docId);
+
+  return {
+    ...docData,
+    ...sourceData,
+    isLoading,
+    ui: {
+      totalReviewed: docDone ? annSet.annotations.length : 0,
+      currentItemCursor: 0,
+      lastItemCursor: docDone ? annSet.annotations.length - 1 : 0,
+    },
+  };
+};
 
 export default ReviewProvider;

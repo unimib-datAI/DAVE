@@ -1,14 +1,7 @@
 import { Flex, useText } from '@/components';
 import { useForm, useInput } from '@/hooks';
 import styled from '@emotion/styled';
-import {
-  Button,
-  Divider,
-  FormElement,
-  Input,
-  Text,
-  Textarea,
-} from '@nextui-org/react';
+import { Button, Divider, FormElement, Input, Textarea } from '@heroui/react';
 import { ChangeEvent, useState, Dispatch, SetStateAction } from 'react';
 import { EntityAnnotation } from '@/server/routers/document';
 
@@ -153,12 +146,12 @@ const AddCandidateForm = ({
   return (
     <Container>
       <Flex>
-        <Text size={18} css={{ lineHeight: 1.2 }}>
+        <div style={{ lineHeight: 1.2, fontSize: 18, fontWeight: 600 }}>
           {t('modals.editAnnotation.addCandidate.title')}
-        </Text>
-        <Text size={16} css={{ color: 'rgba(0,0,0,0.5)' }}>
+        </div>
+        <div style={{ color: 'rgba(0,0,0,0.5)', fontSize: 16 }}>
           {t('modals.editAnnotation.addCandidate.description')}
-        </Text>
+        </div>
       </Flex>
       <AddCandidateLink url={url} setUrl={setUrl} />
       <Divider />

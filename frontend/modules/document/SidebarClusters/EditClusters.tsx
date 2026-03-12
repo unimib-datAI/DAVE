@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ProcessedCluster } from '../DocumentProvider/types';
-import { Button } from '@nextui-org/react';
+import { Button } from '@heroui/react';
 import { Checkbox, Col, Drawer, message, Modal, Row, Select, Tag } from 'antd';
 import {
   selectCurrentAnnotationSetName,
@@ -553,7 +553,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
         </Row>
         {editedClusters && (
           <Row justify={'center'}>
-            <Button onClick={handleSave} loading={isSaving}>
+            <Button onClick={handleSave} isLoading={isSaving}>
               {t('save')}
             </Button>
           </Row>

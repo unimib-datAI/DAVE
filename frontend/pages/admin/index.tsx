@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { useQuery, useMutation, useContext } from '@/utils/trpc';
 import { useSession } from 'next-auth/react';
 import styled from '@emotion/styled';
-import { Modal, Button, Input, Text, Table, Loading } from '@nextui-org/react';
+import { Modal, Button, Input, Table, Spinner } from '@heroui/react';
+import Text from '@/components/HtmlText';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 
 const Container = styled.div({
@@ -182,7 +183,7 @@ const AdminPage = () => {
         <div
           style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}
         >
-          <Loading size="lg" />
+          <Spinner size="lg" />
         </div>
       </Container>
     );
@@ -206,7 +207,7 @@ const AdminPage = () => {
         <div
           style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}
         >
-          <Loading size="lg" />
+          <Spinner size="lg" />
         </div>
       ) : (
         <Table

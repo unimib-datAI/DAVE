@@ -1,6 +1,6 @@
 import { Flex, useText } from '@/components';
 import styled from '@emotion/styled';
-import { Button } from '@nextui-org/react';
+import { Button } from '@heroui/react';
 import { Dispatch, SetStateAction } from 'react';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import AddCandidateForm from './AddCandidateForm';
@@ -33,9 +33,8 @@ const AddLinkItem = ({
     <Flex direction="column" gap="5px">
       <Container>
         <Button
-          auto
-          icon={<FiPlus size="20px" />}
-          onClick={() => toggleFormVisibility()}
+          startContent={<FiPlus size="20px" />}
+          onPress={() => toggleFormVisibility()}
         >
           {t('modals.editAnnotation.addCandidate.btn')}
         </Button>

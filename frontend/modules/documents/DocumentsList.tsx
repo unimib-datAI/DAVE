@@ -1,28 +1,26 @@
-import styled from "@emotion/styled";
-import { Table, styled as styledNext, Text } from "@nextui-org/react";
-import Link from "next/link";
-import { Fragment, useState } from "react";
-import DocumentCard from "./DocumentCard";
-import { FaTh } from "@react-icons/all-files/fa/FaTh"
-import { FaListUl } from "@react-icons/all-files/fa/FaListUl"
-import { InfiniteData } from "react-query";
-import { GetPaginatedDocuments } from "@/server/routers/document";
-import { useText } from "@/components";
-
+import styled from '@emotion/styled';
+import Link from 'next/link';
+import { Fragment, useState } from 'react';
+import DocumentCard from './DocumentCard';
+import { FaTh } from '@react-icons/all-files/fa/FaTh';
+import { FaListUl } from '@react-icons/all-files/fa/FaListUl';
+import { InfiniteData } from 'react-query';
+import { GetPaginatedDocuments } from '@/server/routers/document';
+import { useText } from '@/components';
 
 type DocumentsListProps = {
   data: InfiniteData<GetPaginatedDocuments>;
-}
+};
 
 const DocumentsGridContainer = styled.div({
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fill,minmax(256px,1fr))',
-  gridGap: '32px 32px'
-})
+  gridGap: '32px 32px',
+});
 
 const DocumentsGrid = ({ data }: DocumentsListProps) => {
   return (
-    //TODO: Forse modificare questo container per visualizzare documenti demo 
+    //TODO: Forse modificare questo container per visualizzare documenti demo
     <DocumentsGridContainer>
       {data.pages.map((page) => (
         <Fragment key={page.page}>
@@ -32,24 +30,23 @@ const DocumentsGrid = ({ data }: DocumentsListProps) => {
         </Fragment>
       ))}
     </DocumentsGridContainer>
-  )
-}
+  );
+};
 
 const Container = styled.div({
   display: 'flex',
   flexDirection: 'column',
-  gap: '20px'
-})
-
+  gap: '20px',
+});
 
 const DocumentsList = ({ data }: DocumentsListProps) => {
   const t = useText('documents');
   return (
     <Container>
-      <Text h3>{t('title', { n: data.pages[0].totalDocs })}</Text>
+      <h3>{t('title', { n: data.pages[0].totalDocs })}</h3>
       <DocumentsGrid data={data} />
     </Container>
-  )
-}
+  );
+};
 
 export default DocumentsList;

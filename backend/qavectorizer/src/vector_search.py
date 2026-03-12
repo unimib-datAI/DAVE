@@ -114,27 +114,21 @@ class VectorSearch:
             List of document results with chunks and metadata
         """
         # Generate embeddings
-        print(f"RECEIVED FILTER IDS {filter_ids}")
+        # print(f"RECEIVED FILTER IDS {filter_ids}")
         embeddings = []
         with torch.no_grad():
             embeddings = self.model.encode(query)
         embeddings = embeddings.tolist()
 
-        # Adjust parameters based on filter mode
+        # Adjust parameters based on filter mode (increase to return many candidates)
         if filter_ids and len(filter_ids) == 1:
-            knn_k = 50
-            chunks_to_gather = 40
+            knn_k = 64
+            chunks_to_gather = 20
             inner_hits_size = 50
-            print(
-                f"SINGLE DOCUMENT MODE: knn_k={knn_k}, chunks_to_gather={chunks_to_gather}"
-            )
         else:
-            knn_k = 25
-            chunks_to_gather = 25
-            inner_hits_size = 30
-            print(
-                f"MULTI DOCUMENT MODE: knn_k={knn_k}, chunks_to_gather={chunks_to_gather}"
-            )
+            knn_k = 64
+            chunks_to_gather = 100
+            inner_hits_size = 50
 
         # Build queries
         query_body, query_full_text = self._build_queries(
@@ -146,77 +140,46 @@ class VectorSearch:
             knn_k=knn_k,
             inner_hits_size=inner_hits_size,
         )
-        print(f"DEBUG: Vector query body: {query_body}")
-        print(f"DEBUG: Full-text query body: {query_full_text}")
 
         # Execute searches
         results = []
         response_full_text = []
 
         if retrieval_method in ["full", "dense", "hibrid_no_ner"]:
-            print("=" * 80)
-            print("EXECUTING VECTOR SEARCH")
-            print(f"Query body: {json.dumps(query_body, indent=2)}")
-            print("=" * 80)
             results = self.es_client.search(index=collection_name, body=query_body)
-            print(f"DEBUG: Vector search response hits: {len(results['hits']['hits'])}")
-            print(
-                f"DEBUG: Vector search total hits: {results.get('hits', {}).get('total', {})}"
-            )
             for hit in results["hits"]["hits"]:
                 if "inner_hits" in hit and "chunks.vectors" in hit["inner_hits"]:
-                    print(
-                        f"DEBUG: Vector inner_hits for doc {hit['_source']['id']}: {len(hit['inner_hits']['chunks.vectors']['hits']['hits'])}"
-                    )
+                    # inner hits present; no debug prints
+                    pass
 
         if retrieval_method in ["full", "hibrid_no_ner", "full-text"]:
-            print("=" * 80)
-            print("EXECUTING FULL-TEXT SEARCH")
-            print(f"Query body: {json.dumps(query_full_text, indent=2)}")
-            print("=" * 80)
             response_full_text = self.es_client.search(
                 index=collection_name, body=query_full_text
             )
-            print(
-                f"DEBUG: Full-text search response hits: {len(response_full_text['hits']['hits'])}"
-            )
-            print(
-                f"DEBUG: Full-text search total hits: {response_full_text.get('hits', {}).get('total', {})}"
-            )
             for hit in response_full_text["hits"]["hits"]:
                 if "inner_hits" in hit and "chunks" in hit["inner_hits"]:
-                    print(
-                        f"DEBUG: Full-text inner_hits for doc {hit['_source']['id']}: {len(hit['inner_hits']['chunks']['hits']['hits'])}"
-                    )
+                    pass
                 if "inner_hits" in hit and "chunks.vectors" in hit["inner_hits"]:
-                    print(
-                        f"DEBUG: Full-text inner_hits (chunks.vectors) for doc {hit['_source']['id']}: {len(hit['inner_hits']['chunks.vectors']['hits']['hits'])}"
-                    )
-                    # Print first few chunk texts to verify content
+                    # Inspect a few chunk hits without printing
                     for i, chunk_hit in enumerate(
                         hit["inner_hits"]["chunks.vectors"]["hits"]["hits"][:3]
                     ):
-                        print(f"  DEBUG: chunk_hit keys: {chunk_hit.keys()}")
                         if "_source" in chunk_hit:
-                            print(
-                                f"  DEBUG: _source keys: {chunk_hit['_source'].keys()}"
-                            )
-                            print(f"  DEBUG: _source content: {chunk_hit['_source']}")
+                            _ = chunk_hit["_source"]
                         if "fields" in chunk_hit:
-                            print(f"  DEBUG: fields keys: {chunk_hit['fields'].keys()}")
-                            print(f"  DEBUG: fields content: {chunk_hit['fields']}")
+                            _ = chunk_hit["fields"]
 
         del embeddings
 
         # Combine results using RRF
         vector_ranks = collect_chunk_ranks_fn(results) if len(results) > 0 else {}
-        print(f"DEBUG: Vector ranks collected: {len(vector_ranks)}")
+        # print(f"DEBUG: Vector ranks collected: {len(vector_ranks)}")
         full_text_ranks = (
             collect_chunk_ranks_full_text_fn(response_full_text)
             if len(response_full_text) > 0
             else {}
         )
-        print(f"DEBUG: Full-text ranks collected: {len(full_text_ranks)}")
+        # print(f"DEBUG: Full-text ranks collected: {len(full_text_ranks)}")
 
         rrf_k = 50 if (filter_ids and len(filter_ids) == 1) else 30
 
@@ -235,8 +198,8 @@ class VectorSearch:
             combined_scores.items(), key=lambda x: x[1], reverse=True
         )
 
-        print(f"Final ranking contains {len(final_ranking)} chunks")
-        print(f"Will gather top {chunks_to_gather} chunks")
+        # print(f"Final ranking contains {len(final_ranking)} chunks")
+        # print(f"Will gather top {chunks_to_gather} chunks")
 
         # Gather top chunks
         if filter_ids and len(filter_ids) == 1:
@@ -271,7 +234,7 @@ class VectorSearch:
                 reverse=True,
             )
 
-            # Take top 5 documents, and from each, take top 5 chunks
+            # Take top documents, and from each, take multiple chunks
             selected_chunks = []
             max_docs = 5
             max_chunks_per_doc = 5
@@ -300,21 +263,54 @@ class VectorSearch:
 
         num_docs = len(doc_chunks_id_map)
         total_chunks = sum(len(chunks) for chunks in doc_chunks_id_map.values())
-        print(f"Retrieved {total_chunks} chunks from {num_docs} documents")
+        # print(f"Retrieved {total_chunks} chunks from {num_docs} documents")
 
-        # Retrieve full documents
+        # Retrieve full documents directly from Elasticsearch (avoid external retriever)
         doc_ids = list(doc_chunks_id_map.keys())
-        current_retriever = self.retrievers.get(collection_name, self.default_retriever)
-        print(f"current retriever {current_retriever}")
+        # Try to fetch required fields from ES in one query
+        try:
+            es_resp = self.es_client.search(
+                index=collection_name,
+                body={
+                    "query": {"terms": {"id": doc_ids}},
+                    "_source": [
+                        "id",
+                        "name",
+                        "text",
+                        "text_anonymized",
+                        "preview",
+                    ],
+                    "size": len(doc_ids),
+                },
+            )
+            hits = es_resp.get("hits", {}).get("hits", [])
+            id_to_doc = {}
+            for hit in hits:
+                src = hit.get("_source", {})
+                # prefer explicit id field, fallback to _id
+                doc_id_src = src.get("id") or hit.get("_id")
+                if doc_id_src is not None:
+                    id_to_doc[str(doc_id_src)] = src
 
-        full_docs = []
-        for doc_id in doc_ids:
-            d = current_retriever.retrieve(doc_id)
-            if "error" in d:
-                print("Error retrieving document", d["error"])
-                continue
-            full_docs.append(d)
-            print(f"current id {d.keys()}")
+            full_docs = []
+            for doc_id in doc_ids:
+                if str(doc_id) in id_to_doc:
+                    full_docs.append(id_to_doc[str(doc_id)])
+                else:
+                    # missing doc in ES response: skip it
+                    continue
+        except Exception:
+            # On any ES error, fall back to configured retriever
+            print("fallback to old full doc gather ")
+            full_docs = []
+            current_retriever = self.retrievers.get(
+                collection_name, self.default_retriever
+            )
+            for doc_id in doc_ids:
+                d = current_retriever.retrieve(doc_id)
+                if "error" in d:
+                    continue
+                full_docs.append(d)
 
         # Determine whether to return full docs or chunks
         return self._prepare_results(
@@ -349,14 +345,16 @@ class VectorSearch:
         if filter_ids and len(filter_ids) > 0:
             # Filtered search
             query_body = self._build_filtered_knn_query(
-                embeddings, filter_ids, collection_id, knn_k
+                embeddings, filter_ids, collection_id, knn_k, inner_hits_size
             )
             query_full_text = self._build_filtered_fulltext_query(
                 query, should_query, filter_ids, collection_id, inner_hits_size
             )
         else:
             # Global search
-            query_body = self._build_global_knn_query(embeddings, collection_id, knn_k)
+            query_body = self._build_global_knn_query(
+                embeddings, collection_id, knn_k, inner_hits_size
+            )
             query_full_text = self._build_global_fulltext_query(
                 query, should_query, collection_id, inner_hits_size
             )
@@ -369,6 +367,7 @@ class VectorSearch:
         filter_ids: List[str],
         collection_id: Optional[str],
         knn_k: int,
+        inner_hits_size: int,
     ) -> Dict[str, Any]:
         """Build KNN query with document ID filters."""
         knn_filter = {"terms": {"id": filter_ids}}
@@ -392,18 +391,23 @@ class VectorSearch:
                         "chunks.vectors.text_anonymized",
                         "_score",
                     ],
-                    "size": knn_k,
+                    "size": inner_hits_size,
                 },
                 "field": "chunks.vectors.predicted_value",
                 "query_vector": embeddings,
                 "k": knn_k,
-                "num_candidates": 1000,
+                "num_candidates": 2000,
+                "num_candidates": 2000,
                 "filter": knn_filter,
             }
         }
 
     def _build_global_knn_query(
-        self, embeddings: List[float], collection_id: Optional[str], knn_k: int
+        self,
+        embeddings: List[float],
+        collection_id: Optional[str],
+        knn_k: int,
+        inner_hits_size: int,
     ) -> Dict[str, Any]:
         """Build KNN query without document ID filters."""
         query = {
@@ -416,7 +420,7 @@ class VectorSearch:
                         "chunks.vectors.text_anonymized",
                         "_score",
                     ],
-                    "size": knn_k,
+                    "size": inner_hits_size,
                 },
                 "field": "chunks.vectors.predicted_value",
                 "query_vector": embeddings,
@@ -448,9 +452,11 @@ class VectorSearch:
             "_source": ["id"],
             "query": {
                 "bool": {
-                    "filter": fulltext_filter_list
-                    if collection_id
-                    else [{"terms": {"id": filter_ids}}],
+                    "filter": (
+                        fulltext_filter_list
+                        if collection_id
+                        else [{"terms": {"id": filter_ids}}]
+                    ),
                     "must": {
                         "nested": {
                             "path": "chunks.vectors",
@@ -556,6 +562,7 @@ class VectorSearch:
                     temp_chunk = {
                         "id": doc["id"],
                         "text": doc["text"],
+                        "text_anonymized": doc.get("text_anonymized", doc.get("text")),
                         "metadata": {
                             "doc_id": doc["id"],
                             "chunk_size": len(doc["text"]),

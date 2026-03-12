@@ -1,9 +1,9 @@
-import { Candidate } from "@/server/routers/taxonomy";
-import styled from "@emotion/styled";
-import { Tooltip, Checkbox, Text } from "@nextui-org/react";
-import { FiChevronDown } from "@react-icons/all-files/fi/FiChevronDown";
-import Link from "next/link";
-import { useMemo, useState, MouseEvent } from "react";
+import { Candidate } from '@/server/routers/taxonomy';
+import styled from '@emotion/styled';
+import { Tooltip, Checkbox } from '@heroui/react';
+import { FiChevronDown } from '@react-icons/all-files/fi/FiChevronDown';
+import Link from 'next/link';
+import { useMemo, useState, MouseEvent } from 'react';
 
 type CandidatesListProps = {
   candidates: Candidate[];
@@ -11,7 +11,7 @@ type CandidatesListProps = {
   selectable?: boolean;
   getUrl: (candidate: Candidate) => string;
   onChange?: (index: number) => void;
-}
+};
 
 type CandidateItemProps = {
   index: number;
@@ -20,7 +20,7 @@ type CandidateItemProps = {
   isSelected?: boolean;
   getUrl: (candidate: Candidate) => string;
   onClick: () => void;
-}
+};
 
 const ListItemContainer = styled.div({
   position: 'relative',
@@ -41,19 +41,26 @@ const ListItemContainer = styled.div({
     left: 0,
     width: '100%',
     borderBottom: '1px solid rgba(0,0,0,0.1)',
-  }
-})
+  },
+});
 
 const Tag = styled.a({
   padding: '2px',
   background: '#fcfcb5',
   borderRadius: '6px',
-  "&:hover": {
-    background: '#fcf653'
-  }
-})
+  '&:hover': {
+    background: '#fcf653',
+  },
+});
 
-const CandidateItem = ({ candidate, onClick, isSelected, selectable, index, getUrl }: CandidateItemProps) => {
+const CandidateItem = ({
+  candidate,
+  onClick,
+  isSelected,
+  selectable,
+  index,
+  getUrl,
+}: CandidateItemProps) => {
   const content = useMemo(() => {
     const { text, offset_ex_start, offset_ex_end } = candidate;
     const start = `...${text.slice(0, offset_ex_start)}`;
@@ -62,43 +69,52 @@ const CandidateItem = ({ candidate, onClick, isSelected, selectable, index, getU
 
     const handleLinkOnClick = (event: MouseEvent) => {
       event.stopPropagation();
-    }
+    };
 
     // TODO: sistemare url href con PoC_specialization_template
     return [
       start,
-      <Tooltip css={{ display: 'inline' }} color="invert" key={0} content={`Visualizza nel documento ${candidate.doc_id}`}>
+      <Tooltip
+        css={{ display: 'inline' }}
+        color="invert"
+        key={0}
+        content={`Visualizza nel documento ${candidate.doc_id}`}
+      >
         {/* <Link href={`/documents/${candidate.doc_id}?annotationSetId=PoC_gold&annotationId=${candidate.id}`} passHref> */}
         <Link href={getUrl(candidate)} passHref>
-          <Tag key={0} onClick={handleLinkOnClick} target="_blank" >
+          <Tag key={0} onClick={handleLinkOnClick} target="_blank">
             {mention}
           </Tag>
         </Link>
       </Tooltip>,
-      end
-    ]
+      end,
+    ];
   }, [candidate]);
 
   const handleClick = () => {
     if (selectable) {
       onClick();
     }
-  }
+  };
 
   return (
     <ListItemContainer onClick={handleClick}>
-      <Text css={{ color: 'rgba(0,0,0,0.5)', marginRight: '10px' }}>{index + 1}</Text>
-      <Text as="div" css={{ marginRight: 'auto' }}>{content}</Text>
-      {selectable && <Checkbox onChange={handleClick} isSelected={isSelected} size="lg" />}
+      <span style={{ color: 'rgba(0,0,0,0.5)', marginRight: '10px' }}>
+        {index + 1}
+      </span>
+      <div style={{ marginRight: 'auto' }}>{content}</div>
+      {selectable && (
+        <Checkbox onChange={handleClick} isSelected={isSelected} size="lg" />
+      )}
     </ListItemContainer>
-  )
-}
+  );
+};
 
 const ListContainer = styled.div({
   display: 'flex',
   flexDirection: 'column',
   // gap: '10px'
-})
+});
 
 const ShowMoreButton = styled.button({
   display: 'flex',
@@ -117,17 +133,23 @@ const ShowMoreButton = styled.button({
   transition: 'all 150ms ease-out',
   cursor: 'pointer',
   '&:active': {
-    transform: 'scale(0.95)'
+    transform: 'scale(0.95)',
   },
   '&:hover': {
     background: 'black',
-    color: '#FFF'
-  }
-})
+    color: '#FFF',
+  },
+});
 
 const CANDIDATES_PER_PAGE = 20;
 
-const CandidatesList = ({ candidates, selectedItems, selectable, onChange, getUrl }: CandidatesListProps) => {
+const CandidatesList = ({
+  candidates,
+  selectedItems,
+  selectable,
+  onChange,
+  getUrl,
+}: CandidatesListProps) => {
   const [page, setPage] = useState(1);
 
   const pageCandidates = useMemo(() => {
@@ -136,13 +158,13 @@ const CandidatesList = ({ candidates, selectedItems, selectable, onChange, getUr
 
   const handleOnPageChange = () => {
     setPage((prev) => prev + 1);
-  }
+  };
 
   const handleChange = (index: number) => {
     if (selectable && onChange) {
       onChange(index);
     }
-  }
+  };
 
   const remainingCandidates = candidates.length - pageCandidates.length;
 
@@ -162,9 +184,9 @@ const CandidatesList = ({ candidates, selectedItems, selectable, onChange, getUr
       {remainingCandidates > 0 ? (
         <>
           <ListItemContainer>
-            <Text css={{ margin: '0 auto', color: 'rgba(0,0,0,0.7)' }}>
+            <span style={{ margin: '0 auto', color: 'rgba(0,0,0,0.7)' }}>
               {`${remainingCandidates} esempi rimanenti`}
-            </Text>
+            </span>
           </ListItemContainer>
           <ShowMoreButton onClick={handleOnPageChange}>
             <span>Mostra altri</span>
@@ -173,7 +195,7 @@ const CandidatesList = ({ candidates, selectedItems, selectable, onChange, getUr
         </>
       ) : null}
     </ListContainer>
-  )
-}
+  );
+};
 
 export default CandidatesList;

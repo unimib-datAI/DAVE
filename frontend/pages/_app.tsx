@@ -4,8 +4,9 @@ import type { AppProps } from 'next/app';
 import GlobalStyles from '../styles/globalStyles';
 import NextNProgress from 'nextjs-progressbar';
 import { withTRPC } from '@trpc/next';
+import { httpLink } from '@trpc/client/links/httpLink';
 import { AppRouter } from '@/server/routers/_app';
-import { NextUIProvider } from '@nextui-org/react';
+import { HeroUIProvider } from '@heroui/react';
 import { NextPage } from 'next';
 import { ReactElement, ReactNode, useEffect, useState } from 'react';
 import {
@@ -320,13 +321,13 @@ function MyApp({
       <Global styles={GlobalStyles} />
       <TranslationProvider key={localeVersion} locale={locale}>
         <TaxonomyProvider>
-          <NextUIProvider>
+          <HeroUIProvider>
             <Layout>
               <NextNProgress color="rgb(75 85 99)" showOnShallow={false} />
               {getLayout(<Component {...pageProps} />)}
               <UploadProgressIndicator />
             </Layout>
-          </NextUIProvider>
+          </HeroUIProvider>
         </TaxonomyProvider>
       </TranslationProvider>
     </SessionProvider>
@@ -345,6 +346,16 @@ export default withTRPC<AppRouter>({
     return {
       url,
       headers,
+      // Configure httpBatchLink explicitly so we can force POST for queries
+      // and use a custom fetch that omits cookies (avoids very large Cookie headers).
+      links: [
+        httpLink({
+          url,
+          // httpLink always uses POST, avoiding 431 caused by large JWT tokens in GET query strings
+          fetch: (input: RequestInfo, init?: RequestInit) =>
+            fetch(input, { ...(init || {}), credentials: 'omit' }),
+        }),
+      ],
       /**
        * @link https://react-query.tanstack.com/reference/QueryClient
        */

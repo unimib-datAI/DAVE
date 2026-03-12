@@ -1,21 +1,19 @@
-import { PropsWithChildren, useReducer } from 'react';
-import { ChatStateContext, ChatDispatchContext } from './ChatContext';
-import { chatReducer } from './reducer';
+import { PropsWithChildren, useMemo } from 'react';
+import { Provider, createStore } from 'jotai';
+import { chatStateAtom } from './ChatContext';
 import { initialState } from './state';
 
 /**
- * Provides chat state and dispatch to the context consumer globally.
+ * Provides chat state to its subtree via a scoped Jotai store.
  */
 const ChatProvider = ({ children }: PropsWithChildren<{}>) => {
-  const [state, dispatch] = useReducer(chatReducer, initialState);
+  const store = useMemo(() => {
+    const s = createStore();
+    s.set(chatStateAtom, initialState);
+    return s;
+  }, []);
 
-  return (
-    <ChatStateContext.Provider value={state}>
-      <ChatDispatchContext.Provider value={dispatch}>
-        {children}
-      </ChatDispatchContext.Provider>
-    </ChatStateContext.Provider>
-  );
+  return <Provider store={store}>{children}</Provider>;
 };
 
 export default ChatProvider;

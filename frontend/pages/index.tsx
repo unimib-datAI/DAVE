@@ -1,7 +1,6 @@
 import { useForm } from '@/hooks';
 import { LLMButton } from '@/modules/search/LLMButton';
 import { Searchbar } from '@/modules/search/Searchbar';
-import Button from '@/components/Button/Button';
 
 import { useRouter } from 'next/router';
 import { UploadDocumentsModal } from '@/components/UploadDocumentsModal';
@@ -12,6 +11,7 @@ import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { GetServerSideProps } from 'next';
 import { getSession } from 'next-auth/react';
 import { useText } from '@/components/TranslationProvider';
+import { Button } from '@heroui/react';
 
 const Homepage = () => {
   const router = useRouter();
@@ -32,17 +32,17 @@ const Homepage = () => {
   return (
     <ToolbarLayout>
       <div className="flex flex-col items-center justify-center text-center w-full gap-14 h-screen">
-        <div className="flex flex-col items-center text-center -mt-40">
-          <h1>{t('title')}</h1>
-          <h2 className="font-normal">
+        <div className="flex flex-col items-center text-center -mt-40 gap-2">
+          <h1 className="text-7xl font-bold leading-tight">{t('title')}</h1>
+          <h2 className="text-3xl font-normal leading-snug">
             {t('subtitle.document')}
             <span className="inline-block underline-yellow">Assistant</span>
             {' for '}
-            <span className=" inline-block underline-blue">
+            <span className="inline-block underline-blue">
               {t('subtitle.validation')}
             </span>
           </h2>
-          <h2 className="-mt-5 font-normal">
+          <h2 className="text-3xl font-normal leading-snug">
             and{' '}
             <span className="inline-block underline-green">
               {t('subtitle.exploration')}
@@ -59,17 +59,14 @@ const Homepage = () => {
         </form>
         <div style={{ display: 'flex', gap: '1rem' }}>
           <Button
-            auto
-            color="default"
-            css={{ backgroundColor: 'black', color: 'white' }}
+            color="primary"
             onPress={() => {
-              // router.push('/documents');
               handleSubmit({ text: '' });
             }}
           >
             {t('buttons.seeAllDocuments')}
           </Button>
-          <Button auto color="primary" onPress={() => setUploadModalOpen(true)}>
+          <Button color="secondary" onPress={() => setUploadModalOpen(true)}>
             {t('buttons.uploadAnnotatedDocuments')}
           </Button>
         </div>

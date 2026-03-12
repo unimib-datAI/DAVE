@@ -7,7 +7,12 @@ import { z } from "zod";
 import { AnnotationSet, annotationSetDTO } from "../models/annotationSet";
 import { AnnotationSetController } from "../controllers/annotationSet";
 import { Annotation, annotationDTO } from "../models/annotation";
-import { encode, decode, makeDecryptionRequest } from "../utils/anonymization";
+import {
+  encode,
+  decode,
+  makeDecryptionRequest,
+  makeBatchDecryptionRequest,
+} from "../utils/anonymization";
 
 import axios from "axios";
 
@@ -42,6 +47,8 @@ async function checkAnonymizationService() {
 }
 import { Service, serviceDTO } from "../models/service";
 import { Configuration, configurationDTO } from "../models/configuration";
+import { CollectionController } from "../controllers/collection.js";
+import { FacetsCache } from "../models/facetsCache.js";
 
 const route = Router();
 
@@ -60,7 +67,13 @@ const deleteDoc = async (req, res, next) => {
   );
   // delete annotation sets for the document
   await AnnotationSet.deleteMany({ docId });
-
+  if (deletedDoc.collectionId && deletedDoc.id) {
+    console.log("deleting facets cache for doc");
+    await CollectionController.deleteCacheForDoc(
+      deletedDoc.id,
+      deletedDoc.collectionId,
+    );
+  }
   if (res) {
     // Delete from Elasticsearch if index name provided
     console.log("*** supplied elastic index for doc deletion", elasticIndex);
@@ -156,48 +169,7 @@ export default (app) => {
     "/services",
     asyncRoute(async (req, res) => {
       try {
-        let services = await Service.find({}).lean();
-
-        // Check and create default services if they don't exist
-        const defaultServices = [
-          {
-            name: "DEFAULT_INDEXER",
-            uri:
-              process.env.ANNOTATION_INDEXER_URL ||
-              "http://indexer:80/api/indexer/search/doc",
-            serviceType: "INDEXER",
-            description: "Default indexer service for entity search",
-          },
-          {
-            name: "DEFAULT_NILPREDICTION",
-            uri:
-              process.env.ANNOTATION_NILPREDICTION_URL ||
-              "http://nilpredictor:80/api/nilprediction/doc",
-            serviceType: "NILPREDICTION",
-            description: "Default NIL prediction service",
-          },
-        ];
-
-        for (const defaultSvc of defaultServices) {
-          const existing = services.find(
-            (s) => s.serviceType === defaultSvc.serviceType,
-          );
-          if (!existing) {
-            try {
-              const svc = serviceDTO(defaultSvc);
-              const inserted = await svc.save();
-              services.push(inserted.toObject());
-              console.log(`Created default service: ${defaultSvc.name}`);
-            } catch (createErr) {
-              console.error(
-                `Failed to create default service ${defaultSvc.name}:`,
-                createErr,
-              );
-              // Continue without failing the request
-            }
-          }
-        }
-
+        const services = await Service.find({}).lean();
         return res.json(services).status(200);
       } catch (err) {
         console.error("Failed to fetch services", err);
@@ -379,6 +351,9 @@ export default (app) => {
       req: {
         body: z.object({
           name: z.string().min(1),
+          // steps: ordered array of pipeline steps (primary format)
+          steps: z.array(z.any()).optional(),
+          // services: legacy slot-map kept for backward compat
           services: z.record(z.any()).optional(),
           isActive: z.boolean().optional(),
         }),
@@ -397,7 +372,7 @@ export default (app) => {
           return res.status(401).json({ message: "Unauthorized" });
         }
 
-        const { name, services, isActive } = req.body;
+        const { name, steps, services, isActive } = req.body;
 
         // If this is set as active, deactivate all other configurations for this user
         if (isActive) {
@@ -407,7 +382,13 @@ export default (app) => {
           );
         }
 
-        const config = configurationDTO({ userId, name, services, isActive });
+        const config = configurationDTO({
+          userId,
+          name,
+          steps,
+          services,
+          isActive,
+        });
         const inserted = await config.save();
         console.log(
           `Created configuration: ${inserted.name} (${inserted._id})`,
@@ -437,6 +418,9 @@ export default (app) => {
         params: z.object({ id: z.string().min(1) }),
         body: z.object({
           name: z.string().min(1).optional(),
+          // steps: ordered array of pipeline steps (primary format)
+          steps: z.array(z.any()).optional(),
+          // services: legacy slot-map kept for backward compat
           services: z.record(z.any()).optional(),
           isActive: z.boolean().optional(),
         }),
@@ -627,9 +611,93 @@ export default (app) => {
         true,
         false,
         parsedDeAnonimize,
+        true, // lightFeatures: only return fields needed by the frontend
       );
       console.log("doc", document.features.anonymized);
       return res.json(document).status(200);
+    }),
+  );
+
+  // POST /api/document/by-ids - fetch multiple documents by their ids
+  route.post(
+    "/by-ids",
+    validateRequest({
+      req: {
+        body: z.object({
+          ids: z.array(z.string()),
+          deAnonimize: z.boolean().optional(),
+        }),
+      },
+    }),
+    asyncRoute(async (req, res) => {
+      const { ids, deAnonimize } = req.body;
+      try {
+        const results = await Promise.allSettled(
+          ids.map(async (id) => {
+            const doc = await DocumentController.getFullDocById(
+              id,
+              true,
+              false,
+              deAnonimize === true,
+              true, // lightFeatures: only return fields needed by the frontend
+            );
+
+            // Collect annotations from all annotation sets and ensure id_ER/display_name are present
+            const annotations = [];
+            if (doc && doc.annotation_sets) {
+              Object.values(doc.annotation_sets).forEach((set) => {
+                if (Array.isArray(set.annotations)) {
+                  set.annotations.forEach((entity) => {
+                    const ann = { ...entity };
+                    try {
+                      const mention = (doc.text || "").substring(
+                        entity.start,
+                        entity.end,
+                      );
+                      const linking = entity.features?.linking;
+                      if (linking && linking.is_nil === false) {
+                        ann.display_name = entity.features?.title || mention;
+                        ann.is_linked = true;
+                        ann.id_ER = linking?.top_candidate?.url || "";
+                      } else {
+                        ann.display_name = mention;
+                        ann.is_linked = false;
+                        ann.id_ER = `${doc.id}_${mention}`;
+                      }
+                    } catch (e) {
+                      // fallback: leave ann as-is
+                    }
+                    annotations.push(ann);
+                  });
+                }
+              });
+            }
+
+            return {
+              _id: doc._id || String(doc.id),
+              id: doc.id,
+              // always provide a canonical mongo_id so frontend can dedupe reliably
+              mongo_id: doc._id || String(doc.id),
+              text: doc.preview || doc.text || "",
+              name: doc.name || "",
+              annotations,
+            };
+          }),
+        );
+
+        const hits = results
+          .filter((r) => r.status === "fulfilled")
+          .map((r) => (r.status === "fulfilled" ? r.value : null));
+
+        console.log(
+          "[backend] /document/by-ids returning hits count:",
+          hits.length,
+        );
+        return res.json(hits).status(200);
+      } catch (error) {
+        console.error("Failed to fetch documents by ids", error);
+        return res.status(500).json({ message: "Failed to fetch documents" });
+      }
     }),
   );
   /**
@@ -675,7 +743,13 @@ export default (app) => {
     asyncRoute(async (req, res, next) => {
       const { id } = req.params;
       console.log("doc id", id);
-      const document = await DocumentController.getFullDocById(id);
+      const document = await DocumentController.getFullDocById(
+        id,
+        false,
+        false,
+        false,
+        true,
+      );
 
       const { entities, annotationSet, sourceCluster, destinationCluster } =
         req.body;
@@ -712,7 +786,13 @@ export default (app) => {
         clusters,
       );
 
-      let doc = await DocumentController.getFullDocById(id);
+      let doc = await DocumentController.getFullDocById(
+        id,
+        false,
+        false,
+        false,
+        true,
+      );
       console.log("doc", doc.features.clusters[annotationSet]);
       return res.json(doc).status(200);
       //   let entObjects = [];
@@ -749,7 +829,13 @@ export default (app) => {
     asyncRoute(async (req, res, next) => {
       const { id } = req.params;
 
-      const document = await DocumentController.getFullDocById(id, true);
+      const document = await DocumentController.getFullDocById(
+        id,
+        true,
+        false,
+        false,
+        true,
+      ); // lightFeatures
 
       return res.json(document).status(200);
     }),
@@ -849,6 +935,39 @@ export default (app) => {
     }),
   );
 
+  // POST /api/document/deanonymize-keys - de-anonymize multiple keys in batch
+  route.post(
+    "/deanonymize-keys",
+    validateRequest({
+      req: {
+        body: z.object({
+          keys: z.array(z.string()),
+        }),
+      },
+    }),
+    asyncRoute(async (req, res) => {
+      try {
+        const { keys } = req.body;
+
+        const batchResults = await makeBatchDecryptionRequest(keys);
+
+        const deanonymized = {};
+        for (const item of batchResults) {
+          if (item && item.fieldToDecrypt) {
+            deanonymized[item.fieldToDecrypt] = item.decryptedData ?? null;
+          }
+        }
+
+        return res.status(200).json(deanonymized);
+      } catch (err) {
+        console.error("Failed to deanonymize keys", err);
+        return res
+          .status(500)
+          .json({ message: "Failed to deanonymize keys", error: String(err) });
+      }
+    }),
+  );
+
   /**
    * @swagger
    * /api/document/{id}:
@@ -936,6 +1055,10 @@ export default (app) => {
           console.error("Error posting to Elasticsearch:", error);
         }
       }
+      //create caches
+      // let cachePayload = {}
+      // for (const annotation of newDoc.annotation_sets['entities_'])
+      // process annotations
 
       return res.json(doc).status(200);
     }),
@@ -981,7 +1104,8 @@ export default (app) => {
       },
     }),
     asyncRoute(async (req, res, next) => {
-      const { elasticIndex, toAnonymize, anonymizeTypes } = req.body;
+      const { elasticIndex, toAnonymize, anonymizeTypes, collectionId } =
+        req.body;
 
       // Anonymize the document if requested
       if (toAnonymize) {
@@ -989,7 +1113,12 @@ export default (app) => {
       }
 
       const doc = await DocumentController.insertFullDocument(req.body);
-
+      let fullDocument = await DocumentController.getFullDocById(
+        doc.id,
+        true,
+        false,
+        false,
+      );
       if (elasticIndex) {
         const elasticUrl =
           process.env.QAVECTORIZER_ADDRESS || "http://qavectorizer:7863";
@@ -1000,12 +1129,6 @@ export default (app) => {
 
         try {
           // Fetch the full document with annotation sets for de-anonymization
-          const fullDocument = await DocumentController.getFullDocById(
-            doc.id,
-            true,
-            false,
-            false,
-          );
 
           let deAnonymizedDoc;
 
@@ -1050,7 +1173,58 @@ export default (app) => {
             `Failed to index document in Elasticsearch: ${error.message}`,
           );
         }
+        // Cache update moved out of the elasticIndex block so that
+        // facets cache is updated for every created document, not
+        // only when an elastic index is provided.
       }
+      // Always update facets cache for the collection when a document is created.
+      // This ensures batch uploads update the cache for every document.
+      let cachePayload = {};
+      try {
+        if (fullDocument.annotation_sets["entities_"]?.annotations) {
+          for (const entity of fullDocument.annotation_sets["entities_"]
+            .annotations) {
+            let mention = fullDocument.text.substring(entity.start, entity.end);
+            let ann_object = {
+              mention: mention,
+              start: entity["start"],
+              end: entity["end"],
+              id: entity["id"],
+              type: entity["type"],
+              doc_id: fullDocument.id,
+            };
+            const linking = entity.features?.linking;
+            if (linking && linking.is_nil === false) {
+              ann_object["display_name"] = entity.features?.title || mention;
+              ann_object["is_linked"] = true;
+              ann_object["id_ER"] = linking?.top_candidate?.url || "";
+            } else {
+              ann_object["display_name"] = entity.originalKey || mention;
+              ann_object["is_linked"] = false;
+              ann_object["id_ER"] = `${fullDocument.id}_${mention}`;
+            }
+            if (entity["type"] in cachePayload) {
+              cachePayload[entity["type"]].push(ann_object);
+            } else {
+              cachePayload[entity["type"]] = [ann_object];
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error in computing caching facets", e);
+      }
+
+      try {
+        let builtCache = { toAdd: cachePayload };
+        await CollectionController.updateCache(builtCache, collectionId);
+      } catch (e) {
+        console.error(
+          "Error updating facets cache for collection",
+          collectionId,
+          e,
+        );
+      }
+
       return res.status(200).json(doc);
     }),
   );

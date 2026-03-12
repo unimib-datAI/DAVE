@@ -14,7 +14,6 @@ import { MultiPane } from '@/components/MultiPane';
 import dynamic from 'next/dynamic';
 import withLocale from '@/components/TranslationProvider/withLocale';
 import { useRouter } from 'next/router';
-import { Progress } from '@nextui-org/react';
 import { LLMButton } from '@/modules/search/LLMButton';
 
 const SidebarAnnotationDetails = dynamic(
@@ -87,18 +86,20 @@ const Document: NextPageWithLayout = () => {
       </MultiPane>
       <SidebarAnnotationDetails />
       <NewAnnotationSetModal />
-      <LLMButton />
     </>
   );
 };
 
 Document.getLayout = function getLayout(page: ReactElement) {
   return (
-    <DocumentProvider>
-      <ToolbarLayout toolbarContent={<ToolbarContent />}>
-        <ContentLayout>{page}</ContentLayout>
-      </ToolbarLayout>
-    </DocumentProvider>
+    <>
+      <DocumentProvider>
+        <ToolbarLayout toolbarContent={<ToolbarContent />}>
+          <ContentLayout>{page}</ContentLayout>
+        </ToolbarLayout>
+      </DocumentProvider>
+      <LLMButton />
+    </>
   );
 };
 
