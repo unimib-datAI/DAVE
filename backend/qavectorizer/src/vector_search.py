@@ -345,14 +345,14 @@ class VectorSearch:
         if filter_ids and len(filter_ids) > 0:
             # Filtered search
             query_body = self._build_filtered_knn_query(
-                embeddings, filter_ids, collection_id, knn_k
+                embeddings, filter_ids, collection_id, knn_k, inner_hits_size
             )
             query_full_text = self._build_filtered_fulltext_query(
                 query, should_query, filter_ids, collection_id, inner_hits_size
             )
         else:
             # Global search
-            query_body = self._build_global_knn_query(embeddings, collection_id, knn_k)
+            query_body = self._build_global_knn_query(embeddings, collection_id, knn_k, inner_hits_size)
             query_full_text = self._build_global_fulltext_query(
                 query, should_query, collection_id, inner_hits_size
             )
@@ -365,6 +365,7 @@ class VectorSearch:
         filter_ids: List[str],
         collection_id: Optional[str],
         knn_k: int,
+        inner_hits_size: int,
     ) -> Dict[str, Any]:
         """Build KNN query with document ID filters."""
         knn_filter = {"terms": {"id": filter_ids}}
@@ -388,7 +389,7 @@ class VectorSearch:
                         "chunks.vectors.text_anonymized",
                         "_score",
                     ],
-                    "size": knn_k,
+                    "size": inner_hits_size,
                 },
                 "field": "chunks.vectors.predicted_value",
                 "query_vector": embeddings,
@@ -400,7 +401,7 @@ class VectorSearch:
         }
 
     def _build_global_knn_query(
-        self, embeddings: List[float], collection_id: Optional[str], knn_k: int
+        self, embeddings: List[float], collection_id: Optional[str], knn_k: int, inner_hits_size: int
     ) -> Dict[str, Any]:
         """Build KNN query without document ID filters."""
         query = {
@@ -413,7 +414,7 @@ class VectorSearch:
                         "chunks.vectors.text_anonymized",
                         "_score",
                     ],
-                    "size": knn_k,
+                    "size": inner_hits_size,
                 },
                 "field": "chunks.vectors.predicted_value",
                 "query_vector": embeddings,
