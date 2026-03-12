@@ -122,9 +122,9 @@ class VectorSearch:
 
         # Adjust parameters based on filter mode (increase to return many candidates)
         if filter_ids and len(filter_ids) == 1:
-            knn_k = 128
-            chunks_to_gather = 200
-            inner_hits_size = 100
+            knn_k = 64
+            chunks_to_gather = 20
+            inner_hits_size = 50
         else:
             knn_k = 64
             chunks_to_gather = 100
@@ -352,7 +352,9 @@ class VectorSearch:
             )
         else:
             # Global search
-            query_body = self._build_global_knn_query(embeddings, collection_id, knn_k, inner_hits_size)
+            query_body = self._build_global_knn_query(
+                embeddings, collection_id, knn_k, inner_hits_size
+            )
             query_full_text = self._build_global_fulltext_query(
                 query, should_query, collection_id, inner_hits_size
             )
@@ -401,7 +403,11 @@ class VectorSearch:
         }
 
     def _build_global_knn_query(
-        self, embeddings: List[float], collection_id: Optional[str], knn_k: int, inner_hits_size: int
+        self,
+        embeddings: List[float],
+        collection_id: Optional[str],
+        knn_k: int,
+        inner_hits_size: int,
     ) -> Dict[str, Any]:
         """Build KNN query without document ID filters."""
         query = {
