@@ -268,7 +268,8 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           });
         }
       }
-
+      const finalText = assistantContent;
+      console.log('testing sentence split', finalText.split(/(?<=[.!?])\s+/));
       // Final update: mark assistant message as done streaming (create a new message)
       setMessages((prev) => {
         const newMessages = [...prev]; // Create a new array
