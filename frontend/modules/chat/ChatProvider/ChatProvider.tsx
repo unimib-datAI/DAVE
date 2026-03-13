@@ -1,19 +1,15 @@
-import { PropsWithChildren, useMemo } from 'react';
-import { Provider, createStore } from 'jotai';
+import { PropsWithChildren } from 'react';
+import { useHydrateAtoms } from 'jotai/utils';
 import { chatStateAtom } from './ChatContext';
 import { initialState } from './state';
 
-/**
- * Provides chat state to its subtree via a scoped Jotai store.
- */
-const ChatProvider = ({ children }: PropsWithChildren<{}>) => {
-  const store = useMemo(() => {
-    const s = createStore();
-    s.set(chatStateAtom, initialState);
-    return s;
-  }, []);
+const HydrateAtoms = ({ children }: PropsWithChildren<{}>) => {
+  useHydrateAtoms([[chatStateAtom, initialState]]);
+  return <>{children}</>;
+};
 
-  return <Provider store={store}>{children}</Provider>;
+const ChatProvider = ({ children }: PropsWithChildren<{}>) => {
+  return <HydrateAtoms>{children}</HydrateAtoms>;
 };
 
 export default ChatProvider;
