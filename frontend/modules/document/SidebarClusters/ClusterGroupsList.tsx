@@ -25,7 +25,9 @@ const ClusterGroupsList = ({ clusterGroups }: ClusterListProps) => {
 
   const orderedTypes = useMemo(() => {
     const keys = Object.keys(clusterGroups);
-    const typesOrder: string[] = Array.isArray(activeCollection?.config?.typesOrder)
+    const typesOrder: string[] = Array.isArray(
+      activeCollection?.config?.typesOrder
+    )
       ? (activeCollection.config.typesOrder as string[])
       : [];
     if (typesOrder.length === 0) return keys;

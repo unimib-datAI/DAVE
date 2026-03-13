@@ -107,7 +107,9 @@ const processResponseMostSImilartDocuments = (
       full_docs: d.full_docs,
       id: d.doc.id,
       title: d.doc.name,
-      preview: `${d.doc.preview.split(' ').slice(0, 20).join(' ')}...`,
+      preview: d.doc.preview
+        ? `${d.doc.preview.split(' ').slice(0, 20).join(' ')}...`
+        : '',
       chunks: d.chunks,
     };
   });
