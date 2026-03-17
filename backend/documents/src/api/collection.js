@@ -17,12 +17,7 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 GET /collection/facetsCache/${id} - userId: ${userId}`);
       const collection = await CollectionController.findById(id);
-      console.log(
-        "collection data (facetsCache request):",
-        collection ? { id: collection.id, name: collection.name } : null,
-      );
       if (!collection) {
         console.warn(`Collection ${id} not found`);
         return res.status(404).json({ message: "Collection not found" });
@@ -35,9 +30,6 @@ export default (app) => {
       }
       let entries = await FacetEntry.find({ collectionId: id }).lean();
       if (!entries || entries.length === 0) {
-        console.log(
-          `Facets cache not found for collection ${id}, building it now`,
-        );
         try {
           // First get lightweight list of documents (ids) to avoid loading all docs into memory
           const docInfos =
@@ -273,7 +265,6 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 GET /collectioninfo/${id} - userId: ${userId}`);
       const collection = await CollectionController.findById(id);
       if (!collection) {
         return res.status(404).json({ message: "Collection not found" });
@@ -300,23 +291,13 @@ export default (app) => {
     "/",
     asyncRoute(async (req, res) => {
       const userId = req.user?.sub || req.user?.userId;
-      console.log(
-        "📦 GET /collection - Full req.user object:",
-        JSON.stringify(req.user, null, 2),
-      );
-      console.log("📦 Extracted userId (sub):", req.user?.sub);
-      console.log("📦 Extracted userId (userId):", req.user?.userId);
-      console.log("📦 Final userId being used:", userId);
 
       if (!userId) {
-        console.error("❌ No userId found in request - returning 401");
+        console.error("No userId found in request - returning 401");
         return res.status(401).json({ message: "Unauthorized" });
       }
 
       const collections = await CollectionController.findByUserId(userId);
-      console.log(
-        `✅ Found ${collections.length} collections for userId: ${userId}`,
-      );
       return res.json(collections);
     }),
   );
@@ -346,7 +327,6 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 GET /collection/${id} - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -370,7 +350,6 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 GET /collection/${id}/download - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -452,12 +431,8 @@ export default (app) => {
       },
     }),
     asyncRoute(async (req, res) => {
-      console.log("*** create collection body ***", req.body);
       const { name, allowedUserIds, config } = req.body;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(
-        `📦 POST /collection - Creating collection for userId: ${userId}`,
-      );
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -524,7 +499,6 @@ export default (app) => {
       const { id } = req.params;
       const { name, allowedUserIds, config } = req.body;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 PUT /collection/${id} - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -570,7 +544,6 @@ export default (app) => {
       const { id } = req.params;
       const { elasticIndex } = req.body;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 DELETE /collection/${id} - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }

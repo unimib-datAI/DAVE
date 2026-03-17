@@ -165,7 +165,6 @@ function getAnnotationDisplayText(annotationStart, annotationEnd, text) {
  * Replace a substring defined by exclusive `end` index.
  */
 function replaceSubstring(str, start, end, replacement) {
-  console.log(`*** replacing ${str.slice(start, end)} with ${replacement}`);
   const before = str.substring(0, start);
   const after = str.substring(end);
   return before + replacement + after;
@@ -240,9 +239,7 @@ export async function decode(doc) {
   for (const clusterAnnSet of Object.keys(doc.features.clusters)) {
     for (let i = 0; i < doc.features.clusters[clusterAnnSet].length; i++) {
       const cluster = doc.features.clusters[clusterAnnSet][i];
-      if (cluster.title.includes("O0wBZ")) {
-        console.log("IL BASTARDO", cluster);
-      }
+
       const encryptedTitle = cluster.title;
       if (
         typeof encryptedTitle === "string" &&
@@ -294,17 +291,11 @@ export async function decode(doc) {
       annotation.start < 0 ||
       annotation.end <= annotation.start
     ) {
-      console.log(
-        `[DECODE] skipping malformed annotation annset=${annsetName} idx=${i}`,
-      );
       continue;
     }
 
     // If this annotation overlaps a previously processed one, skip it.
     if (annotation.start < lastProcessedEnd) {
-      console.log(
-        `[DECODE] skipping overlapping annotation annset=${annsetName} start=${annotation.start} < lastProcessedEnd=${lastProcessedEnd}`,
-      );
       continue;
     }
 
@@ -324,10 +315,6 @@ export async function decode(doc) {
       // Do not attempt fallback decryption; leave the annotation as-is.
       continue;
     }
-
-    console.log(
-      `[DECODE] annset=${annsetName} idx=${i} using originalKey='${String(originalKey).slice(0, 120)}'`,
-    );
 
     let deAnonymized = null;
     if (originalKey.startsWith("vault:")) {
@@ -473,9 +460,6 @@ export async function encode(doc, anonymizeTypes = null) {
 
     // Skip annotation if anonymizeTypes is provided and type is not in the list
     if (anonymizeTypes && !anonymizeTypes.includes(annotation.type)) {
-      console.log(
-        `[ENCODE] Skipping annotation type '${annotation.type}' not in anonymizeTypes list`,
-      );
       continue;
     }
 
@@ -504,14 +488,6 @@ export async function encode(doc, anonymizeTypes = null) {
       annotation.start,
       annotation.end,
       doc.text,
-    );
-
-    console.log(`[ENCODE] Ann ${i}/${globalAnns.length} in ${annsetName}:`);
-    console.log(
-      `  Position: ${annotation.start}-${annotation.end} (len=${annotation.end - annotation.start})`,
-    );
-    console.log(
-      `  Extracted: "${text.substring(0, 50)}${text.length > 50 ? "..." : ""}"`,
     );
 
     // Find the cluster that contains this annotation's ID in its mentions
@@ -548,11 +524,6 @@ export async function encode(doc, anonymizeTypes = null) {
         titleResult.vaultKey || annotation.features.title;
     }
 
-    console.log(
-      `  Encrypted mention: "${encryptedMention.substring(0, 50)}${encryptedMention.length > 50 ? "..." : ""}"`,
-    );
-    console.log(`  Cluster index: ${clusterIndex}`);
-
     // Use the encrypted cluster title as replacement text when applicable
     const replacement =
       (clusterIndex >= 0 &&
@@ -560,17 +531,11 @@ export async function encode(doc, anonymizeTypes = null) {
         encryptedTitles[annsetName][clusterIndex]) ||
       encryptedMention;
 
-    console.log(
-      `  Replacement (cluster title or mention): "${replacement.substring(0, 50)}${replacement.length > 50 ? "..." : ""}"`,
-    );
-
     const originalStart = annotation.start;
     const originalEnd = annotation.end; // exclusive
     const oldLen = originalEnd - originalStart;
     const newLen = replacement.length;
     const delta = newLen - oldLen;
-
-    console.log(`  Delta: ${delta} (old=${oldLen}, new=${newLen})`);
 
     // Replace the substring in the canonical doc.text using exclusive end
     doc.text = replaceSubstring(
@@ -585,9 +550,6 @@ export async function encode(doc, anonymizeTypes = null) {
 
     // Shift ALL annotations across ALL sets that start at or after originalEnd
     if (delta !== 0) {
-      console.log(
-        `  Shifting all annotations starting >= ${originalEnd} by ${delta}`,
-      );
       shiftAllAnnotations(originalEnd, delta);
     }
 
