@@ -5,12 +5,15 @@ import auth from "./auth";
 import collection from "./collection";
 import users from "./users";
 import exportRoute from "./export";
+import requestLogger from "../middlewares/requestLogger";
 
 /**
  * Export all defined routes
  */
 export default () => {
   const app = Router();
+  // Global request logger for document/collection routes
+  app.use(requestLogger);
   document(app);
   save(app);
   auth(app);
