@@ -362,7 +362,9 @@ export default (app) => {
       if (!collection) {
         return res.status(404).json({ message: "Collection not found" });
       }
-      let fullDocuments = await CollectionController.getAllDocuments(id);
+      let fullDocuments =
+        await CollectionController.getAllDocumentsEfficient(id);
+      console.log("full docs", fullDocuments);
       const zipFileName = `${collection.name.replace(/[^a-zA-Z0-9]/g, "_")}.zip`;
       //setting headers for response
       res.setHeader("Content-Type", "application/zip");
@@ -379,11 +381,14 @@ export default (app) => {
 
       //pipe archive stream to response
       zipArchive.pipe(res);
-
-      fullDocuments.forEach((doc) => {
+      for await (const doc of fullDocuments) {
         const filename = `${doc.name || doc.id}.json`;
         zipArchive.append(JSON.stringify(doc, null, 2), { name: filename });
-      });
+      }
+      // fullDocuments.forEach((doc) => {
+      //   const filename = `${doc.name || doc.id}.json`;
+      //   zipArchive.append(JSON.stringify(doc, null, 2), { name: filename });
+      // });
       await zipArchive.finalize();
     }),
   );

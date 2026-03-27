@@ -304,6 +304,20 @@ const options = {
         name: "Save",
         description: "Save operations for annotations",
       },
+      {
+        name: "Collections",
+        description: "Collection management endpoints",
+      },
+      {
+        name: "Search",
+        description:
+          "Full-text faceted search over documents via the Elasticsearch indexer",
+      },
+      {
+        name: "RAG",
+        description:
+          "Retrieval-Augmented Generation — vector retrieval + LLM text generation in a single call",
+      },
     ],
   },
   apis: ["./src/api/*.js"], // Path to the API routes with JSDoc comments
