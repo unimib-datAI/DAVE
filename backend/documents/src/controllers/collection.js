@@ -387,4 +387,10 @@ export const CollectionController = {
     }
     return results;
   },
+  async getAllDocumentsEfficient(collectionId) {
+    if (!collectionId) {
+      throw new Error("Collection id is required");
+    }
+    return CollectionController.streamAllDocuments(collectionId);
+  },
 };
