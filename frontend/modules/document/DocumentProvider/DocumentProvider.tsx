@@ -5,6 +5,7 @@ import {
   PropsWithChildren,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
@@ -43,80 +44,97 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
     setIsAnonymized(!value);
   };
 
-  // Keep previous development behavior: in development default to de-anonymized view
-
-  const { data, isFetching, refetch } = useQuery(
+  const { data, isFetching } = useQuery(
     ['document.getDocument', { id: id, deAnonimize }],
     {
       staleTime: Infinity,
     }
   );
 
-  // Force refetch when deAnonimize changes to ensure reload even for cached keys
+  // Keep isLoadingAnonymizationAtom in sync with the actual fetch state so the
+  // toolbar toggle spinner reflects real loading (not a separate effect-driven state).
   useEffect(() => {
-    let active = true;
-    const doRefetch = async () => {
-      // set loading flag while we refetch the document
-      setIsLoadingAnonymization(true);
-      try {
-        await refetch();
-      } finally {
-        // only clear loading if component still mounted / effect still relevant
-        if (active) {
-          setIsLoadingAnonymization(false);
-        }
-      }
-    };
-    doRefetch();
-    return () => {
-      active = false;
-    };
-  }, [deAnonimize, refetch, setIsLoadingAnonymization]);
-  // State to hold the document data
-  const [documentData, setDocumentData] = useState(data);
-  useEffect(() => {
-    setDocumentData(data);
-  }, [data]);
-  // Update data function
+    setIsLoadingAnonymization(isFetching);
+  }, [isFetching, setIsLoadingAnonymization]);
+
+  // When the user triggers `updateData` (e.g. after cluster edits) we store an
+  // override locally. We use the synchronous derived-state pattern to clear that
+  // override the moment the underlying query data changes (toggle anonymization,
+  // navigation, etc.) so the fresh query result is always shown immediately.
+  const [overrideData, setOverrideData] = useState<any>(null);
+  const prevQueryDataRef = useRef(data);
+  if (prevQueryDataRef.current !== data) {
+    prevQueryDataRef.current = data;
+    // Synchronously clear the override so this render uses the new query data
+    if (overrideData !== null) setOverrideData(null);
+  }
+
+  const effectiveData = overrideData ?? data;
+
   const updateData = (newData: any) => {
-    console.log('incoming data', newData);
-    setDocumentData(newData);
+    setOverrideData(newData);
   };
-  if (isFetching || !data) {
+
+  if (isFetching || !effectiveData) {
     return <SkeletonLayout />;
   }
 
-  return documentData ? (
+  return (
     <DocumentContext.Provider
-      value={{ data: documentData, updateData, deAnonimize, setDeAnonimize }}
+      value={{ data: effectiveData, updateData, deAnonimize, setDeAnonimize }}
     >
-      <DocumentStateProvider data={documentData}>
+      <DocumentStateProvider
+        data={effectiveData}
+        isAnonymized={isAnonymized}
+        setIsAnonymized={setIsAnonymized}
+      >
         {children}
       </DocumentStateProvider>
     </DocumentContext.Provider>
-  ) : (
-    <></>
   );
 };
 
-type DocumentStateProvider = {
+type DocumentStateProviderProps = {
   data: Document;
+  isAnonymized: boolean;
+  setIsAnonymized: (val: boolean) => void;
 };
 
 const DocumentStateProvider = ({
   data,
+  isAnonymized,
+  setIsAnonymized,
   children,
-}: PropsWithChildren<DocumentStateProvider>) => {
+}: PropsWithChildren<DocumentStateProviderProps>) => {
   const store = useMemo(() => {
     const s = createStore();
     s.set(documentStateAtom, initializeState(data));
+    // Seed the isolated store so the toggle renders with the correct initial state
+    s.set(globalAnonymizationAtom, isAnonymized);
     return s;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Re-initialize when data changes (e.g. after refetch)
   useEffect(() => {
     store.set(documentStateAtom, initializeState(data));
   }, [data, store]);
+
+  // Sync default-store value → isolated store (e.g. toggle pressed elsewhere)
+  useEffect(() => {
+    if (store.get(globalAnonymizationAtom) !== isAnonymized) {
+      store.set(globalAnonymizationAtom, isAnonymized);
+    }
+  }, [isAnonymized, store]);
+
+  // Sync isolated store → default store (toggle pressed inside document view)
+  useEffect(() => {
+    const unsub = store.sub(globalAnonymizationAtom, () => {
+      const val = store.get(globalAnonymizationAtom);
+      setIsAnonymized(val);
+    });
+    return unsub;
+  }, [store, setIsAnonymized]);
 
   return <Provider store={store}>{children}</Provider>;
 };

@@ -11,6 +11,7 @@ import { useText } from '@/components/TranslationProvider';
 import { useAtom } from 'jotai';
 import { globalAnonymizationAtom } from '@/utils/atoms';
 import { useState } from 'react';
+import { splitSentences } from '@/utils/stringUtilities';
 
 type MessageProps = {
   role: 'system' | 'assistant' | 'user';
@@ -20,7 +21,65 @@ type MessageProps = {
   usrMessage?: string; // For backward compatibility
   wasAnonymized?: boolean; // Anonymization state at generation time
   devPrompt?: string; // Full prompt with context for dev mode
+  citations?: { [sentenceIndex: number]: string[] };
+  chunkMap?: { [chunkId: string]: string };
+  chunkIndexMap?: { [chunkId: string]: number };
 };
+
+// Render markdown content annotated with inline citation badges.
+// Split on paragraph boundaries (\\n\\n) so markdown formatting like **bold**
+// Each sentence gets its citation badge rendered immediately after it.
+function AnnotatedMarkdown({
+  content,
+  citations,
+  chunkMap,
+  chunkIndexMap,
+}: {
+  content: string;
+  citations: { [sentenceIndex: number]: string[] };
+  chunkMap: { [chunkId: string]: string };
+  chunkIndexMap: { [chunkId: string]: number };
+}) {
+  // Must match the split used in use-chat.ts exactly so sentence indices align
+  const sentences = splitSentences(content);
+
+  return (
+    <>
+      {sentences.map((sentence, i) => {
+        const globalIdx = i + 1;
+        const chunkIds = citations[globalIdx] ?? [];
+        const badges = chunkIds.map((chunkId) => {
+          const n = chunkIndexMap[chunkId] ?? '?';
+          const chunkText = chunkMap[chunkId] || '';
+          return (
+            <Tooltip
+              key={chunkId}
+              content={
+                <div className="max-w-xs text-xs p-2 whitespace-pre-wrap">
+                  {chunkText}
+                </div>
+              }
+            >
+              <sup
+                className="cursor-help text-blue-600 font-semibold ml-0.5 select-none inline align-bottom"
+                style={{ verticalAlign: 'sub', fontSize: '0.7em' }}
+              >
+                [{n}]
+              </sup>
+            </Tooltip>
+          );
+        });
+
+        return (
+          <div key={i}>
+            <Markdown remarkPlugins={[remarkGfm]}>{sentence}</Markdown>
+            {badges.length > 0 && <span className="ml-0.5">{badges}</span>}
+          </div>
+        );
+      })}
+    </>
+  );
+}
 
 function urlToPathArray(url: string) {
   return url.split('/').filter(Boolean); // Split on / and remove empty strings
@@ -59,6 +118,9 @@ const Message = ({
   usrMessage,
   wasAnonymized,
   devPrompt,
+  citations,
+  chunkMap,
+  chunkIndexMap,
 }: MessageProps) => {
   const [isAnonymized, setIsAnonimized] = useAtom(globalAnonymizationAtom);
   const t = useText('chat');
@@ -122,6 +184,13 @@ const Message = ({
               <div className="whitespace-pre-wrap">
                 {displayContent || '...'}
               </div>
+            ) : citations && isDoneStreaming && chunkMap && chunkIndexMap ? (
+              <AnnotatedMarkdown
+                content={displayContent}
+                citations={citations}
+                chunkMap={chunkMap}
+                chunkIndexMap={chunkIndexMap}
+              />
             ) : (
               <Markdown remarkPlugins={[remarkGfm]}>{displayContent}</Markdown>
             )}

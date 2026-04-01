@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useChatState, useChatDispatch } from '@/modules/chat/ChatProvider';
 import { useText } from '@/components/TranslationProvider';
 import { globalAnonymizationAtom } from '@/utils/atoms';
+import { splitSentences, findMatchingChunks } from '@/utils/stringUtilities';
 
 export type Message = {
   role: 'system' | 'assistant' | 'user';
@@ -16,6 +17,9 @@ export type Message = {
   isDoneStreaming?: boolean;
   devPrompt?: string; // Full prompt with context, question and instructions (for dev mode)
   wasAnonymized?: boolean; // Tracks if anonymization was enabled when this message was generated
+  citations?: { [sentenceIndex: number]: string[] }; // sentence index (1-based) → cited chunk IDs
+  chunkMap?: { [chunkId: string]: string }; // chunk ID → chunk text for popover display
+  chunkIndexMap?: { [chunkId: string]: number }; // chunk ID → 1-based index in the flat chunk list
 };
 
 export type UseChatOptions = {
@@ -75,16 +79,30 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
     }
     console.log('received context', context);
     let contextStr = '';
+    // Build processedChunks early so we can number them in the context string.
+    const processedChunks: { chunk_id: string; text: string }[] = [];
+    const chunkMap: { [chunkId: string]: string } = {};
+    const chunkIndexMap: { [chunkId: string]: number } = {};
+    const indexChunkMap: { [chunkNumber: number]: string } = {};
     if (context) {
+      let chunkNum = 0;
       context.forEach((item, index) => {
         console.log('context item', item);
+        const chunkLines = item.chunks.map((chunk) => {
+          chunkNum++;
+          const text = isAnonymized
+            ? chunk.text_anonymized || chunk.text
+            : chunk.text;
+          processedChunks.push({ chunk_id: chunk.id, text });
+          // Build the maps here using the exact chunkNum the LLM will see.
+          chunkMap[chunk.id] = text;
+          chunkIndexMap[chunk.id] = chunkNum;
+          indexChunkMap[chunkNum] = chunk.id;
+          return `[${chunkNum}] ${text}`;
+        });
         const docContent = `Nome Documento ${
           item.title
-        } - Contenuto: ${item.chunks
-          .map((chunk) =>
-            isAnonymized ? chunk.text_anonymized || chunk.text : chunk.text
-          )
-          .join(' ')}`;
+        } - Contenuto:\n${chunkLines.join('\n')}`;
         contextStr += `<document id="DOC_${index + 1}" name="${
           item.title
         }">\n${docContent}\n</document>\n`;
@@ -124,7 +142,11 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
     finalSystemPrompt = finalSystemPrompt
       .replace('{{CONTEXT}}', contextStr)
       .replace('{{QUESTION}}', message);
-    userMessageContent = message; // Send the plain question as user message
+    // Append citation instruction so the LLM cites passage numbers inline.
+    // if (processedChunks.length > 0) {
+    //   finalSystemPrompt +=
+    //     '\n\nIMPORTANTE: Cita ogni affermazione inserendo il numero del passaggio tra parentesi quadre (es: [1], [2]) subito dopo la frase che lo usa, prima del punto. Usa solo i numeri dei passaggi forniti nel contesto.';
+    // }
 
     const content = userMessageContent;
     console.log('received content', content);
@@ -268,7 +290,34 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           });
         }
       }
+      const finalText = assistantContent;
+      // Split once on the raw LLM output (which still contains [n] markers).
+      // Clean each sentence in the same pass so indices are identical to what
+      // AnnotatedMarkdown will see when it re-splits the stored displayText.
+      const rawSentences = splitSentences(finalText);
+      const cleanSentences: string[] = [];
+      // Strip any inline bracket citations produced by the LLM and build clean sentences
+      for (const sentence of rawSentences) {
+        const clean = sentence
+          .replace(/\s*\[\d+(?:[,\s]+\d+)*\]/g, '')
+          .replace(/(\s*,)+\s*(?=[,.]|$)/g, '')
+          .trim();
+        if (clean) cleanSentences.push(clean);
+      }
+      console.log('clean sentences', cleanSentences);
 
+      // Compute matching chunks using the string-similarity matcher
+      let matchingChunks: { [sentenceIndex: number]: string[] } = {};
+      try {
+        matchingChunks =
+          (await findMatchingChunks(cleanSentences, processedChunks, 0.6)) ||
+          {};
+      } catch (err) {
+        console.error('Error computing matching chunks:', err);
+        matchingChunks = {};
+      }
+
+      const displayText = cleanSentences.join('\n\n');
       // Final update: mark assistant message as done streaming (create a new message)
       setMessages((prev) => {
         const newMessages = [...prev]; // Create a new array
@@ -278,7 +327,11 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           // Create a new assistant message marked as done streaming
           newMessages[lastIndex] = {
             ...newMessages[lastIndex],
+            content: displayText,
             isDoneStreaming: true,
+            citations: matchingChunks,
+            chunkMap,
+            chunkIndexMap,
           };
         }
 

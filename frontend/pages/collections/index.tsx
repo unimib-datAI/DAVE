@@ -207,29 +207,8 @@ const Collections: NextPage = () => {
   const [exportLogs, setExportLogs] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
 
-  // State and TRPC-driven download flow
+  // Download state: track which collection is currently downloading
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const { data: downloadData, isLoading: isDownloading } = useQuery(
-    ['collection.download', { id: downloadingId || '', token }],
-    {
-      enabled: !!downloadingId && (tokenAvailable || authDisabled),
-      onSuccess: (data) => {
-        if (data) {
-          const blob = new Blob(
-            [Uint8Array.from(atob(data.data), (c) => c.charCodeAt(0))],
-            { type: 'application/zip' }
-          );
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = data.filename;
-          a.click();
-          window.URL.revokeObjectURL(url);
-          setDownloadingId(null);
-        }
-      },
-    }
-  );
 
   const pollRef = useRef<number | null>(null);
 
@@ -366,8 +345,17 @@ const Collections: NextPage = () => {
   };
 
   const handleDownload = (collection: Collection) => {
-    // Use TRPC-backed download flow: set downloadingId, the useQuery above will run
     setDownloadingId(collection.id);
+    // Prefix with router.basePath so the URL works under any basePath (e.g. /holmes24)
+    const a = document.createElement('a');
+    a.href = `${router.basePath}/api/collection/${encodeURIComponent(
+      collection.id
+    )}/download`;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setDownloadingId(null);
   };
   useEffect(() => {
     setLoading(collectionsLoading);
@@ -505,12 +493,12 @@ const Collections: NextPage = () => {
                       disabled={
                         (isExporting &&
                           exportingCollectionId === collection.id) ||
-                        (isDownloading && downloadingId === collection.id)
+                        downloadingId === collection.id
                       }
                     >
                       {(isExporting &&
                         exportingCollectionId === collection.id) ||
-                      (isDownloading && downloadingId === collection.id) ? (
+                      downloadingId === collection.id ? (
                         <Spinner size="sm" />
                       ) : (
                         <FiDownload size={18} />

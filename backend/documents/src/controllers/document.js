@@ -60,7 +60,6 @@ export const DocumentController = {
       const text = obj.text || "";
       const docId = obj.id || getStringHash(text);
       const collectionId = obj.collectionId || "";
-      console.log("received collection id ", collectionId);
       // Remove surrogates from text
       const cleanText = removeSurrogates(text);
 
@@ -132,7 +131,6 @@ export const DocumentController = {
       const result = await Document.findOneAndUpdate(query, update, {
         new: true,
       });
-      console.log("update result", result);
       return result;
     } catch (error) {
       throw new HTTPError({
@@ -143,49 +141,23 @@ export const DocumentController = {
   },
   updateDocumentFeatures: async (docId, features) => {
     try {
-      console.log("=== UPDATE DOCUMENT FEATURES ===");
-      console.log("docId:", docId);
-      console.log("features to update:", JSON.stringify(features, null, 2));
-
       const query = { id: docId };
-      console.log("MongoDB query:", JSON.stringify(query, null, 2));
 
       const update = {
         $set: {
           features: features,
         },
       };
-      console.log("MongoDB update:", JSON.stringify(update, null, 2));
 
       // First check if document exists
       const existingDoc = await Document.findOne(query);
-      console.log("Existing document found:", existingDoc ? "YES" : "NO");
-      if (existingDoc) {
-        console.log("Existing document ID:", existingDoc._id);
-        console.log(
-          "Existing document features:",
-          JSON.stringify(existingDoc.features, null, 2),
-        );
-      }
 
       const result = await Document.findOneAndUpdate(query, update, {
         new: true,
       });
-      console.log("Update result:", result ? "SUCCESS" : "FAILED");
-      if (result) {
-        console.log("Updated document ID:", result._id);
-        console.log(
-          "Updated features:",
-          JSON.stringify(result.features, null, 2),
-        );
-      }
-      console.log("=== UPDATE DOCUMENT FEATURES COMPLETED ===");
       return result;
     } catch (error) {
-      console.error("=== UPDATE DOCUMENT FEATURES ERROR ===");
       console.error("Error details:", error);
-      console.error("Error message:", error.message);
-      console.error("Error stack:", error.stack);
       throw new HTTPError({
         code: HTTP_ERROR_CODES.INTERNAL_SERVER_ERROR,
         message: `Could not update document features. ${error}`,
@@ -335,7 +307,6 @@ export const DocumentController = {
         );
       }
     }
-    console.log("ann sets ids", annSetsIds);
   },
 
   getFullDocById: async (
@@ -563,7 +534,6 @@ export const DocumentController = {
 
       try {
         let doc = await decode(document);
-        console.log("doc decoded", doc.text.substring(0, 200));
         return doc;
       } catch (decryptError) {
         console.warn(

@@ -1,8 +1,7 @@
-import { Annotation } from '../models/annotation';
-import { AnnotationSet } from '../models/annotationSet';
-import { Document } from '../models/document';
-import { HTTP_ERROR_CODES, HTTPError } from '../utils/http-error';
-
+import { Annotation } from "../models/annotation";
+import { AnnotationSet } from "../models/annotationSet";
+import { Document } from "../models/document";
+import { HTTP_ERROR_CODES, HTTPError } from "../utils/http-error";
 
 export const AnnotationSetController = {
   insertOne: async (annotationSet) => {
@@ -15,10 +14,10 @@ export const AnnotationSetController = {
     //     annotation_sets: annotationSetId,
     //   },
     // });
-    await Annotation.deleteMany({ annotationSetId: id })
-    return AnnotationSet.deleteOne({ id })
+    await Annotation.deleteMany({ annotationSetId: id });
+    return AnnotationSet.deleteOne({ id });
     // delete annotation set document
 
     // return AnnotationSet.deleteOne({ _id: annotationSetId });
-  }
-}
+  },
+};

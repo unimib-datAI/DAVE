@@ -50,35 +50,6 @@ export const CollectionController = {
       throw new Error("Cache payload must be a dictionary");
     }
     const payload = updateCachePayload || {};
-    try {
-      console.log("[updateCache] collectionId:", collectionId);
-      console.log("[updateCache] payload keys:", Object.keys(payload));
-      if (payload.toAdd) {
-        console.log(
-          "[updateCache] toAdd counts:",
-          Object.fromEntries(
-            Object.entries(payload.toAdd).map(([k, v]) => [
-              k,
-              Array.isArray(v) ? v.length : 0,
-            ]),
-          ),
-        );
-      }
-      if (payload.toDelete) {
-        console.log(
-          "[updateCache] toDelete counts:",
-          Object.fromEntries(
-            Object.entries(payload.toDelete).map(([k, v]) => [
-              k,
-              Array.isArray(v) ? v.length : 0,
-            ]),
-          ),
-        );
-      }
-    } catch (e) {
-      // ignore logging errors
-    }
-
     // If initialize is requested, wipe existing per-facet entries for collection
     if (initialize && payload.toAdd) {
       await FacetEntry.deleteMany({ collectionId });
@@ -415,5 +386,11 @@ export const CollectionController = {
       results.push(doc);
     }
     return results;
+  },
+  async getAllDocumentsEfficient(collectionId) {
+    if (!collectionId) {
+      throw new Error("Collection id is required");
+    }
+    return CollectionController.streamAllDocuments(collectionId);
   },
 };

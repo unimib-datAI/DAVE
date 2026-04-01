@@ -1,0 +1,7 @@
+{
+  "python.defaultInterpreterPath": "/Users/rubenagazzi/miniforge3/bin/python",
+  "python.condaPath": "/Users/rubenagazzi/miniforge3/bin/conda",
+  "python.analysis.extraPaths": ["./backend", "./qavectorizer"],
+  "python.analysis.logLevel": "Trace",
+  "python.analysis.useImportHeuristic": true
+}
