@@ -1,65 +1,42 @@
 """
-VectorSearch Module
+VectorSearch: hybrid dense + full-text search with Reciprocal Rank Fusion (RRF).
 
-This module provides a clean abstraction for performing hybrid vector and full-text search
-operations on Elasticsearch indexes using sentence transformers for embeddings.
+Each returned chunk carries a `text_emb` field — a Python list of float32 values
+produced by `all-MiniLM-L6-v2` — computed in a single batched call for efficiency.
 
-The VectorSearch class encapsulates all the complex logic for:
-- Generating embeddings from query text
-- Building Elasticsearch KNN and full-text queries
-- Combining results using Reciprocal Rank Fusion (RRF)
-- Retrieving and processing document chunks
-- Deciding when to return full documents vs chunks
-
-Usage Example:
-    ```python
-    from vector_search import VectorSearch
-    from sentence_transformers import SentenceTransformer
-    from transformers import AutoTokenizer
-    from elasticsearch import Elasticsearch
-
-    # Initialize dependencies
-    model = SentenceTransformer("Alibaba-NLP/gte-multilingual-base")
-    es_client = Elasticsearch([{"host": "localhost", "port": 9200}])
-    tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3.5-mini-instruct")
-
-    # Create VectorSearch instance
-    vector_search = VectorSearch(
-        model=model,
-        es_client=es_client,
-        tokenizer=tokenizer,
-        retrievers=retrievers_dict,
-        default_retriever=default_retriever
-    )
-
-    # Perform search
-    results = vector_search.search(
-        collection_name="my_index",
-        query="What is machine learning?",
-        retrieval_method="full",
-        filter_ids=["doc1", "doc2"],
-        collect_chunk_ranks_fn=collect_chunk_ranks,
-        collect_chunk_ranks_full_text_fn=collect_chunk_ranks_full_text
-    )
-    ```
+Quick usage:
+    vector_search = VectorSearch(model, es_client, tokenizer, retrievers, default_retriever)
+    results = vector_search.search("my_index", "What is ML?", retrieval_method="full")
 """
 
 import json
 from collections import defaultdict
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import torch
 from retriever import DocumentRetriever
 from sentence_transformers import SentenceTransformer
 from transformers import PreTrainedTokenizer
-
+import hashlib
 from elasticsearch import Elasticsearch
+
+_CHUNK_INNER_HIT_FIELDS = [
+    "chunks.vectors.text",
+    "chunks.vectors.text_anonymized",
+    "_score",
+]
+_FULL_DOC_KEYWORDS = {"estrai", "riassumi"}
+_TOKEN_LIMIT = 18_000
 
 
 class VectorSearch:
     """
-    Handles vector search operations combining dense vector search and full-text search
-    using Reciprocal Rank Fusion (RRF).
+    Hybrid vector + full-text search with Reciprocal Rank Fusion (RRF).
+
+    Dense retrieval uses the primary `model` (e.g. gte-multilingual-base).
+    Chunk-level attribution embeddings are produced by a lightweight
+    `all-MiniLM-L6-v2` model and attached to every returned chunk as
+    `text_emb`.
     """
 
     def __init__(
@@ -70,21 +47,14 @@ class VectorSearch:
         retrievers: Dict[str, DocumentRetriever],
         default_retriever: DocumentRetriever,
     ):
-        """
-        Initialize VectorSearch with required dependencies.
-
-        Args:
-            model: SentenceTransformer model for generating embeddings
-            es_client: Elasticsearch client for search operations
-            tokenizer: Tokenizer for token counting
-            retrievers: Dictionary mapping collection names to retrievers
-            default_retriever: Default retriever to use when collection not found
-        """
         self.model = model
         self.es_client = es_client
         self.tokenizer = tokenizer
         self.retrievers = retrievers
         self.default_retriever = default_retriever
+        self.chunk_embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+
+    # ── public API ────────────────────────────────────────────────────────────
 
     def search(
         self,
@@ -94,46 +64,40 @@ class VectorSearch:
         filter_ids: Optional[List[str]] = None,
         collection_id: Optional[str] = None,
         force_rag: bool = False,
-        collect_chunk_ranks_fn: callable = None,
-        collect_chunk_ranks_full_text_fn: callable = None,
+        collect_chunk_ranks_fn: Callable = None,
+        collect_chunk_ranks_full_text_fn: Callable = None,
     ) -> List[Dict[str, Any]]:
         """
-        Perform vector search on the specified collection.
+        Perform hybrid search and return ranked document results with chunks.
+
+        Each chunk in the response includes a `text_emb` field containing its
+        all-MiniLM-L6-v2 embedding (computed in a single batched inference call).
 
         Args:
-            collection_name: Name of the Elasticsearch index to search
-            query: Search query text
-            retrieval_method: Search method ('full', 'dense', 'full-text', 'hibrid_no_ner')
-            filter_ids: Optional list of document IDs to filter by
-            collection_id: Optional collection ID to filter by
-            force_rag: If True, always return chunks instead of full documents
-            collect_chunk_ranks_fn: Function to collect chunk ranks from vector search
-            collect_chunk_ranks_full_text_fn: Function to collect chunk ranks from full-text search
-
-        Returns:
-            List of document results with chunks and metadata
+            collection_name: Elasticsearch index to search.
+            query: Query string.
+            retrieval_method: One of 'full', 'dense', 'full-text', 'hibrid_no_ner'.
+            filter_ids: Restrict search to these document IDs.
+            collection_id: Additional collection filter.
+            force_rag: Always return chunks, never full documents.
+            collect_chunk_ranks_fn: Extracts {chunk_id: rank} from a KNN response.
+            collect_chunk_ranks_full_text_fn: Same for a full-text response.
         """
-        # Generate embeddings
-        # print(f"RECEIVED FILTER IDS {filter_ids}")
-        embeddings = []
+        single_doc_mode = bool(filter_ids and len(filter_ids) == 1)
+
+        # 1. Encode query
         with torch.no_grad():
-            embeddings = self.model.encode(query)
-        embeddings = embeddings.tolist()
+            query_embeddings = self.model.encode(query).tolist()
 
-        # Adjust parameters based on filter mode (increase to return many candidates)
-        if filter_ids and len(filter_ids) == 1:
-            knn_k = 64
-            chunks_to_gather = 20
-            inner_hits_size = 50
-        else:
-            knn_k = 64
-            chunks_to_gather = 100
-            inner_hits_size = 50
-
-        # Build queries
+        # 2. Build & run ES queries
+        knn_k, chunks_to_gather, inner_hits_size = (
+            64,
+            (20 if single_doc_mode else 100),
+            50,
+        )
         query_body, query_full_text = self._build_queries(
             query=query,
-            embeddings=embeddings,
+            embeddings=query_embeddings,
             retrieval_method=retrieval_method,
             filter_ids=filter_ids,
             collection_id=collection_id,
@@ -141,178 +105,42 @@ class VectorSearch:
             inner_hits_size=inner_hits_size,
         )
 
-        # Execute searches
-        results = []
-        response_full_text = []
+        dense_results = (
+            self.es_client.search(index=collection_name, body=query_body)
+            if retrieval_method in ("full", "dense", "hibrid_no_ner")
+            else []
+        )
+        fulltext_results = (
+            self.es_client.search(index=collection_name, body=query_full_text)
+            if retrieval_method in ("full", "hibrid_no_ner", "full-text")
+            else []
+        )
 
-        if retrieval_method in ["full", "dense", "hibrid_no_ner"]:
-            results = self.es_client.search(index=collection_name, body=query_body)
-            for hit in results["hits"]["hits"]:
-                if "inner_hits" in hit and "chunks.vectors" in hit["inner_hits"]:
-                    # inner hits present; no debug prints
-                    pass
-
-        if retrieval_method in ["full", "hibrid_no_ner", "full-text"]:
-            response_full_text = self.es_client.search(
-                index=collection_name, body=query_full_text
-            )
-            for hit in response_full_text["hits"]["hits"]:
-                if "inner_hits" in hit and "chunks" in hit["inner_hits"]:
-                    pass
-                if "inner_hits" in hit and "chunks.vectors" in hit["inner_hits"]:
-                    # Inspect a few chunk hits without printing
-                    for i, chunk_hit in enumerate(
-                        hit["inner_hits"]["chunks.vectors"]["hits"]["hits"][:3]
-                    ):
-                        if "_source" in chunk_hit:
-                            _ = chunk_hit["_source"]
-                        if "fields" in chunk_hit:
-                            _ = chunk_hit["fields"]
-
-        del embeddings
-
-        # Combine results using RRF
-        vector_ranks = collect_chunk_ranks_fn(results) if len(results) > 0 else {}
-        # print(f"DEBUG: Vector ranks collected: {len(vector_ranks)}")
+        # 3. RRF fusion
+        vector_ranks = collect_chunk_ranks_fn(dense_results) if dense_results else {}
         full_text_ranks = (
-            collect_chunk_ranks_full_text_fn(response_full_text)
-            if len(response_full_text) > 0
+            collect_chunk_ranks_full_text_fn(fulltext_results)
+            if fulltext_results
             else {}
         )
-        # print(f"DEBUG: Full-text ranks collected: {len(full_text_ranks)}")
+        final_ranking = self._rrf_rank(vector_ranks, full_text_ranks, single_doc_mode)
 
-        rrf_k = 50 if (filter_ids and len(filter_ids) == 1) else 30
-
-        combined_scores = {}
-        all_chunk_ids = set(vector_ranks.keys()).union(full_text_ranks.keys())
-
-        for chunk_id in all_chunk_ids:
-            rank_vector = vector_ranks.get(chunk_id, float("inf"))
-            rank_full_text = full_text_ranks.get(chunk_id, float("inf"))
-            # Boost full-text search importance by giving it 5x weight
-            combined_scores[chunk_id] = (1 / (rrf_k + rank_vector)) + (
-                5.0 * (1 / (rrf_k + rank_full_text))
-            )
-
-        final_ranking = sorted(
-            combined_scores.items(), key=lambda x: x[1], reverse=True
+        # 4. Collect top chunks (no embeddings yet)
+        doc_chunks_id_map = (
+            self._gather_chunks_single_doc(final_ranking, chunks_to_gather)
+            if single_doc_mode
+            else self._gather_chunks_multi_doc(final_ranking)
         )
 
-        # print(f"Final ranking contains {len(final_ranking)} chunks")
-        # print(f"Will gather top {chunks_to_gather} chunks")
+        # 5. Batch-encode all chunk texts in one shot
+        self._embed_chunks(doc_chunks_id_map)
 
-        # Gather top chunks
-        if filter_ids and len(filter_ids) == 1:
-            # Single document mode: gather all top chunks (may be from one doc)
-            doc_chunks_id_map = {}
-            for chunk in final_ranking[:chunks_to_gather]:
-                doc_id = chunk[0][0]
-                chunk_text = chunk[0][1]
-                chunk_text_anonymized = chunk[0][2]
-                temp_chunk = {
-                    "id": doc_id,
-                    "text": chunk_text,
-                    "text_anonymized": chunk_text_anonymized,
-                    "metadata": {"doc_id": doc_id, "chunk_size": len(chunk_text)},
-                }
-                if doc_id in doc_chunks_id_map:
-                    doc_chunks_id_map[doc_id].append(temp_chunk)
-                else:
-                    doc_chunks_id_map[doc_id] = [temp_chunk]
-        else:
-            # Multi document mode: diversify across documents
-            doc_chunk_scores = defaultdict(list)
-            for item in final_ranking:
-                chunk_id, score = item
-                doc_id = chunk_id[0]
-                doc_chunk_scores[doc_id].append((score, chunk_id))
+        # 6. Fetch full documents from ES
+        full_docs = self._fetch_full_docs(
+            collection_name, list(doc_chunks_id_map.keys())
+        )
 
-            # Sort documents by their highest chunk score
-            sorted_docs = sorted(
-                doc_chunk_scores.items(),
-                key=lambda x: max(s for s, _ in x[1]),
-                reverse=True,
-            )
-
-            # Take top documents, and from each, take multiple chunks
-            selected_chunks = []
-            max_docs = 5
-            max_chunks_per_doc = 5
-            for doc_id, chunks in sorted_docs[:max_docs]:
-                top_chunks = sorted(chunks, key=lambda x: x[0], reverse=True)[
-                    :max_chunks_per_doc
-                ]
-                selected_chunks.extend(top_chunks)
-
-            # Build doc_chunks_id_map from selected_chunks
-            doc_chunks_id_map = {}
-            for score, chunk_id in selected_chunks:
-                doc_id = chunk_id[0]
-                chunk_text = chunk_id[1]
-                chunk_text_anonymized = chunk_id[2]
-                temp_chunk = {
-                    "id": doc_id,
-                    "text": chunk_text,
-                    "text_anonymized": chunk_text_anonymized,
-                    "metadata": {"doc_id": doc_id, "chunk_size": len(chunk_text)},
-                }
-                if doc_id in doc_chunks_id_map:
-                    doc_chunks_id_map[doc_id].append(temp_chunk)
-                else:
-                    doc_chunks_id_map[doc_id] = [temp_chunk]
-
-        num_docs = len(doc_chunks_id_map)
-        total_chunks = sum(len(chunks) for chunks in doc_chunks_id_map.values())
-        # print(f"Retrieved {total_chunks} chunks from {num_docs} documents")
-
-        # Retrieve full documents directly from Elasticsearch (avoid external retriever)
-        doc_ids = list(doc_chunks_id_map.keys())
-        # Try to fetch required fields from ES in one query
-        try:
-            es_resp = self.es_client.search(
-                index=collection_name,
-                body={
-                    "query": {"terms": {"id": doc_ids}},
-                    "_source": [
-                        "id",
-                        "name",
-                        "text",
-                        "text_anonymized",
-                        "preview",
-                    ],
-                    "size": len(doc_ids),
-                },
-            )
-            hits = es_resp.get("hits", {}).get("hits", [])
-            id_to_doc = {}
-            for hit in hits:
-                src = hit.get("_source", {})
-                # prefer explicit id field, fallback to _id
-                doc_id_src = src.get("id") or hit.get("_id")
-                if doc_id_src is not None:
-                    id_to_doc[str(doc_id_src)] = src
-
-            full_docs = []
-            for doc_id in doc_ids:
-                if str(doc_id) in id_to_doc:
-                    full_docs.append(id_to_doc[str(doc_id)])
-                else:
-                    # missing doc in ES response: skip it
-                    continue
-        except Exception:
-            # On any ES error, fall back to configured retriever
-            print("fallback to old full doc gather ")
-            full_docs = []
-            current_retriever = self.retrievers.get(
-                collection_name, self.default_retriever
-            )
-            for doc_id in doc_ids:
-                d = current_retriever.retrieve(doc_id)
-                if "error" in d:
-                    continue
-                full_docs.append(d)
-
-        # Determine whether to return full docs or chunks
+        # 7. Assemble and return results
         return self._prepare_results(
             full_docs=full_docs,
             doc_chunks_id_map=doc_chunks_id_map,
@@ -320,6 +148,182 @@ class VectorSearch:
             filter_ids=filter_ids,
             force_rag=force_rag,
         )
+
+    # ── RRF ───────────────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _rrf_rank(
+        vector_ranks: Dict,
+        full_text_ranks: Dict,
+        single_doc_mode: bool,
+    ) -> List:
+        """Combine dense and full-text ranks via RRF (full-text weighted 5×)."""
+        rrf_k = 50 if single_doc_mode else 30
+        all_ids = set(vector_ranks) | set(full_text_ranks)
+        scores = {
+            cid: (1 / (rrf_k + vector_ranks.get(cid, float("inf"))))
+            + 5.0 * (1 / (rrf_k + full_text_ranks.get(cid, float("inf"))))
+            for cid in all_ids
+        }
+        return sorted(scores.items(), key=lambda x: x[1], reverse=True)
+
+    # ── chunk gathering ───────────────────────────────────────────────────────
+
+    @staticmethod
+    def _make_chunk(doc_id: str, text: str, text_anonymized: str) -> Dict[str, Any]:
+        """Build a chunk dict. `text_emb` is added later by `_embed_chunks`."""
+        return {
+            "id": doc_id + "_" + hashlib.sha256(text.encode("utf-8")).hexdigest(),
+            "text": text,
+            "text_anonymized": text_anonymized,
+            "metadata": {"doc_id": doc_id, "chunk_size": len(text)},
+        }
+
+    def _embed_chunks(self, doc_chunks_id_map: Dict[str, List[Dict]]) -> None:
+        """Batch-encode all chunk texts and attach `text_emb` in-place."""
+        flat = [chunk for chunks in doc_chunks_id_map.values() for chunk in chunks]
+        if not flat:
+            return
+        with torch.no_grad():
+            embeddings = self.chunk_embedding_model.encode(
+                [c["text"] for c in flat], batch_size=64, show_progress_bar=False
+            )
+        for chunk, emb in zip(flat, embeddings):
+            chunk["text_emb"] = emb.tolist()
+
+    def _gather_chunks_single_doc(
+        self, final_ranking: List, chunks_to_gather: int
+    ) -> Dict[str, List[Dict]]:
+        doc_chunks: Dict[str, List[Dict]] = {}
+        for chunk_id, _ in final_ranking[:chunks_to_gather]:
+            doc_id, text, text_anon = chunk_id[0], chunk_id[1], chunk_id[2]
+            doc_chunks.setdefault(doc_id, []).append(
+                self._make_chunk(doc_id, text, text_anon)
+            )
+        return doc_chunks
+
+    def _gather_chunks_multi_doc(
+        self,
+        final_ranking: List,
+        max_docs: int = 5,
+        max_chunks_per_doc: int = 5,
+    ) -> Dict[str, List[Dict]]:
+        doc_chunk_scores: Dict[str, List] = defaultdict(list)
+        for chunk_id, score in final_ranking:
+            doc_chunk_scores[chunk_id[0]].append((score, chunk_id))
+
+        sorted_docs = sorted(
+            doc_chunk_scores.items(),
+            key=lambda x: max(s for s, _ in x[1]),
+            reverse=True,
+        )
+
+        doc_chunks: Dict[str, List[Dict]] = {}
+        for doc_id, chunks in sorted_docs[:max_docs]:
+            for _, chunk_id in sorted(chunks, reverse=True)[:max_chunks_per_doc]:
+                doc_id_, text, text_anon = chunk_id[0], chunk_id[1], chunk_id[2]
+                doc_chunks.setdefault(doc_id, []).append(
+                    self._make_chunk(doc_id_, text, text_anon)
+                )
+        return doc_chunks
+
+    # ── document retrieval ────────────────────────────────────────────────────
+
+    def _fetch_full_docs(self, collection_name: str, doc_ids: List[str]) -> List[Dict]:
+        """Fetch full document source from ES, with a retriever fallback."""
+        try:
+            resp = self.es_client.search(
+                index=collection_name,
+                body={
+                    "query": {"terms": {"id": doc_ids}},
+                    "_source": ["id", "name", "text", "text_anonymized", "preview"],
+                    "size": len(doc_ids),
+                },
+            )
+            id_to_doc: Dict[str, Dict] = {}
+            for hit in resp.get("hits", {}).get("hits", []):
+                src = hit.get("_source", {})
+                doc_id = src.get("id") or hit.get("_id")
+                if doc_id is not None:
+                    id_to_doc[str(doc_id)] = src
+            return [id_to_doc[str(did)] for did in doc_ids if str(did) in id_to_doc]
+        except Exception:
+            print("ES fetch failed — falling back to configured retriever")
+            retriever = self.retrievers.get(collection_name, self.default_retriever)
+            return [
+                d for did in doc_ids if "error" not in (d := retriever.retrieve(did))
+            ]
+
+    # ── result preparation ────────────────────────────────────────────────────
+
+    def _prepare_results(
+        self,
+        full_docs: List[Dict],
+        doc_chunks_id_map: Dict[str, List[Dict]],
+        query: str,
+        filter_ids: Optional[List[str]],
+        force_rag: bool,
+    ) -> List[Dict[str, Any]]:
+        """Decide whether to return full-doc chunks or retrieved chunks."""
+        single_doc_mode = bool(filter_ids and len(filter_ids) == 1)
+        full_docs_flag = any(kw in query.lower() for kw in _FULL_DOC_KEYWORDS)
+
+        if force_rag:
+            print("FORCE RAG ENABLED")
+            return [
+                {"doc": doc, "chunks": doc_chunks_id_map[doc["id"]], "full_docs": False}
+                for doc in full_docs
+            ]
+
+        if single_doc_mode and full_docs:
+            tokens = self.tokenizer.tokenize(full_docs[0]["text"])
+            print(f"Number of tokens: {len(tokens)}")
+            if len(tokens) < _TOKEN_LIMIT:
+                return [
+                    {
+                        "full_docs": False,
+                        "doc": full_docs[0],
+                        "chunks": doc_chunks_id_map[full_docs[0]["id"]],
+                    }
+                ]
+
+        if full_docs_flag:
+            token_count = sum(
+                len(self.tokenizer.tokenize(doc["text"])) for doc in full_docs
+            )
+            if token_count <= _TOKEN_LIMIT:
+                return self._full_doc_results(full_docs)
+
+        return [
+            {"doc": doc, "chunks": doc_chunks_id_map[doc["id"]], "full_docs": False}
+            for doc in full_docs
+        ]
+
+    def _full_doc_results(self, full_docs: List[Dict]) -> List[Dict[str, Any]]:
+        """Build results where each document is returned as a single full-text chunk."""
+        chunks = [
+            {
+                "id": doc["id"],
+                "text": doc["text"],
+                "text_anonymized": doc.get("text_anonymized", doc["text"]),
+                "metadata": {"doc_id": doc["id"], "chunk_size": len(doc["text"])},
+            }
+            for doc in full_docs
+        ]
+        # Batch-encode the full-doc chunks
+        with torch.no_grad():
+            embeddings = self.chunk_embedding_model.encode(
+                [c["text"] for c in chunks], batch_size=64, show_progress_bar=False
+            )
+        for chunk, emb in zip(chunks, embeddings):
+            chunk["text_emb"] = emb.tolist()
+
+        return [
+            {"full_docs": True, "doc": doc, "chunks": [chunk]}
+            for doc, chunk in zip(full_docs, chunks)
+        ]
+
+    # ── ES query builders ─────────────────────────────────────────────────────
 
     def _build_queries(
         self,
@@ -331,9 +335,8 @@ class VectorSearch:
         knn_k: int,
         inner_hits_size: int,
     ) -> tuple:
-        """Build Elasticsearch query bodies for vector and full-text search."""
-
-        should_query = (
+        """Return (knn_query_body, fulltext_query_body)."""
+        should_clauses = (
             [{"match": {"chunks.vectors.text": {"query": query, "boost": 5.0}}}]
             if retrieval_method == "hibrid_no_ner"
             else [
@@ -342,24 +345,23 @@ class VectorSearch:
             ]
         )
 
-        if filter_ids and len(filter_ids) > 0:
-            # Filtered search
-            query_body = self._build_filtered_knn_query(
-                embeddings, filter_ids, collection_id, knn_k, inner_hits_size
+        if filter_ids:
+            return (
+                self._build_filtered_knn_query(
+                    embeddings, filter_ids, collection_id, knn_k, inner_hits_size
+                ),
+                self._build_filtered_fulltext_query(
+                    query, should_clauses, filter_ids, collection_id, inner_hits_size
+                ),
             )
-            query_full_text = self._build_filtered_fulltext_query(
-                query, should_query, filter_ids, collection_id, inner_hits_size
-            )
-        else:
-            # Global search
-            query_body = self._build_global_knn_query(
+        return (
+            self._build_global_knn_query(
                 embeddings, collection_id, knn_k, inner_hits_size
-            )
-            query_full_text = self._build_global_fulltext_query(
-                query, should_query, collection_id, inner_hits_size
-            )
-
-        return query_body, query_full_text
+            ),
+            self._build_global_fulltext_query(
+                query, should_clauses, collection_id, inner_hits_size
+            ),
+        )
 
     def _build_filtered_knn_query(
         self,
@@ -369,11 +371,8 @@ class VectorSearch:
         knn_k: int,
         inner_hits_size: int,
     ) -> Dict[str, Any]:
-        """Build KNN query with document ID filters."""
-        knn_filter = {"terms": {"id": filter_ids}}
-
-        if collection_id:
-            knn_filter = {
+        knn_filter = (
+            {
                 "bool": {
                     "must": [
                         {"terms": {"id": filter_ids}},
@@ -381,24 +380,21 @@ class VectorSearch:
                     ]
                 }
             }
-
+            if collection_id
+            else {"terms": {"id": filter_ids}}
+        )
         return {
             "knn": {
-                "inner_hits": {
-                    "_source": False,
-                    "fields": [
-                        "chunks.vectors.text",
-                        "chunks.vectors.text_anonymized",
-                        "_score",
-                    ],
-                    "size": inner_hits_size,
-                },
                 "field": "chunks.vectors.predicted_value",
                 "query_vector": embeddings,
                 "k": knn_k,
                 "num_candidates": 2000,
-                "num_candidates": 2000,
                 "filter": knn_filter,
+                "inner_hits": {
+                    "_source": False,
+                    "fields": _CHUNK_INNER_HIT_FIELDS,
+                    "size": inner_hits_size,
+                },
             }
         }
 
@@ -409,67 +405,49 @@ class VectorSearch:
         knn_k: int,
         inner_hits_size: int,
     ) -> Dict[str, Any]:
-        """Build KNN query without document ID filters."""
-        query = {
+        query: Dict[str, Any] = {
             "_source": ["id"],
             "knn": {
-                "inner_hits": {
-                    "_source": False,
-                    "fields": [
-                        "chunks.vectors.text",
-                        "chunks.vectors.text_anonymized",
-                        "_score",
-                    ],
-                    "size": inner_hits_size,
-                },
                 "field": "chunks.vectors.predicted_value",
                 "query_vector": embeddings,
                 "k": knn_k,
+                "inner_hits": {
+                    "_source": False,
+                    "fields": _CHUNK_INNER_HIT_FIELDS,
+                    "size": inner_hits_size,
+                },
             },
         }
-
         if collection_id:
             query["knn"]["filter"] = {"term": {"collectionId.keyword": collection_id}}
-
         return query
 
     def _build_filtered_fulltext_query(
         self,
         query: str,
-        should_query: List[Dict],
+        should_clauses: List[Dict],
         filter_ids: List[str],
         collection_id: Optional[str],
         inner_hits_size: int,
     ) -> Dict[str, Any]:
-        """Build full-text query with document ID filters."""
-        fulltext_filter_list = [{"terms": {"id": filter_ids}}]
-
+        filter_list = [{"terms": {"id": filter_ids}}]
         if collection_id:
-            fulltext_filter_list.append(
-                {"term": {"collectionId.keyword": collection_id}}
-            )
+            filter_list.append({"term": {"collectionId.keyword": collection_id}})
         return {
             "_source": ["id"],
             "query": {
                 "bool": {
-                    "filter": (
-                        fulltext_filter_list
-                        if collection_id
-                        else [{"terms": {"id": filter_ids}}]
-                    ),
+                    "filter": filter_list,
                     "must": {
                         "nested": {
                             "path": "chunks.vectors",
                             "query": {
                                 "bool": {
-                                    "should": should_query,
+                                    "should": should_clauses,
                                     "minimum_should_match": 1,
                                 }
                             },
-                            "inner_hits": {
-                                "_source": True,
-                                "size": inner_hits_size,
-                            },
+                            "inner_hits": {"_source": True, "size": inner_hits_size},
                         }
                     },
                 }
@@ -479,22 +457,19 @@ class VectorSearch:
     def _build_global_fulltext_query(
         self,
         query: str,
-        should_query: List[Dict],
+        should_clauses: List[Dict],
         collection_id: Optional[str],
         inner_hits_size: int,
     ) -> Dict[str, Any]:
-        """Build full-text query without document ID filters."""
         nested_query = {
             "nested": {
                 "path": "chunks.vectors",
-                "query": {"bool": {"should": should_query, "minimum_should_match": 1}},
-                "inner_hits": {
-                    "_source": True,
-                    "size": inner_hits_size,
+                "query": {
+                    "bool": {"should": should_clauses, "minimum_should_match": 1}
                 },
+                "inner_hits": {"_source": True, "size": inner_hits_size},
             }
         }
-
         if collection_id:
             return {
                 "_source": ["id"],
@@ -505,82 +480,4 @@ class VectorSearch:
                     }
                 },
             }
-        else:
-            return {"_source": ["id"], "query": nested_query}
-
-    def _prepare_results(
-        self,
-        full_docs: List[Dict],
-        doc_chunks_id_map: Dict[str, List[Dict]],
-        query: str,
-        filter_ids: Optional[List[str]],
-        force_rag: bool,
-    ) -> List[Dict[str, Any]]:
-        """Prepare final results, deciding whether to return full docs or chunks."""
-        doc_results = []
-
-        # Full document keywords
-        full_docs_keywords = ["estrai", "riassumi"]
-        full_docs_flag = any(keyword in query.lower() for keyword in full_docs_keywords)
-
-        # Force RAG mode
-        if force_rag:
-            print("FORCE RAG ENABLED")
-            for doc in full_docs:
-                doc_results.append(
-                    {
-                        "doc": doc,
-                        "chunks": doc_chunks_id_map[doc["id"]],
-                        "full_docs": False,
-                    }
-                )
-            return doc_results
-
-        # Single document case with token limit check
-        if filter_ids and len(filter_ids) == 1 and len(full_docs) > 0:
-            tokens = self.tokenizer.tokenize(full_docs[0]["text"])
-            print(f"Number of tokens: {len(tokens)}")
-
-            if len(tokens) < 18000:
-                doc_results.append(
-                    {
-                        "full_docs": False,
-                        "doc": full_docs[0],
-                        "chunks": doc_chunks_id_map[full_docs[0]["id"]],
-                    }
-                )
-                return doc_results
-
-        # Full docs flag handling
-        if full_docs_flag:
-            token_count = sum(
-                len(self.tokenizer.tokenize(doc["text"])) for doc in full_docs
-            )
-
-            if token_count <= 18000:
-                for doc in full_docs:
-                    temp_chunk = {
-                        "id": doc["id"],
-                        "text": doc["text"],
-                        "text_anonymized": doc.get("text_anonymized", doc.get("text")),
-                        "metadata": {
-                            "doc_id": doc["id"],
-                            "chunk_size": len(doc["text"]),
-                        },
-                    }
-                    doc_results.append(
-                        {
-                            "full_docs": True,
-                            "doc": doc,
-                            "chunks": [temp_chunk],
-                        }
-                    )
-                return doc_results
-
-        # Default: return chunked documents
-        for doc in full_docs:
-            doc_results.append(
-                {"doc": doc, "chunks": doc_chunks_id_map[doc["id"]], "full_docs": False}
-            )
-
-        return doc_results
+        return {"_source": ["id"], "query": nested_query}

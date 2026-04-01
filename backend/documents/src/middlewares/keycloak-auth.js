@@ -15,17 +15,13 @@ const client = jwksClient({
   jwksRequestsPerMinute: 10,
 });
 
-console.log(
-  `🔐 Keycloak auth configured: issuer=${KEYCLOAK_ISSUER}, clientId=${KEYCLOAK_CLIENT_ID}`,
-);
-
 /**
  * Get signing key from Keycloak
  */
 function getKey(header, callback) {
   client.getSigningKey(header.kid, (err, key) => {
     if (err) {
-      console.error("❌ Error getting signing key:", err.message);
+      console.error("Error getting signing key:", err.message);
       return callback(err);
     }
     const signingKey = key.getPublicKey();
@@ -119,8 +115,6 @@ export const keycloakAuthMiddleware = async (req, res, next) => {
       );
     }
 
-    console.log(`✅ Token issuer validated: ${payload.iss}`);
-
     // Attach user info to request
     req.user = {
       sub: payload.sub,
@@ -135,17 +129,9 @@ export const keycloakAuthMiddleware = async (req, res, next) => {
       userId: payload.sub,
     };
 
-    console.log(
-      `✅ Keycloak auth: validated user ${req.user.email || req.user.preferred_username} (sub: ${req.user.sub})`,
-    );
-    console.log(`📦 User roles:`, {
-      realm_roles: req.user.roles,
-      client_roles: req.user.client_roles,
-      userId: req.user.userId,
-    });
     next();
   } catch (err) {
-    console.error("❌ Keycloak JWT verification error:", err.message);
+    console.error("Keycloak JWT verification error:", err.message);
 
     let message = "Invalid or expired token.";
     if (err.name === "TokenExpiredError") {
@@ -205,9 +191,6 @@ export const requireRole = (...roles) => {
       );
     }
 
-    console.log(
-      `✅ Role check passed for user ${req.user.email || req.user.preferred_username}: ${roles.join(" or ")}`,
-    );
     next();
   };
 };

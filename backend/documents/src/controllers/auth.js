@@ -15,9 +15,6 @@ const REFRESH_EXPIRES = parseInt(
 );
 
 // Log basic auth configuration (helpful for debugging startup)
-console.log(
-  `AuthController configured: ACCESS_EXPIRES=${ACCESS_EXPIRES}s REFRESH_EXPIRES=${REFRESH_EXPIRES}s`,
-);
 
 function signAccessToken(user) {
   return jwt.sign(
@@ -48,9 +45,6 @@ export const AuthController = {
     const user = new User({ email });
     await user.setPassword(password);
     await user.save();
-    console.log(
-      `AuthController.createUser: created ${user.userId} (${user.email})`,
-    );
     return user;
   },
   async verifyCredentials(email, password) {
@@ -154,9 +148,6 @@ export const AuthController = {
     // revoke previous refresh token
     dbToken.revoked = true;
     await dbToken.save();
-    console.log(
-      `AuthController.refresh: revoked old refresh token for userId=${dbToken.userId} token=${maskToken(dbToken.token)}`,
-    );
 
     // create a new refresh token
     const newRefreshToken = generateRefreshToken();
@@ -173,10 +164,6 @@ export const AuthController = {
     const userObj =
       typeof user.toObject === "function" ? user.toObject() : user;
 
-    console.log(
-      `AuthController.refresh: issued new refreshToken=${maskToken(newRefreshToken)} accessExpiresIn=${ACCESS_EXPIRES}s for userId=${user.userId}`,
-    );
-
     return {
       user: userObj,
       accessToken,
@@ -190,13 +177,9 @@ export const AuthController = {
     return userObj.role && userObj.role === "admin";
   },
   async meFromJwt(token) {
-    console.log(
-      `AuthController.meFromJwt: verifying token=${maskToken(token)}`,
-    );
     try {
       const payload = jwt.verify(token, JWT_SECRET);
       const user = await User.findOne({ userId: payload.sub }).lean();
-      console.log(`AuthController.meFromJwt: success userId=${payload.sub}`);
       return user;
     } catch (err) {
       console.log(
@@ -207,10 +190,6 @@ export const AuthController = {
     }
   },
   async logout(refreshToken) {
-    console.log(
-      `AuthController.logout: revoking refreshToken=${maskToken(refreshToken)}`,
-    );
     await RefreshToken.updateOne({ token: refreshToken }, { revoked: true });
-    console.log("AuthController.logout: completed");
   },
 };

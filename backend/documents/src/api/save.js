@@ -26,20 +26,7 @@ export default (app) => {
   app.use("/save", route);
 
   // quick middleware to log incoming requests to this route
-  route.use((req, res, next) => {
-    try {
-      if (req && req.method) {
-        console.log(
-          `[save] incoming ${req.method} ${req.originalUrl || req.url} bodyDocId: ${
-            req.body && req.body.docId ? req.body.docId : "-"
-          }`,
-        );
-      }
-    } catch (e) {
-      // ignore logging errors
-    }
-    return next();
-  });
+  // per-request logging is handled by the global `requestLogger` middleware
 
   /**
    * @swagger
@@ -114,32 +101,10 @@ export default (app) => {
         docId,
         annotationSets,
       );
-      console.log(
-        "[save] resUpdate length:",
-        Array.isArray(resUpdate) ? resUpdate.length : typeof resUpdate,
-      );
-      try {
-        console.log(
-          "[save] resUpdate sample:",
-          JSON.stringify(
-            resUpdate && resUpdate.slice ? resUpdate.slice(0, 2) : resUpdate,
-            null,
-            2,
-          ).substring(0, 2000),
-        );
-      } catch (e) {
-        // ignore
-      }
 
       // Update facets cache entries for the collection based on saved annotations
       try {
         const fullDoc = await DocumentController.findOne(docId);
-        console.log(
-          "[save] fullDoc.id:",
-          fullDoc.id,
-          "collectionId:",
-          collectionId,
-        );
         if (collectionId) {
           const toAdd = {};
           const toDelete = {};
@@ -251,23 +216,14 @@ export default (app) => {
       // Update Elasticsearch index if elasticIndex is provided
       if (elasticIndex) {
         try {
-          console.log("=== ELASTICSEARCH UPDATE START ===");
-          console.log("elasticIndex:", elasticIndex);
-          console.log("docId:", docId);
-
           // Get the updated document with clusters from features
           // Use the features that were just saved, or fetch from DB if not provided
           let clustersToUse = features?.clusters;
 
           if (!clustersToUse) {
-            console.log("Features not provided, fetching document from DB...");
             // Features weren't provided, fetch the document to get clusters
             const doc = await DocumentController.findOne(docId);
             clustersToUse = doc.features?.clusters;
-            console.log(
-              "Fetched clusters from DB:",
-              clustersToUse ? "Found" : "Not found",
-            );
           } else {
             console.log("Using clusters from provided features");
           }
@@ -276,10 +232,6 @@ export default (app) => {
             // Find the entities annotation set name - use "entities_"
             const entitiesAnnotationSetName = Object.keys(annotationSets).find(
               (name) => name === "entities_",
-            );
-            console.log(
-              "Entities annotation set name:",
-              entitiesAnnotationSetName,
             );
 
             if (
@@ -343,7 +295,6 @@ export default (app) => {
               const response = await axios.post(updateUrl, {
                 mentions: mentions,
               });
-              console.log("Elasticsearch update successful:", response.data);
             } else {
               console.log(
                 "No entities annotation set found or no clusters in that set",
@@ -353,7 +304,6 @@ export default (app) => {
             console.log("No clusters found in features");
           }
         } catch (error) {
-          console.error("=== ELASTICSEARCH UPDATE ERROR ===");
           console.error(
             "Error updating Elasticsearch annotations:",
             error.message,
@@ -362,7 +312,6 @@ export default (app) => {
             console.error("Response status:", error.response.status);
             console.error("Response data:", error.response.data);
           }
-          console.error("=== ELASTICSEARCH UPDATE ERROR END ===");
           // Don't fail the entire request if Elasticsearch update fails
         }
       }

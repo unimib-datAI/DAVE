@@ -1,9 +1,12 @@
 import KcAdminClient from "@keycloak/keycloak-admin-client";
+import axios from "axios";
 
 const KEYCLOAK_ISSUER =
   process.env.KEYCLOAK_ISSUER || "http://keycloak:8080/realms/dave";
 const KEYCLOAK_ADMIN_USER = process.env.KEYCLOAK_ADMIN || "admin";
 const KEYCLOAK_ADMIN_PASSWORD = process.env.KEYCLOAK_ADMIN_PASSWORD || "admin";
+const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_ID || "dave_client";
+const KEYCLOAK_CLIENT_SECRET = process.env.KEYCLOAK_SECRET || "";
 
 // Extract realm from issuer URL (e.g., "http://keycloak:8080/realms/dave" -> "dave")
 const getRealm = () => {
@@ -169,6 +172,95 @@ class KeycloakService {
     } catch (error) {
       console.error("Error creating user in Keycloak:", error.message);
       throw new Error(`Failed to create user in Keycloak: ${error.message}`);
+    }
+  }
+
+  /**
+   * Authenticate a user directly against Keycloak using the Resource Owner
+   * Password Credentials (ROPC) grant.  Returns the full token response
+   * (access_token, refresh_token, expires_in, …) so callers can use the
+   * access_token as a Bearer token for subsequent API calls.
+   *
+   * Requires "Direct Access Grants" to be enabled on the Keycloak client.
+   */
+  async loginUser(username, password) {
+    const tokenUrl = `${KEYCLOAK_ISSUER}/protocol/openid-connect/token`;
+
+    const params = new URLSearchParams();
+    params.append("grant_type", "password");
+    params.append("client_id", KEYCLOAK_CLIENT_ID);
+    if (KEYCLOAK_CLIENT_SECRET) {
+      params.append("client_secret", KEYCLOAK_CLIENT_SECRET);
+    }
+    params.append("username", username);
+    params.append("password", password);
+    params.append("scope", "openid");
+
+    try {
+      const response = await axios.post(tokenUrl, params, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+      return response.data; // { access_token, refresh_token, expires_in, token_type, … }
+    } catch (error) {
+      const msg =
+        error.response?.data?.error_description ||
+        error.response?.data?.error ||
+        error.message;
+      throw new Error(`Keycloak login failed: ${msg}`);
+    }
+  }
+
+  /**
+   * Exchange a Keycloak refresh_token for a new token pair.
+   */
+  async refreshToken(refreshToken) {
+    const tokenUrl = `${KEYCLOAK_ISSUER}/protocol/openid-connect/token`;
+
+    const params = new URLSearchParams();
+    params.append("grant_type", "refresh_token");
+    params.append("client_id", KEYCLOAK_CLIENT_ID);
+    if (KEYCLOAK_CLIENT_SECRET) {
+      params.append("client_secret", KEYCLOAK_CLIENT_SECRET);
+    }
+    params.append("refresh_token", refreshToken);
+
+    try {
+      const response = await axios.post(tokenUrl, params, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+      return response.data;
+    } catch (error) {
+      const msg =
+        error.response?.data?.error_description ||
+        error.response?.data?.error ||
+        error.message;
+      throw new Error(`Keycloak token refresh failed: ${msg}`);
+    }
+  }
+
+  /**
+   * Revoke (logout) a Keycloak refresh_token server-side.
+   */
+  async logoutUser(refreshToken) {
+    const logoutUrl = `${KEYCLOAK_ISSUER}/protocol/openid-connect/logout`;
+
+    const params = new URLSearchParams();
+    params.append("client_id", KEYCLOAK_CLIENT_ID);
+    if (KEYCLOAK_CLIENT_SECRET) {
+      params.append("client_secret", KEYCLOAK_CLIENT_SECRET);
+    }
+    params.append("refresh_token", refreshToken);
+
+    try {
+      await axios.post(logoutUrl, params, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+    } catch (error) {
+      const msg =
+        error.response?.data?.error_description ||
+        error.response?.data?.error ||
+        error.message;
+      throw new Error(`Keycloak logout failed: ${msg}`);
     }
   }
 }

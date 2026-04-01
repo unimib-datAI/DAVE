@@ -68,7 +68,6 @@ const deleteDoc = async (req, res, next) => {
   // delete annotation sets for the document
   await AnnotationSet.deleteMany({ docId });
   if (deletedDoc.collectionId && deletedDoc.id) {
-    console.log("deleting facets cache for doc");
     await CollectionController.deleteCacheForDoc(
       deletedDoc.id,
       deletedDoc.collectionId,
@@ -76,7 +75,6 @@ const deleteDoc = async (req, res, next) => {
   }
   if (res) {
     // Delete from Elasticsearch if index name provided
-    console.log("*** supplied elastic index for doc deletion", elasticIndex);
     if (elasticIndex) {
       try {
         const elasticUrl =
@@ -295,14 +293,10 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       try {
         const userId = req.user?.sub;
-        console.log("GET /configurations - userId:", userId);
         if (!userId) {
           return res.status(401).json({ message: "Unauthorized" });
         }
         const configurations = await Configuration.find({ userId }).lean();
-        console.log(
-          `Found ${configurations.length} configurations for user ${userId}`,
-        );
         return res.status(200).json(configurations);
       } catch (err) {
         console.error("Failed to fetch configurations", err);
@@ -319,7 +313,6 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       try {
         const userId = req.user?.sub;
-        console.log("GET /configurations/active - userId:", userId);
         if (!userId) {
           return res.status(401).json({ message: "Unauthorized" });
         }
@@ -328,12 +321,10 @@ export default (app) => {
           isActive: true,
         }).lean();
         if (!activeConfig) {
-          console.log(`No active configuration found for user ${userId}`);
           return res
             .status(404)
             .json({ message: "No active configuration found" });
         }
-        console.log(`Found active configuration: ${activeConfig.name}`);
         return res.status(200).json(activeConfig);
       } catch (err) {
         console.error("Failed to fetch active configuration", err);
@@ -362,12 +353,6 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       try {
         const userId = req.user?.sub;
-        console.log(
-          "POST /configurations - userId:",
-          userId,
-          "body:",
-          req.body,
-        );
         if (!userId) {
           return res.status(401).json({ message: "Unauthorized" });
         }
@@ -390,9 +375,6 @@ export default (app) => {
           isActive,
         });
         const inserted = await config.save();
-        console.log(
-          `Created configuration: ${inserted.name} (${inserted._id})`,
-        );
         return res.json(inserted).status(201);
       } catch (err) {
         console.error("Failed to create configuration", err);
@@ -429,12 +411,6 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       try {
         const userId = req.user?.sub;
-        console.log(
-          "PUT /configurations/:id - userId:",
-          userId,
-          "id:",
-          req.params.id,
-        );
         if (!userId) {
           return res.status(401).json({ message: "Unauthorized" });
         }
@@ -482,12 +458,6 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       try {
         const userId = req.user?.sub;
-        console.log(
-          "POST /configurations/:id/activate - userId:",
-          userId,
-          "id:",
-          req.params.id,
-        );
         if (!userId) {
           return res.status(401).json({ message: "Unauthorized" });
         }
@@ -536,12 +506,6 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       try {
         const userId = req.user?.sub;
-        console.log(
-          "DELETE /configurations/:id - userId:",
-          userId,
-          "id:",
-          req.params.id,
-        );
         if (!userId) {
           return res.status(401).json({ message: "Unauthorized" });
         }
@@ -581,8 +545,9 @@ export default (app) => {
    *         name: id
    *         required: true
    *         schema:
-   *           type: number
-   *         description: Document ID
+   *           type: string
+   *         description: Document ID (hex string)
+   *         example: d038bf8c87a223f191dd02dd7e811045faee1df21a713537fd94a281fac19b81
    *       - in: path
    *         name: deAnonimize
    *         required: false
@@ -605,7 +570,6 @@ export default (app) => {
     asyncRoute(async (req, res, next) => {
       const { id, deAnonimize } = req.params;
       const parsedDeAnonimize = deAnonimize === "true";
-      console.log("doc id", id, parsedDeAnonimize);
       const document = await DocumentController.getFullDocById(
         id,
         true,
@@ -613,7 +577,6 @@ export default (app) => {
         parsedDeAnonimize,
         true, // lightFeatures: only return fields needed by the frontend
       );
-      console.log("doc", document.features.anonymized);
       return res.json(document).status(200);
     }),
   );
@@ -689,10 +652,6 @@ export default (app) => {
           .filter((r) => r.status === "fulfilled")
           .map((r) => (r.status === "fulfilled" ? r.value : null));
 
-        console.log(
-          "[backend] /document/by-ids returning hits count:",
-          hits.length,
-        );
         return res.json(hits).status(200);
       } catch (error) {
         console.error("Failed to fetch documents by ids", error);
@@ -712,8 +671,8 @@ export default (app) => {
    *         name: id
    *         required: true
    *         schema:
-   *           type: number
-   *         description: Document ID
+   *           type: string
+   *         description: Document ID (hex string)
    *     requestBody:
    *       required: true
    *       content:
@@ -742,7 +701,6 @@ export default (app) => {
     }),
     asyncRoute(async (req, res, next) => {
       const { id } = req.params;
-      console.log("doc id", id);
       const document = await DocumentController.getFullDocById(
         id,
         false,
@@ -793,7 +751,6 @@ export default (app) => {
         false,
         true,
       );
-      console.log("doc", doc.features.clusters[annotationSet]);
       return res.json(doc).status(200);
       //   let entObjects = [];
       //   for(let i=0; i<entities.length; i++){
@@ -803,7 +760,6 @@ export default (app) => {
   async function moveEntities() {}
 
   /**
-   * @swagger
    * /api/document/anon/{id}:
    *   get:
    *     summary: Get anonymous document by ID
@@ -814,8 +770,8 @@ export default (app) => {
    *         name: id
    *         required: true
    *         schema:
-   *           type: number
-   *         description: Document ID
+   *           type: string
+   *         description: Document ID (hex string)
    *     responses:
    *       200:
    *         description: Successfully retrieved anonymous document
@@ -824,55 +780,26 @@ export default (app) => {
    *             schema:
    *               $ref: '#/components/schemas/Document'
    */
-  route.get(
-    "/anon/:id",
-    asyncRoute(async (req, res, next) => {
-      const { id } = req.params;
+  // route.get(
+  //   "/anon/:id",
+  //   asyncRoute(async (req, res, next) => {
+  //     const { id } = req.params;
 
-      const document = await DocumentController.getFullDocById(
-        id,
-        true,
-        false,
-        false,
-        true,
-      ); // lightFeatures
+  //     const document = await DocumentController.getFullDocById(
+  //       id,
+  //       true,
+  //       false,
+  //       false,
+  //       true,
+  //     ); // lightFeatures
 
-      return res.json(document).status(200);
-    }),
-  );
+  //     return res.json(document).status(200);
+  //   }),
+  // );
 
-  /**
-   * @swagger
-   * /api/document/clusters/{id}:
-   *   get:
-   *     summary: Get document with clusters by ID
-   *     description: Retrieve a document including cluster information
-   *     tags: [Documents]
-   *     parameters:
-   *       - in: path
-   *         name: id
-   *         required: true
-   *         schema:
-   *           type: number
-   *         description: Document ID
-   *     responses:
-   *       200:
-   *         description: Successfully retrieved document with clusters
-   *         content:
-   *           application/json:
-   *             schema:
-   *               $ref: '#/components/schemas/Document'
-   */
-  route.get(
-    "/clusters/:id",
-    asyncRoute(async (req, res, next) => {
-      const { id } = req.params;
-
-      const document = await DocumentController.getFullDocById(id, false, true);
-
-      return res.json(document).status(200);
-    }),
-  );
+  // NOTE: the `/clusters/:id` endpoint was removed because the frontend
+  // does not call it; cluster data is returned within the standard
+  // document endpoints (e.g. `GET /:id`).
 
   /**
    * @swagger
@@ -1024,7 +951,6 @@ export default (app) => {
       const pre_doc = req.body;
       pre_doc["id"] = id;
       const newDoc = documentDTO(req.body);
-      console.log("newDoc", newDoc);
       const doc = await DocumentController.insertOne(newDoc);
       // insert each annnotation set
       await Promise.all(
@@ -1123,9 +1049,6 @@ export default (app) => {
         const elasticUrl =
           process.env.QAVECTORIZER_ADDRESS || "http://qavectorizer:7863";
         const indexUrl = `${elasticUrl}/${elasticIndex}/_doc`;
-        console.log(
-          `Attempting to index document to Elasticsearch: ${indexUrl}`,
-        );
 
         try {
           // Fetch the full document with annotation sets for de-anonymization
@@ -1137,7 +1060,6 @@ export default (app) => {
           try {
             // Try to de-anonymize the document for generation context
             deAnonymizedDoc = await decode(fullDocument);
-            console.log("Document de-anonymized for Elasticsearch indexing");
           } catch (decryptError) {
             // If decryption fails, continue with original document
             console.warn(
@@ -1159,9 +1081,7 @@ export default (app) => {
             offset_type: req.body.offset_type,
           };
 
-          console.log("Sending to Elasticsearch with both versions");
           const response = await axios.post(indexUrl, elasticPayload);
-          console.log("Elasticsearch indexing successful:", response.data);
         } catch (error) {
           console.error("Error posting to Elasticsearch:", error.message);
           if (error.response) {

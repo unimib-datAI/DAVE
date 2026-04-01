@@ -7,22 +7,104 @@ import { validateRequest } from "zod-express-middleware";
 import { z } from "zod";
 import archiver from "archiver";
 import { FacetEntry } from "../models/facetEntry.js";
+import { decode } from "../utils/anonymization.js";
 
 const route = Router();
 
 export default (app) => {
   app.use("/collection", route);
+  /**
+   * @swagger
+   * /api/collection/entities/{id}:
+   *   get:
+   *     summary: Get all entity clusters for a collection
+   *     tags: [Collections]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Collection ID
+   *     responses:
+   *       200:
+   *         description: Successfully retrieved entity clusters
+   *       403:
+   *         description: Access denied
+   *       404:
+   *         description: Collection not found
+   *       500:
+   *         description: Error while fetching collection entities
+   */
+  route.get(
+    "/entities/:id",
+    asyncRoute(async (req, res) => {
+      const { id } = req.params;
+      const userId = req.user?.sub || req.user?.userId;
+      const collection = await CollectionController.findById(id);
+      if (!collection) {
+        console.warn(`Collection ${id} not found`);
+        return res.status(404).json({ message: "Collection not found" });
+      }
+
+      // Check access
+      const hasAccess = await CollectionController.hasAccess(id, userId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      try {
+        const collectionsDocs =
+          await CollectionController.getAllDocumentsEfficient(id);
+        const clusters = [];
+        for await (const doc of collectionsDocs) {
+          const deAnonDoc = await decode(doc);
+          let mentionMap = {};
+          for (const mention of deAnonDoc.annotation_sets["entities_"]
+            .annotations) {
+            mentionMap[mention.id] = {
+              id: mention.id,
+              start: mention.start,
+              end: mention.end,
+              text: mention.features.text,
+              context: deAnonDoc.text.slice(
+                Math.max(0, mention.start - 50),
+                Math.min(deAnonDoc.text.length, mention.end + 50),
+              ),
+            };
+          }
+          const innerClusters = deAnonDoc?.features?.clusters["entities_"];
+          if (innerClusters) {
+            for (const cluster of innerClusters) {
+              let resultObject = {
+                title: cluster.title || "",
+                type: cluster.type || "UNKNOWN",
+                mentions: cluster.mentions
+                  ? cluster.mentions.map((clusterMention) => {
+                      return mentionMap[clusterMention.id];
+                    })
+                  : [],
+              };
+              clusters.push(resultObject);
+            }
+          }
+        }
+        return res.json(clusters);
+      } catch (error) {
+        console.error("Error in /entities/:id", error);
+        return res.status(500).json({
+          message: `Error while fetching collection entities: ${error}`,
+        });
+      }
+    }),
+  );
   route.get(
     "/facetsCache/:id",
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 GET /collection/facetsCache/${id} - userId: ${userId}`);
       const collection = await CollectionController.findById(id);
-      console.log(
-        "collection data (facetsCache request):",
-        collection ? { id: collection.id, name: collection.name } : null,
-      );
       if (!collection) {
         console.warn(`Collection ${id} not found`);
         return res.status(404).json({ message: "Collection not found" });
@@ -35,9 +117,6 @@ export default (app) => {
       }
       let entries = await FacetEntry.find({ collectionId: id }).lean();
       if (!entries || entries.length === 0) {
-        console.log(
-          `Facets cache not found for collection ${id}, building it now`,
-        );
         try {
           // First get lightweight list of documents (ids) to avoid loading all docs into memory
           const docInfos =
@@ -273,7 +352,6 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 GET /collectioninfo/${id} - userId: ${userId}`);
       const collection = await CollectionController.findById(id);
       if (!collection) {
         return res.status(404).json({ message: "Collection not found" });
@@ -300,23 +378,13 @@ export default (app) => {
     "/",
     asyncRoute(async (req, res) => {
       const userId = req.user?.sub || req.user?.userId;
-      console.log(
-        "📦 GET /collection - Full req.user object:",
-        JSON.stringify(req.user, null, 2),
-      );
-      console.log("📦 Extracted userId (sub):", req.user?.sub);
-      console.log("📦 Extracted userId (userId):", req.user?.userId);
-      console.log("📦 Final userId being used:", userId);
 
       if (!userId) {
-        console.error("❌ No userId found in request - returning 401");
+        console.error("No userId found in request - returning 401");
         return res.status(401).json({ message: "Unauthorized" });
       }
 
       const collections = await CollectionController.findByUserId(userId);
-      console.log(
-        `✅ Found ${collections.length} collections for userId: ${userId}`,
-      );
       return res.json(collections);
     }),
   );
@@ -346,7 +414,6 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 GET /collection/${id} - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -370,7 +437,6 @@ export default (app) => {
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 GET /collection/${id}/download - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -383,7 +449,9 @@ export default (app) => {
       if (!collection) {
         return res.status(404).json({ message: "Collection not found" });
       }
-      let fullDocuments = await CollectionController.getAllDocuments(id);
+      let fullDocuments =
+        await CollectionController.getAllDocumentsEfficient(id);
+      console.log("full docs", fullDocuments);
       const zipFileName = `${collection.name.replace(/[^a-zA-Z0-9]/g, "_")}.zip`;
       //setting headers for response
       res.setHeader("Content-Type", "application/zip");
@@ -400,11 +468,14 @@ export default (app) => {
 
       //pipe archive stream to response
       zipArchive.pipe(res);
-
-      fullDocuments.forEach((doc) => {
+      for await (const doc of fullDocuments) {
         const filename = `${doc.name || doc.id}.json`;
         zipArchive.append(JSON.stringify(doc, null, 2), { name: filename });
-      });
+      }
+      // fullDocuments.forEach((doc) => {
+      //   const filename = `${doc.name || doc.id}.json`;
+      //   zipArchive.append(JSON.stringify(doc, null, 2), { name: filename });
+      // });
       await zipArchive.finalize();
     }),
   );
@@ -452,12 +523,8 @@ export default (app) => {
       },
     }),
     asyncRoute(async (req, res) => {
-      console.log("*** create collection body ***", req.body);
       const { name, allowedUserIds, config } = req.body;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(
-        `📦 POST /collection - Creating collection for userId: ${userId}`,
-      );
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -524,7 +591,6 @@ export default (app) => {
       const { id } = req.params;
       const { name, allowedUserIds, config } = req.body;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 PUT /collection/${id} - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
@@ -570,7 +636,6 @@ export default (app) => {
       const { id } = req.params;
       const { elasticIndex } = req.body;
       const userId = req.user?.sub || req.user?.userId;
-      console.log(`📦 DELETE /collection/${id} - userId: ${userId}`);
       if (!userId) {
         return res.status(401).json({ message: "Unauthorized" });
       }
