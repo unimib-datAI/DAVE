@@ -7,11 +7,98 @@ import { validateRequest } from "zod-express-middleware";
 import { z } from "zod";
 import archiver from "archiver";
 import { FacetEntry } from "../models/facetEntry.js";
+import { decode } from "../utils/anonymization.js";
 
 const route = Router();
 
 export default (app) => {
   app.use("/collection", route);
+  /**
+   * @swagger
+   * /api/collection/entities/{id}:
+   *   get:
+   *     summary: Get all entity clusters for a collection
+   *     tags: [Collections]
+   *     security:
+   *       - bearerAuth: []
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema:
+   *           type: string
+   *         description: Collection ID
+   *     responses:
+   *       200:
+   *         description: Successfully retrieved entity clusters
+   *       403:
+   *         description: Access denied
+   *       404:
+   *         description: Collection not found
+   *       500:
+   *         description: Error while fetching collection entities
+   */
+  route.get(
+    "/entities/:id",
+    asyncRoute(async (req, res) => {
+      const { id } = req.params;
+      const userId = req.user?.sub || req.user?.userId;
+      const collection = await CollectionController.findById(id);
+      if (!collection) {
+        console.warn(`Collection ${id} not found`);
+        return res.status(404).json({ message: "Collection not found" });
+      }
+
+      // Check access
+      const hasAccess = await CollectionController.hasAccess(id, userId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      try {
+        const collectionsDocs =
+          await CollectionController.getAllDocumentsEfficient(id);
+        const clusters = [];
+        for await (const doc of collectionsDocs) {
+          const deAnonDoc = await decode(doc);
+          let mentionMap = {};
+          for (const mention of deAnonDoc.annotation_sets["entities_"]
+            .annotations) {
+            mentionMap[mention.id] = {
+              id: mention.id,
+              start: mention.start,
+              end: mention.end,
+              text: mention.features.text,
+              context: deAnonDoc.text.slice(
+                Math.max(0, mention.start - 50),
+                Math.min(deAnonDoc.text.length, mention.end + 50),
+              ),
+            };
+          }
+          const innerClusters = deAnonDoc?.features?.clusters["entities_"];
+          if (innerClusters) {
+            for (const cluster of innerClusters) {
+              let resultObject = {
+                title: cluster.title || "",
+                type: cluster.type || "UNKNOWN",
+                mentions: cluster.mentions
+                  ? cluster.mentions.map((clusterMention) => {
+                      return mentionMap[clusterMention.id];
+                    })
+                  : [],
+              };
+              clusters.push(resultObject);
+            }
+          }
+        }
+        return res.json(clusters);
+      } catch (error) {
+        console.error("Error in /entities/:id", error);
+        return res.status(500).json({
+          message: `Error while fetching collection entities: ${error}`,
+        });
+      }
+    }),
+  );
   route.get(
     "/facetsCache/:id",
     asyncRoute(async (req, res) => {
