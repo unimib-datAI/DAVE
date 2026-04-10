@@ -60,7 +60,7 @@ services:
     build: ./backend/documents
     environment:
       DOCS_PORT: 3001
-      ENABLE_AUTH: true
+      USE_AUTH: ${USE_AUTH:-true}
       JWT_SECRET: ${DOCUMENTS_JWT_SECRET:-your-secret-key-change-in-production}
       MONGO: $MONGO
       ANONYMIZATION_ENDPOINT: $ANONYMIZATION_ENDPOINT
