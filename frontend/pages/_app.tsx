@@ -1,3 +1,4 @@
+import { setupPermissionInterceptor } from '@/lib/permissionInterceptor';
 import { Global } from '@emotion/react';
 import styled from '@emotion/styled';
 import type { AppProps } from 'next/app';
@@ -77,6 +78,11 @@ function MyApp({
   // whenever the selected locale changes. This provides a straightforward way to ensure
   // all components re-render with the newly loaded translations.
   const [localeVersion, setLocaleVersion] = useState<number>(0);
+
+  // Install the global permission-denied interceptor once on mount.
+  // It patches window.fetch to catch 401/403 errors from tRPC calls and
+  // shows an Ant Design notification. See lib/permissionInterceptor.ts for details.
+  // useEffect(() => setupPermissionInterceptor(), []);
 
   // Listen for locale changes (both storage events from other tabs and a custom event)
   // and bump the version to force remount.
@@ -315,8 +321,9 @@ function MyApp({
       session={session}
       basePath={`${process.env.NEXT_PUBLIC_BASE_PATH}/api/auth`}
     >
-      {/* AuthWatcher only runs when auth is enabled */}
-      {authEnabled && <AuthWatcher />}
+      {/* AuthWatcher runs always: handles LLM settings, collection prefetch, and route-change refetch.
+          Auth-specific operations (token refresh, sign-out on error) are guarded internally. */}
+      <AuthWatcher />
 
       <Global styles={GlobalStyles} />
       <TranslationProvider key={localeVersion} locale={locale}>
@@ -359,7 +366,6 @@ export default withTRPC<AppRouter>({
       /**
        * @link https://react-query.tanstack.com/reference/QueryClient
        */
-      // queryClientConfig: { defaultOptions: { queries: { staleTime: 60 } } },
     };
   },
   /**
