@@ -117,6 +117,8 @@ services:
       TEXT_GENERATION: $TEXT_GENERATION
       HOST: $HOST
       ELASTIC_INDEX: $ELASTIC_INDEX
+      USE_AUTH: $USE_AUTH
+      NEXT_PUBLIC_USE_AUTH: $USE_AUTH
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
