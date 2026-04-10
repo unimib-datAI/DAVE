@@ -155,9 +155,11 @@ const Collection: NextPage = () => {
   const { data: session, status } = useSession();
   const id = router.query.id as string | undefined;
   const utils = useContext();
-  const enabled = Boolean(id && session?.accessToken);
-  const token = (session as any)?.accessToken as string | undefined;
   const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
+  const token = (session as any)?.accessToken as string | undefined;
+  const enabled = authDisabled
+    ? Boolean(id)
+    : Boolean(id && session?.accessToken);
   const [allCollections, setAllCollections] = useAtom(collectionsAtom);
   const [activeCollection, setActiveCollection] = useAtom(activeCollectionAtom);
   const [, setUploadModalOpen] = useAtom(uploadModalOpenAtom);
@@ -181,8 +183,8 @@ const Collection: NextPage = () => {
         // ignore
       }
     },
-    onError: (err) => {
-      console.error('[collection.update] error', err);
+    onError: (err: any) => {
+      console.warn('[collection.update] error', err);
     },
   });
 
