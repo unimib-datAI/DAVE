@@ -1322,27 +1322,26 @@ tokenizer = AutoTokenizer.from_pretrained("microsoft/Phi-3.5-mini-instruct")
 # Print each collection
 # for collection in collections:
 #     print(collection)
+_settings = get_settings()
+_es_host = _settings.elastic_host
+_es_port = int(_settings.elastic_port)
 print(
     "starting es client",
     {
-        "host": "localhost",
+        "host": _es_host,
         "scheme": "http",
-        "port": 9201,
+        "port": _es_port,
     },
 )
 es_client = Elasticsearch(
     hosts=[
         {
-            "host": "host.docker.internal",
+            "host": _es_host,
             "scheme": "http",
-            "port": 9201,
+            "port": _es_port,
         }
     ],
     request_timeout=60,
-    # headers={
-    #     "accept": "application/vnd.elasticsearch+json; compatible-with=8",
-    #     "content_type": "application/vnd.elasticsearch+json; compatible-with=8",
-    # },
 )
 
 # Create retrievers based on .env pipeline addresses and docker-compose UI elastic indexes
