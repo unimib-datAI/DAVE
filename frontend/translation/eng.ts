@@ -12,6 +12,7 @@ const t: Translation = {
     buttons: {
       seeAllDocuments: 'See all documents',
       uploadAnnotatedDocuments: 'Upload documents',
+      uploadNoPermission: 'You do not have permission to upload documents.',
     },
     searchPlaceholder: 'Search documents',
   },
@@ -200,6 +201,12 @@ const t: Translation = {
       'Sorry, there was an error generating the response.',
     showPrompt: 'Show Full Prompt',
     hidePrompt: 'Hide Full Prompt',
+    notAllowed: 'Chat not available',
+    notAllowedDescription:
+      'You do not have permission to use the chat feature.',
+    devModeNotAllowed: 'Developer mode not available',
+    devModeNotAllowedDescription:
+      'You do not have permission to use developer mode.',
   },
   document: {
     toolbar: {
@@ -483,6 +490,7 @@ const t: Translation = {
     deleteTypeConfirmation:
       'By deleting this type from the taxonomy you will also delete all annotations with this entity type. Are you sure?',
     search: 'Search',
+    noUpdatePermission: 'You do not have permission to edit this document.',
   },
   settings: {
     title: 'Settings',
@@ -503,6 +511,11 @@ const t: Translation = {
       title: 'General Settings',
       description:
         'Coming soon: Configure general application preferences and display options.',
+    },
+    adminPanel: {
+      title: 'Admin Panel',
+      description:
+        'Manage system-wide role permissions and advanced configuration.',
     },
     annotationConfig: {
       title: 'Annotation configuration',
@@ -703,6 +716,87 @@ const t: Translation = {
       manageCollections: 'Manage Collections',
       annotationConfig: 'Annotation Config',
       settings: 'Settings',
+    },
+  },
+  admin: {
+    title: 'Admin Panel',
+    subtitle: 'Manage system-wide configuration',
+    notAuthorized: 'Access denied',
+    notAuthorizedDescription:
+      'You must have the admin role to access this page.',
+    nav: {
+      permissions: 'Permissions',
+      users: 'Users',
+    },
+    permissions: {
+      title: 'Permissions',
+      description:
+        'Configure which roles are allowed to perform each action across the system.',
+      actionLabel: 'Action',
+      save: 'Save changes',
+      saving: 'Saving…',
+      saved: 'Saved!',
+      saveError: 'Failed to save permissions. Please try again.',
+      sections: {
+        collections: 'Collections',
+        document: 'Document',
+        chat: 'Chat',
+        settings: 'Settings',
+      },
+      actions: {
+        create: 'Create',
+        update: 'Update',
+        delete: 'Delete',
+        view: 'View',
+        deAnonimize: 'De-anonymize',
+        canUse: 'Can use',
+        canDevMode: 'Developer mode',
+        llm: 'LLM settings',
+        pipeline: 'Pipeline',
+      },
+      roles: {
+        admin: 'Admin',
+        editor: 'Editor',
+        viewer: 'Viewer',
+      },
+    },
+    users: {
+      title: 'User Management',
+      subtitle: 'Create and manage user accounts and their roles.',
+      notEnabled:
+        'User management is not available when authentication is disabled.',
+      addUser: 'Add User',
+      editUser: 'Edit User',
+      createSuccess: 'User created successfully.',
+      updateSuccess: 'User updated successfully.',
+      deleteSuccess: 'User deleted successfully.',
+      errorCreate: 'Failed to create user. Please try again.',
+      errorUpdate: 'Failed to update user. Please try again.',
+      errorDelete: 'Failed to delete user. Please try again.',
+      errorLoad: 'Failed to load users.',
+      confirmPassword: 'Confirm',
+      deleteUser: 'Delete',
+      deleteConfirmTitle: 'Delete user',
+      deleteConfirmDescription:
+        'Are you sure you want to delete this user? This action cannot be undone.',
+      deleteConfirmOk: 'Delete',
+      deleteConfirmCancel: 'Cancel',
+      table: {
+        email: 'Email',
+        name: 'Name',
+        roles: 'Roles',
+        actions: 'Actions',
+        noRoles: 'No roles',
+      },
+      form: {
+        email: 'Email',
+        firstName: 'First name',
+        lastName: 'Last name',
+        password: 'Password',
+        passwordOptional: 'Password (leave blank to keep current)',
+        role: 'Role',
+        noRole: 'No role',
+      },
     },
   },
 };

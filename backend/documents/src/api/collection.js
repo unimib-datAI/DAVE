@@ -8,8 +8,54 @@ import { z } from "zod";
 import archiver from "archiver";
 import { FacetEntry } from "../models/facetEntry.js";
 import { decode } from "../utils/anonymization.js";
+import fs from "fs";
+import os from "os";
+import path from "path";
+import { requirePermission } from "../middlewares/permission.js";
 
 const route = Router();
+
+async function processDocEntities(doc) {
+  let deAnonDoc = doc.features.anonymized ? await decode(doc) : doc;
+  const docClusters = [];
+  if (Object.keys(deAnonDoc.annotation_sets).length === 0) return docClusters;
+  const annotations = deAnonDoc.annotation_sets["entities_"]?.annotations;
+  if (!annotations) return docClusters;
+  const mentionMap = {};
+  for (const mention of annotations) {
+    const rawStart = Math.max(0, mention.start - 100);
+    const rawEnd = Math.min(deAnonDoc.text.length, mention.end + 100);
+    const spaceBack =
+      rawStart > 0 ? deAnonDoc.text.lastIndexOf(" ", rawStart) : -1;
+    const contextStart = spaceBack !== -1 ? spaceBack + 1 : rawStart;
+    const spaceForward =
+      rawEnd < deAnonDoc.text.length ? deAnonDoc.text.indexOf(" ", rawEnd) : -1;
+    const contextEnd = spaceForward !== -1 ? spaceForward : rawEnd;
+    mentionMap[mention.id] = {
+      id: mention.id,
+      start: mention.start,
+      end: mention.end,
+      url: mention.features.url,
+      text: deAnonDoc.text.slice(mention.start, mention.end),
+      context: deAnonDoc.text.slice(contextStart, contextEnd),
+    };
+  }
+  const innerClusters = deAnonDoc?.features?.clusters["entities_"];
+  if (innerClusters) {
+    for (const cluster of innerClusters) {
+      docClusters.push({
+        originalDocId: deAnonDoc.id,
+        clusterId: `${deAnonDoc.id}_${cluster.id}`,
+        title: cluster.title || "",
+        type: cluster.type || "UNKNOWN",
+        mentions: cluster.mentions
+          ? cluster.mentions.map((cm) => mentionMap[cm.id])
+          : [],
+      });
+    }
+  }
+  return docClusters;
+}
 
 export default (app) => {
   app.use("/collection", route);
@@ -40,6 +86,7 @@ export default (app) => {
    */
   route.get(
     "/entities/:id",
+    requirePermission("collections", "view"),
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
@@ -55,42 +102,63 @@ export default (app) => {
         return res.status(403).json({ message: "Access denied" });
       }
       try {
+        const docInfos =
+          await CollectionController.getCollectionDocumentInfo(id);
+        const totalDocs = Array.isArray(docInfos) ? docInfos.length : 0;
+
+        const progressBar = new cliProgress.SingleBar(
+          {
+            format:
+              "Building entities |{bar}| {percentage}% ({value}/{total}) {docId}",
+          },
+          cliProgress.Presets.shades_classic,
+        );
+        progressBar.start(totalDocs, 0, { docId: "" });
+
+        const tmpFile = path.join(
+          os.tmpdir(),
+          `entities_${id}_${Date.now()}.json`,
+        );
+        const writeStream = fs.createWriteStream(tmpFile, { encoding: "utf8" });
+        writeStream.write("[");
+
         const collectionsDocs =
           await CollectionController.getAllDocumentsEfficient(id);
-        const clusters = [];
+        let processed = 0;
+        let first = true;
+
         for await (const doc of collectionsDocs) {
-          const deAnonDoc = await decode(doc);
-          let mentionMap = {};
-          for (const mention of deAnonDoc.annotation_sets["entities_"]
-            .annotations) {
-            mentionMap[mention.id] = {
-              id: mention.id,
-              start: mention.start,
-              end: mention.end,
-              text: mention.features.text,
-              context: deAnonDoc.text.slice(
-                Math.max(0, mention.start - 50),
-                Math.min(deAnonDoc.text.length, mention.end + 50),
-              ),
-            };
-          }
-          const innerClusters = deAnonDoc?.features?.clusters["entities_"];
-          if (innerClusters) {
-            for (const cluster of innerClusters) {
-              let resultObject = {
-                title: cluster.title || "",
-                type: cluster.type || "UNKNOWN",
-                mentions: cluster.mentions
-                  ? cluster.mentions.map((clusterMention) => {
-                      return mentionMap[clusterMention.id];
-                    })
-                  : [],
-              };
-              clusters.push(resultObject);
+          processed += 1;
+          if (!process.stdout.isTTY) {
+            if (processed % 10 === 0 || processed === totalDocs) {
+              console.log(`processing entities ${processed}/${totalDocs}`);
             }
           }
+          progressBar.update(processed, { docId: doc.id || "" });
+
+          const docClusters = await processDocEntities(doc);
+          for (const cluster of docClusters) {
+            if (!first) writeStream.write(",");
+            writeStream.write(JSON.stringify(cluster));
+            first = false;
+          }
         }
-        return res.json(clusters);
+
+        writeStream.write("]");
+        await new Promise((resolve, reject) => {
+          writeStream.end((err) => (err ? reject(err) : resolve()));
+        });
+        progressBar.stop();
+
+        res.setHeader("Content-Type", "application/json");
+        const readStream = fs.createReadStream(tmpFile);
+        readStream.pipe(res);
+        readStream.on("end", () => fs.unlink(tmpFile, () => {}));
+        readStream.on("error", (err) => {
+          fs.unlink(tmpFile, () => {});
+          throw err;
+        });
+        return;
       } catch (error) {
         console.error("Error in /entities/:id", error);
         return res.status(500).json({
@@ -101,6 +169,7 @@ export default (app) => {
   );
   route.get(
     "/facetsCache/:id",
+    requirePermission("collections", "view"),
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
@@ -349,6 +418,7 @@ export default (app) => {
    */
   route.get(
     "/collectioninfo/:id",
+    requirePermission("collections", "view"),
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
@@ -376,6 +446,7 @@ export default (app) => {
   );
   route.get(
     "/",
+    requirePermission("collections", "view"),
     asyncRoute(async (req, res) => {
       const userId = req.user?.sub || req.user?.userId;
 
@@ -411,6 +482,7 @@ export default (app) => {
    */
   route.get(
     "/:id",
+    requirePermission("collections", "view"),
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
@@ -434,6 +506,7 @@ export default (app) => {
   );
   route.get(
     "/:id/download",
+    requirePermission("collections", "view"),
     asyncRoute(async (req, res) => {
       const { id } = req.params;
       const userId = req.user?.sub || req.user?.userId;
@@ -450,7 +523,7 @@ export default (app) => {
         return res.status(404).json({ message: "Collection not found" });
       }
       let fullDocuments =
-        await CollectionController.getAllDocumentsEfficient(id);
+        await CollectionController.streamAllDocumentsConcurrent(id);
       console.log("full docs", fullDocuments);
       const zipFileName = `${collection.name.replace(/[^a-zA-Z0-9]/g, "_")}.zip`;
       //setting headers for response
@@ -508,6 +581,7 @@ export default (app) => {
    */
   route.post(
     "/",
+    requirePermission("collections", "create"),
     validateRequest({
       req: {
         body: z.object({
@@ -573,6 +647,7 @@ export default (app) => {
    */
   route.put(
     "/:id",
+    requirePermission("collections", "update"),
     validateRequest({
       req: {
         body: z.object({
@@ -625,6 +700,7 @@ export default (app) => {
    */
   route.delete(
     "/:id",
+    requirePermission("collections", "delete"),
     validateRequest({
       req: {
         body: z.object({

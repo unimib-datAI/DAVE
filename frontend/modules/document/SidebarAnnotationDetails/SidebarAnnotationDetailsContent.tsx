@@ -13,8 +13,8 @@ import { EntityAnnotation } from '@/server/routers/document';
 import { getCandidateId } from '../DocumentProvider/utils';
 import { Flex, IconButton, useText } from '@/components';
 import { FiX } from '@react-icons/all-files/fi/FiX';
-import { useDocumentEventListener } from '@/hooks';
-import { Button } from '@heroui/react';
+import { useDocumentEventListener, useDocumentPermissions } from '@/hooks';
+import { Button, Tooltip } from '@heroui/react';
 
 type AnnotationDetailsProps = {
   annotation: EntityAnnotation;
@@ -66,6 +66,7 @@ const AnnotationDetailsContent = ({ annotation }: AnnotationDetailsProps) => {
   const annotationFeatures = useSelector(selectAnnotationFeatures);
   const { setVisible, bindings } = useModal();
   const dispatch = useDocumentDispatch();
+  const { canUpdate } = useDocumentPermissions();
 
   useDocumentEventListener('keydown', (event) => {
     switch (event.code) {
@@ -131,15 +132,33 @@ const AnnotationDetailsContent = ({ annotation }: AnnotationDetailsProps) => {
           <AnnotationLinkDetails annotationFeatures={annotationFeatures} />
         </DetailsContainer>
         <ButtonContainer>
-          <Button
-            color="primary"
-            onPress={() => {
-              console.log('pressed');
-              setVisible(true);
-            }}
-          >
-            {t('rightSidebar.editBtn')}
-          </Button>
+          {canUpdate ? (
+            <Button
+              color="primary"
+              onPress={() => {
+                console.log('pressed');
+                setVisible(true);
+              }}
+            >
+              {t('rightSidebar.editBtn')}
+            </Button>
+          ) : (
+            <Tooltip
+              content={t('noUpdatePermission')}
+              placement="top"
+              color="foreground"
+            >
+              <span>
+                <Button
+                  color="primary"
+                  isDisabled
+                  style={{ pointerEvents: 'none' }}
+                >
+                  {t('rightSidebar.editBtn')}
+                </Button>
+              </span>
+            </Tooltip>
+          )}
         </ButtonContainer>
       </Container>
       <EditAnnotationModal setVisible={setVisible} {...bindings} />

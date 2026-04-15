@@ -7,6 +7,7 @@ import { ChatController } from "../controllers/chat.js";
 import { validateRequest } from "zod-express-middleware";
 import { z } from "zod";
 import axios from "axios";
+import { requirePermission } from "../middlewares/permission.js";
 
 const route = Router();
 
@@ -73,6 +74,7 @@ export default (app) => {
    */
   route.post(
     "/",
+    requirePermission("document", "update"),
     validateRequest({
       req: {
         body: z.object({
@@ -359,6 +361,7 @@ export default (app) => {
    */
   route.post(
     "/rate-conversation",
+    requirePermission("chat", "canUse"),
     asyncRoute(async (req, res) => {
       const { rateValue, chatState } = req.body;
       const resAdd = await ChatController.saveRating(rateValue, chatState);

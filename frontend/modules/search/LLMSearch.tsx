@@ -1,5 +1,5 @@
 import { SwitchEvent, Tooltip, Switch, Button } from '@heroui/react';
-import { MessageSquareDashed, Code, X } from 'lucide-react';
+import { MessageSquareDashed, Code, X, Lock } from 'lucide-react';
 import { forwardRef, useState } from 'react';
 import { ChatPanel } from './ChatPanel';
 import { motion } from 'framer-motion';
@@ -9,6 +9,8 @@ import { ChatProvider } from '@/modules/chat/ChatProvider';
 import { useAtom } from 'jotai';
 import { persistedLLMSettingsAtom } from '@/atoms/llmSettings';
 import { GlobalAnonymizationToggle } from '@/components/GlobalAnonymizationToggle';
+import { useCanUseChat, useCanDevModeChat } from '@/hooks';
+import { useText } from '@/components/TranslationProvider';
 
 type LLMSearchProps = {
   onClose: () => void;
@@ -18,6 +20,9 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
   ({ onClose }, ref) => {
     const [devMode, setDevMode] = useState(false);
     const [settings] = useAtom(persistedLLMSettingsAtom);
+    const canUseChat = useCanUseChat();
+    const canDevMode = useCanDevModeChat();
+    const t = useText('chat');
 
     const handleModeChange = (ev: SwitchEvent) => {
       setDevMode(ev.target.checked);
@@ -86,9 +91,23 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
             </Button>
           </div>
         </div>
-        <ChatProvider>
-          <ChatPanel devMode={devMode} />
-        </ChatProvider>
+        {canUseChat ? (
+          <ChatProvider>
+            <ChatPanel devMode={devMode} canDevMode={canDevMode} />
+          </ChatProvider>
+        ) : (
+          <div className="flex flex-col items-center justify-center flex-1 gap-4 p-8">
+            <Lock size={48} className="text-slate-300" />
+            <div className="text-center">
+              <p className="font-semibold text-slate-700 text-lg">
+                {t('notAllowed')}
+              </p>
+              <p className="text-sm text-slate-500 mt-1">
+                {t('notAllowedDescription')}
+              </p>
+            </div>
+          </div>
+        )}
       </motion.div>
     );
   }

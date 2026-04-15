@@ -1,4 +1,4 @@
-import { useForm } from '@/hooks';
+import { useForm, useCollectionPermissions } from '@/hooks';
 import { LLMButton } from '@/modules/search/LLMButton';
 import { Searchbar } from '@/modules/search/Searchbar';
 
@@ -11,11 +11,12 @@ import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { GetServerSideProps } from 'next';
 import { getSession } from 'next-auth/react';
 import { useText } from '@/components/TranslationProvider';
-import { Button } from '@heroui/react';
+import { Button, Tooltip } from '@heroui/react';
 
 const Homepage = () => {
   const router = useRouter();
   const [, setUploadModalOpen] = useAtom(uploadModalOpenAtom);
+  const { canUpdate } = useCollectionPermissions();
   const { register, onSubmit, setValue } = useForm({
     text: '',
   });
@@ -66,9 +67,23 @@ const Homepage = () => {
           >
             {t('buttons.seeAllDocuments')}
           </Button>
-          <Button color="secondary" onPress={() => setUploadModalOpen(true)}>
-            {t('buttons.uploadAnnotatedDocuments')}
-          </Button>
+          {canUpdate ? (
+            <Button color="secondary" onPress={() => setUploadModalOpen(true)}>
+              {t('buttons.uploadAnnotatedDocuments')}
+            </Button>
+          ) : (
+            <Tooltip
+              content={t('buttons.uploadNoPermission')}
+              placement="top"
+              color="foreground"
+            >
+              <span>
+                <Button color="secondary" isDisabled>
+                  {t('buttons.uploadAnnotatedDocuments')}
+                </Button>
+              </span>
+            </Tooltip>
+          )}
         </div>
       </div>
       <LLMButton />
