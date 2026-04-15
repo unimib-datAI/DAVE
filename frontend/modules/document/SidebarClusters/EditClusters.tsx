@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { ProcessedCluster } from '../DocumentProvider/types';
-import { Button } from '@heroui/react';
+import { Button, Tooltip } from '@heroui/react';
 import { Checkbox, Col, Drawer, message, Modal, Row, Select, Tag } from 'antd';
 import {
   selectCurrentAnnotationSetName,
@@ -30,6 +30,7 @@ import { useMutation } from '@/utils/trpc';
 import { getClustersGroups, groupBy } from '@/utils/shared';
 import { CheckboxChangeEvent } from 'antd/es/checkbox';
 import { useText } from '@/components';
+import { useDocumentPermissions } from '@/hooks';
 
 interface EditClustersProps {
   onEdit: Function;
@@ -158,6 +159,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
     'document.moveEntitiesToCluster',
   ]);
   const t = useText('document');
+  const { canUpdate } = useDocumentPermissions();
 
   useEffect(() => {
     if (sourceCluster && dest) {
@@ -353,15 +355,29 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
   }
   return (
     <>
-      <Button
-        style={{ margin: 15, zIndex: 1 }}
-        onPress={() => {
-          console.log('setting is ope');
-          setIsOpen(true);
-        }}
-      >
-        {t('editClusters')}
-      </Button>
+      {canUpdate ? (
+        <Button
+          style={{ margin: 15, zIndex: 1 }}
+          onPress={() => {
+            console.log('setting is ope');
+            setIsOpen(true);
+          }}
+        >
+          {t('editClusters')}
+        </Button>
+      ) : (
+        <Tooltip
+          content={t('noUpdatePermission')}
+          placement="top"
+          color="foreground"
+        >
+          <span style={{ display: 'inline-block', margin: 15 }}>
+            <Button isDisabled style={{ pointerEvents: 'none' }}>
+              {t('editClusters')}
+            </Button>
+          </span>
+        </Tooltip>
+      )}
       <Drawer
         width={'70%'}
         title={t('modifyClusters')}

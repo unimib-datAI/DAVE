@@ -49,6 +49,7 @@ import { Service, serviceDTO } from "../models/service";
 import { Configuration, configurationDTO } from "../models/configuration";
 import { CollectionController } from "../controllers/collection.js";
 import { FacetsCache } from "../models/facetsCache.js";
+import { requirePermission } from "../middlewares/permission.js";
 
 const route = Router();
 
@@ -179,6 +180,7 @@ export default (app) => {
   // POST /api/document/services - create a new service
   route.post(
     "/services",
+    requirePermission("settings", "pipeline"),
     validateRequest({
       req: {
         body: z.object({
@@ -214,6 +216,7 @@ export default (app) => {
   // PUT /api/document/services/:id - update a service
   route.put(
     "/services/:id",
+    requirePermission("settings", "pipeline"),
     validateRequest({
       req: {
         params: z.object({ id: z.string().min(1) }),
@@ -249,6 +252,7 @@ export default (app) => {
   // DELETE /api/document/services/:id - delete a service
   route.delete(
     "/services/:id",
+    requirePermission("settings", "pipeline"),
     validateRequest({
       req: {
         params: z.object({ id: z.string().min(1) }),
@@ -338,6 +342,7 @@ export default (app) => {
   // POST /api/document/configurations - create a new configuration
   route.post(
     "/configurations",
+    requirePermission("settings", "pipeline"),
     validateRequest({
       req: {
         body: z.object({
@@ -395,6 +400,7 @@ export default (app) => {
   // PUT /api/document/configurations/:id - update a configuration
   route.put(
     "/configurations/:id",
+    requirePermission("settings", "pipeline"),
     validateRequest({
       req: {
         params: z.object({ id: z.string().min(1) }),
@@ -450,6 +456,7 @@ export default (app) => {
   // POST /api/document/configurations/:id/activate - set configuration as active
   route.post(
     "/configurations/:id/activate",
+    requirePermission("settings", "pipeline"),
     validateRequest({
       req: {
         params: z.object({ id: z.string().min(1) }),
@@ -498,6 +505,7 @@ export default (app) => {
   // DELETE /api/document/configurations/:id - delete a configuration
   route.delete(
     "/configurations/:id",
+    requirePermission("settings", "pipeline"),
     validateRequest({
       req: {
         params: z.object({ id: z.string().min(1) }),
@@ -689,6 +697,7 @@ export default (app) => {
    */
   route.post(
     "/:id/move-entities",
+    requirePermission("document", "update"),
     validateRequest({
       req: {
         body: z.object({
@@ -925,6 +934,7 @@ export default (app) => {
    */
   route.post(
     "/:id",
+    requirePermission("collections", "update"),
     validateRequest({
       req: {
         body: z.object({
@@ -1013,6 +1023,7 @@ export default (app) => {
    */
   route.post(
     "/",
+    requirePermission("collections", "update"),
     validateRequest({
       req: {
         body: z.object({
@@ -1171,7 +1182,11 @@ export default (app) => {
    *             schema:
    *               $ref: '#/components/schemas/Document'
    */
-  route.delete("/:docId", asyncRoute(deleteDoc));
+  route.delete(
+    "/:docId",
+    requirePermission("collections", "update"),
+    asyncRoute(deleteDoc),
+  );
 
   /**
    * @swagger
@@ -1208,6 +1223,7 @@ export default (app) => {
    */
   route.delete(
     "/:docId/annotation-set/:annotationSetId",
+    requirePermission("collections", "update"),
     asyncRoute(async (req, res, next) => {
       const { docId, annotationSetId } = req.params;
 

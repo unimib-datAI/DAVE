@@ -28,3 +28,6 @@ export * from './use-once-effect';
 
 export { default as useScrollManager } from './use-scroll-manager';
 export * from './use-scroll-manager';
+
+export { default as usePermissions } from './use-permissions';
+export * from './use-permissions';

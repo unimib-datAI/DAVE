@@ -1,6 +1,7 @@
 import { expressLoader } from "./express";
 import { mongoLoader } from "./mongo";
 import { User } from "../models/user";
+import { Permission } from "../models/permissions";
 
 export const startServer = async (callback) => {
   const PORT = process.env.DOCS_PORT;
@@ -15,6 +16,14 @@ export const startServer = async (callback) => {
     console.log("Default admin check complete");
   } catch (err) {
     console.error("Error ensuring default admin:", err);
+  }
+
+  // ensure a default permissions document exists
+  try {
+    await Permission.ensureDefaultPermissions();
+    console.log("Default permissions check complete");
+  } catch (err) {
+    console.error("Error ensuring default permissions:", err);
   }
 
   // start server

@@ -12,6 +12,7 @@ const t: Translation = {
     buttons: {
       seeAllDocuments: 'Vedi tutti i documenti',
       uploadAnnotatedDocuments: 'Carica documenti',
+      uploadNoPermission: 'Non hai il permesso di caricare documenti.',
     },
     searchPlaceholder: 'Cerca documenti',
   },
@@ -202,6 +203,12 @@ const t: Translation = {
     document: 'Documento',
     showPrompt: 'Mostra Prompt Completo',
     hidePrompt: 'Nascondi Prompt Completo',
+    notAllowed: 'Chat non disponibile',
+    notAllowedDescription:
+      'Non hai il permesso di utilizzare la funzionalità di chat.',
+    devModeNotAllowed: 'Modalità sviluppatore non disponibile',
+    devModeNotAllowedDescription:
+      'Non hai il permesso di utilizzare la modalità sviluppatore.',
   },
   document: {
     toolbar: {
@@ -485,6 +492,7 @@ const t: Translation = {
     deleteTypeConfirmation:
       'Eliminando questo tipo dalla tassonomia eliminerai anche tutte le annotazioni con questo tipo di entità. Sei sicuro?',
     search: 'Cerca',
+    noUpdatePermission: 'Non hai il permesso di modificare questo documento.',
   },
 
   settings: {
@@ -506,6 +514,11 @@ const t: Translation = {
       title: 'Impostazioni Generali',
       description:
         "Presto disponibile: Configura le preferenze generali dell'applicazione e le opzioni di visualizzazione.",
+    },
+    adminPanel: {
+      title: 'Pannello Admin',
+      description:
+        'Gestisci i permessi dei ruoli di sistema e la configurazione avanzata.',
     },
     annotationConfig: {
       title: 'Configurazione annotazione',
@@ -708,6 +721,88 @@ const t: Translation = {
       manageCollections: 'Gestisci Collezioni',
       annotationConfig: 'Config. Annotazione',
       settings: 'Impostazioni',
+    },
+  },
+  admin: {
+    title: 'Pannello Admin',
+    subtitle: 'Gestisci la configurazione di sistema',
+    notAuthorized: 'Accesso negato',
+    notAuthorizedDescription:
+      'Devi avere il ruolo admin per accedere a questa pagina.',
+    nav: {
+      permissions: 'Permessi',
+      users: 'Utenti',
+    },
+    permissions: {
+      title: 'Permessi',
+      description:
+        'Configura quali ruoli possono eseguire ogni azione nel sistema.',
+      actionLabel: 'Azione',
+      save: 'Salva modifiche',
+      saving: 'Salvataggio…',
+      saved: 'Salvato!',
+      saveError: 'Impossibile salvare i permessi. Riprova.',
+      sections: {
+        collections: 'Collezioni',
+        document: 'Documento',
+        chat: 'Chat',
+        settings: 'Impostazioni',
+      },
+      actions: {
+        create: 'Crea',
+        update: 'Modifica',
+        delete: 'Elimina',
+        view: 'Visualizza',
+        deAnonimize: 'De-anonimizza',
+        canUse: 'Può usare',
+        canDevMode: 'Modalità sviluppatore',
+        llm: 'Impostazioni LLM',
+        pipeline: 'Pipeline',
+      },
+      roles: {
+        admin: 'Admin',
+        editor: 'Editor',
+        viewer: 'Viewer',
+      },
+    },
+    users: {
+      title: 'Gestione Utenti',
+      subtitle: 'Crea e gestisci gli account utente e i loro ruoli.',
+      notEnabled:
+        "La gestione utenti non è disponibile quando l'autenticazione è disabilitata.",
+      addUser: 'Aggiungi Utente',
+      editUser: 'Modifica Utente',
+      createSuccess: 'Utente creato con successo.',
+      updateSuccess: 'Utente aggiornato con successo.',
+      deleteSuccess: 'Utente eliminato con successo.',
+      errorCreate: "Impossibile creare l'utente. Riprova.",
+      errorUpdate: "Impossibile aggiornare l'utente. Riprova.",
+      errorDelete: "Impossibile eliminare l'utente. Riprova.",
+      errorLoad: 'Impossibile caricare gli utenti.',
+      confirmPassword: 'Conferma',
+      deleteUser: 'Elimina',
+      deleteConfirmTitle: 'Elimina utente',
+      deleteConfirmDescription:
+        'Sei sicuro di voler eliminare questo utente? Questa azione non può essere annullata.',
+      deleteConfirmOk: 'Elimina',
+      deleteConfirmCancel: 'Annulla',
+      table: {
+        email: 'Email',
+        name: 'Nome',
+        roles: 'Ruoli',
+        actions: 'Azioni',
+        noRoles: 'Nessun ruolo',
+      },
+      form: {
+        email: 'Email',
+        firstName: 'Nome',
+        lastName: 'Cognome',
+        password: 'Password',
+        passwordOptional:
+          'Password (lascia vuoto per mantenere quella attuale)',
+        role: 'Ruolo',
+        noRole: 'Nessun ruolo',
+      },
     },
   },
 };
