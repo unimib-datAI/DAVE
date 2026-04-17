@@ -49,6 +49,11 @@ const CollectionButton = styled.button({
 const CollectionSelector = () => {
   const router = useRouter();
   const authEnabled = isAuthEnabled();
+  // Explicit check: auth is disabled when NEXT_PUBLIC_USE_AUTH is literally 'false'.
+  // This is checked separately from !authEnabled so the component is resilient even
+  // when the env-var is missing from the build (authEnabled would be true in that case,
+  // but authDisabled would still be false — the Dockerfile/compose fix handles the root cause).
+  const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
   const { data: session, status } = useSession();
   const [activeCollection, setActiveCollection] = useAtom(activeCollectionAtom);
   const [collections, setCollections] = useAtom(collectionsAtom);
@@ -62,7 +67,9 @@ const CollectionSelector = () => {
     ],
     {
       enabled:
-        !authEnabled || (status === 'authenticated' && !!session?.accessToken),
+        authDisabled ||
+        !authEnabled ||
+        (status === 'authenticated' && !!session?.accessToken),
       onSuccess: (data) => {
         if (data) {
           setCollections(data);
@@ -89,7 +96,9 @@ const CollectionSelector = () => {
     }
   };
 
-  if (status === 'loading' || isLoading) {
+  // When auth is disabled, never block rendering with a spinner or hide the selector.
+  // The collections will appear as soon as the query resolves in the background.
+  if (!authDisabled && (status === 'loading' || isLoading)) {
     return (
       <Container>
         <Spinner size="sm" />
@@ -97,7 +106,9 @@ const CollectionSelector = () => {
     );
   }
 
-  if (authEnabled && status === 'unauthenticated') {
+  // Only hide the selector when auth is explicitly enabled AND the user is not authenticated.
+  // Never hide it when USE_AUTH=false.
+  if (!authDisabled && authEnabled && status === 'unauthenticated') {
     return null;
   }
 

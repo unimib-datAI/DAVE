@@ -7,10 +7,12 @@ import { FiCpu } from '@react-icons/all-files/fi/FiCpu';
 import { FiSettings } from '@react-icons/all-files/fi/FiSettings';
 import { FiGlobe } from '@react-icons/all-files/fi/FiGlobe';
 import { FiSliders } from '@react-icons/all-files/fi/FiSliders';
+import { FiShield } from '@react-icons/all-files/fi/FiShield';
 import { Card, Spacer } from '@heroui/react';
 import Text from '@/components/HtmlText';
 import { BaseSelect, Option } from '@/components/BaseSelect';
 import { useText } from '@/components/TranslationProvider';
+import { useIsAdmin } from '@/hooks';
 import { useEffect, useState } from 'react';
 
 const Container = styled.div({
@@ -42,6 +44,7 @@ const SettingsGrid = styled.div({
 const SettingCard = styled.div({
   display: 'flex',
   flexDirection: 'column',
+  height: '100%',
   padding: '24px',
   borderRadius: '12px',
   border: '1px solid #E5E7EB',
@@ -87,6 +90,7 @@ const CardDescription = styled.p({
 const LanguageCard = styled.div({
   display: 'flex',
   flexDirection: 'column',
+  height: '100%',
   padding: '24px',
   borderRadius: '12px',
   border: '1px solid #E5E7EB',
@@ -95,6 +99,7 @@ const LanguageCard = styled.div({
 
 const SettingsPage = () => {
   const t = useText('settings');
+  const isAdmin = useIsAdmin();
   const [selectedLanguage, setSelectedLanguage] = useState<string>('');
 
   useEffect(() => {
@@ -181,7 +186,10 @@ const SettingsPage = () => {
             </BaseSelect>
           </LanguageCard>
 
-          <Link href="/settings/llm">
+          <Link
+            href="/settings/llm"
+            style={{ display: 'block', height: '100%' }}
+          >
             <SettingCard>
               <IconWrapper>
                 <FiCpu />
@@ -191,7 +199,10 @@ const SettingsPage = () => {
             </SettingCard>
           </Link>
 
-          <Link href="/settings/annotation-configuration">
+          <Link
+            href="/settings/annotation-configuration"
+            style={{ display: 'block', height: '100%' }}
+          >
             <SettingCard>
               <IconWrapper>
                 <FiSliders />
@@ -202,6 +213,20 @@ const SettingsPage = () => {
               </CardDescription>
             </SettingCard>
           </Link>
+
+          {isAdmin && (
+            <Link href="/admin" style={{ display: 'block', height: '100%' }}>
+              <SettingCard style={{ borderColor: '#e0e7ff' }}>
+                <IconWrapper
+                  style={{ backgroundColor: '#eef2ff', color: '#4f46e5' }}
+                >
+                  <FiShield />
+                </IconWrapper>
+                <CardTitle>{t('adminPanel.title')}</CardTitle>
+                <CardDescription>{t('adminPanel.description')}</CardDescription>
+              </SettingCard>
+            </Link>
+          )}
 
           {/* Placeholder for future settings */}
           <SettingCard

@@ -30,17 +30,48 @@ export const expressLoader = () => {
   // Setup Swagger documentation (before auth middleware so it's publicly accessible)
   setupSwagger(app);
 
-  console.log("🔐 Keycloak authentication ENABLED");
-  console.log("🔐 Environment:", {
-    KEYCLOAK_ISSUER: process.env.KEYCLOAK_ISSUER,
-    KEYCLOAK_ID: process.env.KEYCLOAK_ID,
-  });
+  const authDisabled = process.env.USE_AUTH === "false";
+
+  if (authDisabled) {
+    console.log(
+      "🔓 Authentication DISABLED (USE_AUTH=false) — all requests treated as anonymous",
+    );
+  } else {
+    console.log("🔐 Keycloak authentication ENABLED");
+    console.log("🔐 Environment:", {
+      KEYCLOAK_ISSUER: process.env.KEYCLOAK_ISSUER,
+      KEYCLOAK_ID: process.env.KEYCLOAK_ID,
+    });
+  }
 
   /**
-   * All api endpoints are exposed under /api
-   * Using ONLY Keycloak authentication
+   * All api endpoints are exposed under /api.
+   * When auth is disabled we skip the Keycloak middleware entirely so every
+   * request is treated as an anonymous user without requiring a Bearer token.
    */
-  app.use("/api", keycloakAuthMiddleware, api());
+  if (authDisabled) {
+    app.use(
+      "/api",
+      (req, _res, next) => {
+        const browserId = req.headers["x-browser-id"] || "anon-user";
+        req.user = {
+          sub: browserId,
+          email: `${browserId}@example.com`,
+          name: `Anonymous User ${browserId.slice(0, 8)}`,
+          preferred_username: browserId,
+          email_verified: false,
+          roles: [],
+          resource_access: {},
+          client_roles: [],
+          userId: browserId,
+        };
+        next();
+      },
+      api(),
+    );
+  } else {
+    app.use("/api", keycloakAuthMiddleware, api());
+  }
 
   /**
    * Error handler

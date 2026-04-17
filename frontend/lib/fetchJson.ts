@@ -3,6 +3,18 @@ export type FetchRequestInit<BODY = any> = Omit<RequestInit, 'body'> & {
   timeout?: number;
 };
 
+type PermissionDeniedHandler = (
+  status: 401 | 403,
+  serverMessage: string
+) => void;
+let permissionDeniedHandler: PermissionDeniedHandler | null = null;
+
+export const setPermissionDeniedHandler = (
+  handler: PermissionDeniedHandler
+) => {
+  permissionDeniedHandler = handler;
+};
+
 export default async function fetchJson<BODY = any, JSON = unknown>(
   input: RequestInfo,
   init?: FetchRequestInit<BODY>
@@ -98,6 +110,16 @@ export default async function fetchJson<BODY = any, JSON = unknown>(
     // https://developer.mozilla.org/en-US/docs/Web/API/Response/ok
     if (response.ok) {
       return data;
+    }
+
+    if (
+      (response.status === 401 || response.status === 403) &&
+      typeof window !== 'undefined'
+    ) {
+      permissionDeniedHandler?.(
+        response.status as 401 | 403,
+        data?.message ?? response.statusText
+      );
     }
 
     throw new FetchError({

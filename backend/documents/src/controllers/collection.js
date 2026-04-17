@@ -393,4 +393,23 @@ export const CollectionController = {
     }
     return CollectionController.streamAllDocuments(collectionId);
   },
+
+  /**
+   * Same as streamAllDocuments but fetches BATCH_SIZE documents concurrently,
+   * replacing the sequential one-at-a-time DB round trips with parallel fetches.
+   * Yields each document in order as batches complete.
+   */
+  async *streamAllDocumentsConcurrent(collectionId, batchSize = 10) {
+    if (!collectionId) {
+      throw new Error("Collection id is required");
+    }
+    const docInfos = await Document.find({ collectionId }).select("id").lean();
+    for (let i = 0; i < docInfos.length; i += batchSize) {
+      const batch = docInfos.slice(i, i + batchSize);
+      const docs = await Promise.all(
+        batch.map((d) => DocumentController.getFullDocById(d.id)),
+      );
+      for (const doc of docs) yield doc;
+    }
+  },
 };

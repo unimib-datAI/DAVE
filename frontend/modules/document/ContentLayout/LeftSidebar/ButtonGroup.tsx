@@ -1,6 +1,8 @@
 import { IconButton, useText } from '@/components';
 import styled from '@emotion/styled';
 import { MouseEvent, ReactNode, useMemo, useState } from 'react';
+import { Tooltip } from '@heroui/react';
+import { useDocumentPermissions } from '@/hooks';
 import { FiNavigation } from '@react-icons/all-files/fi/FiNavigation';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import { FiList } from '@react-icons/all-files/fi/FiList';
@@ -93,6 +95,7 @@ const ButtonGroup = () => {
   const action = useSelector(selectDocumentAction);
   const dispatch = useDocumentDispatch();
   const [tooltipOpen, setTooltipOpen] = useState<string | null>(null);
+  const { canUpdate } = useDocumentPermissions();
 
   const groups = useMemo(() => {
     return actionGroups.map((group) => {
@@ -129,22 +132,47 @@ const ButtonGroup = () => {
     <Container>
       {groups.map((group, i) => (
         <GroupContainer key={i}>
-          {group.map((item, j) => (
-            <div
-              key={j}
-              title={t(item.label)}
-              onMouseEnter={() => handleToolTipOpen(i, j)}
-              onMouseLeave={() => setTooltipOpen(null)}
-            >
-              <IconButton
-                onClick={(e) => handleButtonClick(e, i, j)}
-                active={item.active}
-                data-action={item.action}
+          {group.map((item, j) => {
+            const isDisabled = !canUpdate && item.action === 'add';
+
+            if (isDisabled) {
+              return (
+                <Tooltip
+                  key={j}
+                  content={t('noUpdatePermission')}
+                  placement="right"
+                  color="foreground"
+                >
+                  <span style={{ cursor: 'not-allowed' }}>
+                    <IconButton
+                      disabled
+                      style={{ opacity: 0.4, pointerEvents: 'none' }}
+                      data-action={item.action}
+                    >
+                      {item.Icon}
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              );
+            }
+
+            return (
+              <div
+                key={j}
+                title={t(item.label)}
+                onMouseEnter={() => handleToolTipOpen(i, j)}
+                onMouseLeave={() => setTooltipOpen(null)}
               >
-                {item.Icon}
-              </IconButton>
-            </div>
-          ))}
+                <IconButton
+                  onClick={(e) => handleButtonClick(e, i, j)}
+                  active={item.active}
+                  data-action={item.action}
+                >
+                  {item.Icon}
+                </IconButton>
+              </div>
+            );
+          })}
         </GroupContainer>
       ))}
     </Container>

@@ -9,7 +9,7 @@ import {
   useChat,
   Message as ChatMessage,
 } from '@/hooks/use-chat';
-import { FileText, RotateCcw } from 'lucide-react';
+import { FileText, RotateCcw, Lock } from 'lucide-react';
 import { ScrollArea } from '@/components/ScrollArea';
 import { Checkbox } from '@/components/Checkbox';
 import { useMutation } from '@/utils/trpc';
@@ -92,9 +92,10 @@ const Resources = ({ documents, isLoading }: ResourcesProps) => {
 
 type ChatPanel = {
   devMode?: boolean;
+  canDevMode?: boolean;
 };
 
-const ChatPanel = ({ devMode }: ChatPanel) => {
+const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
   const t = useText('chat');
   const { state, isStreaming, isLoading, appendMessage, restartChat } = useChat(
     {
@@ -340,235 +341,252 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
             className="flex-shrink-0 flex flex-col h-full"
             style={{ borderLeft: '1px solid rgba(0,0,0,0.1)' }}
           >
-            <ScrollArea className="h-full p-6">
-              <div className="flex flex-col gap-8">
-                {/* Predefined Questions Select */}
-                {predefinedQuestions.length > 0 && (
+            {!canDevMode ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
+                <Lock size={48} className="text-slate-300" />
+                <div className="text-center">
+                  <p className="font-semibold text-slate-700 text-sm">
+                    {t('devModeNotAllowed')}
+                  </p>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {t('devModeNotAllowedDescription')}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <ScrollArea className="h-full p-6">
+                <div className="flex flex-col gap-8">
+                  {/* Predefined Questions Select */}
+                  {predefinedQuestions.length > 0 && (
+                    <div className="flex flex-col gap-3">
+                      <Tooltip
+                        className="w-full"
+                        color="invert"
+                        placement="left"
+                        content={t('selectPredefinedQuestionTooltip')}
+                      >
+                        <div className="flex flex-row justify-between w-full">
+                          <span className="text-sm font-semibold">
+                            {t('predefinedQuestions')}
+                          </span>
+                        </div>
+                      </Tooltip>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Select
+                          id="predefined-questions-select"
+                          style={{ width: '100%' }}
+                          placeholder={t('selectQuestion')}
+                          disabled={isStreaming}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                          }}
+                          onMouseDown={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                          }}
+                          onChange={(value) => {
+                            if (value) {
+                              setValue({ message: value });
+                              // Focus on the input field after selecting a question
+                              const inputField = document.querySelector(
+                                'input[name="message"]'
+                              );
+                              if (inputField) {
+                                (inputField as HTMLInputElement).focus();
+                              }
+                            }
+                          }}
+                          options={predefinedQuestions.map((question) => ({
+                            value: question,
+                            label: question,
+                          }))}
+                        />
+                      </div>
+                    </div>
+                  )}
                   <div className="flex flex-col gap-3">
                     <Tooltip
                       className="w-full"
                       color="invert"
                       placement="left"
-                      content={t('selectPredefinedQuestionTooltip')}
+                      content={t('temperatureTooltip')}
                     >
                       <div className="flex flex-row justify-between w-full">
                         <span className="text-sm font-semibold">
-                          {t('predefinedQuestions')}
+                          {t('temperature')}
                         </span>
+                        <input
+                          type="text"
+                          className="text-sm w-16 px-1 border rounded"
+                          value={tempInput}
+                          onChange={(e) => {
+                            setTempInput(e.target.value);
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val) && val >= 0 && val <= 1) {
+                              fieldTemperature.onChange(val);
+                            }
+                          }}
+                        />
                       </div>
                     </Tooltip>
-                    <div onClick={(e) => e.stopPropagation()}>
-                      <Select
-                        id="predefined-questions-select"
-                        style={{ width: '100%' }}
-                        placeholder={t('selectQuestion')}
-                        disabled={isStreaming}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                        }}
-                        onMouseDown={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                        }}
-                        onChange={(value) => {
-                          if (value) {
-                            setValue({ message: value });
-                            // Focus on the input field after selecting a question
-                            const inputField = document.querySelector(
-                              'input[name="message"]'
-                            );
-                            if (inputField) {
-                              (inputField as HTMLInputElement).focus();
-                            }
-                          }
-                        }}
-                        options={predefinedQuestions.map((question) => ({
-                          value: question,
-                          label: question,
-                        }))}
-                      />
-                    </div>
+                    <Slider
+                      onValueChange={(value) => {
+                        setTempInput(value[0].toString());
+                        fieldTemperature.onChange(value);
+                      }}
+                      value={[fieldTemperature.value]}
+                      max={1}
+                      min={0}
+                      step={0.1}
+                    />
                   </div>
-                )}
-                <div className="flex flex-col gap-3">
-                  <Tooltip
-                    className="w-full"
-                    color="invert"
-                    placement="left"
-                    content={t('temperatureTooltip')}
-                  >
-                    <div className="flex flex-row justify-between w-full">
-                      <span className="text-sm font-semibold">
-                        {t('temperature')}
-                      </span>
-                      <input
-                        type="text"
-                        className="text-sm w-16 px-1 border rounded"
-                        value={tempInput}
-                        onChange={(e) => {
-                          setTempInput(e.target.value);
-                          const val = parseFloat(e.target.value);
-                          if (!isNaN(val) && val >= 0 && val <= 1) {
-                            fieldTemperature.onChange(val);
-                          }
-                        }}
-                      />
-                    </div>
-                  </Tooltip>
-                  <Slider
-                    onValueChange={(value) => {
-                      setTempInput(value[0].toString());
-                      fieldTemperature.onChange(value);
-                    }}
-                    value={[fieldTemperature.value]}
-                    max={1}
-                    min={0}
-                    step={0.1}
-                  />
-                </div>
-                <div className="flex flex-col gap-3">
-                  <Tooltip
-                    className="w-full"
-                    color="invert"
-                    placement="left"
-                    content={t('maxNewTokensTooltip')}
-                  >
-                    <div className="flex flex-row justify-between w-full">
-                      <span className="text-sm font-semibold">
-                        {t('maxNewTokens')}
-                      </span>
-                      <input
-                        type="text"
-                        className="text-sm w-20 px-1 border rounded"
-                        value={maxTokensInput}
-                        onChange={(e) => {
-                          setMaxTokensInput(e.target.value);
-                          const val = parseInt(e.target.value);
-                          if (!isNaN(val) && val >= 100 && val <= 4096) {
-                            fieldMaxNewTokens.onChange(val);
-                          }
-                        }}
-                      />
-                    </div>
-                  </Tooltip>
+                  <div className="flex flex-col gap-3">
+                    <Tooltip
+                      className="w-full"
+                      color="invert"
+                      placement="left"
+                      content={t('maxNewTokensTooltip')}
+                    >
+                      <div className="flex flex-row justify-between w-full">
+                        <span className="text-sm font-semibold">
+                          {t('maxNewTokens')}
+                        </span>
+                        <input
+                          type="text"
+                          className="text-sm w-20 px-1 border rounded"
+                          value={maxTokensInput}
+                          onChange={(e) => {
+                            setMaxTokensInput(e.target.value);
+                            const val = parseInt(e.target.value);
+                            if (!isNaN(val) && val >= 100 && val <= 4096) {
+                              fieldMaxNewTokens.onChange(val);
+                            }
+                          }}
+                        />
+                      </div>
+                    </Tooltip>
 
-                  <Slider
-                    onValueChange={(value) => {
-                      setMaxTokensInput(value[0].toString());
-                      fieldMaxNewTokens.onChange(value);
-                    }}
-                    value={[fieldMaxNewTokens.value]}
-                    max={4096}
-                    min={100}
-                    step={50}
-                  />
-                </div>
-                <div className="flex flex-col gap-3">
-                  <Tooltip
-                    className="w-full"
-                    color="invert"
-                    placement="left"
-                    content={t('topPTooltip')}
-                  >
-                    <div className="flex flex-row justify-between w-full">
-                      <span className="text-sm font-semibold">{t('topP')}</span>
-                      <input
-                        type="text"
-                        className="text-sm w-16 px-1 border rounded"
-                        value={topPInput}
-                        onChange={(e) => {
-                          setTopPInput(e.target.value);
-                          const val = parseFloat(e.target.value);
-                          if (!isNaN(val) && val >= 0 && val <= 1) {
-                            fieldTopP.onChange(val);
-                          }
-                        }}
-                      />
-                    </div>
-                  </Tooltip>
-                  <Slider
-                    onValueChange={(value) => {
-                      setTopPInput(value[0].toString());
-                      fieldTopP.onChange(value);
-                    }}
-                    value={[fieldTopP.value]}
-                    max={1}
-                    min={0}
-                    step={0.1}
-                  />
-                </div>
-                <div className="flex flex-col gap-3">
-                  <Tooltip
-                    className="w-full"
-                    color="invert"
-                    placement="left"
-                    content={t('topKTooltip')}
-                  >
-                    <div className="flex flex-row justify-between w-full">
-                      <span className="text-sm font-semibold">{t('topK')}</span>
-                      <input
-                        type="text"
-                        className="text-sm w-16 px-1 border rounded"
-                        value={topKInput}
-                        onChange={(e) => {
-                          setTopKInput(e.target.value);
-                          const val = parseInt(e.target.value);
-                          if (!isNaN(val) && val >= 1 && val <= 100) {
-                            fieldTopk.onChange(val);
-                          }
-                        }}
-                      />
-                    </div>
-                  </Tooltip>
-                  <Slider
-                    onValueChange={(value) => {
-                      setTopKInput(value[0].toString());
-                      fieldTopk.onChange(value);
-                    }}
-                    value={[fieldTopk.value]}
-                    max={100}
-                    min={1}
-                    step={1}
-                  />
-                </div>
-                <div className="flex flex-col gap-3">
-                  <Tooltip
-                    className="w-full"
-                    color="invert"
-                    placement="left"
-                    content={t('frequencyPenaltyTooltip')}
-                  >
-                    <div className="flex flex-row justify-between w-full">
-                      <span className="text-sm font-semibold">
-                        {t('frequencyPenalty')}
-                      </span>
-                      <input
-                        type="text"
-                        className="text-sm w-16 px-1 border rounded"
-                        value={freqPenaltyInput}
-                        onChange={(e) => {
-                          setFreqPenaltyInput(e.target.value);
-                          const val = parseFloat(e.target.value);
-                          if (!isNaN(val) && val >= -2 && val <= 2) {
-                            fieldFrequencyPenalty.onChange(val);
-                          }
-                        }}
-                      />
-                    </div>
-                  </Tooltip>
-                  <Slider
-                    onValueChange={(value) => {
-                      setFreqPenaltyInput(value[0].toString());
-                      fieldFrequencyPenalty.onChange(value);
-                    }}
-                    value={[fieldFrequencyPenalty.value]}
-                    max={2}
-                    min={-2}
-                    step={0.1}
-                  />
-                </div>
-                <div className="flex flex-col gap-3">
-                  {/*<Tooltip
+                    <Slider
+                      onValueChange={(value) => {
+                        setMaxTokensInput(value[0].toString());
+                        fieldMaxNewTokens.onChange(value);
+                      }}
+                      value={[fieldMaxNewTokens.value]}
+                      max={4096}
+                      min={100}
+                      step={50}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Tooltip
+                      className="w-full"
+                      color="invert"
+                      placement="left"
+                      content={t('topPTooltip')}
+                    >
+                      <div className="flex flex-row justify-between w-full">
+                        <span className="text-sm font-semibold">
+                          {t('topP')}
+                        </span>
+                        <input
+                          type="text"
+                          className="text-sm w-16 px-1 border rounded"
+                          value={topPInput}
+                          onChange={(e) => {
+                            setTopPInput(e.target.value);
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val) && val >= 0 && val <= 1) {
+                              fieldTopP.onChange(val);
+                            }
+                          }}
+                        />
+                      </div>
+                    </Tooltip>
+                    <Slider
+                      onValueChange={(value) => {
+                        setTopPInput(value[0].toString());
+                        fieldTopP.onChange(value);
+                      }}
+                      value={[fieldTopP.value]}
+                      max={1}
+                      min={0}
+                      step={0.1}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Tooltip
+                      className="w-full"
+                      color="invert"
+                      placement="left"
+                      content={t('topKTooltip')}
+                    >
+                      <div className="flex flex-row justify-between w-full">
+                        <span className="text-sm font-semibold">
+                          {t('topK')}
+                        </span>
+                        <input
+                          type="text"
+                          className="text-sm w-16 px-1 border rounded"
+                          value={topKInput}
+                          onChange={(e) => {
+                            setTopKInput(e.target.value);
+                            const val = parseInt(e.target.value);
+                            if (!isNaN(val) && val >= 1 && val <= 100) {
+                              fieldTopk.onChange(val);
+                            }
+                          }}
+                        />
+                      </div>
+                    </Tooltip>
+                    <Slider
+                      onValueChange={(value) => {
+                        setTopKInput(value[0].toString());
+                        fieldTopk.onChange(value);
+                      }}
+                      value={[fieldTopk.value]}
+                      max={100}
+                      min={1}
+                      step={1}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Tooltip
+                      className="w-full"
+                      color="invert"
+                      placement="left"
+                      content={t('frequencyPenaltyTooltip')}
+                    >
+                      <div className="flex flex-row justify-between w-full">
+                        <span className="text-sm font-semibold">
+                          {t('frequencyPenalty')}
+                        </span>
+                        <input
+                          type="text"
+                          className="text-sm w-16 px-1 border rounded"
+                          value={freqPenaltyInput}
+                          onChange={(e) => {
+                            setFreqPenaltyInput(e.target.value);
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val) && val >= -2 && val <= 2) {
+                              fieldFrequencyPenalty.onChange(val);
+                            }
+                          }}
+                        />
+                      </div>
+                    </Tooltip>
+                    <Slider
+                      onValueChange={(value) => {
+                        setFreqPenaltyInput(value[0].toString());
+                        fieldFrequencyPenalty.onChange(value);
+                      }}
+                      value={[fieldFrequencyPenalty.value]}
+                      max={2}
+                      min={-2}
+                      step={0.1}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    {/*<Tooltip
                     className="w-full"
                     color="invert"
                     placement="left"
@@ -588,92 +606,92 @@ const ChatPanel = ({ devMode }: ChatPanel) => {
                       </label>
                     </div>
                   </Tooltip>*/}
-                  <span className="text-sm font-semibold">
-                    {t('retrievalMethod')}
-                  </span>
-                  <Radio.Group
-                    value={fieldRetrievalMethod.value}
-                    onChange={(value) => {
-                      // Create a new event to avoid reference issues
-                      const newValue = value.target.value;
-                      fieldRetrievalMethod.onChange(newValue);
-                    }}
-                  >
-                    <Radio value="full">{t('hybridRetrieval')}</Radio>
-                    <Radio value="hibrid_no_ner">
-                      {t('hybridRetrievalNoNer')}
-                    </Radio>
-                    <Radio value="dense">{t('dense')}</Radio>
-                    <Radio value="full-text">{t('fullText')}</Radio>
-                    <Radio value="none">{t('none')}</Radio>
-                  </Radio.Group>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <Tooltip
-                    className="w-full"
-                    color="invert"
-                    placement="left"
-                    content={t('forceRagTooltip')}
-                  >
-                    <div className="flex flex-row items-center gap-2 w-full">
-                      <Checkbox
-                        id="force-rag"
-                        checked={fieldForceRag.value}
-                        onCheckedChange={fieldForceRag.onChange}
-                      />
-                      <label
-                        htmlFor="force-rag"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {t('forceRag')}
-                      </label>
-                    </div>
-                  </Tooltip>
-                </div>
-                <div className="flex flex-col gap-3">
-                  <Tooltip
-                    className="w-full"
-                    color="invert"
-                    placement="left"
-                    content={t('useMultiAgentTooltip')}
-                  >
-                    <div className="flex flex-row items-center gap-2 w-full">
-                      <Checkbox
-                        id="use-multi-agent"
-                        checked={fieldUseMultiAgent.value}
-                        onCheckedChange={fieldUseMultiAgent.onChange}
-                      />
-                      <label
-                        htmlFor="use-multi-agent"
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                      >
-                        {t('useMultiAgentSystem')}
-                      </label>
-                    </div>
-                  </Tooltip>
-                </div>
-                <div className="flex flex-col gap-3 flex-grow">
-                  <Tooltip
-                    className="w-full"
-                    color="invert"
-                    placement="left"
-                    content={t('systemPromptTooltip')}
-                  >
-                    <div className="flex flex-row justify-between w-full">
-                      <span className="text-sm font-semibold">
-                        {t('systemPrompt')}
-                      </span>
-                    </div>
-                  </Tooltip>
-                  <div className="flex flex-row items-center border-[1px] border-solid border-slate-200 rounded-md p-1 w-full gap-2 flex-grow">
-                    <textarea
-                      disabled={isStreaming}
-                      className="text-slate-800 resize-none bg-transparent w-full border-none text-sm h-full"
-                      spellCheck="false"
-                      rows={10}
-                      defaultValue={
-                        process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
-                        `You are an expert assistant that answers questions based on provided context.
+                    <span className="text-sm font-semibold">
+                      {t('retrievalMethod')}
+                    </span>
+                    <Radio.Group
+                      value={fieldRetrievalMethod.value}
+                      onChange={(value) => {
+                        // Create a new event to avoid reference issues
+                        const newValue = value.target.value;
+                        fieldRetrievalMethod.onChange(newValue);
+                      }}
+                    >
+                      <Radio value="full">{t('hybridRetrieval')}</Radio>
+                      <Radio value="hibrid_no_ner">
+                        {t('hybridRetrievalNoNer')}
+                      </Radio>
+                      <Radio value="dense">{t('dense')}</Radio>
+                      <Radio value="full-text">{t('fullText')}</Radio>
+                      <Radio value="none">{t('none')}</Radio>
+                    </Radio.Group>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Tooltip
+                      className="w-full"
+                      color="invert"
+                      placement="left"
+                      content={t('forceRagTooltip')}
+                    >
+                      <div className="flex flex-row items-center gap-2 w-full">
+                        <Checkbox
+                          id="force-rag"
+                          checked={fieldForceRag.value}
+                          onCheckedChange={fieldForceRag.onChange}
+                        />
+                        <label
+                          htmlFor="force-rag"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {t('forceRag')}
+                        </label>
+                      </div>
+                    </Tooltip>
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Tooltip
+                      className="w-full"
+                      color="invert"
+                      placement="left"
+                      content={t('useMultiAgentTooltip')}
+                    >
+                      <div className="flex flex-row items-center gap-2 w-full">
+                        <Checkbox
+                          id="use-multi-agent"
+                          checked={fieldUseMultiAgent.value}
+                          onCheckedChange={fieldUseMultiAgent.onChange}
+                        />
+                        <label
+                          htmlFor="use-multi-agent"
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {t('useMultiAgentSystem')}
+                        </label>
+                      </div>
+                    </Tooltip>
+                  </div>
+                  <div className="flex flex-col gap-3 flex-grow">
+                    <Tooltip
+                      className="w-full"
+                      color="invert"
+                      placement="left"
+                      content={t('systemPromptTooltip')}
+                    >
+                      <div className="flex flex-row justify-between w-full">
+                        <span className="text-sm font-semibold">
+                          {t('systemPrompt')}
+                        </span>
+                      </div>
+                    </Tooltip>
+                    <div className="flex flex-row items-center border-[1px] border-solid border-slate-200 rounded-md p-1 w-full gap-2 flex-grow">
+                      <textarea
+                        disabled={isStreaming}
+                        className="text-slate-800 resize-none bg-transparent w-full border-none text-sm h-full"
+                        spellCheck="false"
+                        rows={10}
+                        defaultValue={
+                          process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
+                          `You are an expert assistant that answers questions based on provided context.
 
 <input>
 
@@ -701,13 +719,14 @@ Make sure to ALWAYS answer in the same language used by the user to ask the ques
 </instructions>
 
 </input>`
-                      }
-                      {...register('system')}
-                    />
+                        }
+                        {...register('system')}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
-            </ScrollArea>
+              </ScrollArea>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

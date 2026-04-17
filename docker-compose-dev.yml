@@ -1,4 +1,3 @@
-version: "3"
 services:
   postgres:
     restart: $RESTART_POLICY
@@ -60,7 +59,7 @@ services:
     build: ./backend/documents
     environment:
       DOCS_PORT: 3001
-      ENABLE_AUTH: true
+      USE_AUTH: ${USE_AUTH:-true}
       JWT_SECRET: ${DOCUMENTS_JWT_SECRET:-your-secret-key-change-in-production}
       MONGO: $MONGO
       ANONYMIZATION_ENDPOINT: $ANONYMIZATION_ENDPOINT
@@ -117,6 +116,8 @@ services:
       TEXT_GENERATION: $TEXT_GENERATION
       HOST: $HOST
       ELASTIC_INDEX: $ELASTIC_INDEX
+      USE_AUTH: $USE_AUTH
+      NEXT_PUBLIC_USE_AUTH: $USE_AUTH
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -156,6 +157,7 @@ services:
       - /mnt/data:/models
 
   es:
+    env_file: ".env"
     image: docker.elastic.co/elasticsearch/elasticsearch:8.13.3
     restart: $RESTART_POLICY
     environment:
@@ -198,7 +200,8 @@ services:
       - INDEXER_SERVER_PORT=7863
       - DOCS_PORT=${DOCS_PORT}
       - CHROMA_PORT=${CHROMA_PORT}
-      - ELASTIC_PORT=${ELASTIC_PORT}
+      - ELASTIC_HOST=${ELASTIC_HOST:-es}
+      - ELASTIC_PORT=${ELASTIC_PORT:-9200}
       - SENTENCE_TRANSFORMER_EMBEDDING_MODEL=${SENTENCE_TRANSFORMER_EMBEDDING_MODEL}
       - SENTENCE_TRANSFORMER_DEVICE=${SENTENCE_TRANSFORMER_DEVICE}
       - OGG2NAME_INDEX=${OGG2NAME_INDEX}

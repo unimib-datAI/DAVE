@@ -10,6 +10,7 @@ export type Translation = {
     buttons: {
       seeAllDocuments: string;
       uploadAnnotatedDocuments: string;
+      uploadNoPermission: string;
     };
     searchPlaceholder: string;
   };
@@ -185,6 +186,10 @@ export type Translation = {
     errorGeneratingResponse: string;
     showPrompt: string;
     hidePrompt: string;
+    notAllowed: string;
+    notAllowedDescription: string;
+    devModeNotAllowed: string;
+    devModeNotAllowedDescription: string;
   };
   document: {
     toolbar: {
@@ -296,6 +301,7 @@ export type Translation = {
         btnCancel: string;
       };
     };
+    noUpdatePermission: string;
   };
   search: {
     facets: {
@@ -331,6 +337,10 @@ export type Translation = {
       description: string;
     };
     generalSettings: {
+      title: string;
+      description: string;
+    };
+    adminPanel: {
       title: string;
       description: string;
     };
@@ -518,6 +528,83 @@ export type Translation = {
       manageCollections: string;
       annotationConfig: string;
       settings: string;
+    };
+  };
+  admin: {
+    title: string;
+    subtitle: string;
+    notAuthorized: string;
+    notAuthorizedDescription: string;
+    nav: {
+      permissions: string;
+      users: string;
+    };
+    permissions: {
+      title: string;
+      description: string;
+      actionLabel: string;
+      save: string;
+      saving: string;
+      saved: string;
+      saveError: string;
+      sections: {
+        collections: string;
+        document: string;
+        chat: string;
+        settings: string;
+      };
+      actions: {
+        create: string;
+        update: string;
+        delete: string;
+        view: string;
+        deAnonimize: string;
+        canUse: string;
+        canDevMode: string;
+        llm: string;
+        pipeline: string;
+      };
+      roles: {
+        admin: string;
+        editor: string;
+        viewer: string;
+      };
+    };
+    users: {
+      title: string;
+      subtitle: string;
+      notEnabled: string;
+      addUser: string;
+      editUser: string;
+      deleteUser: string;
+      createSuccess: string;
+      updateSuccess: string;
+      deleteSuccess: string;
+      errorCreate: string;
+      errorUpdate: string;
+      errorDelete: string;
+      errorLoad: string;
+      confirmPassword: string;
+      deleteConfirmTitle: string;
+      deleteConfirmDescription: string;
+      deleteConfirmOk: string;
+      deleteConfirmCancel: string;
+      table: {
+        email: string;
+        name: string;
+        roles: string;
+        actions: string;
+        noRoles: string;
+      };
+      form: {
+        email: string;
+        firstName: string;
+        lastName: string;
+        password: string;
+        passwordOptional: string;
+        role: string;
+        noRole: string;
+      };
     };
   };
 };

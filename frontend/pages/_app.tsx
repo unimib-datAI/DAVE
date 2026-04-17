@@ -1,3 +1,8 @@
+import { App as AntdApp } from 'antd';
+import {
+  setupPermissionInterceptor,
+  setShowMessageFn,
+} from '@/lib/permissionInterceptor';
 import { Global } from '@emotion/react';
 import styled from '@emotion/styled';
 import type { AppProps } from 'next/app';
@@ -8,7 +13,7 @@ import { httpLink } from '@trpc/client/links/httpLink';
 import { AppRouter } from '@/server/routers/_app';
 import { HeroUIProvider } from '@heroui/react';
 import { NextPage } from 'next';
-import { ReactElement, ReactNode, useEffect, useState } from 'react';
+import { ReactElement, ReactNode, useEffect, useState, useRef } from 'react';
 import {
   SessionProvider,
   useSession,
@@ -65,6 +70,24 @@ const getTRPCHeaders = () => {
   return {};
 };
 
+/**
+ * Wires the antd App.useApp() message API to the permission interceptor.
+ * Must be rendered inside <AntdApp> so that useApp() has context.
+ * This is the correct antd v5 / React 19 pattern — the static message()
+ * API is unreliable outside React's rendering pipeline.
+ */
+function PermissionMessageWirer() {
+  const { message } = AntdApp.useApp();
+  const wired = useRef(false);
+  useEffect(() => {
+    if (!wired.current) {
+      setShowMessageFn((msg) => message.error(msg));
+      wired.current = true;
+    }
+  }, [message]);
+  return null;
+}
+
 function MyApp({
   Component,
   pageProps: { session, locale, ...pageProps },
@@ -77,6 +100,11 @@ function MyApp({
   // whenever the selected locale changes. This provides a straightforward way to ensure
   // all components re-render with the newly loaded translations.
   const [localeVersion, setLocaleVersion] = useState<number>(0);
+
+  // Install the global permission-denied interceptor once on mount.
+  // It patches window.fetch to catch 401/403 errors from tRPC calls and
+  // shows an Ant Design notification. See lib/permissionInterceptor.ts for details.
+  useEffect(() => setupPermissionInterceptor(), []);
 
   // Listen for locale changes (both storage events from other tabs and a custom event)
   // and bump the version to force remount.
@@ -315,19 +343,23 @@ function MyApp({
       session={session}
       basePath={`${process.env.NEXT_PUBLIC_BASE_PATH}/api/auth`}
     >
-      {/* AuthWatcher only runs when auth is enabled */}
-      {authEnabled && <AuthWatcher />}
+      {/* AuthWatcher runs always: handles LLM settings, collection prefetch, and route-change refetch.
+          Auth-specific operations (token refresh, sign-out on error) are guarded internally. */}
+      <AuthWatcher />
 
       <Global styles={GlobalStyles} />
       <TranslationProvider key={localeVersion} locale={locale}>
         <TaxonomyProvider>
-          <HeroUIProvider>
-            <Layout>
-              <NextNProgress color="rgb(75 85 99)" showOnShallow={false} />
-              {getLayout(<Component {...pageProps} />)}
-              <UploadProgressIndicator />
-            </Layout>
-          </HeroUIProvider>
+          <AntdApp>
+            <PermissionMessageWirer />
+            <HeroUIProvider>
+              <Layout>
+                <NextNProgress color="rgb(75 85 99)" showOnShallow={false} />
+                {getLayout(<Component {...pageProps} />)}
+                <UploadProgressIndicator />
+              </Layout>
+            </HeroUIProvider>
+          </AntdApp>
         </TaxonomyProvider>
       </TranslationProvider>
     </SessionProvider>
@@ -346,20 +378,26 @@ export default withTRPC<AppRouter>({
     return {
       url,
       headers,
-      // Configure httpBatchLink explicitly so we can force POST for queries
-      // and use a custom fetch that omits cookies (avoids very large Cookie headers).
+      // Provide fetch at the TOP-LEVEL config so createTRPCClient picks it up via
+      // getFetch(opts.fetch).  If fetch is omitted here, tRPC does
+      // `window.fetch.bind(window)` at client-creation time (inside useState), which
+      // permanently captures the pre-patch reference and makes window.fetch patching
+      // (used by permissionInterceptor) invisible to tRPC requests.
+      // By passing a plain arrow function that references the free variable `fetch`,
+      // the lookup is deferred to call-time, so any window.fetch patch applied later
+      // (e.g. in a useEffect) IS picked up on every subsequent request.
+      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...(init || {}), credentials: 'omit' }),
+      // httpLink uses POST for all operations, avoiding 431 errors from large JWT
+      // tokens that would appear in GET query strings.
       links: [
         httpLink({
           url,
-          // httpLink always uses POST, avoiding 431 caused by large JWT tokens in GET query strings
-          fetch: (input: RequestInfo, init?: RequestInit) =>
-            fetch(input, { ...(init || {}), credentials: 'omit' }),
         }),
       ],
       /**
        * @link https://react-query.tanstack.com/reference/QueryClient
        */
-      // queryClientConfig: { defaultOptions: { queries: { staleTime: 60 } } },
     };
   },
   /**

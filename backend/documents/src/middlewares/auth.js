@@ -17,7 +17,7 @@ export const authMiddleware = (req, res, next) => {
   }
 
   // if auth disabled, skip auth checks entirely
-  if (process.env.ENABLE_AUTH === "false" || process.env.USE_AUTH === "false") {
+  if (process.env.USE_AUTH === "false") {
     const browserId = req.headers["x-browser-id"] || "anon-user";
     req.user = {
       sub: browserId,

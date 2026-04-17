@@ -15,7 +15,7 @@ import {
   ModalFooter,
   Spinner,
 } from '@heroui/react';
-import { Popconfirm } from 'antd';
+import { Popconfirm, message } from 'antd';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import { FiEdit2 as EditIcon } from '@react-icons/all-files/fi/FiEdit2';
 import { FiTrash2 as TrashIcon } from '@react-icons/all-files/fi/FiTrash2';
@@ -30,6 +30,7 @@ import {
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { useQuery, useMutation } from '@/utils/trpc';
 import { useText } from '@/components/TranslationProvider';
+import { useCollectionPermissions } from '@/hooks';
 
 const Container = styled.div`
   max-width: 1200px;
@@ -120,6 +121,7 @@ const Collections: NextPage = () => {
   });
 
   const t = useText('collections');
+  const { canCreate, canUpdate, canDelete } = useCollectionPermissions();
 
   useEffect(() => {
     if (
@@ -166,8 +168,8 @@ const Collections: NextPage = () => {
       setModalOpen(false);
       setFormData({ name: '', allowedUserIds: [] });
     },
-    onError: (err) => {
-      console.error('[collection.create] error', err);
+    onError: (err: any) => {
+      console.warn('[collection.create] error', err);
     },
   });
 
@@ -180,8 +182,8 @@ const Collections: NextPage = () => {
       setModalOpen(false);
       setFormData({ name: '', allowedUserIds: [] });
     },
-    onError: (err) => {
-      console.error('[collection.update] error', err);
+    onError: (err: any) => {
+      console.warn('[collection.update] error', err);
     },
   });
 
@@ -195,8 +197,8 @@ const Collections: NextPage = () => {
         setActiveCollection(null);
       }
     },
-    onError: (err) => {
-      console.error('[collection.delete] error', err);
+    onError: (err: any) => {
+      console.warn('[collection.delete] error', err);
     },
   });
 
@@ -444,6 +446,7 @@ const Collections: NextPage = () => {
             color="primary"
             startContent={<FiPlus />}
             onPress={handleCreate}
+            isDisabled={!canCreate}
           >
             {t('newCollection')}
           </Button>
@@ -507,9 +510,11 @@ const Collections: NextPage = () => {
                     <IconBtn
                       onClick={(e) => {
                         e.stopPropagation();
+                        if (!canUpdate) return;
                         handleEdit(collection);
                       }}
                       title={t('edit')}
+                      disabled={!canUpdate}
                     >
                       <EditIcon size={18} />
                     </IconBtn>
@@ -524,13 +529,15 @@ const Collections: NextPage = () => {
                         onCancel={(e) => e?.stopPropagation()}
                         okText={t('yes')}
                         cancelText={t('no')}
+                        disabled={!canDelete}
                       >
                         <IconBtn
                           onClick={(e) => {
                             e.stopPropagation();
                           }}
                           title={t('delete')}
-                          style={{ color: '#ef4444' }}
+                          style={{ color: !canDelete ? '#9CA3AF' : '#ef4444' }}
+                          disabled={!canDelete}
                         >
                           <TrashIcon size={18} />
                         </IconBtn>
