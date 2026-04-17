@@ -7,6 +7,7 @@ import users from "./users";
 import exportRoute from "./export";
 import search from "./search";
 import rag from "./rag";
+import permissionsRoute from "./permissions";
 
 /**
  * Export all defined routes
@@ -20,6 +21,7 @@ export default () => {
   users(app);
   search(app);
   rag(app);
+  permissionsRoute(app);
   // Register export route. The handler should start the export in a detached worker/process
   // so that the main API remains responsive while the export runs.
   exportRoute(app);

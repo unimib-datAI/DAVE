@@ -1,5 +1,6 @@
-from pydantic_settings import BaseSettings
 import os
+
+from pydantic_settings import BaseSettings
 
 
 class AppSettings(BaseSettings):
@@ -11,8 +12,10 @@ class AppSettings(BaseSettings):
     docs_port: str = os.getenv("DOCS_PORT", "50080")
     # port where chromadb runs
     chroma_port: str = os.getenv("CHROMA_PORT", "8000")
+    # host where elastic runs (use the Docker service name when running in Docker)
+    elastic_host: str = os.getenv("ELASTIC_HOST", "es")
     # port where elastic runs
-    elastic_port: str = os.getenv("ELASTIC_PORT", "9201")
+    elastic_port: str = os.getenv("ELASTIC_PORT", "9200")
     # url for documents service
     documents_url: str = os.getenv("DOCUMENTS_URL", "")
     # the mebedding models used, if you change the model you also have the re-index documents

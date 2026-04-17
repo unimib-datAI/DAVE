@@ -17,6 +17,7 @@ import { useSession } from 'next-auth/react';
 import { message } from 'antd';
 import { useAtom } from 'jotai';
 import { activeCollectionAtom } from '@/atoms/collection';
+import { useDocumentPermissions } from '@/hooks/use-permissions';
 import { Button } from '@heroui/react';
 
 const Container = styled.div({
@@ -39,6 +40,7 @@ const ToolbarContent = () => {
   const router = useRouter();
   const currentAnnotationSetName = useSelector(selectCurrentAnnotationSetName);
   const [currentCollection] = useAtom(activeCollectionAtom);
+  const { canUpdate } = useDocumentPermissions();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [saveStatus, setSaveStatus] = useState<
     'idle' | 'saving' | 'saved' | 'error'
@@ -60,6 +62,13 @@ const ToolbarContent = () => {
     if (saveStatus === 'saved' && Date.now() - lastSaveTimeRef.current < 3000) {
       return;
     }
+
+    // Prevent saves when user lacks update permission
+    if (!canUpdate) {
+      message.warning(t('toolbar.notAllowed') || 'Not Authorized');
+      return;
+    }
+
     if (!token || !currentCollection || !currentCollection?.id) {
       message.warning('Not Authorized');
       return;
@@ -99,6 +108,16 @@ const ToolbarContent = () => {
           });
 
           setLastSavedAnnotationSets(serializedState);
+          // Notify other UI that document has been saved so they can react (e.g. refresh status)
+          try {
+            window.dispatchEvent(
+              new CustomEvent('document:saved', {
+                detail: { docId: document.id, timestamp: Date.now() },
+              })
+            );
+          } catch (e) {
+            // Ignore errors in non-browser or restricted environments
+          }
         },
         onError: (error) => {
           console.error('Failed to save document:', error);
@@ -112,6 +131,26 @@ const ToolbarContent = () => {
       }
     );
   };
+
+  // Expose a global save trigger so other UI can request a save.
+  // Usage from other parts of the app:
+  //   window.dispatchEvent(new CustomEvent('document:save'))
+  useEffect(() => {
+    const onGlobalSave = (e: Event) => {
+      try {
+        // Call the same save handler used by the toolbar button
+        handleSave();
+      } catch (err) {
+        console.error('Global save failed', err);
+      }
+    };
+
+    window.addEventListener('document:save', onGlobalSave);
+
+    return () => {
+      window.removeEventListener('document:save', onGlobalSave);
+    };
+  }, [handleSave]);
 
   // Check for unsaved changes whenever document state changes
   useEffect(() => {
@@ -292,6 +331,13 @@ const ToolbarContent = () => {
           size="sm"
           loading={saveStatus === 'saving'}
           onClick={handleSave}
+          disabled={!canUpdate}
+          title={
+            !canUpdate
+              ? t('toolbar.noUpdatePermission') ||
+                'You do not have permission to update this document'
+              : undefined
+          }
           color={
             saveStatus === 'error'
               ? 'danger'
@@ -303,7 +349,13 @@ const ToolbarContent = () => {
               ? 'warning'
               : 'primary'
           }
-          css={{ marginLeft: '10px', minWidth: '120px' }}
+          css={{
+            marginLeft: '10px',
+            minWidth: '120px',
+            opacity: !canUpdate ? 0.5 : 1,
+            cursor: !canUpdate ? 'not-allowed' : 'pointer',
+            pointerEvents: !canUpdate ? 'none' : 'auto',
+          }}
         >
           {saveButtonLabel}
         </Button>

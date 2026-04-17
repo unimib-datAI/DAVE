@@ -8,7 +8,11 @@ const baseURL = `${process.env.API_BASE_URI}`;
 export type User = {
   id: string;
   email: string;
+  username?: string;
+  firstName?: string;
+  lastName?: string;
   name?: string;
+  roles: string[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -24,7 +28,7 @@ const getJWTHeader = (token?: string) => {
 };
 
 export const users = createRouter()
-  // Get all users
+  // Get all users (returns roles too)
   .query('getAllUsers', {
     input: z.object({
       token: z.string().optional(),
@@ -56,11 +60,14 @@ export const users = createRouter()
   .mutation('createUser', {
     input: z.object({
       email: z.string().email(),
-      password: z.string().min(6),
+      password: z.string().min(8),
+      firstName: z.string().optional(),
+      lastName: z.string().optional(),
+      role: z.enum(['admin', 'editor', 'viewer']).optional(),
       token: z.string().optional(),
     }),
     async resolve({ input }) {
-      const { email, password, token } = input;
+      const { email, password, firstName, lastName, role, token } = input;
       try {
         const result = await fetchJson<any, User>(`${baseURL}/users`, {
           method: 'POST',
@@ -68,16 +75,82 @@ export const users = createRouter()
             Authorization: getJWTHeader(token),
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            email,
-            password,
-          }),
+          body: JSON.stringify({ email, password, firstName, lastName, role }),
         });
         return result;
       } catch (error: any) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: error.message || 'Failed to create user',
+        });
+      }
+    },
+  })
+
+  // Update an existing user
+  .mutation('updateUser', {
+    input: z.object({
+      id: z.string(),
+      email: z.string().email().optional(),
+      firstName: z.string().optional(),
+      lastName: z.string().optional(),
+      password: z.string().min(8).optional(),
+      role: z.enum(['admin', 'editor', 'viewer', '']).optional(),
+      token: z.string().optional(),
+    }),
+    async resolve({ input }) {
+      const { id, email, firstName, lastName, password, role, token } = input;
+      try {
+        const result = await fetchJson<any, { ok: boolean }>(
+          `${baseURL}/users/${id}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization: getJWTHeader(token),
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              email,
+              firstName,
+              lastName,
+              password,
+              role,
+            }),
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to update user',
+        });
+      }
+    },
+  })
+
+  // Delete a user
+  .mutation('deleteUser', {
+    input: z.object({
+      id: z.string(),
+      token: z.string().optional(),
+    }),
+    async resolve({ input }) {
+      const { id, token } = input;
+      try {
+        const result = await fetchJson<any, { ok: boolean }>(
+          `${baseURL}/users/${id}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization: getJWTHeader(token),
+            },
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: error.message || 'Failed to delete user',
         });
       }
     },

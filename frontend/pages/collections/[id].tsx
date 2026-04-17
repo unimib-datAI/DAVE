@@ -18,6 +18,7 @@ import {
   Divider,
 } from 'antd';
 import { useAtom } from 'jotai';
+import { useCollectionPermissions } from '@/hooks';
 import { activeCollectionAtom, collectionsAtom } from '@/atoms/collection';
 import { UploadDocumentsModal } from '@/components/UploadDocumentsModal';
 import { uploadModalOpenAtom } from '@/atoms/upload';
@@ -155,12 +156,15 @@ const Collection: NextPage = () => {
   const { data: session, status } = useSession();
   const id = router.query.id as string | undefined;
   const utils = useContext();
-  const enabled = Boolean(id && session?.accessToken);
-  const token = (session as any)?.accessToken as string | undefined;
   const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
+  const token = (session as any)?.accessToken as string | undefined;
+  const enabled = authDisabled
+    ? Boolean(id)
+    : Boolean(id && session?.accessToken);
   const [allCollections, setAllCollections] = useAtom(collectionsAtom);
   const [activeCollection, setActiveCollection] = useAtom(activeCollectionAtom);
   const [, setUploadModalOpen] = useAtom(uploadModalOpenAtom);
+  const { canUpdate } = useCollectionPermissions();
 
   const [typesModalOpen, setTypesModalOpen] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
@@ -181,8 +185,8 @@ const Collection: NextPage = () => {
         // ignore
       }
     },
-    onError: (err) => {
-      console.error('[collection.update] error', err);
+    onError: (err: any) => {
+      console.warn('[collection.update] error', err);
     },
   });
 
@@ -295,6 +299,7 @@ const Collection: NextPage = () => {
               style={{ color: 'black' }}
               onPress={() => setTypesModalOpen(true)}
               color="secondary"
+              isDisabled={!canUpdate}
             >
               {t('editCollectionConfig')}
             </Button>
@@ -355,12 +360,14 @@ const Collection: NextPage = () => {
                         title={t('deleteDocument')}
                         description={t('deleteConfirmation')}
                         onConfirm={() => handleDeleteDocument(docInfo.id)}
+                        disabled={!canUpdate}
                       >
                         <Button
                           style={{ margin: 'auto' }}
                           size="sm"
                           color="danger"
                           variant="flat"
+                          isDisabled={!canUpdate}
                         >
                           <FiTrash2 />
                         </Button>
@@ -500,6 +507,7 @@ const Collection: NextPage = () => {
           color="primary"
           style={{ zIndex: 1, marginTop: 15 }}
           onPress={() => setUploadModalOpen(true)}
+          isDisabled={!canUpdate}
         >
           {t('uploadAnnotatedDocuments')}
         </Button>

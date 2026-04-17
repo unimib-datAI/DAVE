@@ -263,6 +263,107 @@ class KeycloakService {
       throw new Error(`Keycloak logout failed: ${msg}`);
     }
   }
+
+  async updateUser(userId, { email, firstName, lastName, password }) {
+    try {
+      const client = await this.getAdminClient();
+      client.setConfig({ realmName: TARGET_REALM });
+
+      const updatePayload = {};
+      if (email !== undefined) {
+        updatePayload.email = email;
+        updatePayload.username = email; // keep username in sync with email
+      }
+      if (firstName !== undefined) updatePayload.firstName = firstName;
+      if (lastName !== undefined) updatePayload.lastName = lastName;
+
+      if (Object.keys(updatePayload).length > 0) {
+        await client.users.update({ id: userId }, updatePayload);
+      }
+
+      if (password) {
+        await client.users.resetPassword({
+          id: userId,
+          credential: { type: "password", value: password, temporary: false },
+        });
+      }
+
+      return { ok: true };
+    } catch (error) {
+      console.error(
+        `Error updating user ${userId} in Keycloak:`,
+        error.message,
+      );
+      throw new Error(`Failed to update user in Keycloak: ${error.message}`);
+    }
+  }
+
+  async getUserRealmRoles(userId) {
+    try {
+      const client = await this.getAdminClient();
+      client.setConfig({ realmName: TARGET_REALM });
+      const roles = await client.users.listRealmRoleMappings({ id: userId });
+      const MANAGED = ["admin", "editor", "viewer"];
+      return roles.map((r) => r.name).filter((n) => MANAGED.includes(n));
+    } catch (error) {
+      console.error(`Error fetching roles for user ${userId}:`, error.message);
+      return [];
+    }
+  }
+
+  async setUserRealmRoles(userId, roleNames) {
+    try {
+      const client = await this.getAdminClient();
+      client.setConfig({ realmName: TARGET_REALM });
+
+      const allRoles = await client.roles.find();
+      const currentRoles = await client.users.listRealmRoleMappings({
+        id: userId,
+      });
+      const MANAGED = ["admin", "editor", "viewer"];
+
+      const rolesToRemove = currentRoles.filter(
+        (r) => MANAGED.includes(r.name) && !roleNames.includes(r.name),
+      );
+      const currentNames = currentRoles.map((r) => r.name);
+      const rolesToAdd = allRoles.filter(
+        (r) => roleNames.includes(r.name) && !currentNames.includes(r.name),
+      );
+
+      if (rolesToRemove.length > 0) {
+        await client.users.delRealmRoleMappings({
+          id: userId,
+          roles: rolesToRemove,
+        });
+      }
+      if (rolesToAdd.length > 0) {
+        await client.users.addRealmRoleMappings({
+          id: userId,
+          roles: rolesToAdd,
+        });
+      }
+
+      return { ok: true };
+    } catch (error) {
+      console.error(`Error setting roles for user ${userId}:`, error.message);
+      throw new Error(`Failed to set user roles in Keycloak: ${error.message}`);
+    }
+  }
+
+  async deleteUser(userId) {
+    try {
+      const client = await this.getAdminClient();
+      client.setConfig({ realmName: TARGET_REALM });
+      await client.users.del({ id: userId });
+      return { ok: true };
+    } catch (error) {
+      console.error(
+        `Error deleting user ${userId} from Keycloak:`,
+        error.message,
+      );
+      throw new Error(`Failed to delete user from Keycloak: ${error.message}`);
+    }
+  }
 }
 
 export const keycloakService = new KeycloakService();
