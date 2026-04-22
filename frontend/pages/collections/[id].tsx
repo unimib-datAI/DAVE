@@ -504,6 +504,7 @@ const Collection: NextPage = () => {
         </Modal>
         <UploadDocumentsModal doneUploading={refetch} collectionId={id} />
         <Button
+          id="uploadDocumentsButton"
           color="primary"
           style={{ zIndex: 1, marginTop: 15 }}
           onPress={() => setUploadModalOpen(true)}

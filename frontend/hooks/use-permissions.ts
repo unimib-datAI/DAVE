@@ -246,7 +246,7 @@ export function usePipelinePermissions(): {
 } {
   const { check, isLoading } = usePermissionState();
   return {
-    canEdit: check("settings", "pipeline"),
+    canEdit: check('settings', 'pipeline'),
     isLoading,
   };
 }
@@ -269,7 +269,7 @@ export function useLLMPermissions(): {
 } {
   const { check, isLoading } = usePermissionState();
   return {
-    canEdit: check("settings", "llm"),
+    canEdit: check('settings', 'llm'),
     isLoading,
   };
 }

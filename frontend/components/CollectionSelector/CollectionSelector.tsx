@@ -119,7 +119,7 @@ const CollectionSelector = () => {
       ) : (
         <Dropdown>
           <DropdownTrigger>
-            <CollectionButton>
+            <CollectionButton id="collectionSelector">
               <div
                 style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
               >
