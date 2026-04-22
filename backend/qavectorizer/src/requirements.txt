@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-sentence-transformers
+sentence-transformers==5.2.0
 tqdm
 elasticsearch==8.9.0
 pydantic-settings
