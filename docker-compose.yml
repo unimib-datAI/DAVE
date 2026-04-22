@@ -67,6 +67,7 @@ services:
       USE_KEYCLOAK: ${USE_KEYCLOAK:-true}
       KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://keycloak:8080/realms/DAVE}
       KEYCLOAK_ID: ${KEYCLOAK_ID:-dave_client}
+      KEYCLOAK_SECRET: $KEYCLOAK_SECRET
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
       JWT_SECRET: ${DOCUMENTS_JWT_SECRET:-your-secret-key-change-in-production}
