@@ -227,3 +227,49 @@ export function useAnonymizationPermissions(): {
     isLoading,
   };
 }
+
+/**
+ * Returns whether the current user is allowed to configure the annotation pipeline.
+ *
+ * Usage:
+ * const { canEdit, isLoading } = usePipelinePermissions();
+ *
+ * Behaviour follows the same optimistic semantics as other permission hooks:
+ * - Auth disabled  -> true
+ * - Still loading  -> true (avoid flash)
+ * - No token       -> false
+ * - admin role     -> true
+ */
+export function usePipelinePermissions(): {
+  canEdit: boolean;
+  isLoading: boolean;
+} {
+  const { check, isLoading } = usePermissionState();
+  return {
+    canEdit: check("settings", "pipeline"),
+    isLoading,
+  };
+}
+
+/**
+ * Returns whether the current user is allowed to configure LLM settings.
+ *
+ * Usage:
+ * const { canEdit, isLoading } = useLLMPermissions();
+ *
+ * Behaviour follows the same optimistic semantics as other permission hooks:
+ * - Auth disabled  -> true
+ * - Still loading  -> true (avoid flash)
+ * - No token       -> false
+ * - admin role     -> true
+ */
+export function useLLMPermissions(): {
+  canEdit: boolean;
+  isLoading: boolean;
+} {
+  const { check, isLoading } = usePermissionState();
+  return {
+    canEdit: check("settings", "llm"),
+    isLoading,
+  };
+}

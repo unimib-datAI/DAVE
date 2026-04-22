@@ -21,6 +21,7 @@ import { FiCheckCircle } from '@react-icons/all-files/fi/FiCheckCircle';
 import { FiXCircle } from '@react-icons/all-files/fi/FiXCircle';
 import Link from 'next/link';
 import { useText } from '@/components/TranslationProvider';
+import { useLLMPermissions } from '@/hooks/use-permissions';
 
 const Container = styled.div({
   maxWidth: '800px',
@@ -221,6 +222,7 @@ const LLMSettingsPage = () => {
     message: string;
     response?: string;
   } | null>(null);
+  const { canEdit: canEditLLM } = useLLMPermissions();
 
   // Local string state for numeric fields so users can freely type values
   const [rawTemperature, setRawTemperature] = useState(
@@ -697,6 +699,7 @@ const LLMSettingsPage = () => {
                   await setSettings(newSettings);
                 }}
                 color="primary"
+                isDisabled={!canEditLLM}
               />
               <div>
                 <Label style={{ marginBottom: '4px' }}>
@@ -722,6 +725,7 @@ const LLMSettingsPage = () => {
               onChange={(e) =>
                 handleInputChange('defaultSystemPrompt', e.target.value)
               }
+              isDisabled={!canEditLLM}
               className="w-full"
             />
             <HelpText>
@@ -760,6 +764,7 @@ const LLMSettingsPage = () => {
                   handleInputChange('defaultTemperature', clamped);
                 }
               }}
+              isDisabled={!canEditLLM}
               className="w-full"
             />
             <HelpText>
@@ -798,6 +803,7 @@ const LLMSettingsPage = () => {
                   handleInputChange('defaultMaxTokens', clamped);
                 }
               }}
+              isDisabled={!canEditLLM}
               className="w-full"
             />
             <HelpText>
@@ -836,6 +842,7 @@ const LLMSettingsPage = () => {
                   handleInputChange('defaultTopP', clamped);
                 }
               }}
+              isDisabled={!canEditLLM}
               className="w-full"
             />
             <HelpText>
@@ -874,6 +881,7 @@ const LLMSettingsPage = () => {
                   handleInputChange('defaultTopK', clamped);
                 }
               }}
+              isDisabled={!canEditLLM}
               className="w-full"
             />
             <HelpText>
@@ -912,6 +920,7 @@ const LLMSettingsPage = () => {
                   handleInputChange('defaultFrequencyPenalty', clamped);
                 }
               }}
+              isDisabled={!canEditLLM}
               className="w-full"
             />
             <HelpText>
@@ -924,7 +933,7 @@ const LLMSettingsPage = () => {
             <Button
               color="primary"
               onPress={handleSaveGen}
-              isDisabled={isSavingGen}
+              isDisabled={isSavingGen || !canEditLLM}
             >
               {isSavingGen ? (
                 <>
@@ -936,6 +945,7 @@ const LLMSettingsPage = () => {
               )}
             </Button>
             <Button
+              isDisabled={!canEditLLM}
               onPress={() => {
                 setFormData({
                   ...formData,

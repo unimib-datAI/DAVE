@@ -3,6 +3,7 @@ import { useAtom } from 'jotai';
 import { useSession } from 'next-auth/react';
 import { useQuery, useMutation } from '@/utils/trpc';
 import { useQueryClient } from 'react-query';
+import { usePipelinePermissions } from '@/hooks/use-permissions';
 import {
   annotationSelectedServicesAtom,
   PipelineStep,
@@ -26,6 +27,8 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   const token = (session as any)?.accessToken as string | undefined;
 
   const queryClient = useQueryClient();
+
+  const { canEdit: canEditPipeline } = usePipelinePermissions();
 
   // Pipeline steps atom (ordered array)
   const [pipelineSteps, setPipelineSteps] = useAtom(
@@ -418,7 +421,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
           >
             <Text h3>Annotation Pipeline Configuration</Text>
             <div style={{ display: 'flex', gap: 8 }}>
-              <Button auto size="sm" onClick={handleNewConfiguration}>
+              <Button auto size="sm" onClick={handleNewConfiguration} isDisabled={!canEditPipeline}>
                 New
               </Button>
               <Button
@@ -426,6 +429,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                 size="sm"
                 color="primary"
                 onClick={() => setShowSaveModal(true)}
+                isDisabled={!canEditPipeline}
               >
                 {currentConfigId ? 'Update' : 'Save as…'}
               </Button>
@@ -457,7 +461,8 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     auto
                     size="sm"
                     color="success"
-                    disabled={
+                    isDisabled={
+                      !canEditPipeline ||
                       (configurations as any[]).find(
                         (c: any) => c._id === currentConfigId
                       )?.isActive
@@ -471,8 +476,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     onConfirm={() => handleDeleteConfiguration(currentConfigId)}
                     okText="Yes"
                     cancelText="No"
+                    disabled={!canEditPipeline}
                   >
-                    <Button auto size="sm" color="error">
+                    <Button auto size="sm" color="error" isDisabled={!canEditPipeline}>
                       Delete
                     </Button>
                   </Popconfirm>
@@ -545,7 +551,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
               onChange={(e) => setNewType(e.target.value)}
             />
           </div>
-          <Button onPress={handleCreateService} disabled={creating} size="sm">
+          <Button onPress={handleCreateService} isDisabled={creating || !canEditPipeline} size="sm">
             {creating ? 'Adding…' : 'Add service'}
           </Button>
 
@@ -614,6 +620,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     flat
                     size="xs"
                     color="success"
+                    isDisabled={!canEditPipeline}
                     onPress={() => {
                       setPipelineSteps((prev) => [
                         ...(Array.isArray(prev) ? prev : []),
@@ -636,8 +643,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     onConfirm={() => handleDeleteService(svc._id)}
                     okText="Yes"
                     cancelText="No"
+                    disabled={!canEditPipeline}
                   >
-                    <Button auto flat size="xs" color="error">
+                    <Button auto flat size="xs" color="error" isDisabled={!canEditPipeline}>
                       Delete
                     </Button>
                   </Popconfirm>
@@ -664,7 +672,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                 step to the next.
               </Text>
             </div>
-            <Button auto size="sm" color="primary" onPress={handleAddStep}>
+            <Button auto size="sm" color="primary" onPress={handleAddStep} isDisabled={!canEditPipeline}>
               + Add step
             </Button>
           </div>
@@ -759,7 +767,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                       auto
                       flat
                       size="xs"
-                      disabled={index === 0}
+                      isDisabled={!canEditPipeline || index === 0}
                       onPress={() => handleMoveStep(index, 'up')}
                       title="Move up"
                     >
@@ -769,7 +777,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                       auto
                       flat
                       size="xs"
-                      disabled={index === steps.length - 1}
+                      isDisabled={!canEditPipeline || index === steps.length - 1}
                       onPress={() => handleMoveStep(index, 'down')}
                       title="Move down"
                     >
@@ -780,6 +788,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                       flat
                       size="xs"
                       color="error"
+                      isDisabled={!canEditPipeline}
                       onPress={() => handleRemoveStep(index)}
                       title="Remove step"
                     >
