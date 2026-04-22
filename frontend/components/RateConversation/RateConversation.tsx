@@ -71,6 +71,7 @@ export default function RateConversation({ state }: RateConversationProps) {
       ) : (
         <motion.div
           key={'rate-conversation'}
+          data-testid="rate-conversation"
           variants={slideInVariants}
           initial="hidden"
           animate="visible"

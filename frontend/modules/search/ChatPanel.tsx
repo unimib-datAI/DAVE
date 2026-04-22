@@ -278,6 +278,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
             <div className="flex flex-row items-center border-[1px] border-solid border-slate-200 rounded-md p-2 w-full gap-2">
               <input
                 disabled={chatState !== 'idle'}
+                id="chat-input"
                 className="text-slate-800 resize-none bg-transparent w-full h-full border-none text-sm outline-none focus:outline-none focus:ring-0"
                 spellCheck="false"
                 placeholder={t('typeQuestionPlaceholder')}
@@ -296,7 +297,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                 color="invert"
               >
                 <Switch
-                  id="context"
+                  id="chat-context-switch"
                   onChange={(newstate) => {
                     // Create a new object for setting value
                     setValue({
@@ -310,6 +311,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
             )}
 
             <ButtonSend
+              id="chat-send-btn"
               state={chatState}
               type="submit"
               auto={true}
@@ -320,6 +322,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
 
             <Tooltip content={t('resetChat')}>
               <Button
+                id="chat-reset-btn"
                 color="primary"
                 disabled={isStreaming}
                 type="button"

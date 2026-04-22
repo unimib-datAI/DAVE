@@ -146,6 +146,9 @@ const Message = ({
       <motion.div
         animate={{ translateY: 0 }}
         initial={{ translateY: 20 }}
+        data-testid={
+          role === 'user' ? 'chat-message-user' : 'chat-message-assistant'
+        }
         className={cn('flex gap-2', {
           'justify-end': role === 'user', // Right-align user messages
         })}

@@ -121,7 +121,12 @@ const Collections: NextPage = () => {
   });
 
   const t = useText('collections');
-  const { canCreate, canUpdate, canDelete } = useCollectionPermissions();
+  const {
+    canCreate,
+    canUpdate,
+    canDelete,
+    isLoading: permsLoading,
+  } = useCollectionPermissions();
 
   useEffect(() => {
     if (
@@ -151,13 +156,49 @@ const Collections: NextPage = () => {
   });
 
   const { data: usersData } = useQuery(['user.getAllUsers', { token }], {
-    enabled: tokenAvailable || authDisabled,
+    // Fetch users only when:
+    //  - we have a token (or auth is disabled),
+    //  - the permission check finished and the user can create or update collections,
+    //  - AND the collection modal is actually open (modalOpen === true).
+    // This prevents the frontend from calling user.getAllUsers for viewer roles
+    // or when the modal is closed (no need to fetch the full user list).
+    enabled:
+      (tokenAvailable || authDisabled) &&
+      (canCreate || canUpdate) &&
+      !permsLoading &&
+      modalOpen,
     onSuccess: (data) => {
       if (data) {
         setUsers(data);
       }
     },
   });
+
+  // Ensure users state is cleared when:
+  //  - permissions indicate the user cannot manage collections,
+  //  - permissions are still loading, OR
+  //  - the collection modal is closed.
+  // This avoids stale user lists for viewers and prevents the getAllUsers call
+  // from firing while switching users/projects in the UI.
+  useEffect(() => {
+    if (
+      !(
+        (tokenAvailable || authDisabled) &&
+        !permsLoading &&
+        (canCreate || canUpdate) &&
+        modalOpen
+      )
+    ) {
+      setUsers([]);
+    }
+  }, [
+    tokenAvailable,
+    authDisabled,
+    canCreate,
+    canUpdate,
+    permsLoading,
+    modalOpen,
+  ]);
 
   const createMutation = useMutation(['collection.create'], {
     onMutate: (variables) => {
@@ -443,6 +484,7 @@ const Collections: NextPage = () => {
         <Header>
           <h2 className="text-2xl font-bold">{t('title')}</h2>
           <Button
+            id="new-collection-btn"
             color="primary"
             startContent={<FiPlus />}
             onPress={handleCreate}
@@ -461,6 +503,7 @@ const Collections: NextPage = () => {
         ) : (
           collections.map((collection) => (
             <div
+              id={`collection-${collection.id}`}
               key={collection.id}
               onClick={() => {
                 console.log('clicked collection', collection.id);
@@ -470,7 +513,10 @@ const Collections: NextPage = () => {
               <CollectionCard style={{ cursor: 'pointer' }}>
                 <CardHeader>
                   <div>
-                    <h4 style={{ margin: 0, fontSize: 16, fontWeight: 600 }}>
+                    <h4
+                      id={`collection-name-${collection.id}`}
+                      style={{ margin: 0, fontSize: 16, fontWeight: 600 }}
+                    >
                       {collection.name}
                     </h4>
                     {collection.ownerId === (session?.user as any)?.userId && (
@@ -488,6 +534,7 @@ const Collections: NextPage = () => {
                   </div>
                   <Actions>
                     <IconBtn
+                      id={`download-${collection.id}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         handleDownload(collection);
@@ -508,12 +555,14 @@ const Collections: NextPage = () => {
                       )}
                     </IconBtn>
                     <IconBtn
+                      id={`edit-${collection.id}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         if (!canUpdate) return;
                         handleEdit(collection);
                       }}
                       title={t('edit')}
+                      style={{ color: !canDelete ? '#9CA3AF' : 'black' }}
                       disabled={!canUpdate}
                     >
                       <EditIcon size={18} />
@@ -532,6 +581,7 @@ const Collections: NextPage = () => {
                         disabled={!canDelete}
                       >
                         <IconBtn
+                          id={`delete-${collection.id}`}
                           onClick={(e) => {
                             e.stopPropagation();
                           }}
@@ -594,6 +644,7 @@ const Collections: NextPage = () => {
             </ModalHeader>
             <ModalBody>
               <Input
+                id="collection-name-input"
                 label={t('collectionNameLabel')}
                 placeholder={t('collectionNamePlaceholder')}
                 value={formData.name}
@@ -636,6 +687,7 @@ const Collections: NextPage = () => {
                       }
                     >
                       <input
+                        id={`collection-user-${user.id}`}
                         type="checkbox"
                         checked={formData.allowedUserIds.includes(user.id)}
                         onChange={() => toggleUser(user.id)}
@@ -662,10 +714,15 @@ const Collections: NextPage = () => {
               </div>
             </ModalBody>
             <ModalFooter>
-              <Button variant="flat" onPress={() => setModalOpen(false)}>
+              <Button
+                id="collection-modal-cancel"
+                variant="flat"
+                onPress={() => setModalOpen(false)}
+              >
                 {t('cancel')}
               </Button>
               <Button
+                id="collection-modal-submit"
                 color="primary"
                 onPress={handleSubmit}
                 isDisabled={

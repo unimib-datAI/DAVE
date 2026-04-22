@@ -570,7 +570,8 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                           </FileInputLabel>
                           <FileInput
                             ref={fileInputRef}
-                            id="json-file-upload"
+                            id="upload-file-input"
+                            data-testid="upload-file-input"
                             type="file"
                             accept=".json"
                             multiple
@@ -586,7 +587,10 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                             {t('selectedFiles', { n: selectedFiles.length })}
                           </strong>
                           {selectedFiles.map((file, index) => (
-                            <FileItem key={index}>
+                            <FileItem
+                              data-testid="upload-file-item"
+                              key={index}
+                            >
                               <span style={{ fontSize: 14 }}>{file.name}</span>
                               <Button onPress={() => handleRemoveFile(index)}>
                                 <FiX />
@@ -706,7 +710,10 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                             {t('selectedFiles', { n: selectedFiles.length })}
                           </strong>
                           {selectedFiles.map((file, index) => (
-                            <FileItem key={index}>
+                            <FileItem
+                              data-testid="upload-file-item"
+                              key={index}
+                            >
                               <span style={{ fontSize: 14 }}>{file.name}</span>
                               <Button onPress={() => handleRemoveFile(index)}>
                                 <FiX />
@@ -734,7 +741,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                 )}
 
                 {!uploadProgress.isUploading && uploadProgress.total > 0 && (
-                  <div>
+                  <div id="upload-complete">
                     <strong style={{ color: '#0a0', fontSize: 14 }}>
                       {t('complete')}
                     </strong>
@@ -749,16 +756,16 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                 )}
 
                 {uploadProgress.errors.length > 0 && (
-                  <ErrorList>
+                  <div data-testid="upload-error-list">
                     <strong style={{ color: '#c00', fontSize: 14 }}>
                       {t('errors')}
                     </strong>
                     {uploadProgress.errors.map((error, index) => (
-                      <ErrorItem key={index}>
+                      <div data-testid="upload-error-item" key={index}>
                         <strong>{error.fileName}:</strong> {error.error}
-                      </ErrorItem>
+                      </div>
                     ))}
-                  </ErrorList>
+                  </div>
                 )}
               </Tabs.Root>
             </ModalBody>
@@ -773,6 +780,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
               </Button>
               {selectedFiles.length > 0 && !uploadProgress.isUploading && (
                 <Button
+                  id="submitUploadButton"
                   onPress={handleUpload}
                   isDisabled={uploadProgress.isUploading}
                 >

@@ -39,6 +39,7 @@ const LLMButton = () => {
   return (
     <>
       <motion.button
+        id="open-chat-btn"
         whileHover={{ scale: 1.2, rotate: 90 }}
         whileTap={{
           scale: 0.8,

@@ -39,7 +39,7 @@ const LoginAvatar = () => {
   const handleAction = (key: string | number) => {
     if (key === 'logout' && isAuthEnabled()) {
       signOut({
-        callbackUrl: '/login',
+        callbackUrl: '/',
       });
     }
   };
