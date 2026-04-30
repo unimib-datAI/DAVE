@@ -4,12 +4,40 @@
  * Generates and stores a unique browser ID in localStorage.
  * Returns the existing ID if already generated.
  */
+function generateUuid(): string {
+  const cryptoObj = typeof crypto !== 'undefined' ? crypto : undefined;
+
+  if (cryptoObj?.randomUUID) {
+    return cryptoObj.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+  if (cryptoObj?.getRandomValues) {
+    cryptoObj.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(
+    12,
+    16
+  )}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export function getBrowserId(): string {
   const key = 'browserId';
   let id = localStorage.getItem(key);
   if (!id) {
-    // Generate a UUID v4
-    id = crypto.randomUUID();
+    id = generateUuid();
     localStorage.setItem(key, id);
   }
   return id;
