@@ -26,21 +26,24 @@ const Searchbar = forwardRef<HTMLInputElement, SearchbarProps>((props, ref) => {
         )}
       </AnimatePresence>
       <div
+        id="searchbar-container"
         className={cn(
           'flex flex-row items-center border-[1px] border-solid  border-slate-200 rounded-full py-1 px-3 w-full gap-4 bg-background'
         )}
       >
         <SearchIcon />
         <input
+          {...props}
+          id="search-input"
           ref={ref}
           className="text-slate-800 resize-none bg-transparent w-full h-full border-none"
           spellCheck="false"
           placeholder={t('searchDocuments')}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
-          {...props}
         />
         <button
+          id="search-submit-btn"
           className={cn(
             'flex flex-col items-center justify-center bg-slate-950 text-white border-none rounded-full h-9 w-9 cursor-pointer transition-all',
             {

@@ -339,12 +339,23 @@ const Search = () => {
     <ToolbarLayout>
       <div className="flex flex-col h-screen">
         <div className="flex flex-col py-6 mt-16 px-24">
-          <form onSubmit={onSubmit(handleSubmit)} className="mb-4">
-            <Searchbar {...register('text')} loading={isFetching} />
+          <form
+            id="search-form"
+            onSubmit={onSubmit(handleSubmit)}
+            className="mb-4"
+          >
+            <Searchbar
+              id="searchbar"
+              {...register('text')}
+              loading={isFetching}
+            />
           </form>
-          <h2 className="text-2xl font-bold">{t('documents')}</h2>
+          <h2 id="search-documents-heading" className="text-2xl font-bold">
+            {t('documents')}
+          </h2>
         </div>
         <motion.div
+          id="search-main"
           style={{ ...(isFetching && { pointerEvents: 'none' }) }}
           className="flex relative px-24"
           variants={variants}
@@ -352,34 +363,36 @@ const Search = () => {
           transition={{ duration: 0.5 }}
         >
           {(facetsCache || (data && data.pages?.[0]?.facets)) && (
-            <Facets
-              facets={facetsCache || data.pages[0].facets}
-              selectedFilters={(selectedFilters || [])
-                .filter((f) => f && f.id_ER && f.id_ER.trim() !== '')
-                .map((f) => f.id_ER)}
-              // pass currently loaded backend hit ids so facets don't re-fetch documents already present
-              loadedDocIds={
-                data
-                  ? data.pages
-                      .flatMap((p) => p.hits)
-                      .map((h: any) => String(h.id))
-                  : []
-              }
-              setSelectedFilters={(filters) => {
-                // Filter out empty strings or whitespace-only strings
-                const validFilters = filters.filter(
-                  (f) => f && f.trim() !== ''
-                );
-                setSelectedFilters(validFilters);
-              }}
-            />
+            <div id="facets-container">
+              <Facets
+                facets={facetsCache || data.pages[0].facets}
+                selectedFilters={(selectedFilters || [])
+                  .filter((f) => f && f.id_ER && f.id_ER.trim() !== '')
+                  .map((f) => f.id_ER)}
+                // pass currently loaded backend hit ids so facets don't re-fetch documents already present
+                loadedDocIds={
+                  data
+                    ? data.pages
+                        .flatMap((p) => p.hits)
+                        .map((h: any) => String(h.id))
+                    : []
+                }
+                setSelectedFilters={(filters) => {
+                  // Filter out empty strings or whitespace-only strings
+                  const validFilters = filters.filter(
+                    (f) => f && f.trim() !== ''
+                  );
+                  setSelectedFilters(validFilters);
+                }}
+              />
+            </div>
           )}
           <div
             className="flex-grow flex flex-col gap-4 p-6"
             style={{ zIndex: 5 }}
           >
             <div className="flex flex-col sticky top-16 bg-white py-6 z-10">
-              <h4 className="text-lg font-semibold">
+              <h4 id="results-count" className="text-lg font-semibold">
                 {`${data.pages[0].pagination.total_hits} ${t('results')}`}
                 {text &&
                   typeof text === 'string' &&
@@ -387,7 +400,10 @@ const Search = () => {
                   ` ${t('for')} "${text}"`}
               </h4>
               {selectedFilters && selectedFilters.length > 0 && (
-                <div className="flex flex-row flex-wrap gap-2 mt-2">
+                <div
+                  id="selected-filters"
+                  className="flex flex-row flex-wrap gap-2 mt-2"
+                >
                   {
                     // Group selected filters by their display_name so chips with
                     // identical names are shown once. Clearing a grouped chip
@@ -425,6 +441,7 @@ const Search = () => {
               )}
             </div>
             <div
+              id="documents-grid"
               className="grid gap-x-8 gap-y-8"
               style={{
                 gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))',
@@ -462,8 +479,9 @@ const Search = () => {
               ))}
             </div>
             {hasNextPage && (
-              <div ref={ref} className="w-full">
+              <div ref={ref} id="load-more-container" className="w-full">
                 <Button
+                  id="load-more-btn"
                   loading={isFetching}
                   onClick={() => fetchNextPage()}
                   className="bg-slate-900 mx-auto"

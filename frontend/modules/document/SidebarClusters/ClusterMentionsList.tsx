@@ -12,6 +12,8 @@ import {
 type ClusterMentionsListProps = {
   mentions: (Cluster['mentions'][number] & { mentionText: string })[];
   annotations: EntityAnnotation[];
+  // optional cluster id so tests can build stable selectors for mentions
+  clusterId?: number;
 };
 
 const ListContainer = styled.div({
@@ -85,6 +87,7 @@ const highlightMatchingText = (text: string, matchingText: string) => {
 const ClusterMentionsList = ({
   mentions,
   annotations,
+  clusterId,
 }: ClusterMentionsListProps) => {
   const dispatch = useDocumentDispatch();
   const text = useSelector(selectDocumentText);
@@ -174,6 +177,13 @@ const ClusterMentionsList = ({
           title={m.mentionText}
           onClick={handleOnClick(m.id, m)}
           key={m.id}
+          // stable test id used by e2e tests
+          data-testid="mention"
+          // machine-readable per-mention id and cluster-scoped id for other tooling/tests
+          data-mention-id={m.id}
+          data-cluster-mention={`cluster-mention-${clusterId ?? 'unknown'}-${
+            m.id
+          }`}
         >
           {highlightMatchingText(m.mentionText, m.mention)}
           <IconButtonContainer>

@@ -149,7 +149,7 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
     handleSort(clusters, selectedSort);
   }, [clusters]);
   return (
-    <GroupContainer>
+    <GroupContainer id={`cluster-group-${type}`}>
       <GroupHeader selected={selected} onClick={onClick}>
         <Tag color={taxonomyNode.color}>{typesPath}</Tag>
         <IconButton>
