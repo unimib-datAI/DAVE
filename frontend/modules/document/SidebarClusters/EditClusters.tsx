@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
+import { ArrowLeftRight } from 'lucide-react';
 import { ProcessedCluster } from '../DocumentProvider/types';
 import { Button, Tooltip } from '@heroui/react';
 import { Checkbox, Col, Drawer, message, Modal, Row, Select, Tag } from 'antd';
@@ -82,19 +83,19 @@ const SortableItem: React.FC<SortableItemProps> = ({
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition: transition ?? undefined,
-    padding: '10px',
-    border: '1px solid #ccc',
-    borderRadius: 10,
-
-    marginBottom: '4px',
-    backgroundColor: isSelected ? '#d2d2d4' : 'white',
+    padding: '8px 12px',
+    border: isSelected ? '1.5px solid #6366f1' : '1px solid #e5e7eb',
+    borderRadius: 8,
+    marginBottom: '6px',
+    backgroundColor: isSelected ? '#eef2ff' : 'white',
     cursor: 'grab',
     zIndex: transform ? 1 : 'auto',
+    boxShadow: isSelected ? '0 0 0 2px #c7d2fe' : '0 1px 2px rgba(0,0,0,0.04)',
+    userSelect: 'none',
   };
   const customListeners = {
     ...listeners,
     onPointerDown: (event: React.PointerEvent) => {
-      // Prevent drag initiation if the target is the checkbox
       if ((event.target as HTMLElement).tagName !== 'INPUT') {
         if (listeners) listeners.onPointerDown?.(event);
       }
@@ -107,22 +108,24 @@ const SortableItem: React.FC<SortableItemProps> = ({
   };
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...customListeners}>
-      <Row gutter={15}>
-        <Col span={2}>
+      <Row gutter={10} align="middle" wrap={false}>
+        <Col flex="none">
           <Checkbox
             style={{ zIndex: 10 }}
             checked={isSelected}
             onChange={handleCheckboxChange}
           />
         </Col>
-        <Col span={22}>
-          <span>
+        <Col flex="auto" style={{ minWidth: 0 }}>
+          <span style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>
             {mentionText.slice(0, startIndex)}
             <span
               style={{
-                backgroundColor: '#f7f7a2',
-                borderRadius: 5,
-                padding: 2,
+                backgroundColor: '#fef08a',
+                borderRadius: 4,
+                padding: '1px 4px',
+                fontWeight: 600,
+                color: '#1e293b',
               }}
             >
               {name}
@@ -130,14 +133,21 @@ const SortableItem: React.FC<SortableItemProps> = ({
             {mentionText.slice(endIndex + 1)}
           </span>
         </Col>
+        <Col flex="none">
+          <span style={{ color: '#d1d5db', fontSize: 16, cursor: 'grab' }}>
+            ⠿
+          </span>
+        </Col>
       </Row>
     </div>
   );
 };
-const dragAndDropColStyle = {
-  backgroundColor: '#e8e8e8',
-  borderRadius: 20,
-  padding: 15,
+const dragAndDropColStyle: React.CSSProperties = {
+  backgroundColor: '#f8fafc',
+  borderRadius: 10,
+  padding: '12px 10px',
+  border: '1px solid #e2e8f0',
+  minHeight: 120,
 };
 const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
   const [isOpen, setIsOpen] = useState(false); //modal open closed state
@@ -383,55 +393,107 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
         </Tooltip>
       )}
       <Drawer
-        width={'70%'}
-        title={t('modifyClusters')}
+        width={'72%'}
+        title={
+          <span style={{ fontSize: 16, fontWeight: 600, color: '#1e293b' }}>
+            {t('modifyClusters')}
+          </span>
+        }
         open={isOpen}
         onClose={() => !isSaving && setIsOpen(false)}
+        styles={{
+          body: { padding: '20px 24px', backgroundColor: '#f8fafc' },
+          header: {
+            borderBottom: '1px solid #e2e8f0',
+            backgroundColor: '#fff',
+          },
+        }}
       >
-        <Row justify="space-between" align="middle" gutter={0}>
-          <Col span={10}>
-            <p>{t('sourceCluster')}</p>
-            <Select
-              style={{ width: '90%' }}
-              placeholder={t('selectCluster')}
-              value={sourceCluster?.id}
-              onChange={(value) => {
-                let source = null;
-                Object.keys(clusterGroups).forEach((groupKey) => {
-                  let group = clusterGroups[groupKey];
-                  group.forEach((cluster) => {
-                    if (cluster.id === value) {
-                      source = cluster;
-                    }
-                  });
-                });
-                setSourceCluster(source);
-              }}
-              options={Object.keys(clusterGroups).map((groupKey) => ({
-                label: (
-                  <span>
-                    <Tag
-                      color={
-                        getAllNodeData(
-                          taxonomy,
-                          clusterGroups[groupKey][0].type
-                        ).color
+        {/* Cluster selectors */}
+        <div
+          style={{
+            backgroundColor: '#fff',
+            borderRadius: 12,
+            padding: '16px 20px',
+            marginBottom: 20,
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+          }}
+        >
+          <Row
+            justify="space-between"
+            align="middle"
+            gutter={0}
+            style={{ alignItems: 'stretch' }}
+          >
+            <Col span={10}>
+              <p
+                style={{
+                  margin: '0 0 6px',
+                  fontWeight: 500,
+                  fontSize: 13,
+                  color: '#64748b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                {t('sourceCluster')}
+              </p>
+              <Select
+                style={{ width: '100%' }}
+                placeholder={t('selectCluster')}
+                value={sourceCluster?.id}
+                showSearch
+                filterOption={(input, option) =>
+                  String(option?.label ?? '')
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+                onChange={(value) => {
+                  let source = null;
+                  Object.keys(clusterGroups).forEach((groupKey) => {
+                    let group = clusterGroups[groupKey];
+                    group.forEach((cluster) => {
+                      if (cluster.id === value) {
+                        source = cluster;
                       }
-                    >
-                      <span>{groupKey}</span>
-                    </Tag>
-                  </span>
-                ),
-                value: groupKey,
-                options: clusterGroups[groupKey].map((cluster) => ({
-                  label: cluster.title,
-                  value: cluster.id,
-                })),
-              }))}
-            ></Select>
-          </Col>
-          <Col span={4}>
-            <Row justify={'center'}>
+                    });
+                  });
+                  setSourceCluster(source);
+                }}
+                options={Object.keys(clusterGroups).map((groupKey) => ({
+                  label: (
+                    <span>
+                      <Tag
+                        color={
+                          getAllNodeData(
+                            taxonomy,
+                            clusterGroups[groupKey][0].type
+                          ).color
+                        }
+                      >
+                        <span>{groupKey}</span>
+                      </Tag>
+                    </span>
+                  ),
+                  value: groupKey,
+                  options: clusterGroups[groupKey].map((cluster) => ({
+                    label: cluster.title,
+                    value: cluster.id,
+                  })),
+                }))}
+              />
+            </Col>
+            <Col
+              span={4}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                paddingBottom: 1,
+              }}
+            >
               <button
                 onClick={() => {
                   if (sourceCluster) {
@@ -440,101 +502,184 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
                     if (temp) setDestCluster(temp);
                   }
                 }}
+                title="Swap clusters"
                 style={{
-                  marginLeft: -20,
-                  backgroundColor: 'white',
-                  border: '1px solid gray',
-                  borderRadius: 8,
+                  backgroundColor: '#6366f1',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: 36,
+                  height: 36,
+                  padding: 0,
                   cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  boxShadow: '0 2px 6px rgba(99,102,241,0.35)',
+                  flexShrink: 0,
                 }}
               >
-                {'<->'}
+                <ArrowLeftRight size={16} strokeWidth={2.5} />
               </button>
-            </Row>
-          </Col>
-          <Col span={10}>
-            <p>{t('destinationCluster')}</p>
-            <Select
-              style={{ width: '90%' }}
-              placeholder={t('selectCluster')}
-              value={dest?.id}
-              onChange={(value) => {
-                let dest = null;
-                Object.keys(clusterGroups).forEach((groupKey) => {
-                  let group = clusterGroups[groupKey];
-                  group.forEach((cluster) => {
-                    if (cluster.id === value) {
-                      dest = cluster;
-                    }
-                  });
-                });
-                setDestCluster(dest);
-              }}
-              options={Object.keys(clusterGroups).map((groupKey) => ({
-                label: (
-                  <span>
-                    <Tag
-                      color={
-                        getAllNodeData(
-                          taxonomy,
-                          clusterGroups[groupKey][0].type
-                        ).color
-                      }
-                    >
-                      <span>{groupKey}</span>
-                    </Tag>
-                  </span>
-                ),
-                value: groupKey,
-                options: clusterGroups[groupKey].map((cluster) => ({
-                  label: cluster.title,
-                  value: cluster.id,
-                })),
-              }))}
-            ></Select>
-          </Col>
-        </Row>
-        <Row style={{ width: '100%' }}>
-          {(sourceList.length > 0 || destList.length > 0) && (
-            <DndContext
-              onDragStart={handleDragStart}
-              collisionDetection={closestCorners}
-              onDragEnd={handleDragEnd}
-            >
-              <Row
-                justify={'space-between'}
-                style={{ width: '100%', padding: 10 }}
-                gutter={20}
+            </Col>
+            <Col span={10}>
+              <p
+                style={{
+                  margin: '0 0 6px',
+                  fontWeight: 500,
+                  fontSize: 13,
+                  color: '#64748b',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
               >
-                <Col span={11} style={dragAndDropColStyle}>
+                {t('destinationCluster')}
+              </p>
+              <Select
+                style={{ width: '100%' }}
+                placeholder={t('selectCluster')}
+                value={dest?.id}
+                showSearch
+                filterOption={(input, option) =>
+                  String(option?.label ?? '')
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+                onChange={(value) => {
+                  let dest = null;
+                  Object.keys(clusterGroups).forEach((groupKey) => {
+                    let group = clusterGroups[groupKey];
+                    group.forEach((cluster) => {
+                      if (cluster.id === value) {
+                        dest = cluster;
+                      }
+                    });
+                  });
+                  setDestCluster(dest);
+                }}
+                options={Object.keys(clusterGroups).map((groupKey) => ({
+                  label: (
+                    <span>
+                      <Tag
+                        color={
+                          getAllNodeData(
+                            taxonomy,
+                            clusterGroups[groupKey][0].type
+                          ).color
+                        }
+                      >
+                        <span>{groupKey}</span>
+                      </Tag>
+                    </span>
+                  ),
+                  value: groupKey,
+                  options: clusterGroups[groupKey].map((cluster) => ({
+                    label: cluster.title,
+                    value: cluster.id,
+                  })),
+                }))}
+              />
+            </Col>
+          </Row>
+        </div>
+
+        {/* Drag & drop area */}
+        {(sourceList.length > 0 || destList.length > 0) && (
+          <DndContext
+            onDragStart={handleDragStart}
+            collisionDetection={closestCorners}
+            onDragEnd={handleDragEnd}
+          >
+            <Row
+              justify={'space-between'}
+              style={{ width: '100%' }}
+              gutter={16}
+            >
+              <Col span={12} style={dragAndDropColStyle}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: 10,
+                  }}
+                >
+                  <span
+                    style={{ fontWeight: 600, fontSize: 13, color: '#475569' }}
+                  >
+                    {sourceCluster?.title ?? t('sourceCluster')}
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        backgroundColor: '#e0e7ff',
+                        color: '#4338ca',
+                        borderRadius: 12,
+                        padding: '1px 8px',
+                        fontSize: 11,
+                      }}
+                    >
+                      {sourceList.length}
+                    </span>
+                  </span>
                   <Button
                     size="sm"
+                    variant="flat"
                     color={'secondary'}
-                    style={{ marginBottom: 10 }}
                     onPress={handleSelectAll}
                   >
                     {t('selectAll')}
                   </Button>
+                </div>
+                <div
+                  style={{ maxHeight: 480, overflowY: 'auto', paddingRight: 4 }}
+                >
                   <SortableContext
                     items={sourceList}
                     strategy={rectSortingStrategy}
                   >
-                    {sourceList.map((item) => {
-                      return (
-                        <SortableItem
-                          key={item.id}
-                          id={item.id}
-                          name={item.content}
-                          mentionText={item.fullText}
-                          activeItems={active}
-                          selectedItems={selectedItems}
-                          onCheckboxChange={handleCheckboxChange}
-                        />
-                      );
-                    })}
+                    {sourceList.map((item) => (
+                      <SortableItem
+                        key={item.id}
+                        id={item.id}
+                        name={item.content}
+                        mentionText={item.fullText}
+                        activeItems={active}
+                        selectedItems={selectedItems}
+                        onCheckboxChange={handleCheckboxChange}
+                      />
+                    ))}
                   </SortableContext>
-                </Col>
-                <Col span={11} style={dragAndDropColStyle}>
+                </div>
+              </Col>
+              <Col span={12} style={dragAndDropColStyle}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    marginBottom: 10,
+                  }}
+                >
+                  <span
+                    style={{ fontWeight: 600, fontSize: 13, color: '#475569' }}
+                  >
+                    {dest?.title ?? t('destinationCluster')}
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        backgroundColor: '#dcfce7',
+                        color: '#15803d',
+                        borderRadius: 12,
+                        padding: '1px 8px',
+                        fontSize: 11,
+                      }}
+                    >
+                      {destList.length}
+                    </span>
+                  </span>
+                </div>
+                <div
+                  style={{ maxHeight: 480, overflowY: 'auto', paddingRight: 4 }}
+                >
                   <SortableContext
                     items={destList}
                     strategy={rectSortingStrategy}
@@ -551,32 +696,44 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
                       />
                     ))}
                   </SortableContext>
-                </Col>
-              </Row>
-              <DragOverlay>
-                {active &&
-                  active.length > 0 &&
-                  active.map((activeItem) => (
-                    <SortableItem
-                      key={activeItem.id}
-                      id={activeItem.id}
-                      name={activeItem.content}
-                      mentionText={activeItem.fullText}
-                      activeItems={active}
-                      selectedItems={selectedItems}
-                      onCheckboxChange={handleCheckboxChange}
-                    />
-                  ))}
-              </DragOverlay>
-            </DndContext>
-          )}
-        </Row>
+                </div>
+              </Col>
+            </Row>
+            <DragOverlay>
+              {active &&
+                active.length > 0 &&
+                active.map((activeItem) => (
+                  <SortableItem
+                    key={activeItem.id}
+                    id={activeItem.id}
+                    name={activeItem.content}
+                    mentionText={activeItem.fullText}
+                    activeItems={active}
+                    selectedItems={selectedItems}
+                    onCheckboxChange={handleCheckboxChange}
+                  />
+                ))}
+            </DragOverlay>
+          </DndContext>
+        )}
+
         {editedClusters && (
-          <Row justify={'center'}>
-            <Button onClick={handleSave} isLoading={isSaving}>
+          <div
+            style={{
+              marginTop: 20,
+              display: 'flex',
+              justifyContent: 'flex-end',
+            }}
+          >
+            <Button
+              color="primary"
+              onPress={handleSave}
+              isLoading={isSaving}
+              style={{ minWidth: 120 }}
+            >
               {t('save')}
             </Button>
-          </Row>
+          </div>
         )}
       </Drawer>
     </>
