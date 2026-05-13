@@ -6,6 +6,7 @@ import ToolbarContent from '@/modules/document/ToolbarContent/ToolbarContent';
 import { ContentLayout } from '@/modules/document/ContentLayout';
 import {
   selectViews,
+  selectDocumentData,
   useDocumentDispatch,
   useSelector,
 } from '@/modules/document/DocumentProvider/selectors';
@@ -29,6 +30,7 @@ const NewAnnotationSetModal = dynamic(
 
 const Document: NextPageWithLayout = () => {
   const views = useSelector(selectViews);
+  const doc = useSelector(selectDocumentData);
   const router = useRouter();
   const dispatch = useDocumentDispatch();
   const [isLoading, setIsLoading] = useState(false);
@@ -79,6 +81,13 @@ const Document: NextPageWithLayout = () => {
 
   return (
     <>
+      <h1
+        id="document-title"
+        data-testid="document-title"
+        style={{ display: 'none' }}
+      >
+        {doc?.features?.title || doc?.features?.name || doc?.id}
+      </h1>
       <MultiPane>
         {views.map((view, index) => (
           <ViewProvider key={index} viewIndex={index} isLoading={isLoading} />

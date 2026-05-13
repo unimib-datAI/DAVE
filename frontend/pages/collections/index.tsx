@@ -155,18 +155,23 @@ const Collections: NextPage = () => {
     },
   });
 
+  const ownsAny = collections.some(
+    (c) => c.ownerId === (session as any)?.user?.userId
+  );
+
   const { data: usersData } = useQuery(['user.getAllUsers', { token }], {
-    // Fetch users only when:
+    // Fetch users when:
     //  - we have a token (or auth is disabled),
-    //  - the permission check finished and the user can create or update collections,
-    //  - AND the collection modal is actually open (modalOpen === true).
-    // This prevents the frontend from calling user.getAllUsers for viewer roles
-    // or when the modal is closed (no need to fetch the full user list).
+    //  - the permission check finished,
+    //  - AND either the collection modal is open for managing shares OR
+    //    the current user owns at least one collection.
+    // This lets owners see shared user emails in the collection list without
+    // requiring them to open the edit modal, while still avoiding fetching
+    // the full user list for pure viewers.
     enabled:
       (tokenAvailable || authDisabled) &&
-      (canCreate || canUpdate) &&
       !permsLoading &&
-      modalOpen,
+      ((modalOpen && (canCreate || canUpdate)) || ownsAny),
     onSuccess: (data) => {
       if (data) {
         setUsers(data);
@@ -176,17 +181,16 @@ const Collections: NextPage = () => {
 
   // Ensure users state is cleared when:
   //  - permissions indicate the user cannot manage collections,
-  //  - permissions are still loading, OR
-  //  - the collection modal is closed.
-  // This avoids stale user lists for viewers and prevents the getAllUsers call
-  // from firing while switching users/projects in the UI.
+  //  - permissions are still loading, AND
+  //  - the collection modal is closed and the user doesn't own any collections.
+  // This avoids stale user lists for viewers but keeps the list available for owners
+  // so getUserName can resolve emails in the collection list view.
   useEffect(() => {
     if (
       !(
         (tokenAvailable || authDisabled) &&
         !permsLoading &&
-        (canCreate || canUpdate) &&
-        modalOpen
+        (((canCreate || canUpdate) && modalOpen) || ownsAny)
       )
     ) {
       setUsers([]);
@@ -198,6 +202,8 @@ const Collections: NextPage = () => {
     canUpdate,
     permsLoading,
     modalOpen,
+    collections,
+    session,
   ]);
 
   const createMutation = useMutation(['collection.create'], {
@@ -465,7 +471,9 @@ const Collections: NextPage = () => {
 
   const getUserName = (userId: string) => {
     const user = users.find((u) => u.id === userId);
-    return user?.name || user?.email || userId;
+    // Show a friendly fallback instead of exposing raw user IDs when we
+    // don't have the user's details in state.
+    return user?.name || user?.email || 'Unknown user';
   };
 
   if (status === 'loading' || loading) {
@@ -596,7 +604,8 @@ const Collections: NextPage = () => {
                   </Actions>
                 </CardHeader>
                 <CardContent>
-                  {collection.allowedUserIds &&
+                  {collection.ownerId === (session?.user as any)?.userId &&
+                    collection.allowedUserIds &&
                     collection.allowedUserIds.length > 0 && (
                       <div>
                         <span

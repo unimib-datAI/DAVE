@@ -234,18 +234,31 @@ const FacetFilter = ({
 
   return (
     <div
+      id={`facet-${facet.key}`}
       className={`flex flex-col z-[1] gap-2 ${
         highlight ? 'border-2 border-blue-500 rounded-md' : ''
       }`}
     >
-      <div className="flex flex-row items-center gap-2">
-        <span className="capitalize text-sm font-semibold">{facet.key}</span>
-        <span className="text-xs text-slate-400">{`(${facet.n_children})`}</span>
+      <div
+        id={`facet-${facet.key}-header`}
+        className="flex flex-row items-center gap-2"
+      >
+        <span
+          id={`facet-${facet.key}-title`}
+          className="capitalize text-sm font-semibold"
+        >
+          {facet.key}
+        </span>
+        <span
+          id={`facet-${facet.key}-count`}
+          className="text-xs text-slate-400"
+        >{`(${facet.n_children})`}</span>
       </div>
 
       <div className="flex flex-row items-center border-[1px] border-solid border-slate-200 rounded-md p-1 w-full gap-2">
         <SearchIcon size={16} />
         <input
+          id={`facet-${facet.key}-search-input`}
           className="text-slate-800 resize-none bg-transparent w-full h-full border-none text-sm"
           spellCheck="false"
           placeholder={t('findFacet', { facet: facet.key })}
@@ -257,6 +270,7 @@ const FacetFilter = ({
         {children.map((option) => {
           return (
             <Checkbox
+              id={`facet-${facet.key}-option-${option.key}`}
               key={option.key}
               isSelected={
                 (option.key &&
@@ -284,7 +298,10 @@ const FacetFilter = ({
                     <Link className="h-3 w-3 text-black" />
                   </span>
                 )}
-                <span className="text-base whitespace-nowrap text-ellipsis overflow-hidden w-48">
+                <span
+                  id={`facet-${facet.key}-option-label-${option.key}`}
+                  className="text-base whitespace-nowrap text-ellipsis overflow-hidden w-48"
+                >
                   {filterType === 'annotation'
                     ? deanonymize &&
                       option.display_name &&
@@ -303,6 +320,7 @@ const FacetFilter = ({
         <div className="flex flex-row justify-between">
           {page > 0 ? (
             <button
+              id={`facet-${facet.key}-show-less`}
               onClick={() => setPage(0)}
               className="text-xs border-none bg-transparent flex justify-start m-0 p-0 font-semibold underline cursor-pointer"
             >
@@ -311,6 +329,7 @@ const FacetFilter = ({
           ) : null}
           {VISIBLE_ELEMENTS < facet.n_children ? (
             <button
+              id={`facet-${facet.key}-show-more`}
               onClick={() => setPage((p) => p + 1)}
               className="text-xs border-none bg-transparent flex justify-start m-0 p-0 font-semibold underline cursor-pointer"
             >

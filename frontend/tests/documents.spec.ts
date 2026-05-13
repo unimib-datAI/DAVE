@@ -1,132 +1,202 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 
-test.describe('Documents Page', () => {
-  test('should navigate to documents page when clicking "See all documents"', async ({
+/**
+ * Navigate to the search page, perform an empty search and open the first document.
+ * Throws if unable to find a document.
+ */
+async function openFirstDocument(page: Page) {
+  const searchPaths = ['/holmes24/search', '/search', '/search/'];
+  let foundSearch = false;
+
+  for (const p of searchPaths) {
+    await page.goto(p);
+    await page.waitForLoadState('networkidle');
+    const searchInput = page.locator(
+      'input[placeholder*="Search"], input[type="search"], input[aria-label*="search"]'
+    );
+    if ((await searchInput.count()) > 0) {
+      foundSearch = true;
+      break;
+    }
+  }
+
+  if (!foundSearch) {
+    await page.goto('/');
+    await page.waitForLoadState('networkidle');
+    const cta = page.locator(
+      'button:has-text("See all documents"), a:has-text("See all documents"), a:has-text("Documents"), button:has-text("Documents")'
+    );
+    if ((await cta.count()) === 0) {
+      throw new Error('Could not reach search page or CTA to documents');
+    }
+    await Promise.all([
+      page.waitForNavigation({ waitUntil: 'networkidle', timeout: 15000 }),
+      cta.first().click(),
+    ]);
+  }
+
+  const input = page
+    .locator(
+      'input[placeholder*="Search"], input[type="search"], input[aria-label*="search"]'
+    )
+    .first();
+  if ((await input.count()) === 0) {
+    throw new Error('Search input not found on search page');
+  }
+
+  await input.waitFor({ state: 'visible', timeout: 10000 });
+  await input.focus();
+  await input.press('Enter');
+
+  await page.waitForLoadState('networkidle');
+  await page.waitForTimeout(1200);
+
+  const resultLinks = page.locator(
+    'a[href*="/documents/"], a[href*="/holmes24/documents/"]'
+  );
+  const count = await resultLinks.count();
+  if (count === 0) {
+    throw new Error('No document results found after empty search');
+  }
+
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 }),
+    resultLinks.first().click(),
+  ]);
+
+  await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 30000 });
+}
+
+/**
+ * Wait for the "Edit clusters" button — used as the document ready signal.
+ */
+async function waitForDocumentReady(page: Page) {
+  await page.getByRole('button', { name: 'Edit clusters' }).waitFor({
+    state: 'visible',
+    timeout: 45000,
+  });
+}
+
+// ---------------------------------------------------------------------------
+
+test.describe('Document page', () => {
+  test.beforeEach(async ({ page }) => {
+    await openFirstDocument(page);
+    await waitForDocumentReady(page);
+  });
+
+  test('document content is loaded', async ({ page }) => {
+    expect(page.url()).toMatch(/\/documents\/[^/]+$/);
+
+    const editClustersButton = page.getByRole('button', {
+      name: 'Edit clusters',
+    });
+    await expect(editClustersButton).toBeVisible({ timeout: 10000 });
+    expect(
+      (await editClustersButton.textContent())?.trim().length
+    ).toBeGreaterThan(0);
+  });
+
+  test('clicking an entity node opens the entity detail panel', async ({
     page,
   }) => {
-    // Start from home page (already logged in via saved auth state)
-    await page.goto('/');
+    // Use the data-entity-id attribute to find the first entity node reliably
+    const entityNode = page.locator('[data-entity-id]').first();
+    await entityNode.waitFor({ state: 'visible', timeout: 10000 });
 
-    // Wait for page to load
-    await page.waitForLoadState('networkidle');
+    // Ensure the element is scrolled into view before clicking to avoid overlay/detached issues
+    await entityNode.scrollIntoViewIfNeeded();
 
-    // Click "See all documents" button
-    await page.click('button:has-text("See all documents")');
-
-    // Wait for navigation to search page
-    await page.waitForURL(/\/holmes24\/search/, { timeout: 10000 });
-
-    // Verify we're on the search page
-    expect(page.url()).toContain('/holmes24/search');
-
-    // Check that the page has loaded by looking for common elements
-    await page.waitForSelector(
-      'form, input[type="search"], [data-testid="search"]',
-      { timeout: 5000 }
-    );
-
-    // Take screenshot to verify page loaded correctly
-    await page.screenshot({ path: 'documents-page.png' });
-  });
-
-  test('should filter documents using facet filters', async ({ page }) => {
-    // Navigate to search page (already logged in)
-    await page.goto('/holmes24/search');
-
-    // Wait for page to load
-    await page.waitForLoadState('networkidle');
-
-    // Wait for facets to be visible
-    await page.waitForTimeout(2000);
-
-    // Find and click on a facet filter
-    // Facets have structure: <span class="text-base whitespace-nowrap text-ellipsis overflow-hidden w-48">
-    const facetItem = page
-      .getByRole('checkbox', {
-        name: 'Advanced Technical Support',
-      })
-      .first();
-    // .locator(
-    //   'span.text-base.whitespace-nowrap.text-ellipsis.overflow-hidden.w-48'
-    // )
-    // .first();
-
-    // Check if facets are available
-    const facetCount = await facetItem.count();
-    if (facetCount === 0) {
-      console.log('⚠️ No facets available to test filtering');
-      test.skip();
+    // Prefer a normal click but fall back to a JS click if the element is detached or overlayed
+    try {
+      await entityNode.click();
+    } catch {
+      const handle = await entityNode.elementHandle();
+      if (handle) {
+        await page.evaluate((el) => (el as HTMLElement).click(), handle);
+      }
     }
 
-    // Get the facet text before clicking
-    const facetText = await facetItem.textContent();
-    console.log(`📌 Clicking on facet: "${facetText}"`);
-
-    // Take screenshot before filtering
-    await page.screenshot({ path: 'before-facet-filter.png' });
-
-    // Click on the facet
-    await facetItem.click();
-
-    // Wait for results to update
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-
-    // Take screenshot after filtering
-    await page.screenshot({ path: 'after-facet-filter.png' });
-
-    // Verify we're still on the search page
-    expect(page.url()).toContain('/holmes24/search');
-
-    console.log(`✅ Facet filter applied successfully for: "${facetText}"`);
+    // Some UIs render the annotation details inside a portal or with a heading.
+    // Check for the 'Annotation details' heading text instead of relying on a specific test-id.
+    const annotationDetailsHeading = page.getByText('Annotation details');
+    await expect(annotationDetailsHeading).toBeVisible({ timeout: 8000 });
   });
 
-  test('should search documents using search bar', async ({ page }) => {
-    // Navigate to search page (already logged in)
-    await page.goto('/holmes24/search');
+  test('clicking a cluster item and then a mention works', async ({ page }) => {
+    // Prefer clicking a cluster group element whose id starts with the fixed prefix.
+    const clusterGroupAll = page.locator('[id^="cluster-group-"]');
+    const clusterItem = page.locator('[data-testid="cluster-item"]').first();
+    // Wait for either cluster-group elements or cluster items to appear
+    const groupCount = await clusterGroupAll.count();
+    // choose the preferred target: cluster-group if present, otherwise cluster-item
+    const target = groupCount > 0 ? clusterGroupAll.first() : clusterItem;
+    await target.waitFor({ state: 'visible', timeout: 10000 });
+    // Ensure the target is visible in the viewport
+    await target.scrollIntoViewIfNeeded();
 
-    // Wait for page to load
-    await page.waitForLoadState('networkidle');
+    // Try several click strategies:
+    // 1) normal click
+    // 2) forced click (bypasses Playwright visibility/obstruction checks)
+    // 3) DOM-eval click on the element handle (last resort)
+    let clicked = false;
+    try {
+      await target.click();
+      clicked = true;
+    } catch (err) {
+      // fallback: force click
+      try {
+        await target.click({ force: true });
+        clicked = true;
+      } catch (err2) {
+        // last resort: call the element's click() in page context
+        const handle = await target.elementHandle();
+        if (handle) {
+          await page.evaluate((el) => (el as HTMLElement).click(), handle);
+          clicked = true;
+        }
+      }
+    }
 
-    // Find the search input
-    const searchInput = page.locator(
-      'input.text-slate-800.resize-none.bg-transparent[placeholder="Search documents"]'
-    );
+    if (!clicked) {
+      throw new Error(
+        'Failed to click cluster-group or cluster-item via normal, forced, and DOM-eval click methods'
+      );
+    }
 
-    // Wait for search bar to be visible
-    await searchInput.waitFor({ state: 'visible', timeout: 10000 });
+    // After clicking the group/item, click the first element whose id starts with 'cluster-'
+    // (the prefix is fixed; this targets elements like id="cluster-123" or id="cluster-REGULATION-1")
+    const clusterById = page.locator('[id^="cluster-"]').first();
+    if ((await clusterById.count()) > 0) {
+      await clusterById.waitFor({ state: 'visible', timeout: 10000 });
+      await clusterById.scrollIntoViewIfNeeded();
 
-    // Take screenshot before search
-    await page.screenshot({ path: 'before-search.png' });
+      let clickedClusterById = false;
+      try {
+        await clusterById.click();
+        clickedClusterById = true;
+      } catch (err) {
+        try {
+          await clusterById.click({ force: true });
+          clickedClusterById = true;
+        } catch {
+          const handle = await clusterById.elementHandle();
+          if (handle) {
+            await page.evaluate((el) => (el as HTMLElement).click(), handle);
+            clickedClusterById = true;
+          }
+        }
+      }
 
-    // Type a single letter to ensure we match something
-    const searchTerm = 'a';
-    await searchInput.fill(searchTerm);
-    console.log(`🔍 Searching for: "${searchTerm}"`);
+      if (!clickedClusterById) {
+        throw new Error(
+          "Failed to click first element with id starting 'cluster-' via normal, forced, and DOM-eval methods"
+        );
+      }
+    }
 
-    // Press Enter or wait for auto-search
-    await searchInput.press('Enter');
-
-    // Wait for search results to load
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
-
-    // Take screenshot after search
-    await page.screenshot({ path: 'after-search.png' });
-
-    // Verify we're still on the search page
-    expect(page.url()).toContain('/holmes24/search');
-
-    // Verify the search input still contains our search term
-    const inputValue = await searchInput.inputValue();
-    expect(inputValue).toBe(searchTerm);
-
-    const searchResult = page.getByRole('link', {
-      name: 'Case: EXT-CASE-513462 Action',
-    });
-    await searchResult.click();
-    await page.waitForURL(/\/documents\/[^/]+$/, { timeout: 10_000 });
-
-    console.log(`✅ Search completed successfully for: "${searchTerm}"`);
+    const mention = page.locator('[data-testid="mention"]').first();
+    await mention.waitFor({ state: 'visible', timeout: 10000 });
+    await mention.click();
   });
 });

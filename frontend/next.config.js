@@ -13,6 +13,12 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     emotion: true,
+    // Increase proxy body size limit to handle large document uploads (Next.js 16+)
+    proxyClientMaxBodySize: '150mb',
+  },
+  // Increase body size limit to handle large document uploads
+  serverActions: {
+    bodySizeLimit: '150mb',
   },
   images: {
     domains: ['upload.wikimedia.org'],
@@ -49,6 +55,8 @@ const nextConfig = {
     return redirectRoutes;
   },
   basePath: getBasePath(),
+  // Prevent @xenova/transformers (browser-only) from being bundled for SSR
+  serverExternalPackages: ['@xenova/transformers'],
 };
 
 module.exports = nextConfig;

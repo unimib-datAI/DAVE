@@ -235,6 +235,11 @@ const EntityNodeInner = React.forwardRef<HTMLSpanElement, EntityNodeProps>(
         const tagElement = (
           <Tag
             id={`entity-tag-${annotation.id}`}
+            data-testid={`entity-node-${annotation.id}`}
+            data-entity-id={annotation.id}
+            role="button"
+            aria-label={`entity-${annotation.id}`}
+            tabIndex={0}
             highlight={highlight}
             color={color}
             onClick={handleTagClick(annotation)}
