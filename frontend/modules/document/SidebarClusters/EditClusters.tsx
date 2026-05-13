@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { ProcessedCluster } from '../DocumentProvider/types';
 import { Button, Tooltip } from '@heroui/react';
 import { Checkbox, Col, Drawer, message, Modal, Row, Select, Tag } from 'antd';
@@ -155,6 +156,8 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
   const docId = useSelector(selectDocumentId);
   const annSetName = useSelector(selectCurrentAnnotationSetName);
   const context = useDocumentContext();
+  const { data: session } = useSession();
+  const token = (session as any)?.accessToken as string | undefined;
   const moveEntitiesToClusters = useMutation([
     'document.moveEntitiesToCluster',
   ]);
@@ -322,6 +325,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
           sourceCluster: sourceCluster?.id as number,
           annotationSet: annSetName as string,
           destinationCluster: dest?.id as number,
+          token,
         },
         {
           onSuccess: (data) => {
