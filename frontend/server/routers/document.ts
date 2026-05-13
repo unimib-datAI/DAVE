@@ -165,11 +165,12 @@ const moveEntitiesToCluster = async (
   entities: number[],
   annotationSet: string,
   sourceCluster: number,
-  destinationCluster: number
+  destinationCluster: number,
+  token?: string
 ) => {
   try {
     const headers: any = {};
-    const authHeader = getAuthHeader();
+    const authHeader = getJWTHeader(token);
     if (authHeader) {
       headers.Authorization = authHeader;
     }
@@ -557,16 +558,24 @@ export const documents = createRouter()
       entities: z.array(z.number()),
       sourceCluster: z.number(),
       destinationCluster: z.number(),
+      token: z.string().optional(),
     }),
     resolve: async ({ input }) => {
-      const { id, annotationSet, entities, sourceCluster, destinationCluster } =
-        input;
+      const {
+        id,
+        annotationSet,
+        entities,
+        sourceCluster,
+        destinationCluster,
+        token,
+      } = input;
       let moveRes = await moveEntitiesToCluster(
         id,
         entities,
         annotationSet,
         sourceCluster,
-        destinationCluster
+        destinationCluster,
+        token
       );
       console.log('moveRes', moveRes);
       return moveRes;
