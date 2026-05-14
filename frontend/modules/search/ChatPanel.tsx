@@ -3,6 +3,7 @@ import { useForm } from '@/hooks';
 import { Button, Switch, Tooltip } from '@heroui/react';
 import { Select } from 'antd';
 import { Message, SkeletonMessage } from './Message';
+import { AgentStepProgress } from './AgentStepProgress';
 // import { Button } from '@/components';
 import {
   GenerateOptions,
@@ -97,18 +98,23 @@ type ChatPanel = {
 
 const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
   const t = useText('chat');
-  const { state, isStreaming, isLoading, appendMessage, restartChat } = useChat(
-    {
-      endpoint: '/generate',
-      initialMessages: [
-        {
-          role: 'assistant',
-          content: t('initialMessage'),
-          isDoneStreaming: true,
-        },
-      ],
-    }
-  );
+  const {
+    state,
+    isStreaming,
+    isLoading,
+    appendMessage,
+    restartChat,
+    agentSteps,
+  } = useChat({
+    endpoint: '/generate',
+    initialMessages: [
+      {
+        role: 'assistant',
+        content: t('initialMessage'),
+        isDoneStreaming: true,
+      },
+    ],
+  });
   const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const [activeCollection] = useAtom(activeCollectionAtom);
   const [selectedFilters] = useAtom(selectedFiltersAtom);
@@ -214,16 +220,30 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     //   '6256c9c52e31f2e5967d457aa9e3dda502cb6cd7b8bb9df6015862ef9f9cd97f',
     // ];
     console.log('active filter ids', filterIds);
-    const context = useDocumentContext
-      ? await mostSimilarDocumentsMutation.mutateAsync({
-          query: formValues.message,
-          filter_ids: filterIds,
-          retrievalMethod: formValues.retrievalMethod,
-          force_rag: formValues.force_rag,
-          collectionId: activeCollection ? activeCollection.id : undefined,
-        })
-      : undefined;
-    appendMessage({ ...formValues, context, devMode });
+
+    // When multi-agent mode is enabled the pipeline handles its own retrieval
+    // internally (dense / fulltext / hybrid / summary). We skip the pre-fetch
+    // here and instead pass filterIds so the pipeline can scope results.
+    let context;
+    if (formValues.useMultiAgent) {
+      context = undefined; // multi-agent fetches its own context
+    } else if (useDocumentContext) {
+      context = await mostSimilarDocumentsMutation.mutateAsync({
+        query: formValues.message,
+        filter_ids: filterIds,
+        retrievalMethod: formValues.retrievalMethod,
+        force_rag: formValues.force_rag,
+        collectionId: activeCollection ? activeCollection.id : undefined,
+      });
+    }
+
+    appendMessage({
+      ...formValues,
+      context,
+      devMode,
+      // Always pass filterIds – use-chat will forward them to the API
+      filterIds: filterIds.length > 0 ? filterIds : undefined,
+    });
     setValue({
       message: '',
     });
@@ -263,6 +283,15 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
               // Include all non-system messages, even if content is empty for user messages
             })}
             {isLoading && <SkeletonMessage />}
+            {/* Agent pipeline progress – visible during AND after multi-agent streaming.
+                During: shows real-time running/done indicators.
+                After: persists as a compact summary until the next query starts. */}
+            {value.useMultiAgent && agentSteps.length > 0 && (
+              <AgentStepProgress
+                steps={agentSteps}
+                isStreaming={isLoading || isStreaming}
+              />
+            )}
             {/* Display rating component only when there are more than 1 messages, and when  streaming the message */}
             {!isLoading && !isStreaming && state.messages.length > 1 && (
               <RateConversation state={state} />
@@ -294,7 +323,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                     : t('useCurrentSearchResultsContext')
                 }
                 placement="top"
-                color="invert"
               >
                 <Switch
                   id="chat-context-switch"
@@ -314,7 +342,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
               id="chat-send-btn"
               state={chatState}
               type="submit"
-              auto={true}
               className="bg-slate-900 text-white flex-shrink-0 whitespace-nowrap"
             >
               {t('send')}
@@ -364,7 +391,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                     <div className="flex flex-col gap-3">
                       <Tooltip
                         className="w-full"
-                        color="invert"
                         placement="left"
                         content={t('selectPredefinedQuestionTooltip')}
                       >
@@ -410,7 +436,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                   <div className="flex flex-col gap-3">
                     <Tooltip
                       className="w-full"
-                      color="invert"
                       placement="left"
                       content={t('temperatureTooltip')}
                     >
@@ -446,7 +471,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                   <div className="flex flex-col gap-3">
                     <Tooltip
                       className="w-full"
-                      color="invert"
                       placement="left"
                       content={t('maxNewTokensTooltip')}
                     >
@@ -483,7 +507,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                   <div className="flex flex-col gap-3">
                     <Tooltip
                       className="w-full"
-                      color="invert"
                       placement="left"
                       content={t('topPTooltip')}
                     >
@@ -519,7 +542,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                   <div className="flex flex-col gap-3">
                     <Tooltip
                       className="w-full"
-                      color="invert"
                       placement="left"
                       content={t('topKTooltip')}
                     >
@@ -555,7 +577,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                   <div className="flex flex-col gap-3">
                     <Tooltip
                       className="w-full"
-                      color="invert"
                       placement="left"
                       content={t('frequencyPenaltyTooltip')}
                     >
@@ -632,7 +653,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                   <div className="flex flex-col gap-3">
                     <Tooltip
                       className="w-full"
-                      color="invert"
                       placement="left"
                       content={t('forceRagTooltip')}
                     >
@@ -654,7 +674,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                   <div className="flex flex-col gap-3">
                     <Tooltip
                       className="w-full"
-                      color="invert"
                       placement="left"
                       content={t('useMultiAgentTooltip')}
                     >
@@ -676,7 +695,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                   <div className="flex flex-col gap-3 flex-grow">
                     <Tooltip
                       className="w-full"
-                      color="invert"
                       placement="left"
                       content={t('systemPromptTooltip')}
                     >

@@ -9,6 +9,13 @@ import { useText } from '@/components/TranslationProvider';
 import { globalAnonymizationAtom } from '@/utils/atoms';
 import { splitSentences, findMatchingChunks } from '@/utils/stringUtilities';
 
+export type AgentStep = {
+  agent: string;
+  step: string;
+  status: 'running' | 'done';
+  durationMs?: number;
+};
+
 export type Message = {
   role: 'system' | 'assistant' | 'user';
   content: string;
@@ -36,6 +43,8 @@ export type GenerateOptions = {
   system?: string;
   context?: DocumentWithChunk[];
   useMultiAgent?: boolean;
+  /** Document IDs to restrict retrieval to (used by the multi-agent pipeline) */
+  filterIds?: string[];
 };
 
 function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
@@ -55,6 +64,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
 
   const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
 
   // Update chat state when messages change
   useEffect(() => {
@@ -132,16 +142,23 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
     // Determine system prompt: Always use settings prompt, unless in devMode with custom system
     const defaultSystemPrompt =
       llmSettings.defaultSystemPrompt || DEFAULT_SYSTEM_PROMPT;
-    let finalSystemPrompt =
-      devMode && options.system !== undefined
-        ? options.system
-        : defaultSystemPrompt;
-    let userMessageContent = '';
 
-    // Always build the prompt by replacing placeholders
-    finalSystemPrompt = finalSystemPrompt
-      .replace('{{CONTEXT}}', contextStr)
-      .replace('{{QUESTION}}', message);
+    // When multi-agent is active the pipeline handles retrieval and context
+    // internally, so we use a minimal system prompt instead of embedding context.
+    let finalSystemPrompt: string;
+    if (options.useMultiAgent) {
+      finalSystemPrompt = 'You are a helpful AI assistant.';
+    } else {
+      finalSystemPrompt =
+        devMode && options.system !== undefined
+          ? options.system
+          : defaultSystemPrompt;
+      // Replace placeholders with actual context / question
+      finalSystemPrompt = finalSystemPrompt
+        .replace('{{CONTEXT}}', contextStr)
+        .replace('{{QUESTION}}', message);
+    }
+    let userMessageContent = '';
     // Append citation instruction so the LLM cites passage numbers inline.
     // if (processedChunks.length > 0) {
     //   finalSystemPrompt +=
@@ -227,6 +244,8 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           ...normalizedOptions,
           messages: apiMessages,
           collectionId: activeCollection,
+          // Pass filter IDs so the multi-agent pipeline can scope retrieval
+          filterIds: options.filterIds,
           customSettings: llmSettings.useCustomSettings
             ? llmSettings
             : undefined,
@@ -243,96 +262,210 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       }
 
       const decoder = new TextDecoder();
-      let assistantContent = '';
+      // rawAccumulator holds every byte received, including all sentinel data.
+      // We strip sentinels progressively so the user only ever sees clean text.
+      let rawAccumulator = '';
+      let assistantContent = ''; // clean text (no sentinels) – set after loop
       let isFirstChunk = true;
+
+      // Reset agent steps for this new query
+      setAgentSteps([]);
 
       // Not loading anymore since we're streaming
       setIsLoading(false);
+
+      // Regex constants for the two sentinel types
+      const STEP_RE = /\x02DAVE_STEP\x1E([\s\S]*?)\x03/g;
+      const CTX_PARTIAL_RE = /\x02DAVE_CTX\x1E[\s\S]*$/; // partial CTX at tail
+      const CTX_FULL_RE = /\x02DAVE_CTX\x1E[\s\S]*?\x03/g;
 
       // Start reading the stream
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        assistantContent += chunk;
+        rawAccumulator += decoder.decode(value, { stream: true });
 
-        if (isFirstChunk) {
-          // Add initial assistant message (create a new message)
+        // ── Extract complete STEP sentinels and update progress state ────────
+        const pendingSteps: {
+          agent: string;
+          step: string;
+          status: string;
+          durationMs?: number;
+        }[] = [];
+        rawAccumulator = rawAccumulator.replace(STEP_RE, (_, json) => {
+          try {
+            pendingSteps.push(JSON.parse(json));
+          } catch {
+            /* ignore */
+          }
+          return '';
+        });
+        if (pendingSteps.length > 0) {
+          setAgentSteps((prev) => {
+            const updated = [...prev];
+            for (const s of pendingSteps) {
+              if (s.status === 'done') {
+                // Mark the last matching 'running' entry as done
+                for (let i = updated.length - 1; i >= 0; i--) {
+                  if (
+                    updated[i].agent === s.agent &&
+                    updated[i].status === 'running'
+                  ) {
+                    updated[i] = {
+                      agent: s.agent,
+                      step: s.step,
+                      status: 'done',
+                      durationMs: s.durationMs,
+                    };
+                    break;
+                  }
+                }
+              } else {
+                updated.push({
+                  agent: s.agent,
+                  step: s.step,
+                  status: 'running',
+                });
+              }
+            }
+            return updated;
+          });
+        }
+
+        // ── Compute visible content (strip CTX sentinel from tail) ──────────
+        const visibleContent = rawAccumulator
+          .replace(CTX_FULL_RE, '')
+          .replace(CTX_PARTIAL_RE, '');
+
+        // Only start showing the assistant message once actual text is present
+        if (isFirstChunk && visibleContent.length > 0) {
           setMessages((prev) => [
             ...prev,
             {
               role: 'assistant',
-              content: chunk,
+              content: visibleContent,
               isDoneStreaming: false,
-              devPrompt: finalSystemPrompt, // Store the actual prompt that was used
+              devPrompt: finalSystemPrompt,
               context: context,
               wasAnonymized: isAnonymized,
             },
           ]);
           isFirstChunk = false;
-        } else {
-          // Update the assistant message with the new content (create a new message)
+        } else if (!isFirstChunk) {
           setMessages((prev) => {
-            const newMessages = [...prev]; // Create a new array
+            const newMessages = [...prev];
             const lastIndex = newMessages.length - 1;
-
             if (lastIndex >= 0 && newMessages[lastIndex].role === 'assistant') {
-              // Create a new assistant message with updated content
               newMessages[lastIndex] = {
                 ...newMessages[lastIndex],
-                content: assistantContent,
+                content: visibleContent,
                 isDoneStreaming: false,
               };
             }
-
             return newMessages;
           });
         }
       }
+
+      // ── Extract multi-agent retrieved context from sentinel ────────────────────
+      // rawAccumulator still contains the CTX sentinel (STEP sentinels were
+      // stripped during the loop). Parse and remove it, then set assistantContent.
+      assistantContent = rawAccumulator;
+      let multiAgentDocs: typeof context | undefined;
+      let multiAgentChunkMap: { [id: string]: string } | undefined;
+      let multiAgentChunkIndexMap: { [id: string]: number } | undefined;
+      const CTX_RE = /\x02DAVE_CTX\x1E([\s\S]*?)\x03/;
+      const ctxMatch = assistantContent.match(CTX_RE);
+      if (ctxMatch) {
+        try {
+          const payload = JSON.parse(ctxMatch[1]);
+          // Support both the old (array) and new (object) sentinel formats
+          if (Array.isArray(payload)) {
+            multiAgentDocs = payload;
+          } else {
+            multiAgentDocs = payload.docs;
+            multiAgentChunkMap = payload.chunkMap;
+            multiAgentChunkIndexMap = payload.chunkIndexMap;
+          }
+        } catch (e) {
+          console.error(
+            '[use-chat] Failed to parse multi-agent context sentinel',
+            e
+          );
+        }
+        assistantContent = assistantContent.replace(CTX_RE, '').trimEnd();
+      }
+
       const finalText = assistantContent;
-      // Split once on the raw LLM output (which still contains [n] markers).
-      // Clean each sentence in the same pass so indices are identical to what
-      // AnnotatedMarkdown will see when it re-splits the stored displayText.
-      const rawSentences = splitSentences(finalText);
-      const cleanSentences: string[] = [];
-      // Strip any inline bracket citations produced by the LLM and build clean sentences
-      for (const sentence of rawSentences) {
-        const clean = sentence
-          .replace(/\s*\[\d+(?:[,\s]+\d+)*\]/g, '')
-          .replace(/(\s*,)+\s*(?=[,.]|$)/g, '')
-          .trim();
-        if (clean) cleanSentences.push(clean);
-      }
-      console.log('clean sentences', cleanSentences);
 
-      // Compute matching chunks using the string-similarity matcher
+      // In multi-agent mode the pipeline already produced clean, well-formatted
+      // Markdown. Sentence-splitting would destroy lists and bold headers by
+      // splitting on periods inside numbering (e.g. "**1. Title**" → "**1." +
+      // "Title**") and then re-joining with \n\n. Skip the whole pass and keep
+      // the raw text as-is. Citations are also skipped (chunks live server-side).
+      let displayText: string;
       let matchingChunks: { [sentenceIndex: number]: string[] } = {};
-      try {
-        matchingChunks =
-          (await findMatchingChunks(cleanSentences, processedChunks, 0.6)) ||
-          {};
-      } catch (err) {
-        console.error('Error computing matching chunks:', err);
-        matchingChunks = {};
-      }
 
-      const displayText = cleanSentences.join('\n\n');
-      // Final update: mark assistant message as done streaming (create a new message)
+      if (options.useMultiAgent || processedChunks.length === 0) {
+        // Preserve the full Markdown structure untouched.
+        displayText = finalText;
+      } else {
+        // Standard path: split sentences for inline citation matching.
+        // Split once on the raw LLM output (which still contains [n] markers).
+        // Clean each sentence in the same pass so indices are identical to what
+        // AnnotatedMarkdown will see when it re-splits the stored displayText.
+        const rawSentences = splitSentences(finalText);
+        const cleanSentences: string[] = [];
+        for (const sentence of rawSentences) {
+          const clean = sentence
+            .replace(/\s*\[\d+(?:[,\s]+\d+)*\]/g, '')
+            .replace(/(\s*,)+\s*(?=[,.]|$)/g, '')
+            .trim();
+          if (clean) cleanSentences.push(clean);
+        }
+        console.log('clean sentences', cleanSentences);
+
+        try {
+          matchingChunks =
+            (await findMatchingChunks(cleanSentences, processedChunks, 0.6)) ||
+            {};
+        } catch (err) {
+          console.error('Error computing matching chunks:', err);
+        }
+
+        displayText = cleanSentences.join('\n\n');
+      }
+      // Final update: mark assistant message as done streaming, and attach
+      // multi-agent context to the preceding user message so the context panel
+      // renders exactly the same as in standard RAG mode.
       setMessages((prev) => {
-        const newMessages = [...prev]; // Create a new array
+        const newMessages = [...prev];
         const lastIndex = newMessages.length - 1;
 
+        // Update assistant message
         if (lastIndex >= 0 && newMessages[lastIndex].role === 'assistant') {
-          // Create a new assistant message marked as done streaming
           newMessages[lastIndex] = {
             ...newMessages[lastIndex],
             content: displayText,
             isDoneStreaming: true,
             citations: matchingChunks,
-            chunkMap,
-            chunkIndexMap,
+            // Prefer multi-agent maps (inline [n] citations) over the
+            // standard-RAG maps (sentence-level citation matching).
+            chunkMap: multiAgentChunkMap ?? chunkMap,
+            chunkIndexMap: multiAgentChunkIndexMap ?? chunkIndexMap,
           };
+        }
+
+        // Back-fill context onto the user message so the resource panel appears
+        if (multiAgentDocs && multiAgentDocs.length > 0) {
+          const userIdx = lastIndex - 1;
+          if (userIdx >= 0 && newMessages[userIdx].role === 'user') {
+            newMessages[userIdx] = {
+              ...newMessages[userIdx],
+              context: multiAgentDocs,
+            };
+          }
         }
 
         return newMessages;
@@ -351,12 +484,17 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
     } finally {
       setIsStreaming(false);
       setIsLoading(false);
+      // NOTE: agentSteps are intentionally NOT cleared here.
+      // We keep the completed pipeline summary visible until the user sends
+      // a new message, where setAgentSteps([]) is called at the top of
+      // appendMessage to reset for the new query.
     }
   };
 
   const restartChat = () => {
     // Reset to initial messages (create a new array)
     setMessages([...initialMessages]);
+    setAgentSteps([]);
     dispatch({
       type: 'setConversationRated',
       payload: { rated: false },
@@ -367,9 +505,10 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
     messages,
     appendMessage,
     restartChat,
-    state: { messages: messages || [] }, // Ensure messages is never undefined
+    state: { messages: messages || [] },
     isStreaming,
     isLoading,
+    agentSteps,
   };
 }
 

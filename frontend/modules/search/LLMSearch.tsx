@@ -1,6 +1,6 @@
-import { SwitchEvent, Tooltip, Switch, Button } from '@heroui/react';
+import { Tooltip, Switch, Button } from '@heroui/react';
 import { MessageSquareDashed, Code, X, Lock } from 'lucide-react';
-import { forwardRef, useState } from 'react';
+import React, { forwardRef, useState } from 'react';
 import { ChatPanel } from './ChatPanel';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
@@ -24,7 +24,7 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
     const canDevMode = useCanDevModeChat();
     const t = useText('chat');
 
-    const handleModeChange = (ev: SwitchEvent) => {
+    const handleModeChange = (ev: React.ChangeEvent<HTMLInputElement>) => {
       setDevMode(ev.target.checked);
     };
 
@@ -73,7 +73,7 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
               <AntButton type="primary">Info</AntButton>
             </Popover>
             <GlobalAnonymizationToggle />
-            <Tooltip content="Dev mode" placement="bottom" color="invert">
+            <Tooltip content="Dev mode" placement="bottom">
               <Switch
                 onChange={handleModeChange}
                 thumbIcon={<Code size={12} />}
@@ -82,7 +82,6 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
               />
             </Tooltip>
             <Button
-              auto
               className="bg-slate-950 text-white"
               endContent={<X size={16} />}
               onClick={onClose}

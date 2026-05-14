@@ -35,12 +35,14 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       model,
       useMultiAgent = false,
       customSettings, // Custom LLM settings from frontend
+      collectionId, // Collection to restrict retrieval to
+      filterIds, // Document IDs to restrict retrieval to
       ...otherParams
     } = req.body;
 
     // Determine which settings to use
     let baseURL = process.env.API_LLM || 'http://localhost:8000/v1';
-    let apiKey = 'dummy-key'; // Most local servers don't require a real API key
+    let apiKey = process.env.LLM_KEY || 'dummy-key';
     // Prefer model from request, then environment, then fallback default
     const envModel =
       process.env.LLM_NAME || process.env.DEFAULT_MODEL || 'phi4-mini';
@@ -106,6 +108,15 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           model: modelToUse,
           temperature: temperature,
           max_tokens: max_tokens,
+          // Retrieval params – used by the multi-agent's internal retrievers
+          indexerBaseURL: process.env.API_INDEXER,
+          indexName: process.env.ELASTIC_INDEX,
+          // collectionId may arrive as a full collection object or a plain string
+          collectionId:
+            typeof collectionId === 'string'
+              ? collectionId
+              : collectionId?.id ?? undefined,
+          filterIds: Array.isArray(filterIds) ? filterIds : undefined,
         },
         (chunk: string) => {
           // Stream each chunk to the client

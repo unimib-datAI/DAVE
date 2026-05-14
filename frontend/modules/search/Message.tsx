@@ -10,7 +10,7 @@ import remarkGfm from 'remark-gfm';
 import { useText } from '@/components/TranslationProvider';
 import { useAtom } from 'jotai';
 import { globalAnonymizationAtom } from '@/utils/atoms';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { splitSentences } from '@/utils/stringUtilities';
 
 type MessageProps = {
@@ -83,6 +83,90 @@ function AnnotatedMarkdown({
 
 function urlToPathArray(url: string) {
   return url.split('/').filter(Boolean); // Split on / and remove empty strings
+}
+
+/**
+ * Renders markdown that contains inline [n] citation markers produced by the
+ * multi-agent CitationAgent.
+ *
+ * Strategy: replace every standalone [n] (not already part of a markdown link)
+ * with a markdown link [n](#cite-n). react-markdown renders that as an <a> tag;
+ * our custom `a` component intercepts hrefs starting with "#cite-" and renders
+ * a tooltip badge showing the chunk text instead.
+ */
+function CitedMarkdown({
+  content,
+  chunkMap,
+  chunkIndexMap,
+}: {
+  content: string;
+  chunkMap: { [chunkId: string]: string };
+  chunkIndexMap: { [chunkId: string]: number };
+}) {
+  // Build reverse map: display number → chunk ID
+  const indexToChunkId = useMemo(() => {
+    const map: Record<number, string> = {};
+    for (const [id, n] of Object.entries(chunkIndexMap)) {
+      map[n] = id;
+    }
+    return map;
+  }, [chunkIndexMap]);
+
+  // Convert standalone [n] → [n](#cite-n) so react-markdown treats them as links.
+  // The negative-lookahead (?!\() ensures we don’t touch real markdown links like [text](url).
+  const processedContent = useMemo(
+    () => content.replace(/\[(\d+)\](?!\()/g, (_, n) => `[${n}](#cite-${n})`),
+    [content]
+  );
+
+  return (
+    <Markdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        // Intercept #cite-n links and render as tooltip badge superscripts.
+        // All other links render normally.
+        a({
+          href,
+          children,
+          ...props
+        }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+          children?: React.ReactNode;
+        }) {
+          if (href?.startsWith('#cite-')) {
+            const n = parseInt(href.replace('#cite-', ''), 10);
+            const chunkId = indexToChunkId[n];
+            const chunkText = chunkId ? chunkMap[chunkId] ?? '' : '';
+            return (
+              <Tooltip
+                content={
+                  <div className="max-w-xs text-xs p-2 whitespace-pre-wrap leading-relaxed">
+                    <span className="font-semibold text-blue-600 mr-1">
+                      [{n}]
+                    </span>
+                    {chunkText || `Chunk ${n}`}
+                  </div>
+                }
+              >
+                <sup
+                  className="cursor-help text-blue-600 font-semibold ml-0.5 select-none"
+                  style={{ fontSize: '0.75em' }}
+                >
+                  [{n}]
+                </sup>
+              </Tooltip>
+            );
+          }
+          return (
+            <a href={href} {...props}>
+              {children}
+            </a>
+          );
+        },
+      }}
+    >
+      {processedContent}
+    </Markdown>
+  );
 }
 
 const SkeletonMessage = () => {
@@ -187,6 +271,17 @@ const Message = ({
               <div className="whitespace-pre-wrap">
                 {displayContent || '...'}
               </div>
+            ) : chunkMap &&
+              chunkIndexMap &&
+              Object.keys(chunkMap).length > 0 &&
+              /\[\d+\]/.test(displayContent) ? (
+              // Multi-agent: answer contains inline [n] markers — render with
+              // CitedMarkdown so each [n] becomes a hoverable tooltip badge.
+              <CitedMarkdown
+                content={displayContent}
+                chunkMap={chunkMap}
+                chunkIndexMap={chunkIndexMap}
+              />
             ) : citations && isDoneStreaming && chunkMap && chunkIndexMap ? (
               <AnnotatedMarkdown
                 content={displayContent}
