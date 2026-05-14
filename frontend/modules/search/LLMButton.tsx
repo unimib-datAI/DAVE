@@ -38,18 +38,23 @@ const LLMButton = () => {
 
   return (
     <>
-      <motion.button
-        id="open-chat-btn"
-        whileHover={{ scale: 1.2, rotate: 90 }}
-        whileTap={{
-          scale: 0.8,
-          rotate: 0,
-        }}
-        onClick={openLLMWindow}
-        className="cursor-pointer border-none fixed bottom-5 right-5 rounded-full bg-black p-2 text-white flex items-center justify-center h-14 w-14 z-[9989]"
-      >
-        <MessageCircle size={28} />
-      </motion.button>
+      {/* Hide the button while the chat window is open so it never overlaps it.
+          Use a reasonable z-index (50) instead of 9989 so other modals/drawers
+          (which typically use z-50 to z-[100]) can still appear on top. */}
+      {!openLLM && (
+        <motion.button
+          id="open-chat-btn"
+          whileHover={{ scale: 1.2, rotate: 90 }}
+          whileTap={{
+            scale: 0.8,
+            rotate: 0,
+          }}
+          onClick={openLLMWindow}
+          className="cursor-pointer border-none fixed bottom-5 right-5 rounded-full bg-black p-2 text-white flex items-center justify-center h-14 w-14 z-50"
+        >
+          <MessageCircle size={28} />
+        </motion.button>
+      )}
       <AnimatePresence>
         {openLLM && (
           <>
@@ -58,7 +63,7 @@ const LLMButton = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 z-30 p-4 bg-neutral-700/10"
+              className="fixed inset-0 z-50 p-4 bg-neutral-700/10"
             />
             <motion.div
               key={2}
@@ -66,7 +71,7 @@ const LLMButton = () => {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="fixed inset-0 z-30 p-4 flex items-center justify-center"
+              className="fixed inset-0 z-50 p-4 flex items-center justify-center"
             >
               <LLMSearch ref={refLLMWindow} onClose={closeLLMWindow} />
             </motion.div>
