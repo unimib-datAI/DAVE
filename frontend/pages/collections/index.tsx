@@ -750,7 +750,7 @@ const Collections: NextPage = () => {
 
 export const getServerSideProps: GetServerSideProps = async () => {
   const localeMap: { [key: string]: string } = { en: 'eng', ita: 'ita' };
-  const locale = localeMap[process.env.LOCALE || 'ita'] || 'ita';
+  const locale = localeMap[process.env.LOCALE || 'eng'] || 'eng';
   const localeObj = (await import(`../../translation/${locale}`)).default;
 
   return {

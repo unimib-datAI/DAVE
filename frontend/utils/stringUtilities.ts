@@ -53,6 +53,15 @@ function _splitBlockSentences(text: string, out: string[]): void {
         continue;
       }
 
+      // Heuristic 4: numbered section or list-item marker — everything before the
+      // dot is only markdown heading markers (#), whitespace, and digits.
+      // e.g. "## 1." in "## 1. Introduction" or "2." in "2. Item text".
+      const prefixBeforeDot = text.slice(0, i);
+      if (/^[#\s]*\d+$/.test(prefixBeforeDot)) {
+        i++;
+        continue;
+      }
+
       // Check what follows the dot — skip whitespace to find the next real character.
       let k = i + 1;
       while (k < text.length && text[k] === ' ') k++;
@@ -89,7 +98,14 @@ export function splitSentences(text: string): string[] {
   const blocks = text.split(/\n{2,}|\n(?=[ \t]*(?:[-*•]|\d+[.)])[ \t])/);
   for (const block of blocks) {
     const trimmed = block.trim();
-    if (trimmed) _splitBlockSentences(trimmed, result);
+    if (!trimmed) continue;
+    // Markdown headers are atomic — treat the whole line as a single unit so
+    // numbered headings like "## 1. Introduction" are never split at the period.
+    if (/^#{1,6}\s/.test(trimmed)) {
+      result.push(trimmed);
+    } else {
+      _splitBlockSentences(trimmed, result);
+    }
   }
   return result;
 }

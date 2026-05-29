@@ -394,7 +394,7 @@ export default (app) => {
       const indexerUrl = process.env.API_INDEXER;
       const elasticIndex = process.env.ELASTIC_INDEX;
       const llmUrl = process.env.API_LLM || "http://localhost:8000/v1";
-      const llmApiKey = process.env.API_LLM_KEY || "dummy-key";
+      const llmApiKey = process.env.LLM_KEY || "dummy-key";
       const llmModel =
         model && model.trim()
           ? model
