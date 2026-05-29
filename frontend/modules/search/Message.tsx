@@ -181,7 +181,7 @@ function SourceCard({
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <div className="flex flex-col gap-2 px-3 pb-3">
+                <div className="flex flex-col gap-2 px-3 pt-2 pb-3">
                   {!doc.full_docs ? (
                     doc.chunks!.map((chunk, ci) => {
                       const text = getChunkText(chunk);
