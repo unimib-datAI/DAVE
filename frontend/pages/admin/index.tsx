@@ -878,7 +878,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
   }
 
-  const locale = context.req.cookies.locale || process.env.LOCALE || 'ita';
+  const locale = context.req.cookies.locale || process.env.LOCALE || 'eng';
   const localeObj = (await import(`@/translation/${locale}`)).default;
 
   return {

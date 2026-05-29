@@ -3,7 +3,14 @@ import { cn } from '@/lib/utils';
 import { DocumentWithChunk } from '@/server/routers/search';
 import { Tooltip } from '@heroui/react';
 import { AnimatePresence, Variants, motion } from 'framer-motion';
-import { Sparkles, User, Link2, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Sparkles,
+  User,
+  Link2,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+} from 'lucide-react';
 import Link from 'next/link';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -82,7 +89,185 @@ function AnnotatedMarkdown({
 }
 
 function urlToPathArray(url: string) {
-  return url.split('/').filter(Boolean); // Split on / and remove empty strings
+  return url.split('/').filter(Boolean);
+}
+
+// ── Source card ──────────────────────────────────────────────────────────────
+function SourceCard({
+  doc,
+  i,
+  effectiveAnonymization,
+}: {
+  doc: DocumentWithChunk;
+  i: number;
+  effectiveAnonymization: boolean;
+}) {
+  const t = useText('chat');
+  const [chunksOpen, setChunksOpen] = useState(false);
+  const hasChunks =
+    doc.chunks && Array.isArray(doc.chunks) && doc.chunks.length > 0;
+
+  const getChunkText = (chunk: DocumentWithChunk['chunks'][number]) =>
+    effectiveAnonymization
+      ? chunk.text_anonymized || chunk.text || ''
+      : chunk.text || '';
+
+  return (
+    <motion.div
+      className="flex flex-col gap-1.5 bg-white rounded-xl border border-orange-100 overflow-hidden"
+      variants={{
+        visible: (idx: number) => ({
+          opacity: 1,
+          y: 0,
+          transition: { delay: idx * 0.06 },
+        }),
+        hidden: { opacity: 0, y: -12 },
+      }}
+      custom={i}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Card header */}
+      <div className="flex flex-col gap-1 px-3 pt-3 pb-2">
+        {/* Breadcrumb path */}
+        <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+          <FileText size={11} />
+          <span className="truncate">
+            {doc.id ? urlToPathArray(`/documents/${doc.id}`).join(' › ') : ''}
+          </span>
+        </div>
+
+        {/* Title */}
+        <Link href={`/documents/${doc.id || ''}`}>
+          <span className="text-sm font-semibold text-blue-700 hover:underline leading-snug">
+            {doc.title || t('document')}
+          </span>
+        </Link>
+
+        {/* Preview */}
+        {doc.preview && (
+          <p className="text-xs text-slate-500 leading-relaxed line-clamp-2">
+            {doc.preview}
+          </p>
+        )}
+      </div>
+
+      {/* Passages toggle */}
+      {hasChunks && (
+        <div className="border-t border-orange-50">
+          <button
+            onClick={() => setChunksOpen((o) => !o)}
+            className="flex items-center gap-1.5 w-full px-3 py-2 text-[11px] font-medium text-slate-500 hover:text-slate-800 hover:bg-orange-50/60 transition-colors text-left"
+          >
+            <motion.span
+              animate={{ rotate: chunksOpen ? 180 : 0 }}
+              transition={{ duration: 0.2 }}
+              className="inline-flex"
+            >
+              <ChevronDown size={12} />
+            </motion.span>
+            {chunksOpen
+              ? 'Hide passages'
+              : `${doc.chunks!.length} ${t('relevantPassages')}`}
+          </button>
+
+          <AnimatePresence initial={false}>
+            {chunksOpen && (
+              <motion.div
+                key="chunks"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <div className="flex flex-col gap-2 px-3 pb-3">
+                  {!doc.full_docs ? (
+                    doc.chunks!.map((chunk, ci) => {
+                      const text = getChunkText(chunk);
+                      return (
+                        <div
+                          key={`${chunk.id || ''}-${ci}`}
+                          className="text-xs text-slate-700 leading-relaxed bg-slate-50 rounded-lg px-2.5 py-2 border border-slate-100"
+                        >
+                          {text || 'No content available'}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-[11px] text-slate-500 italic">
+                      {t('fullDocument')}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ── Sources accordion ─────────────────────────────────────────────────────────
+function SourcesAccordion({
+  context,
+  effectiveAnonymization,
+}: {
+  context: DocumentWithChunk[];
+  effectiveAnonymization: boolean;
+}) {
+  const t = useText('chat');
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="w-full rounded-xl border border-orange-200 bg-orange-50/40 overflow-hidden">
+      {/* Accordion trigger */}
+      <button
+        onClick={() => setIsOpen((o) => !o)}
+        className="flex items-center gap-2 w-full px-3 py-2.5 text-left hover:bg-orange-100/50 transition-colors"
+      >
+        <motion.span
+          animate={{ rotate: isOpen ? 180 : 0 }}
+          transition={{ duration: 0.22, ease: 'easeInOut' }}
+          className="inline-flex text-orange-500"
+        >
+          <ChevronDown size={15} />
+        </motion.span>
+        <span className="text-xs font-semibold text-slate-700">
+          {t('contextSources')}
+        </span>
+        <span className="ml-auto text-[11px] text-slate-400 tabular-nums">
+          {context.length} {context.length === 1 ? 'source' : 'sources'}
+        </span>
+      </button>
+
+      {/* Collapsible content */}
+      <AnimatePresence initial={false}>
+        {isOpen && (
+          <motion.div
+            key="sources"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="overflow-hidden"
+          >
+            <div className="flex flex-col gap-2 px-3 pb-3 pt-1">
+              {context.map((doc, i) => (
+                <SourceCard
+                  key={`${doc.id}-${i}`}
+                  doc={doc}
+                  i={i}
+                  effectiveAnonymization={effectiveAnonymization}
+                />
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 /**
@@ -275,8 +460,8 @@ const Message = ({
               chunkIndexMap &&
               Object.keys(chunkMap).length > 0 &&
               /\[\d+\]/.test(displayContent) ? (
-              // Multi-agent: answer contains inline [n] markers — render with
-              // CitedMarkdown so each [n] becomes a hoverable tooltip badge.
+              // Inline [n] citation markers present (multi-agent or standard RAG).
+              // Render with CitedMarkdown so each [n] becomes a hoverable tooltip.
               <CitedMarkdown
                 content={displayContent}
                 chunkMap={chunkMap}
@@ -333,112 +518,15 @@ const Message = ({
       {/* Context display (for user messages) */}
       {showContext && (
         <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          transition={{ duration: 0.3 }}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25 }}
           className="mt-2 ml-10 mr-10 mb-4"
         >
-          <div className="w-full h-[1px] bg-orange-200 my-3" />
-          <div className="text-xs font-semibold mb-2 text-slate-600">
-            {t('contextSources')}
-          </div>
-          <div className="flex flex-col gap-2">
-            {Array.isArray(context) &&
-              context.map((doc, i) => (
-                <motion.div
-                  key={`${doc.id}-${i}`}
-                  className="flex flex-col p-2 gap-2 bg-white rounded-lg border border-orange-100"
-                  variants={variants}
-                  custom={i}
-                  initial="hidden"
-                  animate="visible"
-                >
-                  <div className="flex flex-row items-center gap-2">
-                    <Link2 size={14} />
-                    <span className="text-neutral-900/80 tracking-wide text-sm whitespace-nowrap text-ellipsis overflow-hidden">
-                      {doc.id
-                        ? urlToPathArray(`/documents/${doc.id}`).join(' > ')
-                        : ''}
-                    </span>
-                  </div>
-
-                  <Link href={`/documents/${doc.id || ''}`}>
-                    <span className="text-blue-700 text-base tracking-wide font-medium">
-                      {doc.title || t('document')}
-                    </span>
-                  </Link>
-
-                  <div className="text-xs tracking-wide text-slate-700">
-                    {doc.preview || ''}
-                  </div>
-
-                  {doc.chunks &&
-                    Array.isArray(doc.chunks) &&
-                    doc.chunks.length > 0 && (
-                      <div className="flex flex-col gap-2 mt-1">
-                        <span className="text-xs leading-tight font-semibold">
-                          {t('relevantPassages')}
-                        </span>
-                        <div className="flex flex-row items-center flex-wrap gap-2 z-[9994]">
-                          {!doc.full_docs ? (
-                            doc.chunks.map((chunk, chunkIndex) => (
-                              <div
-                                key={`${chunk.id || ''}-${chunkIndex}`}
-                                style={{ zIndex: 10000, position: 'relative' }}
-                              >
-                                <Tooltip
-                                  content={(() => {
-                                    const text = effectiveAnonymization
-                                      ? chunk.text_anonymized ||
-                                        chunk.text ||
-                                        ''
-                                      : chunk.text || '';
-                                    return text || 'No content available';
-                                  })()}
-                                >
-                                  <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
-                                    {(() => {
-                                      const previewText = effectiveAnonymization
-                                        ? chunk.text_anonymized ||
-                                          chunk.text ||
-                                          ''
-                                        : chunk.text || '';
-                                      return previewText
-                                        ? previewText.slice(0, 50)
-                                        : '';
-                                    })()}
-                                    {(() => {
-                                      const previewText = effectiveAnonymization
-                                        ? chunk.text_anonymized ||
-                                          chunk.text ||
-                                          ''
-                                        : chunk.text || '';
-                                      return previewText &&
-                                        previewText.length > 50
-                                        ? '...'
-                                        : '';
-                                    })()}
-                                  </div>
-                                </Tooltip>
-                              </div>
-                            ))
-                          ) : (
-                            <div
-                              style={{ zIndex: 10000, position: 'relative' }}
-                            >
-                              <Tooltip content={t('fullDocument')}>
-                                <div className="whitespace-nowrap max-w-[200px] text-ellipsis overflow-hidden text-xs bg-slate-100 rounded-md px-2 py-1 cursor-help">
-                                  {t('fullDocument')}
-                                </div>
-                              </Tooltip>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                </motion.div>
-              ))}
-          </div>
+          <SourcesAccordion
+            context={context!}
+            effectiveAnonymization={effectiveAnonymization}
+          />
         </motion.div>
       )}
     </div>

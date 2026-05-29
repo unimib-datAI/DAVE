@@ -107,7 +107,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
   }
 
-  const locale = process.env.LOCALE || 'ita';
+  const locale = process.env.LOCALE || 'eng';
   const localeObj = (await import(`@/translation/${locale}`)).default;
 
   return {

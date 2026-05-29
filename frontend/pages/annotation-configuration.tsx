@@ -421,7 +421,12 @@ export default function AnnotationConfigurationPage(): JSX.Element {
           >
             <Text h3>Annotation Pipeline Configuration</Text>
             <div style={{ display: 'flex', gap: 8 }}>
-              <Button auto size="sm" onClick={handleNewConfiguration} isDisabled={!canEditPipeline}>
+              <Button
+                auto
+                size="sm"
+                onClick={handleNewConfiguration}
+                isDisabled={!canEditPipeline}
+              >
                 New
               </Button>
               <Button
@@ -478,7 +483,12 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     cancelText="No"
                     disabled={!canEditPipeline}
                   >
-                    <Button auto size="sm" color="error" isDisabled={!canEditPipeline}>
+                    <Button
+                      auto
+                      size="sm"
+                      color="error"
+                      isDisabled={!canEditPipeline}
+                    >
                       Delete
                     </Button>
                   </Popconfirm>
@@ -551,7 +561,11 @@ export default function AnnotationConfigurationPage(): JSX.Element {
               onChange={(e) => setNewType(e.target.value)}
             />
           </div>
-          <Button onPress={handleCreateService} isDisabled={creating || !canEditPipeline} size="sm">
+          <Button
+            onPress={handleCreateService}
+            isDisabled={creating || !canEditPipeline}
+            size="sm"
+          >
             {creating ? 'Adding…' : 'Add service'}
           </Button>
 
@@ -645,7 +659,13 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                     cancelText="No"
                     disabled={!canEditPipeline}
                   >
-                    <Button auto flat size="xs" color="error" isDisabled={!canEditPipeline}>
+                    <Button
+                      auto
+                      flat
+                      size="xs"
+                      color="error"
+                      isDisabled={!canEditPipeline}
+                    >
                       Delete
                     </Button>
                   </Popconfirm>
@@ -672,7 +692,13 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                 step to the next.
               </Text>
             </div>
-            <Button auto size="sm" color="primary" onPress={handleAddStep} isDisabled={!canEditPipeline}>
+            <Button
+              auto
+              size="sm"
+              color="primary"
+              onPress={handleAddStep}
+              isDisabled={!canEditPipeline}
+            >
               + Add step
             </Button>
           </div>
@@ -777,7 +803,9 @@ export default function AnnotationConfigurationPage(): JSX.Element {
                       auto
                       flat
                       size="xs"
-                      isDisabled={!canEditPipeline || index === steps.length - 1}
+                      isDisabled={
+                        !canEditPipeline || index === steps.length - 1
+                      }
                       onPress={() => handleMoveStep(index, 'down')}
                       title="Move down"
                     >
@@ -972,7 +1000,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 }
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const locale = process.env.LOCALE || 'ita';
+  const locale = process.env.LOCALE || 'eng';
   const localeObj = (await import(`@/translation/${locale}`)).default;
 
   return {

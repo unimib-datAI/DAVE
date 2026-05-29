@@ -411,30 +411,57 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
         // Preserve the full Markdown structure untouched.
         displayText = finalText;
       } else {
-        // Standard path: split sentences for inline citation matching.
-        // Split once on the raw LLM output (which still contains [n] markers).
-        // Clean each sentence in the same pass so indices are identical to what
-        // AnnotatedMarkdown will see when it re-splits the stored displayText.
-        const rawSentences = splitSentences(finalText);
-        const cleanSentences: string[] = [];
-        for (const sentence of rawSentences) {
-          const clean = sentence
-            .replace(/\s*\[\d+(?:[,\s]+\d+)*\]/g, '')
-            .replace(/(\s*,)+\s*(?=[,.]|$)/g, '')
-            .trim();
-          if (clean) cleanSentences.push(clean);
-        }
-        console.log('clean sentences', cleanSentences);
+        // Standard path: strip any LLM-emitted [n] markers, match sentences to
+        // source chunks, then inject [n] badges inline so the full markdown
+        // structure is preserved (no sentence splitting and re-joining).
+        const cleanText = finalText
+          .replace(/\s*\[\d+(?:[,\s]+\d+)*\]/g, '')
+          .replace(/(\s*,)+\s*(?=[,.]|$)/g, '')
+          .trimEnd();
+
+        const sentences = splitSentences(cleanText);
 
         try {
           matchingChunks =
-            (await findMatchingChunks(cleanSentences, processedChunks, 0.6)) ||
-            {};
+            (await findMatchingChunks(sentences, processedChunks, 0.6)) || {};
         } catch (err) {
           console.error('Error computing matching chunks:', err);
         }
 
-        displayText = cleanSentences.join('\n\n');
+        // Inject [n] markers at sentence boundaries inside the original text so
+        // CitedMarkdown can render them as hoverable tooltip badges without
+        // altering any surrounding markdown formatting.
+        const insertions: Array<{ pos: number; badge: string }> = [];
+        let cursor = 0;
+        for (let i = 0; i < sentences.length; i++) {
+          const sentence = sentences[i];
+          const idx = cleanText.indexOf(sentence, cursor);
+          if (idx === -1) continue;
+          const endPos = idx + sentence.length;
+          cursor = endPos;
+
+          const chunkIds = matchingChunks[i + 1];
+          if (!chunkIds || chunkIds.length === 0) continue;
+
+          const nums = chunkIds
+            .map((id) => chunkIndexMap[id])
+            .filter((n): n is number => n !== undefined)
+            .sort((a, b) => a - b);
+          if (nums.length > 0) {
+            insertions.push({
+              pos: endPos,
+              badge: nums.map((n) => `[${n}]`).join(''),
+            });
+          }
+        }
+
+        // Apply from end to start so earlier offsets stay valid.
+        let annotated = cleanText;
+        for (let i = insertions.length - 1; i >= 0; i--) {
+          const { pos, badge } = insertions[i];
+          annotated = annotated.slice(0, pos) + badge + annotated.slice(pos);
+        }
+        displayText = annotated;
       }
       // Final update: mark assistant message as done streaming, and attach
       // multi-agent context to the preceding user message so the context panel
