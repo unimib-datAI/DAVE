@@ -83,6 +83,320 @@ export type SectionAnnotation = Annotation;
 
 const baseURL = `${process.env.API_BASE_URI}`;
 // const baseURL = `${process.env.API_BASE_URI}`;
+
+function jsonHeaders(token: string) {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const authHeader = getJWTHeader(token);
+  if (authHeader) headers.Authorization = authHeader;
+  return headers;
+}
+
+/**
+ * Uploads a single pre-annotated JSON document. Extracted from the
+ * `createDocument` mutation so it can also be called from the background
+ * upload-job processing loop (see `createUploadJob` below).
+ */
+export async function runCreateDocument(input: {
+  document: {
+    text: string;
+    annotation_sets: Record<string, any>;
+    preview?: string;
+    name?: string;
+    features?: Record<string, any>;
+    offset_type?: string;
+  };
+  collectionId: string;
+  token?: string;
+  toAnonymize: boolean;
+  anonymizeTypes?: string[];
+}) {
+  const { document, collectionId, token, toAnonymize, anonymizeTypes } = input;
+  const tokenForApi = token ?? '';
+  const elasticIndex = process.env.ELASTIC_INDEX;
+
+  try {
+    const result = await fetchJson<any, any>(`${baseURL}/document`, {
+      method: 'POST',
+      headers: jsonHeaders(tokenForApi),
+      body: {
+        ...document,
+        collectionId,
+        elasticIndex,
+        toAnonymize,
+        anonymizeTypes,
+      },
+      timeout: 600000,
+    });
+
+    return result;
+  } catch (error) {
+    console.error('Error creating document:', error);
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: `Failed to create document: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    });
+  }
+}
+
+/**
+ * Runs the full annotation pipeline (NER/NEL/indexer/etc, as configured) over
+ * raw text and uploads the resulting document. Extracted from the
+ * `annotateAndUpload` mutation so it can also be called from the background
+ * upload-job processing loop (see `createUploadJob` below).
+ */
+export async function runAnnotateAndUpload(input: {
+  text: string;
+  collectionId: string;
+  name?: string;
+  token?: string;
+  configurationId?: string;
+  toAnonymize: boolean;
+  anonymizeTypes?: string[];
+}) {
+  const {
+    text,
+    name,
+    collectionId,
+    token,
+    configurationId,
+    toAnonymize,
+    anonymizeTypes,
+  } = input;
+
+  const tokenForApi = token ?? '';
+
+  // Fetch configuration from database - either specified or active
+  let selectedServices: Record<string, any> | undefined;
+  try {
+    let configToUse: any;
+    const headers = jsonHeaders(tokenForApi);
+
+    if (configurationId) {
+      const allConfigs = await fetchJson<any, any[]>(
+        `${baseURL}/document/configurations`,
+        { headers }
+      );
+      configToUse = allConfigs.find((c: any) => c._id === configurationId);
+    } else {
+      configToUse = await fetchJson<any, any>(
+        `${baseURL}/document/configurations/active`,
+        { headers }
+      );
+    }
+
+    if (configToUse) {
+      // New format: steps array takes priority over legacy services map
+      if (
+        Array.isArray(configToUse.steps) &&
+        configToUse.steps.length > 0
+      ) {
+        selectedServices = configToUse.steps;
+      } else if (configToUse.services) {
+        // Legacy: convert MongoDB Map to plain object
+        if (configToUse.services instanceof Map) {
+          const legacyObj: Record<string, any> = {};
+          configToUse.services.forEach((value: any, key: string) => {
+            legacyObj[key] = value;
+          });
+          selectedServices = legacyObj;
+        } else {
+          selectedServices = configToUse.services;
+        }
+      }
+    }
+  } catch (error: any) {
+    console.log('No active configuration found, using defaults');
+    selectedServices = undefined;
+  }
+
+  const elasticIndex = process.env.ELASTIC_INDEX;
+
+  // Resolve the ordered list of pipeline steps to execute.
+  // New format: configToUse.steps  (array of { name, uri, serviceType? })
+  // Legacy fallback: configToUse.services  (slot-name -> service map)
+  let pipelineSteps: Array<{
+    name: string;
+    uri: string;
+    serviceType?: string;
+  }> = [];
+
+  if (selectedServices) {
+    const raw = selectedServices as any;
+    if (Array.isArray(raw)) {
+      // New format: already an array of steps
+      pipelineSteps = (raw as any[]).filter(
+        (s: any) => s && typeof s.uri === 'string' && s.uri.trim()
+      );
+    } else if (typeof raw === 'object') {
+      // Legacy slot-map format: convert to ordered steps using canonical slot order
+      const LEGACY_SLOTS = [
+        'NER',
+        'NEL',
+        'INDEXER',
+        'NILPREDICTION',
+        'CLUSTERING',
+        'CONSOLIDATION',
+      ];
+      const defaultUriForSlot: Record<string, string> = {
+        NER:
+          process.env.ANNOTATION_SPACYNER_URL ||
+          'http://spacyner:80/api/spacyner',
+        NEL:
+          process.env.ANNOTATION_BLINK_URL ||
+          'http://biencoder:80/api/blink/biencoder/mention/doc',
+        INDEXER:
+          process.env.ANNOTATION_INDEXER_URL ||
+          'http://indexer:80/api/indexer/search/doc',
+        NILPREDICTION:
+          process.env.ANNOTATION_NILPREDICTION_URL ||
+          'http://nilpredictor:80/api/nilprediction/doc',
+        CLUSTERING:
+          process.env.ANNOTATION_NILCLUSTER_URL ||
+          'http://clustering:80/api/clustering',
+        CONSOLIDATION:
+          process.env.ANNOTATION_CONSOLIDATION_URL ||
+          'http://consolidation:80/api/consolidation',
+      };
+      for (const slot of LEGACY_SLOTS) {
+        const entry = raw[slot];
+        if (!entry) continue;
+        const uri = (entry.uri || '').trim() || defaultUriForSlot[slot];
+        if (uri) {
+          pipelineSteps.push({
+            name: entry.name || slot,
+            uri,
+            serviceType: slot,
+          });
+        }
+      }
+    }
+  }
+
+  // If no steps configured, fall through to upload without annotation
+  console.log(
+    `Pipeline has ${pipelineSteps.length} steps:`,
+    pipelineSteps.map((s) => `${s.name} -> ${s.uri}`)
+  );
+
+  try {
+    // Create initial gatenlp Document
+    let gdoc: any = {
+      text: text,
+      features: {},
+      offset_type: 'p',
+      annotation_sets: {},
+    };
+
+    // Execute each pipeline step sequentially
+    for (let i = 0; i < pipelineSteps.length; i++) {
+      const step = pipelineSteps[i];
+      console.log(
+        `Pipeline step ${i + 1}/${pipelineSteps.length}: ${step.name} -> ${
+          step.uri
+        }`
+      );
+      gdoc = await fetchJson<any, any>(step.uri, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: gdoc,
+        timeout: 300000, // 5 minutes per step
+      });
+    }
+
+    // Clean up encoding features from linking (artifact of some pipeline steps)
+    if (gdoc.annotation_sets && gdoc.annotation_sets.entities_) {
+      const entities = gdoc.annotation_sets.entities_.annotations || [];
+      for (const ann of entities) {
+        if (ann.features?.linking?.encoding) {
+          delete ann.features.linking.encoding;
+        }
+      }
+    }
+
+    console.log('Uploading annotated document...');
+    // Upload the annotated document
+    const documentToUpload = {
+      ...gdoc,
+      name: name || 'Untitled Document',
+      preview: text.substring(0, 200) + (text.length > 200 ? '...' : ''),
+      elasticIndex,
+      collectionId,
+    };
+
+    const result = await fetchJson<any, any>(`${baseURL}/document`, {
+      method: 'POST',
+      headers: jsonHeaders(tokenForApi),
+      body: {
+        ...documentToUpload,
+        toAnonymize,
+        anonymizeTypes,
+      },
+      timeout: 300000, // 5 minutes
+    });
+
+    console.log('Document uploaded successfully');
+    return result;
+  } catch (error) {
+    console.error('Error in annotateAndUpload:', error);
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: `Failed to annotate and upload document: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    });
+  }
+}
+
+/**
+ * Best-effort progress updates sent to the durable UploadJob record in the
+ * backend. Failures here are logged but never thrown: a missed progress
+ * update should not abort the underlying document processing.
+ */
+async function patchUploadJobStatus(
+  jobId: string,
+  token: string,
+  body: { status?: string; error?: string }
+) {
+  try {
+    await fetchJson<any, any>(`${baseURL}/upload-jobs/${encodeURIComponent(jobId)}`, {
+      method: 'PATCH',
+      headers: jsonHeaders(token),
+      body,
+    });
+  } catch (error) {
+    console.error('Failed to patch upload job status', jobId, error);
+  }
+}
+
+async function patchUploadJobFile(
+  jobId: string,
+  fileId: string,
+  token: string,
+  body: {
+    status?: string;
+    progress?: number;
+    error?: string;
+    documentId?: string;
+  }
+) {
+  try {
+    await fetchJson<any, any>(
+      `${baseURL}/upload-jobs/${encodeURIComponent(jobId)}/files/${encodeURIComponent(
+        fileId
+      )}`,
+      {
+        method: 'PATCH',
+        headers: jsonHeaders(token),
+        body,
+      }
+    );
+  } catch (error) {
+    console.error('Failed to patch upload job file', jobId, fileId, error);
+  }
+}
+
 //TODO: modificare chiamata per cercare il doc in locale
 const getDocumentById = async (
   id: number,
@@ -730,45 +1044,7 @@ export const documents = createRouter()
       toAnonymize: z.boolean(),
       anonymizeTypes: z.array(z.string()).optional(),
     }),
-    resolve: async ({ input }) => {
-      const { document, collectionId, token, toAnonymize, anonymizeTypes } =
-        input;
-      // Ensure downstream always has a string token; when auth is disabled or token not provided, use empty string
-      const tokenForApi = token ?? '';
-      const elasticIndex = process.env.ELASTIC_INDEX;
-
-      try {
-        const headers: any = {
-          'Content-Type': 'application/json',
-        };
-        const authHeader = getJWTHeader(tokenForApi);
-        if (authHeader) {
-          headers.Authorization = authHeader;
-        }
-        const result = await fetchJson<any, any>(`${baseURL}/document`, {
-          method: 'POST',
-          headers,
-          body: {
-            ...document,
-            collectionId,
-            elasticIndex,
-            toAnonymize,
-            anonymizeTypes,
-          },
-          timeout: 600000,
-        });
-
-        return result;
-      } catch (error) {
-        console.error('Error creating document:', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to create document: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        });
-      }
-    },
+    resolve: async ({ input }) => runCreateDocument(input),
   })
   .mutation('deanonymizeKey', {
     input: z.object({
@@ -993,221 +1269,167 @@ export const documents = createRouter()
       toAnonymize: z.boolean(),
       anonymizeTypes: z.array(z.string()).optional(),
     }),
+    resolve: async ({ input }) => runAnnotateAndUpload(input),
+  })
+  .mutation('createUploadJob', {
+    input: z.object({
+      collectionId: z.string(),
+      uploadType: z.enum(['json', 'txt']),
+      files: z
+        .array(z.object({ fileName: z.string(), content: z.string() }))
+        .min(1),
+      token: z.string().optional(),
+      configurationId: z.string().optional(),
+      toAnonymize: z.boolean().optional(),
+      anonymizeTypes: z.array(z.string()).optional(),
+    }),
     resolve: async ({ input }) => {
       const {
-        text,
-        name,
         collectionId,
+        uploadType,
+        files,
         token,
         configurationId,
         toAnonymize,
         anonymizeTypes,
       } = input;
-
-      // Ensure downstream always has a string token; when auth is disabled or token not provided, use empty string
       const tokenForApi = token ?? '';
 
-      // Fetch configuration from database - either specified or active
-      let selectedServices: Record<string, any> | undefined;
+      let job: any;
       try {
-        let configToUse: any;
-
-        if (configurationId) {
-          // Fetch specific configuration by ID
-          const headers: any = {};
-          const authHeader = getJWTHeader(tokenForApi);
-          if (authHeader) {
-            headers.Authorization = authHeader;
-          }
-          const allConfigs = await fetchJson<any, any[]>(
-            `${baseURL}/document/configurations`,
-            {
-              headers,
-            }
-          );
-          configToUse = allConfigs.find((c: any) => c._id === configurationId);
-        } else {
-          // Fetch active configuration
-          const headers: any = {};
-          const authHeader = getJWTHeader(tokenForApi);
-          if (authHeader) {
-            headers.Authorization = authHeader;
-          }
-          configToUse = await fetchJson<any, any>(
-            `${baseURL}/document/configurations/active`,
-            {
-              headers,
-            }
-          );
-        }
-
-        if (configToUse) {
-          // New format: steps array takes priority over legacy services map
-          if (
-            Array.isArray(configToUse.steps) &&
-            configToUse.steps.length > 0
-          ) {
-            selectedServices = configToUse.steps;
-          } else if (configToUse.services) {
-            // Legacy: convert MongoDB Map to plain object
-            if (configToUse.services instanceof Map) {
-              const legacyObj: Record<string, any> = {};
-              configToUse.services.forEach((value: any, key: string) => {
-                legacyObj[key] = value;
-              });
-              selectedServices = legacyObj;
-            } else {
-              selectedServices = configToUse.services;
-            }
-          }
-        }
-      } catch (error: any) {
-        console.log('No active configuration found, using defaults');
-        selectedServices = undefined;
-      }
-
-      const elasticIndex = process.env.ELASTIC_INDEX;
-
-      // Resolve the ordered list of pipeline steps to execute.
-      // New format: configToUse.steps  (array of { name, uri, serviceType? })
-      // Legacy fallback: configToUse.services  (slot-name -> service map)
-      let pipelineSteps: Array<{
-        name: string;
-        uri: string;
-        serviceType?: string;
-      }> = [];
-
-      if (selectedServices) {
-        const raw = selectedServices as any;
-        if (Array.isArray(raw)) {
-          // New format: already an array of steps
-          pipelineSteps = (raw as any[]).filter(
-            (s: any) => s && typeof s.uri === 'string' && s.uri.trim()
-          );
-        } else if (typeof raw === 'object') {
-          // Legacy slot-map format: convert to ordered steps using canonical slot order
-          const LEGACY_SLOTS = [
-            'NER',
-            'NEL',
-            'INDEXER',
-            'NILPREDICTION',
-            'CLUSTERING',
-            'CONSOLIDATION',
-          ];
-          const defaultUriForSlot: Record<string, string> = {
-            NER:
-              process.env.ANNOTATION_SPACYNER_URL ||
-              'http://spacyner:80/api/spacyner',
-            NEL:
-              process.env.ANNOTATION_BLINK_URL ||
-              'http://biencoder:80/api/blink/biencoder/mention/doc',
-            INDEXER:
-              process.env.ANNOTATION_INDEXER_URL ||
-              'http://indexer:80/api/indexer/search/doc',
-            NILPREDICTION:
-              process.env.ANNOTATION_NILPREDICTION_URL ||
-              'http://nilpredictor:80/api/nilprediction/doc',
-            CLUSTERING:
-              process.env.ANNOTATION_NILCLUSTER_URL ||
-              'http://clustering:80/api/clustering',
-            CONSOLIDATION:
-              process.env.ANNOTATION_CONSOLIDATION_URL ||
-              'http://consolidation:80/api/consolidation',
-          };
-          for (const slot of LEGACY_SLOTS) {
-            const entry = raw[slot];
-            if (!entry) continue;
-            const uri = (entry.uri || '').trim() || defaultUriForSlot[slot];
-            if (uri) {
-              pipelineSteps.push({
-                name: entry.name || slot,
-                uri,
-                serviceType: slot,
-              });
-            }
-          }
-        }
-      }
-
-      // If no steps configured, fall through to upload without annotation
-      console.log(
-        `Pipeline has ${pipelineSteps.length} steps:`,
-        pipelineSteps.map((s) => `${s.name} -> ${s.uri}`)
-      );
-
-      try {
-        // Create initial gatenlp Document
-        let gdoc: any = {
-          text: text,
-          features: {},
-          offset_type: 'p',
-          annotation_sets: {},
-        };
-
-        // Execute each pipeline step sequentially
-        for (let i = 0; i < pipelineSteps.length; i++) {
-          const step = pipelineSteps[i];
-          console.log(
-            `Pipeline step ${i + 1}/${pipelineSteps.length}: ${step.name} -> ${
-              step.uri
-            }`
-          );
-          gdoc = await fetchJson<any, any>(step.uri, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: gdoc,
-            timeout: 300000, // 5 minutes per step
-          });
-        }
-
-        // Clean up encoding features from linking (artifact of some pipeline steps)
-        if (gdoc.annotation_sets && gdoc.annotation_sets.entities_) {
-          const entities = gdoc.annotation_sets.entities_.annotations || [];
-          for (const ann of entities) {
-            if (ann.features?.linking?.encoding) {
-              delete ann.features.linking.encoding;
-            }
-          }
-        }
-
-        console.log('Uploading annotated document...');
-        // Upload the annotated document
-        const documentToUpload = {
-          ...gdoc,
-          name: name || 'Untitled Document',
-          preview: text.substring(0, 200) + (text.length > 200 ? '...' : ''),
-          elasticIndex,
-          collectionId,
-        };
-
-        const headers: any = {
-          'Content-Type': 'application/json',
-        };
-        const authHeader = getJWTHeader(tokenForApi);
-        if (authHeader) {
-          headers.Authorization = authHeader;
-        }
-        const result = await fetchJson<any, any>(`${baseURL}/document`, {
+        job = await fetchJson<any, any>(`${baseURL}/upload-jobs`, {
           method: 'POST',
-          headers,
+          headers: jsonHeaders(tokenForApi),
           body: {
-            ...documentToUpload,
-            toAnonymize,
-            anonymizeTypes,
+            collectionId,
+            uploadType,
+            fileNames: files.map((f) => f.fileName),
+            configuration: {
+              configurationId,
+              toAnonymize: toAnonymize ?? false,
+              anonymizeTypes,
+            },
           },
-          timeout: 300000, // 5 minutes
         });
-
-        console.log('Document uploaded successfully');
-        return result;
       } catch (error) {
-        console.error('Error in annotateAndUpload:', error);
+        console.error('Failed to create upload job:', error);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to annotate and upload document: ${
+          message: `Failed to create upload job: ${
             error instanceof Error ? error.message : String(error)
           }`,
         });
       }
+
+      const jobId: string = job.jobId;
+      const fileIdByName = new Map<string, string>(
+        (job.files || []).map((f: any) => [f.fileName, f.fileId])
+      );
+
+      // Fire-and-forget: this loop keeps running on the Next.js server after
+      // this resolver returns. The server process (`next start`) is
+      // persistent, so it is fully decoupled from the client connection —
+      // closing the browser tab does not stop it. Every state change is
+      // persisted to MongoDB via the upload-jobs API so any tab (or a fresh
+      // one after a refresh) can pick up the current progress at any time.
+      (async () => {
+        try {
+          await patchUploadJobStatus(jobId, tokenForApi, {
+            status: 'processing',
+          });
+
+          let anyFailed = false;
+          for (const file of files) {
+            const fileId = fileIdByName.get(file.fileName);
+            if (!fileId) continue;
+
+            await patchUploadJobFile(jobId, fileId, tokenForApi, {
+              status: 'processing',
+            });
+
+            try {
+              let doc: any;
+              if (uploadType === 'json') {
+                doc = await runCreateDocument({
+                  document: JSON.parse(file.content),
+                  collectionId,
+                  token: tokenForApi,
+                  toAnonymize: toAnonymize ?? false,
+                  anonymizeTypes,
+                });
+              } else {
+                doc = await runAnnotateAndUpload({
+                  text: file.content,
+                  collectionId,
+                  name: file.fileName.replace(/\.txt$/i, ''),
+                  token: tokenForApi,
+                  configurationId,
+                  toAnonymize: toAnonymize ?? false,
+                  anonymizeTypes,
+                });
+              }
+
+              await patchUploadJobFile(jobId, fileId, tokenForApi, {
+                status: 'completed',
+                progress: 100,
+                documentId: String(doc?.id ?? doc?._id ?? ''),
+              });
+            } catch (error) {
+              anyFailed = true;
+              await patchUploadJobFile(jobId, fileId, tokenForApi, {
+                status: 'failed',
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+
+          await patchUploadJobStatus(jobId, tokenForApi, {
+            status: anyFailed ? 'completed_with_errors' : 'completed',
+          });
+        } catch (error) {
+          console.error('Upload job processing failed:', jobId, error);
+          await patchUploadJobStatus(jobId, tokenForApi, {
+            status: 'failed',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      })();
+
+      return { jobId };
+    },
+  })
+  .query('getUploadJob', {
+    input: z.object({ jobId: z.string(), token: z.string().optional() }),
+    resolve: async ({ input }) => {
+      return fetchJson<any, any>(
+        `${baseURL}/upload-jobs/${encodeURIComponent(input.jobId)}`,
+        { headers: jsonHeaders(input.token ?? '') }
+      );
+    },
+  })
+  .query('getRecentUploadJobs', {
+    input: z.object({
+      collectionId: z.string().optional(),
+      token: z.string().optional(),
+      limit: z.number().optional(),
+    }),
+    resolve: async ({ input }) => {
+      const qs = new URLSearchParams();
+      if (input.collectionId) qs.set('collectionId', input.collectionId);
+      if (input.limit) qs.set('limit', String(input.limit));
+      return fetchJson<any, any[]>(
+        `${baseURL}/upload-jobs?${qs.toString()}`,
+        { headers: jsonHeaders(input.token ?? '') }
+      );
+    },
+  })
+  .mutation('dismissUploadJob', {
+    input: z.object({ jobId: z.string(), token: z.string().optional() }),
+    resolve: async ({ input }) => {
+      return fetchJson<any, any>(
+        `${baseURL}/upload-jobs/${encodeURIComponent(input.jobId)}`,
+        { method: 'DELETE', headers: jsonHeaders(input.token ?? '') }
+      );
     },
   });
+

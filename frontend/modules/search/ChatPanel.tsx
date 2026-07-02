@@ -180,16 +180,13 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
   const fieldUseMultiAgent = register('useMultiAgent');
 
   const handleFormSubmit = async (formValues: Form) => {
-    console.log('*** form submit collection id ***', activeCollection);
     if (formValues.message === '') {
       return;
     }
-    console.log('selected filters after form submit', selectedFilters);
     const useDocumentContext = !devMode || formValues.useDocumentContext;
     const currentUrl = window.location.href;
     let filterIds: string[] = [];
     if (currentUrl.includes('search') && formValues.useCurrentDocumentContext) {
-      console.log('first branch', selectedFilters);
       // Filter documents that have annotations matching the selected filters
       if (selectedFilters.length > 0) {
         const selectedIds = selectedFilters.map((f: any) => f.id_ER);
@@ -219,7 +216,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     //   'aaf5b3db91bbee9b924bb43b5155b8d83ea351cf680219871cc163b4efec16b8',
     //   '6256c9c52e31f2e5967d457aa9e3dda502cb6cd7b8bb9df6015862ef9f9cd97f',
     // ];
-    console.log('active filter ids', filterIds);
 
     // When multi-agent mode is enabled the pipeline handles its own retrieval
     // internally (dense / fulltext / hybrid / summary). We skip the pre-fetch

@@ -10,7 +10,8 @@ import {
   Input,
 } from '@heroui/react';
 import { useAtom } from 'jotai';
-import { uploadModalOpenAtom, uploadProgressAtom } from '@/atoms/upload';
+import { uploadModalOpenAtom } from '@/atoms/upload';
+import { useUploadJobs } from '@/hooks/upload';
 
 import { useMutation, useContext, useQuery } from '@/utils/trpc';
 import { useRef, useState, useEffect } from 'react';
@@ -19,7 +20,7 @@ import { FiUpload } from '@react-icons/all-files/fi/FiUpload';
 import { FiX } from '@react-icons/all-files/fi/FiX';
 import * as Tabs from '@radix-ui/react-tabs';
 import { activeCollectionAtom } from '@/atoms/collection';
-import { message, Select } from 'antd';
+import { message, Select, Progress as AntProgress } from 'antd';
 import { useSession } from 'next-auth/react';
 import { useText } from '@/components/TranslationProvider';
 
@@ -119,6 +120,52 @@ const ErrorItem = styled.div({
   fontSize: '0.875rem',
   color: '#c00',
 });
+
+const JobsPanel = styled.div({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '0.75rem',
+  marginTop: '1rem',
+  maxHeight: '260px',
+  overflowY: 'auto',
+});
+
+const JobCard = styled.div({
+  padding: '0.75rem',
+  backgroundColor: '#f9fafb',
+  border: '1px solid #eee',
+  borderRadius: '6px',
+});
+
+const JobCardHeader = styled.div({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: '0.5rem',
+  gap: '0.5rem',
+});
+
+const JobTitle = styled.span({
+  fontSize: '0.8125rem',
+  fontWeight: 600,
+  color: '#333',
+});
+
+const JobSubtitle = styled.span({
+  fontSize: '0.75rem',
+  color: '#666',
+});
+
+const DismissButton = styled.button({
+  border: 'none',
+  background: 'transparent',
+  cursor: 'pointer',
+  color: '#999',
+  display: 'flex',
+  alignItems: 'center',
+  '&:hover': { color: '#333' },
+});
+
 interface props {
   collectionId?: string;
   doneUploading?: Function;
@@ -127,7 +174,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
   const t = useText('uploadModal');
   const [isOpen, setIsOpen] = useAtom(uploadModalOpenAtom);
   const { data: session, status } = useSession();
-  const [uploadProgress, setUploadProgress] = useAtom(uploadProgressAtom);
+  const { jobs, submitUploadJob, dismissJob, isSubmitting } = useUploadJobs();
   const [activeCollection] = useAtom(activeCollectionAtom);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -144,8 +191,6 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
     setAnonymizeTypesInput(anonymizeTypes.join(', '));
   }, [anonymizeTypes]);
   const txtFileInputRef = useRef<HTMLInputElement>(null);
-  const createDocumentMutation = useMutation(['document.createDocument']);
-  const annotateAndUploadMutation = useMutation(['document.annotateAndUpload']);
   const trpcContext = useContext();
   const token = session?.accessToken as string | undefined;
   const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
@@ -261,146 +306,69 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
       message.error('No active collection to upload the documents to');
       return;
     }
-    setUploadProgress({
-      total: selectedFiles.length,
-      completed: 0,
-      failed: 0,
-      isUploading: true,
-      errors: [],
-    });
 
-    const errors: Array<{ fileName: string; error: string }> = [];
-    let completed = 0;
-    let failed = 0;
-
-    // Process files sequentially to avoid overwhelming the server
-    for (const file of selectedFiles) {
-      try {
-        const content = await file.text();
-        const jsonData = JSON.parse(content);
-        if (activeCollection.id) {
-          console.log('access token', tokenForApi);
-          await createDocumentMutation.mutateAsync({
-            document: jsonData,
-            collectionId: collectionId || activeCollection?.id,
-            token: tokenForApi,
-            toAnonymize,
-            anonymizeTypes:
-              anonymizeTypes.length > 0 ? anonymizeTypes : undefined,
-          });
-
-          completed++;
-          setUploadProgress((prev) => ({
-            ...prev,
-            completed,
-          }));
-        }
-      } catch (error) {
-        failed++;
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown error';
-        errors.push({
+    try {
+      const files = await Promise.all(
+        selectedFiles.map(async (file) => ({
           fileName: file.name,
-          error: errorMessage,
-        });
-        setUploadProgress((prev) => ({
-          ...prev,
-          failed,
-          errors,
-        }));
-      }
-    }
+          content: await file.text(),
+        }))
+      );
 
-    // Mark upload as complete
-    setUploadProgress((prev) => ({
-      ...prev,
-      isUploading: false,
-    }));
+      await submitUploadJob({
+        collectionId: collectionId || activeCollection.id,
+        uploadType: 'json',
+        files,
+        token: tokenForApi,
+        toAnonymize,
+        anonymizeTypes: anonymizeTypes.length > 0 ? anonymizeTypes : undefined,
+      });
 
-    // Invalidate search queries to refresh document lists
-    trpcContext.invalidateQueries(['search.facetedSearch']);
-    trpcContext.invalidateQueries(['document.inifniteDocuments']);
-
-    // If all uploads succeeded, close the modal after a short delay
-    if (failed === 0) {
-      setTimeout(() => {
-        handleClose();
-        if (doneUploading) {
-          console.log('calling done uploading');
-          doneUploading();
-        }
-      }, 1500);
+      message.success(
+        `Upload started in the background (${files.length} file${
+          files.length > 1 ? 's' : ''
+        }). You can close this window — progress is tracked automatically.`
+      );
+      setSelectedFiles([]);
+      if (doneUploading) doneUploading();
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : 'Failed to start upload'
+      );
     }
   };
 
   const handleUploadTXT = async () => {
     if (selectedFiles.length === 0) return;
 
-    setUploadProgress({
-      total: selectedFiles.length,
-      completed: 0,
-      failed: 0,
-      isUploading: true,
-      errors: [],
-    });
-
-    const errors: Array<{ fileName: string; error: string }> = [];
-    let completed = 0;
-    let failed = 0;
-
-    // Process files sequentially to avoid overwhelming the server
-    for (const file of selectedFiles) {
-      try {
-        const text = await file.text();
-
-        // Backend fetches configuration - either selected or active
-        await annotateAndUploadMutation.mutateAsync({
-          text,
-          name: file.name.replace('.txt', ''),
-          collectionId: collectionId || activeCollection?.id,
-          token: tokenForApi,
-          configurationId: selectedConfigId || undefined,
-          toAnonymize,
-          anonymizeTypes:
-            anonymizeTypes.length > 0 ? anonymizeTypes : undefined,
-        });
-
-        completed++;
-        setUploadProgress((prev) => ({
-          ...prev,
-          completed,
-        }));
-      } catch (error) {
-        failed++;
-        const errorMessage =
-          error instanceof Error ? error.message : 'Unknown error';
-        errors.push({
+    try {
+      const files = await Promise.all(
+        selectedFiles.map(async (file) => ({
           fileName: file.name,
-          error: errorMessage,
-        });
-        setUploadProgress((prev) => ({
-          ...prev,
-          failed,
-          errors,
-        }));
-      }
-    }
+          content: await file.text(),
+        }))
+      );
 
-    // Mark upload as complete
-    setUploadProgress((prev) => ({
-      ...prev,
-      isUploading: false,
-    }));
+      await submitUploadJob({
+        collectionId: collectionId || activeCollection?.id || '',
+        uploadType: 'txt',
+        files,
+        token: tokenForApi,
+        configurationId: selectedConfigId || undefined,
+        toAnonymize,
+        anonymizeTypes: anonymizeTypes.length > 0 ? anonymizeTypes : undefined,
+      });
 
-    // Invalidate search queries to refresh document lists
-    trpcContext.invalidateQueries(['search.facetedSearch']);
-    trpcContext.invalidateQueries(['document.inifniteDocuments']);
-
-    // If all uploads succeeded, close the modal after a short delay
-    if (failed === 0) {
-      setTimeout(() => {
-        handleClose();
-      }, 1500);
+      message.success(
+        `Upload started in the background (${files.length} file${
+          files.length > 1 ? 's' : ''
+        }). You can close this window — progress is tracked automatically.`
+      );
+      setSelectedFiles([]);
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : 'Failed to start upload'
+      );
     }
   };
 
@@ -414,24 +382,16 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
 
   const handleClose = () => {
     if (doneUploading) {
-      console.log('calling done uploadgin');
       doneUploading();
     }
 
-    if (!uploadProgress.isUploading) {
-      setIsOpen(false);
-      setSelectedFiles([]);
-      setToAnonymize(false);
-      setAnonymizeTypes([]);
-      setAnonymizeTypesInput('');
-      setUploadProgress({
-        total: 0,
-        completed: 0,
-        failed: 0,
-        isUploading: false,
-        errors: [],
-      });
-    }
+    // Uploads run in the background on the server, so closing the modal
+    // never has to wait for anything — the job keeps going either way.
+    setIsOpen(false);
+    setSelectedFiles([]);
+    setToAnonymize(false);
+    setAnonymizeTypes([]);
+    setAnonymizeTypesInput('');
   };
 
   const handleTabChange = (value: string) => {
@@ -439,10 +399,9 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
     setSelectedFiles([]);
   };
 
-  const progressPercentage =
-    uploadProgress.total > 0
-      ? (uploadProgress.completed / uploadProgress.total) * 100
-      : 0;
+  const handleDismissJob = (jobId: string) => {
+    dismissJob(jobId, tokenForApi);
+  };
 
   return (
     <Modal
@@ -539,8 +498,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
 
                 <TabsContent value="json">
                   <UploadContainer>
-                    {!uploadProgress.isUploading &&
-                      uploadProgress.total === 0 && (
+                    {selectedFiles.length === 0 && (
                         <>
                           <FileInputLabel
                             htmlFor="json-file-upload"
@@ -580,8 +538,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                         </>
                       )}
 
-                    {selectedFiles.length > 0 &&
-                      !uploadProgress.isUploading && (
+                    {selectedFiles.length > 0 && (
                         <FileList>
                           <strong style={{ fontSize: 14 }}>
                             {t('selectedFiles', { n: selectedFiles.length })}
@@ -663,8 +620,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                       </span>
                     </div>
 
-                    {!uploadProgress.isUploading &&
-                      uploadProgress.total === 0 && (
+                    {selectedFiles.length === 0 && (
                         <>
                           <FileInputLabel
                             htmlFor="txt-file-upload"
@@ -703,8 +659,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                         </>
                       )}
 
-                    {selectedFiles.length > 0 &&
-                      !uploadProgress.isUploading && (
+                    {selectedFiles.length > 0 && (
                         <FileList>
                           <strong style={{ fontSize: 14 }}>
                             {t('selectedFiles', { n: selectedFiles.length })}
@@ -725,66 +680,84 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                   </UploadContainer>
                 </TabsContent>
 
-                {uploadProgress.isUploading && (
+                {jobs.length > 0 && (
                   <div>
-                    <strong style={{ fontSize: 14 }}>
-                      {activeTab === 'txt'
-                        ? t('uploading.txt')
-                        : t('uploading.json')}
-                    </strong>
-                    <Progress
-                      value={progressPercentage}
-                      color="primary"
-                      style={{ marginTop: '1rem' }}
-                    />
-                  </div>
-                )}
-
-                {!uploadProgress.isUploading && uploadProgress.total > 0 && (
-                  <div id="upload-complete">
-                    <strong style={{ color: '#0a0', fontSize: 14 }}>
-                      {t('complete')}
-                    </strong>
-                    <span style={{ display: 'block', marginTop: '0.5rem' }}>
-                      {t('success', {
-                        completed: uploadProgress.completed,
-                        total: uploadProgress.total,
-                        failed: uploadProgress.failed,
+                    <strong style={{ fontSize: 14 }}>Uploads</strong>
+                    <JobsPanel data-testid="upload-jobs-panel">
+                      {jobs.map((job) => {
+                        const pct =
+                          job.statistics.total > 0
+                            ? ((job.statistics.completed +
+                                job.statistics.failed) /
+                                job.statistics.total) *
+                              100
+                            : 0;
+                        const isActive =
+                          job.status === 'pending' ||
+                          job.status === 'processing';
+                        return (
+                          <JobCard key={job.jobId} data-testid="upload-job-item">
+                            <JobCardHeader>
+                              <div>
+                                <JobTitle>
+                                  {job.uploadType.toUpperCase()} ·{' '}
+                                  {job.statistics.total} file
+                                  {job.statistics.total !== 1 ? 's' : ''}
+                                </JobTitle>
+                                <br />
+                                <JobSubtitle>
+                                  {isActive
+                                    ? `Uploading… ${job.statistics.completed}/${job.statistics.total} done`
+                                    : job.status === 'failed'
+                                    ? `Failed: ${job.error || 'unknown error'}`
+                                    : `${job.statistics.completed} succeeded${
+                                        job.statistics.failed > 0
+                                          ? `, ${job.statistics.failed} failed`
+                                          : ''
+                                      }`}
+                                </JobSubtitle>
+                              </div>
+                              {!isActive && (
+                                <DismissButton
+                                  onClick={() => handleDismissJob(job.jobId)}
+                                  aria-label="Dismiss"
+                                >
+                                  <FiX />
+                                </DismissButton>
+                              )}
+                            </JobCardHeader>
+                            <AntProgress
+                              percent={Math.round(pct)}
+                              size="small"
+                              status={
+                                job.status === 'failed'
+                                  ? 'exception'
+                                  : job.statistics.failed > 0 && !isActive
+                                  ? 'exception'
+                                  : isActive
+                                  ? 'active'
+                                  : 'success'
+                              }
+                            />
+                          </JobCard>
+                        );
                       })}
-                    </span>
-                  </div>
-                )}
-
-                {uploadProgress.errors.length > 0 && (
-                  <div data-testid="upload-error-list">
-                    <strong style={{ color: '#c00', fontSize: 14 }}>
-                      {t('errors')}
-                    </strong>
-                    {uploadProgress.errors.map((error, index) => (
-                      <div data-testid="upload-error-item" key={index}>
-                        <strong>{error.fileName}:</strong> {error.error}
-                      </div>
-                    ))}
+                    </JobsPanel>
                   </div>
                 )}
               </Tabs.Root>
             </ModalBody>
             <ModalFooter>
-              <Button
-                onPress={handleClose}
-                isDisabled={uploadProgress.isUploading}
-              >
-                {uploadProgress.isUploading
-                  ? t('buttons.uploading')
-                  : t('buttons.close')}
-              </Button>
-              {selectedFiles.length > 0 && !uploadProgress.isUploading && (
+              <Button onPress={handleClose}>{t('buttons.close')}</Button>
+              {selectedFiles.length > 0 && (
                 <Button
                   id="submitUploadButton"
                   onPress={handleUpload}
-                  isDisabled={uploadProgress.isUploading}
+                  isDisabled={isSubmitting}
                 >
-                  {t('buttons.upload', { n: selectedFiles.length })}
+                  {isSubmitting
+                    ? t('buttons.uploading')
+                    : t('buttons.upload', { n: selectedFiles.length })}
                 </Button>
               )}
             </ModalFooter>

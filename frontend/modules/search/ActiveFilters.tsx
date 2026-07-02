@@ -129,7 +129,6 @@ const ActiveFiltersList = ({ facets }: ActiveFiltersListProps) => {
   return (
     <div className="flex flex-row items-center flex-wrap gap-2">
       {activeFilters.map((filter, index) => {
-        console.log('filter', filter);
         const displayText = filter.filterType.startsWith('annotation')
           ? deanonymize &&
             filter.value.display_name &&

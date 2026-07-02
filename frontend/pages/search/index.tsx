@@ -121,9 +121,11 @@ const Search = () => {
   const token = (session as any)?.accessToken;
   const { data: facetsCache } = useQuery(
     [
-      'collection.facetsCache',
+      'collection.facetsCachePaginated',
       {
         id: activeCollection && activeCollection.id ? activeCollection.id : '',
+        page: 1,
+        limit: 20,
         token,
       },
     ],
@@ -135,10 +137,10 @@ const Search = () => {
     }
   );
 
-  // Normalize cached facets into `{ annotations, metadata }` shape for components
+  // Normalize cached facets - extract facets array from paginated response
   const normalizedCachedFacets =
-    Array.isArray(facetsCache) && facetsCache.length > 0
-      ? { annotations: facetsCache, metadata: [] }
+    facetsCache?.facets && Array.isArray(facetsCache.facets) && facetsCache.facets.length > 0
+      ? { annotations: facetsCache.facets, metadata: [] }
       : undefined;
 
   const { ref, inView } = useInView({

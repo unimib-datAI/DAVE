@@ -12,8 +12,9 @@ import {
   deanonymizedFacetNamesAtom,
   isLoadingAnonymizationAtom,
 } from '@/utils/atoms';
-import { useMutation } from '@/utils/trpc';
+import { useMutation, useQuery } from '@/utils/trpc';
 import { activeCollectionAtom } from '@/atoms/collection';
+import { useSession } from 'next-auth/react';
 
 // This component expects `facets` to already be grouped (the cache format).
 // We keep a small adapter to convert either the cached grouped array
@@ -267,8 +268,225 @@ const Facets = ({
   const [collection] = useAtom(activeCollectionAtom);
   const deanonymizeMutation = useMutation(['document.deanonymizeKeys']);
   const [, setGlobalLoading] = useAtom(isLoadingAnonymizationAtom);
+  const { data: session } = useSession();
+  const token = (session as any)?.accessToken as string | undefined;
 
-  const allFacets = useMemo(() => toGroupedFacets(facets), [facets]);
+  // Determine if we should load from paginated or search endpoint
+  const shouldSearch = value.filter.trim() !== '';
+
+  // Get initial grouped facets to determine which groups exist
+  const initialGroupedFacets = useMemo(() => toGroupedFacets(facets), [facets]);
+
+  // Map of facet groups for quick lookups
+  const facetGroupsMap = useMemo(
+    () => new Map(initialGroupedFacets.map((g: any) => [g.key, g])),
+    [initialGroupedFacets]
+  );
+
+  // Load initial paginated facets when filter is empty
+  const paginatedQuery = useQuery(
+    [
+      'collection.facetsCachePaginated',
+      {
+        id: collection?.id || '',
+        page: 1,
+        limit: 20,
+        token,
+      },
+    ],
+    {
+      enabled: !shouldSearch && !!collection?.id,
+      staleTime: Infinity, // Cache indefinitely
+    }
+  );
+
+  // Create search queries for each facet group (6 common Italian groups)
+  // Each is conditionally enabled based on whether we're searching and the group exists
+  const personaQuery = useQuery(
+    [
+      'collection.facetsCacheSearch',
+      {
+        id: collection?.id || '',
+        key: 'persona',
+        query: value.filter,
+        page: 1,
+        limit: 20,
+        token,
+      },
+    ],
+    {
+      enabled:
+        shouldSearch && !!collection?.id && facetGroupsMap.has('persona'),
+    }
+  );
+
+  const luogoQuery = useQuery(
+    [
+      'collection.facetsCacheSearch',
+      {
+        id: collection?.id || '',
+        key: 'luogo',
+        query: value.filter,
+        page: 1,
+        limit: 20,
+        token,
+      },
+    ],
+    {
+      enabled: shouldSearch && !!collection?.id && facetGroupsMap.has('luogo'),
+    }
+  );
+
+  const organizzazioneQuery = useQuery(
+    [
+      'collection.facetsCacheSearch',
+      {
+        id: collection?.id || '',
+        key: 'organizzazione',
+        query: value.filter,
+        page: 1,
+        limit: 20,
+        token,
+      },
+    ],
+    {
+      enabled:
+        shouldSearch &&
+        !!collection?.id &&
+        facetGroupsMap.has('organizzazione'),
+    }
+  );
+
+  const dataQuery = useQuery(
+    [
+      'collection.facetsCacheSearch',
+      {
+        id: collection?.id || '',
+        key: 'data',
+        query: value.filter,
+        page: 1,
+        limit: 20,
+        token,
+      },
+    ],
+    {
+      enabled: shouldSearch && !!collection?.id && facetGroupsMap.has('data'),
+    }
+  );
+
+  const denarroQuery = useQuery(
+    [
+      'collection.facetsCacheSearch',
+      {
+        id: collection?.id || '',
+        key: 'denaro',
+        query: value.filter,
+        page: 1,
+        limit: 20,
+        token,
+      },
+    ],
+    {
+      enabled: shouldSearch && !!collection?.id && facetGroupsMap.has('denaro'),
+    }
+  );
+
+  const normaQuery = useQuery(
+    [
+      'collection.facetsCacheSearch',
+      {
+        id: collection?.id || '',
+        key: 'norma',
+        query: value.filter,
+        page: 1,
+        limit: 20,
+        token,
+      },
+    ],
+    {
+      enabled: shouldSearch && !!collection?.id && facetGroupsMap.has('norma'),
+    }
+  );
+
+  // Map all search queries for easy access
+  const allSearchQueries = useMemo(
+    () => ({
+      persona: personaQuery,
+      luogo: luogoQuery,
+      organizzazione: organizzazioneQuery,
+      data: dataQuery,
+      denaro: denarroQuery,
+      norma: normaQuery,
+    }),
+    [
+      personaQuery,
+      luogoQuery,
+      organizzazioneQuery,
+      dataQuery,
+      denarroQuery,
+      normaQuery,
+    ]
+  );
+
+  // Combine results from either paginated or search queries
+  const allFacets = useMemo(() => {
+    if (shouldSearch) {
+      // Combine search results from all facet groups
+      const combinedResults = Array.from(facetGroupsMap.keys())
+        .map((key) => {
+          const query = allSearchQueries[key as keyof typeof allSearchQueries];
+          if (query?.data) {
+            // Search endpoint returns { facets: [...], facetType, query, pagination: {...} }
+            const facetsArray = query.data?.facets || query.data;
+            const groupedData = toGroupedFacets(facetsArray);
+            return groupedData.length > 0 ? groupedData[0] : null;
+          }
+          return null;
+        })
+        .filter(Boolean);
+      return combinedResults;
+    } else {
+      // Use paginated results when not searching
+      const paginatedData = paginatedQuery.data;
+      if (!paginatedData) {
+        return initialGroupedFacets;
+      }
+      // Paginated endpoint returns { facets: [...], pagination: {...} }
+      const facetsArray = paginatedData?.facets || paginatedData;
+      return toGroupedFacets(facetsArray);
+    }
+  }, [shouldSearch, paginatedQuery.data, allSearchQueries, facetGroupsMap, initialGroupedFacets]);
+  // Log paginated facets query
+  useEffect(() => {
+    if (paginatedQuery.isFetching) {
+      console.log('[Facets] Loading paginated query - page 1, limit 20');
+    }
+    if (paginatedQuery.isSuccess && paginatedQuery.data) {
+      console.log('[Facets] Paginated query success:', paginatedQuery.data.pagination);
+    }
+  }, [paginatedQuery.isFetching, paginatedQuery.isSuccess]);
+
+  // Log search queries
+  useEffect(() => {
+    if (shouldSearch && value.filter.trim()) {
+      const loadingGroups = Object.entries(allSearchQueries)
+        .filter(([_, q]) => q?.isFetching)
+        .map(([key]) => key);
+      
+      if (loadingGroups.length > 0) {
+        console.log(`[Facets] Searching for "${value.filter}" in groups:`, loadingGroups);
+      }
+      
+      const successGroups = Object.entries(allSearchQueries)
+        .filter(([_, q]) => q?.isSuccess && q?.data)
+        .map(([key, q]) => `${key}(${q?.data?.pagination?.total || 0})`);
+      
+      if (successGroups.length > 0) {
+        console.log('[Facets] Search results:', successGroups.join(', '));
+      }
+    }
+  }, [shouldSearch, value.filter, allSearchQueries]);
+
 
   // Fetch de-anonymized names when global toggle is activated
   useEffect(() => {
@@ -308,60 +526,26 @@ const Facets = ({
       }
     };
 
-    fetchDeAnonymizedNames();
+    // Only fetch if there are vault keys in the facets
+    const hasVaultKeys = allFacets.some((group: any) =>
+      (group.children || []).some((child: any) =>
+        child.display_name && child.display_name.startsWith('vault:v1')
+      )
+    );
+    
+    if (hasVaultKeys) {
+      fetchDeAnonymizedNames();
+    } else {
+      setGlobalLoading(false);
+    }
+    // Only run when deanonymize toggle changes, not when allFacets changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deanonymize, allFacets]);
-
-  const fuse = useRef<any>(null);
-  useEffect(() => {
-    fuse.current = new Fuse(allFacets, { keys: ['key', 'display_name'] });
-  }, [allFacets]);
+  }, [deanonymize]);
 
   const filteredFacets = useMemo(() => {
-    const baseFiltered =
-      value.filter.trim() === ''
-        ? allFacets
-        : fuse.current.search(value.filter).map(({ item }) => item);
-
-    // Create a copy to avoid mutating the original array
-    const sorted = [...baseFiltered];
-
-    // If there's a filter query, prioritize matches
-    if (value.filter.trim() !== '') {
-      const filterLower = value.filter.toLowerCase().trim();
-      sorted.sort((a, b) => {
-        const aMatches =
-          (a.key && a.key.toLowerCase().includes(filterLower)) ||
-          a.children.some(
-            (child) =>
-              (child.display_name &&
-                child.display_name.toLowerCase().includes(filterLower)) ||
-              child.ids_ER.some(
-                (id) =>
-                  id &&
-                  id.trim() !== '' &&
-                  id.toLowerCase().includes(filterLower)
-              )
-          );
-        const bMatches =
-          (b.key && b.key.toLowerCase().includes(filterLower)) ||
-          b.children.some(
-            (child) =>
-              (child.display_name &&
-                child.display_name.toLowerCase().includes(filterLower)) ||
-              child.ids_ER.some(
-                (id) =>
-                  id &&
-                  id.trim() !== '' &&
-                  id.toLowerCase().includes(filterLower)
-              )
-          );
-        return (bMatches ? 1 : 0) - (aMatches ? 1 : 0);
-      });
-    }
-
-    return sorted;
-  }, [allFacets, value.filter]);
+    // When using backend search/pagination, results are already filtered
+    return allFacets;
+  }, [allFacets]);
 
   // Apply collection typesOrder when no text filter is active
   const orderedFacets = useMemo(() => {
@@ -379,9 +563,11 @@ const Facets = ({
     });
   }, [filteredFacets, collection?.config, value.filter]);
 
-  useEffect(() => {
-    console.log('filtered facets', filteredFacets);
-  }, [filteredFacets]);
+  const isLoading = shouldSearch
+    ? Object.values(allSearchQueries).some((q) => q?.isLoading)
+    : paginatedQuery.isLoading;
+
+
   return allFacets.length > 0 ? (
     <div className="sticky top-16 w-72 h-[calc(100vh-4rem)]">
       <div className="overflow-y-auto h-full">
@@ -409,7 +595,7 @@ const Facets = ({
             </div>
           </div>
 
-          {orderedFacets.map(({ filterType, ...facet }) => {
+          {orderedFacets.map(({ filterType, ...facet }: any) => {
             if (
               !collection?.config ||
               !collection?.config.typesToHide ||
@@ -418,7 +604,7 @@ const Facets = ({
               return (
                 <FacetFilter
                   key={`${facet.key}-${filterType}`}
-                  facet={facet}
+                  facet={facet as any}
                   filterType={filterType}
                   highlight={
                     value.filter.trim() !== '' &&
@@ -426,9 +612,9 @@ const Facets = ({
                       facet.key
                         .toLowerCase()
                         .includes(value.filter.toLowerCase())) ||
-                      facet.children.some((child) =>
+                      facet.children.some((child: any) =>
                         child.ids_ER.some(
-                          (id) =>
+                          (id: string) =>
                             id &&
                             id.trim() !== '' &&
                             id
@@ -455,7 +641,7 @@ const Facets = ({
                 return (
                   <FacetFilter
                     key={`${facet.key}-${filterType}`}
-                    facet={facet}
+                    facet={facet as any}
                     filterType={filterType}
                     highlight={
                       value.filter.trim() !== '' &&
@@ -463,9 +649,9 @@ const Facets = ({
                         facet.key
                           .toLowerCase()
                           .includes(value.filter.toLowerCase())) ||
-                        facet.children.some((child) =>
+                        facet.children.some((child: any) =>
                           child.ids_ER.some(
-                            (id) =>
+                            (id: string) =>
                               id &&
                               id.trim() !== '' &&
                               id

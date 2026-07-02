@@ -6,14 +6,15 @@ import { Option } from 'lucide-react';
 import { Link, Link2, SearchIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
-import { useRef, useState } from 'react';
+import { useRef, useState, useMemo, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import {
   deanonymizeFacetsAtom,
   deanonymizedFacetNamesAtom,
   facetsDocumentsAtom,
 } from '@/utils/atoms';
-import { useMutation } from '@/utils/trpc';
+import { activeCollectionAtom } from '@/atoms/collection';
+import { useMutation, useQuery } from '@/utils/trpc';
 import { useText } from '@/components/TranslationProvider';
 
 type FacetFilterProps = {
@@ -60,19 +61,100 @@ const FacetFilter = ({
   const getDocsByIdsMutation = useMutation(['document.fetchFacetDocuments']);
   const [fetching, setFetching] = useState(false);
 
+  const [page, setPage] = useState(1);
+  const [accumulatedChildren, setAccumulatedChildren] = useState<any[]>([]);
+  const token = (session as any)?.accessToken;
+  const [collection] = useAtom(activeCollectionAtom);
+
   const { register, value } = useForm({
     filter: '',
   });
+
+  // Search query when user types in the search box
+  const { data: searchData, isLoading: isSearching } = useQuery(
+    [
+      'collection.facetsCacheSearch',
+      {
+        id: collection?.id || '',
+        key: facet.key,
+        query: value.filter.trim(), // User's search text
+        page: 1,
+        limit: 20,
+        token,
+      },
+    ],
+    {
+      enabled: !!collection?.id && value.filter.trim().length > 0,
+    }
+  );
+
+  // Fetch more items when user clicks "show more" (without search filter)
+  const { data: paginatedData, isLoading: isLoadingMore } = useQuery(
+    [
+      'collection.facetsCacheSearch',
+      {
+        id: collection?.id || '',
+        key: facet.key,
+        query: '', // Empty query matches all
+        page,
+        limit: 20,
+        token,
+      },
+    ],
+    {
+      enabled: page > 1 && !!collection?.id && value.filter.trim().length === 0,
+    }
+  );
+
+  // Extract children from search or paginated results
+  const paginatedChildren = useMemo(() => {
+    // Use search results if user is searching
+    if (value.filter.trim().length > 0 && searchData?.facets) {
+      console.log(`[FacetFilter] Search results for "${value.filter}":`, searchData.facets.length, 'items');
+      return searchData.facets || [];
+    }
+    
+    // Use paginated results for "show more"
+    if (paginatedData?.facets) {
+      console.log(`[FacetFilter] Page ${page} results for ${facet.key}:`, paginatedData.facets.length, 'items');
+      return paginatedData.facets || [];
+    }
+    
+    return [];
+  }, [paginatedData, searchData, value.filter, facet.key]);
+
+  // Accumulate children as we fetch more pages
+  useEffect(() => {
+    if (page === 1) {
+      // Reset on first page
+      setAccumulatedChildren([]);
+    } else if (paginatedChildren && paginatedChildren.length > 0) {
+      // Append new children to accumulated list
+      // eslint-disable-next-line
+      setAccumulatedChildren((prev: any[]) => {
+        const newChildren = [...prev];
+        // Avoid duplicates based on display_name
+        const existing = new Set(newChildren.map((c) => c.display_name));
+        paginatedChildren.forEach((child: any) => {
+          if (!existing.has(child.display_name)) {
+            newChildren.push(child);
+            existing.add(child.display_name);
+          }
+        });
+        console.log(`[FacetFilter] Accumulated ${newChildren.length} total items for ${facet.key}`);
+        return newChildren;
+      });
+    }
+  }, [paginatedChildren, page, facet.key]);
+
   const fuseOptions = {
     // Only search by the displayed label (de-anonymized display_name).
     keys: ['display_name'],
   };
 
-  const [page, setPage] = useState(0);
-
-  const MAX_VISIBLE_CHILDREN = 7;
-  const STEP = 10;
-  const VISIBLE_ELEMENTS = page * STEP + MAX_VISIBLE_CHILDREN;
+  // Show all items loaded from the backend (we load 20 per group)
+  // No need for client-side pagination since backend already paginates
+  const MAX_VISIBLE_CHILDREN = 20;
 
   // Group children by their display_name (or de-anonymized name) and combine their ids_ER
   const groupedChildren = facet.children.reduce((acc, child) => {
@@ -115,7 +197,19 @@ const FacetFilter = ({
     (a.display_name || a.key || '').localeCompare(b.display_name || b.key || '')
   );
 
-  const children = filteredChildren.slice(0, VISIBLE_ELEMENTS);
+  // Combine initial children with accumulated paginated children
+  const allChildren = useMemo(() => {
+    if (accumulatedChildren.length === 0) {
+      // First page: show initial items from facet.children
+      return filteredChildren.slice(0, MAX_VISIBLE_CHILDREN);
+    }
+    
+    // Show initial 20 + all accumulated paginated items
+    const initial = filteredChildren.slice(0, MAX_VISIBLE_CHILDREN);
+    return [...initial, ...accumulatedChildren];
+  }, [filteredChildren, accumulatedChildren]);
+
+  const children = allChildren;
 
   const handleChecked = (
     checked: boolean,
@@ -131,7 +225,6 @@ const FacetFilter = ({
         (option as any).doc_ids.length > 0
       ) {
         try {
-          console.log('loaded doc ids', loadedDocIds);
           const docIds = (option as any).doc_ids.map((d: any) => String(d));
           const missingDocIds = docIds.filter(
             (docId: string) => !loadedDocIds?.includes(docId)
@@ -148,7 +241,6 @@ const FacetFilter = ({
             setFetching(true);
             // include session token when available so backend keycloak accepts the request
             const token = (session as any)?.accessToken;
-            console.log('facet: fetching missing docs', { missing, token });
             const result = await getDocsByIdsMutation.mutateAsync({
               ids: missingDocIds,
               token,
@@ -166,19 +258,6 @@ const FacetFilter = ({
                   }
                 });
                 const merged = [...prev, ...toAdd];
-                console.log(
-                  'facet: fetched hits, merging. merged count:',
-                  merged.length
-                );
-                try {
-                  console.log(
-                    'facet: sample fetched hit annotations keys:',
-                    toAdd[0]?.annotations?.slice(0, 5).map((a: any) => ({
-                      id_ER: a.id_ER,
-                      display_name: a.display_name,
-                    }))
-                  );
-                } catch (e) {}
                 return merged;
               });
             }
@@ -316,24 +395,27 @@ const FacetFilter = ({
         })}
       </div>
 
-      {filteredChildren.length > MAX_VISIBLE_CHILDREN ? (
+
+      {facet.n_children > MAX_VISIBLE_CHILDREN ? (
         <div className="flex flex-row justify-between">
-          {page > 0 ? (
+          {page > 1 ? (
             <button
               id={`facet-${facet.key}-show-less`}
-              onClick={() => setPage(0)}
+              onClick={() => setPage(1)}
               className="text-xs border-none bg-transparent flex justify-start m-0 p-0 font-semibold underline cursor-pointer"
+              disabled={isLoadingMore || isSearching}
             >
               {t('showLess')}
             </button>
           ) : null}
-          {VISIBLE_ELEMENTS < facet.n_children ? (
+          {children.length < facet.n_children ? (
             <button
               id={`facet-${facet.key}-show-more`}
               onClick={() => setPage((p) => p + 1)}
-              className="text-xs border-none bg-transparent flex justify-start m-0 p-0 font-semibold underline cursor-pointer"
+              className="text-xs border-none bg-transparent flex justify-start m-0 p-0 font-semibold underline cursor-pointer disabled:opacity-50"
+              disabled={isLoadingMore || isSearching}
             >
-              {t('showMore', { count: STEP })}
+              {(isLoadingMore || isSearching) ? 'Loading...' : t('showMore', { count: MAX_VISIBLE_CHILDREN })}
             </button>
           ) : null}
         </div>

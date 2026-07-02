@@ -165,6 +165,84 @@ export const collections = createRouter()
       }
     },
   })
+  // Get paginated facets cache for a collection
+  .query('facetsCachePaginated', {
+    input: z.object({
+      id: z.string(),
+      page: z.number().optional().default(1),
+      limit: z.number().optional().default(20),
+      token: z.string().optional(),
+    }),
+    async resolve({ input }) {
+      const { id, page, limit, token } = input;
+      try {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
+
+        const result = await fetchJson<any, any>(
+          `${baseURL}/collection/facetsCachePaginated/${encodeURIComponent(id)}?page=${page}&limit=${limit}`,
+          {
+            method: 'GET',
+            headers,
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code:
+            error?.status === 401
+              ? 'UNAUTHORIZED'
+              : error?.status === 403
+              ? 'FORBIDDEN'
+              : 'INTERNAL_SERVER_ERROR',
+          message: error?.message || 'Failed to fetch paginated facets',
+        });
+      }
+    },
+  })
+  // Search facets by display_name within a specific facet type
+  .query('facetsCacheSearch', {
+    input: z.object({
+      id: z.string(),
+      key: z.string(), // facet type (e.g., 'PERSON', 'ORGANIZATION')
+      query: z.string(), // search string
+      page: z.number().optional().default(1),
+      limit: z.number().optional().default(20),
+      token: z.string().optional(),
+    }),
+    async resolve({ input }) {
+      const { id, key, query, page, limit, token } = input;
+      try {
+        const headers: any = {};
+        const authHeader = getJWTHeader(token);
+        if (authHeader) {
+          headers.Authorization = authHeader;
+        }
+
+        const result = await fetchJson<any, any>(
+          `${baseURL}/collection/facetsCacheSearch/${encodeURIComponent(id)}?key=${encodeURIComponent(key)}&query=${encodeURIComponent(query)}&page=${page}&limit=${limit}`,
+          {
+            method: 'GET',
+            headers,
+          }
+        );
+        return result;
+      } catch (error: any) {
+        throw new TRPCError({
+          code:
+            error?.status === 401
+              ? 'UNAUTHORIZED'
+              : error?.status === 403
+              ? 'FORBIDDEN'
+              : 'INTERNAL_SERVER_ERROR',
+          message: error?.message || 'Failed to search facets',
+        });
+      }
+    },
+  })
   // Create a new collection
   .mutation('create', {
     input: z.object({
