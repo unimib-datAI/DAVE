@@ -325,6 +325,9 @@ export default (app) => {
           req.query.includeDocIds === "false" ? false : true;
         const maxChildren = parseInt(req.query.maxChildren || "0", 10) || 0;
 
+        console.log(
+          `[facetsCachePaginated] collectionId=${id}, page=${page}, limit=${limit}`,
+        );
         const matchStage = { $match: { collectionId: id } };
         const addDocCount = {
           $addFields: {
@@ -404,6 +407,385 @@ export default (app) => {
       }
     }),
   );
+
+  // ─────────────────────────────────────────────────────────────────
+  // Paginated facets endpoint
+  // ─────────────────────────────────────────────────────────────────
+  route.get(
+    "/facetsCachePaginated/:id",
+    requirePermission("collections", "view"),
+    asyncRoute(async (req, res) => {
+      const { id } = req.params;
+      const userId = req.user?.sub || req.user?.userId;
+      const page = parseInt(req.query.page || "1", 10);
+      const limit = parseInt(req.query.limit || "20", 10);
+      const includeDocIds = req.query.includeDocIds === "false" ? false : true;
+      const maxChildren = parseInt(req.query.maxChildren || "0", 10) || 0;
+
+      if (page < 1 || limit < 1 || limit > 100) {
+        return res
+          .status(400)
+          .json({ message: "Invalid pagination parameters" });
+      }
+
+      const collection = await CollectionController.findById(id);
+      if (!collection) {
+        console.warn(`Collection ${id} not found`);
+        return res.status(404).json({ message: "Collection not found" });
+      }
+
+      const hasAccess = await CollectionController.hasAccess(id, userId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      let entries = await FacetEntry.find({ collectionId: id }).lean();
+      if (!entries || entries.length === 0) {
+        try {
+          const docInfos =
+            await CollectionController.getCollectionDocumentInfo(id);
+          const totalDocs = Array.isArray(docInfos) ? docInfos.length : 0;
+          let cachePayload = {};
+
+          const progressBar = new cliProgress.SingleBar(
+            {
+              format:
+                "Building facets cache |{bar}| {percentage}% ({value}/{total})",
+            },
+            cliProgress.Presets.shades_classic,
+          );
+          progressBar.start(totalDocs, 0, { processing: `0/${totalDocs}` });
+
+          let processed = 0;
+          for (const docInfo of docInfos || []) {
+            processed += 1;
+
+            if (!process.stdout.isTTY) {
+              if (processed % 10 === 0 || processed === totalDocs) {
+                console.log(`processing ${processed}/${totalDocs}`);
+              }
+            }
+
+            try {
+              const fullDocument = await DocumentController.getFullDocById(
+                docInfo.id,
+              );
+
+              try {
+                const perDocPayload = {};
+                const entityList =
+                  fullDocument.annotation_sets?.["entities_"]?.annotations ||
+                  [];
+                for (const entity of entityList) {
+                  let mention = fullDocument.text.substring(
+                    entity.start,
+                    entity.end,
+                  );
+                  let ann_object = {
+                    mention: mention,
+                    start: entity["start"],
+                    end: entity["end"],
+                    id: entity["id"],
+                    type: entity["type"],
+                    doc_id: fullDocument.id,
+                  };
+                  const linking = entity.features?.linking;
+                  if (linking && linking.is_nil === false) {
+                    ann_object["display_name"] =
+                      entity.features?.title || mention;
+                    ann_object["is_linked"] = true;
+                    ann_object["id_ER"] = linking?.top_candidate?.url || "";
+                  } else {
+                    ann_object["display_name"] = entity.originalKey || mention;
+                    ann_object["is_linked"] = false;
+                    ann_object["id_ER"] = `${fullDocument.id}_${mention}`;
+                  }
+
+                  if (entity["type"] in perDocPayload) {
+                    perDocPayload[entity["type"]].push(ann_object);
+                  } else {
+                    perDocPayload[entity["type"]] = [ann_object];
+                  }
+
+                  if (entity["type"] in cachePayload) {
+                    cachePayload[entity["type"]].push(ann_object);
+                  } else {
+                    cachePayload[entity["type"]] = [ann_object];
+                  }
+                }
+
+                if (Object.keys(perDocPayload).length > 0) {
+                  try {
+                    await CollectionController.updateCache(
+                      { toAdd: perDocPayload },
+                      id,
+                    );
+                  } catch (updErr) {
+                    console.warn(
+                      `Warning: failed to update facets cache for document ${fullDocument.id}`,
+                      updErr,
+                    );
+                  }
+                }
+              } catch (e) {
+                console.warn(
+                  `Error processing document ${fullDocument?.id} for cache`,
+                  e,
+                );
+              }
+            } catch (outerErr) {
+              console.warn(
+                `Error fetching/processing document ${docInfo?.id}`,
+                outerErr,
+              );
+            } finally {
+              progressBar.update(processed, {
+                processing: `${processed}/${totalDocs}`,
+              });
+            }
+          }
+          progressBar.stop();
+
+          entries = await FacetEntry.find({ collectionId: id }).lean();
+          if (!entries || entries.length === 0) {
+            console.error(`Failed to build facets cache for collection ${id}`);
+            return res
+              .status(500)
+              .json({ message: "Failed to build facets cache" });
+          }
+        } catch (e) {
+          console.error("error building facets cache", e);
+          return res
+            .status(500)
+            .json({ message: "Error building facets cache" });
+        }
+      }
+
+      try {
+        const skip = (page - 1) * limit;
+
+        const matchStage = { $match: { collectionId: id } };
+        const addDocCount = {
+          $addFields: {
+            doc_count: { $size: { $ifNull: ["$doc_ids", []] } },
+            ids_ER: { $ifNull: ["$ids_ER", []] },
+          },
+        };
+
+        const projectFields = {
+          facetType: 1,
+          display_name: 1,
+          is_linked: 1,
+          ids_ER: 1,
+          doc_count: 1,
+        };
+        if (includeDocIds) {
+          projectFields.doc_ids = 1;
+        }
+        const projectStage = { $project: projectFields };
+
+        const sortStage = { $sort: { facetType: 1, doc_count: -1 } };
+
+        const groupStage = {
+          $group: {
+            _id: "$facetType",
+            children: {
+              $push: {
+                key: {
+                  $cond: [
+                    { $gt: [{ $size: { $ifNull: ["$ids_ER", []] } }, 0] },
+                    { $arrayElemAt: ["$ids_ER", 0] },
+                    "$display_name",
+                  ],
+                },
+                display_name: "$display_name",
+                is_linked: "$is_linked",
+                ids_ER: "$ids_ER",
+                doc_count: "$doc_count",
+              },
+            },
+            doc_count: { $sum: "$doc_count" },
+          },
+        };
+        if (includeDocIds) {
+          groupStage.$group.children.$push.doc_ids = "$doc_ids";
+        }
+
+        const finalProject = {
+          $project: {
+            key: "$_id",
+            doc_count: 1,
+            children: 1,
+            _id: 0,
+          },
+        };
+
+        const pipeline = [
+          matchStage,
+          addDocCount,
+          projectStage,
+          sortStage,
+          groupStage,
+          finalProject,
+        ];
+        if (maxChildren > 0) {
+          pipeline.push({
+            $addFields: { children: { $slice: ["$children", maxChildren] } },
+          });
+        }
+        pipeline.push({ $sort: { key: 1 } });
+
+        const totalPipeline = [
+          matchStage,
+          addDocCount,
+          projectStage,
+          sortStage,
+          groupStage,
+          finalProject,
+        ];
+        if (maxChildren > 0) {
+          totalPipeline.push({
+            $addFields: { children: { $slice: ["$children", maxChildren] } },
+          });
+        }
+        totalPipeline.push({ $sort: { key: 1 } });
+        totalPipeline.push({ $count: "total" });
+
+        const totalResult = await FacetEntry.aggregate(totalPipeline)
+          .allowDiskUse(false)
+          .exec();
+        const total = totalResult[0]?.total || 0;
+        const totalPages = Math.ceil(total / limit);
+
+        pipeline.push({ $skip: skip });
+        pipeline.push({ $limit: limit });
+
+        const result = await FacetEntry.aggregate(pipeline)
+          .allowDiskUse(false)
+          .exec();
+
+        return res.json({
+          facets: result,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+          },
+        });
+      } catch (e) {
+        console.error("Error aggregating paginated facet entries:", e);
+        return res
+          .status(500)
+          .json({ message: "Failed to fetch paginated facets" });
+      }
+    }),
+  );
+
+  /**
+   * Fuzzy search facets by display_name within a specific facet type (key)
+   * Uses MongoDB regex for pattern matching
+   * Query params: key (facet type), query (search string), limit (optional), page (optional)
+   */
+  route.get(
+    "/facetsCacheSearch/:id",
+    requirePermission("collections", "view"),
+    asyncRoute(async (req, res) => {
+      const { id } = req.params;
+      const userId = req.user?.sub || req.user?.userId;
+      const { key, query, limit: queryLimit, page: queryPage } = req.query;
+
+      if (!key) {
+        return res.status(400).json({
+          message: "Missing required query parameter: key",
+        });
+      }
+
+      // Treat undefined/null query as empty string (match all)
+      const searchQuery = query || '';
+
+      const limit = Math.min(parseInt(queryLimit || "20", 10), 100);
+      const page = Math.max(parseInt(queryPage || "1", 10), 1);
+      const skip = (page - 1) * limit;
+
+      console.log(
+        `[facetsCacheSearch] collectionId=${id}, facetType=${key}, query="${searchQuery}", page=${page}, limit=${limit}`,
+      );
+
+      const collection = await CollectionController.findById(id);
+      if (!collection) {
+        console.warn(`Collection ${id} not found`);
+        return res.status(404).json({ message: "Collection not found" });
+      }
+
+      const hasAccess = await CollectionController.hasAccess(id, userId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      try {
+        const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const pattern = escapeRegex(searchQuery);
+
+        const pipeline = [
+          { $match: { collectionId: id, facetType: key } },
+          {
+            $addFields: {
+              doc_count: { $size: { $ifNull: ["$doc_ids", []] } },
+              ids_ER: { $ifNull: ["$ids_ER", []] },
+            },
+          },
+          {
+            $project: {
+              facetType: 1,
+              display_name: 1,
+              is_linked: 1,
+              ids_ER: 1,
+              doc_count: 1,
+              doc_ids: 1,
+            },
+          },
+          {
+            $match: {
+              display_name: { $regex: pattern, $options: "i" },
+            },
+          },
+          { $sort: { doc_count: -1, display_name: 1 } },
+          {
+            $facet: {
+              metadata: [{ $count: "total" }],
+              results: [{ $skip: skip }, { $limit: limit }],
+            },
+          },
+        ];
+
+        const result = await FacetEntry.aggregate(pipeline)
+          .allowDiskUse(false)
+          .exec();
+
+        const metadata = result[0]?.metadata[0] || { total: 0 };
+        const results = result[0]?.results || [];
+        const total = metadata.total;
+        const totalPages = Math.ceil(total / limit);
+
+        return res.json({
+          facets: results,
+          facetType: key,
+          query,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+          },
+        });
+      } catch (e) {
+        console.error("Error searching facets:", e);
+        return res.status(500).json({ message: "Failed to search facets" });
+      }
+    }),
+  );
+
   /**
    * @swagger
    * /api/collection:

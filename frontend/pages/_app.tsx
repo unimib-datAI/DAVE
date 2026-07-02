@@ -28,6 +28,8 @@ import { loadLLMSettingsAtom } from '@/atoms/llmSettings';
 import { TranslationProvider } from '@/components';
 import TaxonomyProvider from '@/modules/taxonomy/TaxonomyProvider';
 import { UploadProgressIndicator } from '@/components/UploadProgressIndicator';
+import { UploadNotificationCenter } from '@/components/UploadNotificationCenter';
+import { UploadJobsWatcher } from '@/components/UploadJobsWatcher';
 import { getBrowserId } from '@/utils/browserId';
 import { isAuthEnabled, getSignInUrl } from '@/utils/auth';
 import '@/styles/globals.css';
@@ -356,7 +358,9 @@ function MyApp({
               <Layout>
                 <NextNProgress color="rgb(75 85 99)" showOnShallow={false} />
                 {getLayout(<Component {...pageProps} />)}
+                <UploadJobsWatcher />
                 <UploadProgressIndicator />
+                <UploadNotificationCenter />
               </Layout>
             </HeroUIProvider>
           </AntdApp>

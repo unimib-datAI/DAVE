@@ -1,8 +1,9 @@
-import { useAtom } from 'jotai';
-import { uploadProgressAtom, uploadModalOpenAtom } from '@/atoms/upload';
+import { useAtom, useAtomValue } from 'jotai';
+import { uploadModalOpenAtom, uploadJobsMapAtom } from '@/atoms/uploadJobs';
 import styled from '@emotion/styled';
 import { Spinner } from '@heroui/react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { isTerminalStatus } from '@/lib/upload/types';
 
 const IndicatorContainer = styled(motion.div)({
   position: 'fixed',
@@ -41,10 +42,24 @@ const IndicatorSubtitle = styled.span({
 });
 
 export const UploadProgressIndicator = () => {
-  const [uploadProgress] = useAtom(uploadProgressAtom);
+  const jobsMap = useAtomValue(uploadJobsMapAtom);
   const [isModalOpen, setIsModalOpen] = useAtom(uploadModalOpenAtom);
 
-  const showIndicator = uploadProgress.isUploading && !isModalOpen;
+  const activeJobs = Object.values(jobsMap).filter(
+    (job) => !isTerminalStatus(job.status)
+  );
+
+  const totals = activeJobs.reduce(
+    (acc, job) => {
+      acc.total += job.statistics.total;
+      acc.completed += job.statistics.completed;
+      acc.failed += job.statistics.failed;
+      return acc;
+    },
+    { total: 0, completed: 0, failed: 0 }
+  );
+
+  const showIndicator = activeJobs.length > 0 && !isModalOpen;
 
   const handleClick = () => {
     setIsModalOpen(true);
@@ -61,11 +76,12 @@ export const UploadProgressIndicator = () => {
         >
           <Spinner size="sm" />
           <IndicatorText>
-            <IndicatorTitle>Uploading documents...</IndicatorTitle>
+            <IndicatorTitle>
+              Uploading documents{activeJobs.length > 1 ? ` (${activeJobs.length} jobs)` : ''}…
+            </IndicatorTitle>
             <IndicatorSubtitle>
-              {uploadProgress.completed} of {uploadProgress.total} completed
-              {uploadProgress.failed > 0 &&
-                ` (${uploadProgress.failed} failed)`}
+              {totals.completed} of {totals.total} completed
+              {totals.failed > 0 && ` (${totals.failed} failed)`}
             </IndicatorSubtitle>
           </IndicatorText>
         </IndicatorContainer>
