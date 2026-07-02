@@ -28,6 +28,23 @@ async def annotate(text: str = Body(..., media_type="text/plain")):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/annotate/w3c")
+async def annotate_w3c(text: str = Body(..., media_type="text/plain")):
+    """Accept plain text body, run annotation pipeline and return the result as a
+    W3C Web Annotation cell (TextPositionSelector spans), matching the SemTUI
+    W3C table cell format."""
+    if extractor is None:
+        raise HTTPException(status_code=500, detail=f"Model failed to load: {_load_error}")
+
+    try:
+        docs = {"input": text}
+        result = extractor.process_w3c(docs)
+        annotated = result.get("input") or result.get("input.txt") or result
+        return JSONResponse(content=annotated)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     import uvicorn
 

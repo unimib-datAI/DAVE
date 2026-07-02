@@ -57,16 +57,60 @@ class PipelineInformationExtractorRefined:
             "annotation_sets": {"entities_": {"annotations": entities}},
         }
 
+    def _extract_spans(self, text: str):
+        return [
+            self._create_span(span, index)
+            for index, span in enumerate(self.model.process_text(text))
+            if len(span.text) > 2
+        ]
+
+    def _convert_to_w3c(self, text: str, spans, set_name: str = "GateNLP_NER"):
+        annotations = []
+        for span in spans:
+            features = span.get("features", {})
+            linking = features.get("linking", {})
+            w3c_features: Dict[str, Any] = {"text": features.get("text", span.get("text"))}
+            if not linking.get("is_nil", True):
+                wikidata_id = (linking.get("top_candidate", {}).get("url") or "").rsplit(
+                    "/", 1
+                )[-1] or None
+                w3c_features["entity"] = {
+                    "id": f"wd:{wikidata_id}" if wikidata_id else None,
+                    "name": linking.get("title"),
+                    "match": True,
+                }
+            annotations.append(
+                {
+                    "id": span["id"],
+                    "type": span["type"],
+                    "target": {
+                        "selector": {
+                            "type": "TextPositionSelector",
+                            "start": span["start"],
+                            "end": span["end"],
+                        }
+                    },
+                    "features": w3c_features,
+                }
+            )
+        return {
+            "label": text,
+            "metadata": [],
+            "annotations": {set_name: annotations},
+        }
+
+    def process_w3c(self, docs: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            key: self._convert_to_w3c(value, self._extract_spans(value))
+            for key, value in tqdm(docs.items())
+        }
+
     def process(self, docs: Dict[str, Any], save: bool = False) -> Dict[str, Any]:
         processed: Dict[str, Any] = {}
         out_dir = Path("output")
         out_dir.mkdir(parents=True, exist_ok=True)
         for key, value in tqdm(docs.items()):
-            spans = [
-                self._create_span(span, index)
-                for index, span in enumerate(self.model.process_text(value))
-                if len(span.text) > 2
-            ]
+            spans = self._extract_spans(value)
             if save:
                 base = self._convert_to_gate(value, spans)
                 clusters = self.cluster_mentions(base)
