@@ -316,6 +316,7 @@ export type Translation = {
     loadMore: string;
     filter: string;
     findFilter: string;
+    noMatchingFilters: string;
     clearAllFilters: string;
     searchDocuments: string;
     findFacet: string;

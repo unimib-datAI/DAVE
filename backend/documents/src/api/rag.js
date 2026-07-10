@@ -391,7 +391,8 @@ export default (app) => {
         }
       }
 
-      const indexerUrl = process.env.API_INDEXER;
+      const nextjsUrl =
+        process.env.NEXTJS_API_BASE_URL || "http://ui:3000/holmes24";
       const elasticIndex = process.env.ELASTIC_INDEX;
       const llmUrl = process.env.API_LLM || "http://localhost:8000/v1";
       const llmApiKey = process.env.LLM_KEY || "dummy-key";
@@ -400,7 +401,7 @@ export default (app) => {
           ? model
           : process.env.LLM_NAME || process.env.DEFAULT_MODEL || "phi4-mini";
 
-      if (!indexerUrl || !elasticIndex) {
+      if (!nextjsUrl || !elasticIndex) {
         return res
           .status(500)
           .json({ message: "Search service is not configured" });
@@ -410,7 +411,7 @@ export default (app) => {
       let contextStr = "";
       try {
         const chromaRes = await axios.post(
-          `${indexerUrl}/chroma/collection/${elasticIndex}/query`,
+          `${nextjsUrl}/api/chroma/collection/${elasticIndex}/query`,
           {
             query: text,
             collectionId: collectionId || undefined,

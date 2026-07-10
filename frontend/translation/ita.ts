@@ -341,6 +341,7 @@ const t: Translation = {
     loadMore: 'Carica di più',
     filter: 'Filtro',
     findFilter: 'Trova filtro',
+    noMatchingFilters: 'Nessun filtro corrispondente',
     clearAllFilters: 'Cancella tutti i filtri',
     searchDocuments: 'Cerca documenti',
     findFacet: 'Trova {facet}',

@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { createRouter } from '../context';
 import { TRPCError } from '@trpc/server';
-import fetchJson from '@/lib/fetchJson';
-import { getAuthHeader } from '../get-auth-header';
+import { addAnnotationsToDocumentEs } from '@/lib/elasticAdmin';
 
 type AddAnnotationsResponse = {
   result: string;
@@ -16,20 +15,11 @@ const addAnnotationsToDocument = async (
   mentions: any[]
 ): Promise<AddAnnotationsResponse> => {
   try {
-    const url = `${process.env.API_INDEXER}/elastic/index/${indexName}/doc/${documentId}/annotations`;
-
-    const response = await fetchJson<any, AddAnnotationsResponse>(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: getAuthHeader(),
-      },
-      body: {
-        mentions,
-      },
-    });
-
-    return response;
+    return (await addAnnotationsToDocumentEs(
+      indexName,
+      documentId,
+      mentions
+    )) as unknown as AddAnnotationsResponse;
   } catch (error) {
     console.error('Error adding annotations to document:', error);
     throw new TRPCError({

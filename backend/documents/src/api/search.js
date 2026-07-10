@@ -331,10 +331,11 @@ export default (app) => {
       const text = (req.query.text ?? "").trim();
       const collectionId = req.query.collectionId ?? "";
 
-      const indexerUrl = process.env.API_INDEXER;
+      const nextjsUrl =
+        process.env.NEXTJS_API_BASE_URL || "http://ui:3000/holmes24";
       const elasticIndex = process.env.ELASTIC_INDEX;
 
-      if (!indexerUrl || !elasticIndex) {
+      if (!nextjsUrl || !elasticIndex) {
         return res
           .status(500)
           .json({ message: "Search service is not configured" });
@@ -342,7 +343,7 @@ export default (app) => {
 
       try {
         const { data } = await axios.post(
-          `${indexerUrl}/elastic/index/${elasticIndex}/query`,
+          `${nextjsUrl}/api/elastic/index/${elasticIndex}/query`,
           {
             text,
             metadata: metadata ?? [],

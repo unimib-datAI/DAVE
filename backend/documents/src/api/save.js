@@ -290,10 +290,10 @@ export default (app) => {
                 return acc;
               }, {});
 
-              // Call qavectorizer to update Elasticsearch
-              const elasticUrl =
-                process.env.QAVECTORIZER_ADDRESS || "http://qavectorizer:7863";
-              const updateUrl = `${elasticUrl}/elastic/index/${elasticIndex}/doc/${docId}/annotations`;
+              // Update Elasticsearch (moved from qavectorizer to Next.js)
+              const nextjsUrl =
+                process.env.NEXTJS_API_BASE_URL || "http://ui:3000/holmes24";
+              const updateUrl = `${nextjsUrl}/api/elastic/index/${elasticIndex}/doc/${docId}/annotations`;
               const response = await axios.post(updateUrl, {
                 mentions: mentions,
               });

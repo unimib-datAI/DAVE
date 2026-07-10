@@ -58,33 +58,41 @@ services:
     networks:
       - dave_net
 
-  documents:
-    restart: $RESTART_POLICY
-    build: ./backend/documents
-    environment:
-      DOCS_PORT: 3001
-      USE_AUTH: ${USE_AUTH:-true}
-      USE_KEYCLOAK: ${USE_KEYCLOAK:-true}
-      KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://keycloak:8080/realms/DAVE}
-      KEYCLOAK_ID: ${KEYCLOAK_ID:-dave_client}
-      KEYCLOAK_SECRET: $KEYCLOAK_SECRET
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      JWT_SECRET: ${DOCUMENTS_JWT_SECRET:-your-secret-key-change-in-production}
-      MONGO: $MONGO
-      ANONYMIZATION_ENDPOINT: $ANONYMIZATION_ENDPOINT
-      ANNOTATION_SPACYNER_URL: $ANNOTATION_SPACYNER_URL
-      ANNOTATION_BLINK_URL: $ANNOTATION_BLINK_URL
-      ANNOTATION_INDEXER_URL: $ANNOTATION_INDEXER_URL
-      ANNOTATION_NILPREDICTION_URL: $ANNOTATION_NILPREDICTION_URL
-      ANNOTATION_NILCLUSTER_URL: $ANNOTATION_NILCLUSTER_URL
-      ANNOTATION_CONSOLIDATION_URL: $ANNOTATION_CONSOLIDATION_URL
-    networks:
-      - dave_net
-    volumes:
-      - ./backend/documents/src:/app/src
-    ports:
-      - 3001:3001
+  # documents: the entire backend/documents Express service has been ported
+  # into the Next.js frontend (lib/documentsBackend/**, server/routers/**,
+  # pages/api/**) and is no longer needed - kept here, commented out, in
+  # case something unexpected still depends on it.
+  # documents:
+  #   restart: $RESTART_POLICY
+  #   build: ./backend/documents
+  #   environment:
+  #     DOCS_PORT: 3001
+  #     # Elasticsearch index/document admin operations moved from qavectorizer
+  #     # to the Next.js frontend - see frontend/lib/elasticAdmin.ts and
+  #     # frontend/pages/api/elastic/**.
+  #     NEXTJS_API_BASE_URL: http://ui:3000${NEXT_PUBLIC_BASE_PATH}
+  #     USE_AUTH: ${USE_AUTH:-true}
+  #     USE_KEYCLOAK: ${USE_KEYCLOAK:-true}
+  #     KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://keycloak:8080/realms/DAVE}
+  #     KEYCLOAK_ID: ${KEYCLOAK_ID:-dave_client}
+  #     KEYCLOAK_SECRET: $KEYCLOAK_SECRET
+  #     KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+  #     KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+  #     JWT_SECRET: ${DOCUMENTS_JWT_SECRET:-your-secret-key-change-in-production}
+  #     MONGO: $MONGO
+  #     ANONYMIZATION_ENDPOINT: $ANONYMIZATION_ENDPOINT
+  #     ANNOTATION_SPACYNER_URL: $ANNOTATION_SPACYNER_URL
+  #     ANNOTATION_BLINK_URL: $ANNOTATION_BLINK_URL
+  #     ANNOTATION_INDEXER_URL: $ANNOTATION_INDEXER_URL
+  #     ANNOTATION_NILPREDICTION_URL: $ANNOTATION_NILPREDICTION_URL
+  #     ANNOTATION_NILCLUSTER_URL: $ANNOTATION_NILCLUSTER_URL
+  #     ANNOTATION_CONSOLIDATION_URL: $ANNOTATION_CONSOLIDATION_URL
+  #   networks:
+  #     - dave_net
+  #   volumes:
+  #     - ./backend/documents/src:/app/src
+  #   ports:
+  #     - 3001:3001
 
   ui:
     restart: $RESTART_POLICY
@@ -116,6 +124,8 @@ services:
         VARIANT: $VARIANT
         TEXT_GENERATION: $TEXT_GENERATION
         ELASTIC_INDEX: $ELASTIC_INDEX
+        ELASTIC_HOST: $ELASTIC_HOST
+        ELASTIC_PORT: $ELASTIC_PORT
     ports:
       - $LISTEN_UI:3000
       - 127.0.0.1:9229:9229
@@ -147,6 +157,20 @@ services:
       TEXT_GENERATION: $TEXT_GENERATION
       HOST: $HOST
       ELASTIC_INDEX: $ELASTIC_INDEX
+      ELASTIC_HOST: ${ELASTIC_HOST:-es}
+      ELASTIC_PORT: ${ELASTIC_PORT:-9200}
+      # RAG fallback document retrievers (moved here from qavectorizer) - unset
+      # in every current deployment, so the same hardcoded defaults apply.
+      PIPELINE_ADDRESS: $PIPELINE_ADDRESS
+      DEMO_PIPELINE_ADDRESS: $DEMO_PIPELINE_ADDRESS
+      SPERIMENTAZIONE_PIPELINE_ADDRESS: $SPERIMENTAZIONE_PIPELINE_ADDRESS
+      INDAGINI_PIPELINE_ADDRESS: $INDAGINI_PIPELINE_ADDRESS
+      MIRKO_PIPELINE_ADDRESS: $MIRKO_PIPELINE_ADDRESS
+      RENZO_PIPELINE_ADDRESS: $RENZO_PIPELINE_ADDRESS
+      MESSAGES_PIPELINE_ADDRESS: $MESSAGES_PIPELINE_ADDRESS
+      EU_PIPELINE_ADDRESS: $EU_PIPELINE_ADDRESS
+      EU_V2_PIPELINE_ADDRESS: $EU_V2_PIPELINE_ADDRESS
+      ANONYMIZATION_PIPELINE_ADDRESS: $ANONYMIZATION_PIPELINE_ADDRESS
       ANNOTATION_SPACYNER_URL: $ANNOTATION_SPACYNER_URL
       ANNOTATION_BLINK_URL: $ANNOTATION_BLINK_URL
       ANNOTATION_INDEXER_URL: $ANNOTATION_INDEXER_URL

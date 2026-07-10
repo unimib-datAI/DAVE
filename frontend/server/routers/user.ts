@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { createRouter } from '../context';
 import { TRPCError } from '@trpc/server';
-import fetchJson from '@/lib/fetchJson';
-
-const baseURL = `${process.env.API_BASE_URI}`;
+import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
+import { requireAdmin, PermissionDeniedError } from '@/lib/documentsBackend/permission';
+import { keycloakService } from '@/lib/documentsBackend/keycloakService';
 
 export type User = {
   id: string;
@@ -17,18 +17,25 @@ export type User = {
   updatedAt?: string;
 };
 
-const getJWTHeader = (token?: string) => {
-  if (!token) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'No authentication token provided',
-    });
+function toUserTRPCError(error: any, fallbackMessage: string): TRPCError {
+  if (error instanceof PermissionDeniedError) {
+    return new TRPCError({ code: 'FORBIDDEN', message: error.message });
   }
-  return `Bearer ${token}`;
-};
+  const message = error instanceof Error ? error.message : String(error);
+  if (/missing bearer token/i.test(message)) {
+    return new TRPCError({ code: 'UNAUTHORIZED', message });
+  }
+  return new TRPCError({
+    code: 'INTERNAL_SERVER_ERROR',
+    message: message || fallbackMessage,
+  });
+}
 
 export const users = createRouter()
-  // Get all users (returns roles too)
+  // Get all users (returns roles too). Admin-only, like every route in this
+  // router - these all call Keycloak's admin API (backend/documents'
+  // users.js), so are intentionally NOT live-tested against the real
+  // Keycloak instance during this port.
   .query('getAllUsers', {
     input: z.object({
       token: z.string().optional(),
@@ -41,17 +48,28 @@ export const users = createRouter()
       }
 
       try {
-        const result = await fetchJson<any, User[]>(`${baseURL}/users`, {
-          headers: {
-            Authorization: getJWTHeader(token),
-          },
-        });
-        return result;
+        const user = await getRequestUser(token);
+        requireAdmin(user);
+
+        const allUsers = await keycloakService.getAllUsers();
+        const usersWithRoles = await Promise.all(
+          allUsers.map(async (u: any) => {
+            const roles = await keycloakService.getUserRealmRoles(u.id || u.userId);
+            return {
+              id: u.id || u.userId,
+              email: u.email,
+              username: u.username,
+              firstName: u.firstName,
+              lastName: u.lastName,
+              name: u.name,
+              roles,
+              createdAt: u.createdAt,
+            };
+          })
+        );
+        return usersWithRoles as User[];
       } catch (error: any) {
-        throw new TRPCError({
-          code: error.status === 401 ? 'UNAUTHORIZED' : 'INTERNAL_SERVER_ERROR',
-          message: error.message || 'Failed to fetch users',
-        });
+        throw toUserTRPCError(error, 'Failed to fetch users');
       }
     },
   })
@@ -69,20 +87,22 @@ export const users = createRouter()
     async resolve({ input }) {
       const { email, password, firstName, lastName, role, token } = input;
       try {
-        const result = await fetchJson<any, User>(`${baseURL}/users`, {
-          method: 'POST',
-          headers: {
-            Authorization: getJWTHeader(token),
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password, firstName, lastName, role }),
-        });
-        return result;
+        const user = await getRequestUser(token);
+        requireAdmin(user);
+
+        const result = await keycloakService.createUser({ email, password, firstName, lastName });
+        if (role) {
+          await keycloakService.setUserRealmRoles(result.id, [role]);
+        }
+        return { ...result, roles: role ? [role] : [] };
       } catch (error: any) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message || 'Failed to create user',
-        });
+        if (error?.message?.includes('already exists')) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'User with this email already exists',
+          });
+        }
+        throw toUserTRPCError(error, 'Failed to create user');
       }
     },
   })
@@ -101,29 +121,16 @@ export const users = createRouter()
     async resolve({ input }) {
       const { id, email, firstName, lastName, password, role, token } = input;
       try {
-        const result = await fetchJson<any, { ok: boolean }>(
-          `${baseURL}/users/${id}`,
-          {
-            method: 'PUT',
-            headers: {
-              Authorization: getJWTHeader(token),
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email,
-              firstName,
-              lastName,
-              password,
-              role,
-            }),
-          }
-        );
-        return result;
+        const user = await getRequestUser(token);
+        requireAdmin(user);
+
+        await keycloakService.updateUser(id, { email, firstName, lastName, password });
+        if (role !== undefined) {
+          await keycloakService.setUserRealmRoles(id, role ? [role] : []);
+        }
+        return { ok: true };
       } catch (error: any) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message || 'Failed to update user',
-        });
+        throw toUserTRPCError(error, 'Failed to update user');
       }
     },
   })
@@ -137,21 +144,13 @@ export const users = createRouter()
     async resolve({ input }) {
       const { id, token } = input;
       try {
-        const result = await fetchJson<any, { ok: boolean }>(
-          `${baseURL}/users/${id}`,
-          {
-            method: 'DELETE',
-            headers: {
-              Authorization: getJWTHeader(token),
-            },
-          }
-        );
-        return result;
+        const user = await getRequestUser(token);
+        requireAdmin(user);
+
+        await keycloakService.deleteUser(id);
+        return { ok: true };
       } catch (error: any) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message || 'Failed to delete user',
-        });
+        throw toUserTRPCError(error, 'Failed to delete user');
       }
     },
   });

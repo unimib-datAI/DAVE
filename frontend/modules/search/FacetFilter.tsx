@@ -270,8 +270,8 @@ const FacetFilter = ({
       }
     })();
     // Normalize all keys to lowercase and filter out empty strings
-    const normalizedKey = key.toLowerCase().trim();
-    const normalizedIds = keys
+    const normalizedKey = (key || '').toLowerCase().trim();
+    const normalizedIds = (keys || [])
       .filter((k) => k && k.trim() !== '')
       .map((k) => k.toLowerCase().trim());
 
@@ -291,7 +291,7 @@ const FacetFilter = ({
       // Add all option keys (use original case from keys array, or normalized key if not in keys)
       const keysToAdd = allOptionKeys.map((normalizedKey) => {
         // Try to find original case version in the keys array
-        const originalKey = keys.find(
+        const originalKey = (keys || []).find(
           (k) => k.toLowerCase().trim() === normalizedKey
         );
         return originalKey || normalizedKey;

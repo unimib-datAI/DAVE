@@ -2,6 +2,10 @@ import { z } from 'zod';
 import { createRouter } from '../context';
 import { Document } from './document';
 import { TRPCError } from '@trpc/server';
+import { runFacetedSearch } from '@/lib/facetedSearch';
+import { search as runVectorSearch } from '@/lib/vectorSearch';
+import { addAnnotationsToDocumentEs } from '@/lib/elasticAdmin';
+import { ChatController } from '@/lib/documentsBackend/chatController';
 
 export type MostSimilarDocument = {
   id: number;
@@ -117,21 +121,7 @@ const processResponseMostSImilartDocuments = (
 
 async function rateTheConversation(conversation: any, rating: number) {
   try {
-    const res = await fetch(
-      `${process.env.API_BASE_URI}/save/rate-conversation`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chatState: conversation,
-          rateValue: rating,
-        }),
-      }
-    );
-    let result = await res.json();
-    return result;
+    return await ChatController.saveRating(rating, conversation);
   } catch (error) {
     const typedError = error as Error;
     throw new TRPCError({
@@ -147,7 +137,7 @@ async function addAnnotationsToDocument(
   mentions: any[]
 ): Promise<AddAnnotationsResponse> {
   try {
-    let index = process.env.ELASTIC_INDEX;
+    const index = process.env.ELASTIC_INDEX as string;
 
     console.log('========== SERVER: ANNOTATION SAVE REQUEST ==========');
     console.log('Index name:', indexName);
@@ -156,30 +146,13 @@ async function addAnnotationsToDocument(
     console.log('Annotations:', JSON.stringify(mentions, null, 2));
     console.log('====================================================');
 
-    const url = `${process.env.API_INDEXER}/elastic/index/${index}/doc/${documentId}/annotations`;
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        mentions,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Server responded with ${response.status}: ${errorText}`);
-    }
-
-    const result = await response.json();
+    const result = await addAnnotationsToDocumentEs(index, documentId, mentions);
 
     console.log('========== SERVER: ANNOTATION SAVE RESPONSE ==========');
     console.log('Response:', JSON.stringify(result, null, 2));
     console.log('======================================================');
 
-    return result;
+    return result as unknown as AddAnnotationsResponse;
   } catch (error) {
     console.error('========== SERVER: ANNOTATION SAVE ERROR ==========');
     console.error('Error adding annotations to document:', error);
@@ -206,25 +179,17 @@ export const search = createRouter()
       collectionId: z.string().optional(),
     }),
     resolve: async ({ input }) => {
-      let index = process.env.ELASTIC_INDEX;
+      const index = process.env.ELASTIC_INDEX as string;
       console.log('*** most similar collection id ***', input.collectionId);
-      // forward collectionId (if provided) to the vector/search service so it can restrict by collection
-      const documents = (await fetch(
-        `${process.env.API_INDEXER}/chroma/collection/${index}/query`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query: input.query,
-            filter_ids: input.filter_ids,
-            retrievalMethod: input.retrievalMethod,
-            force_rag: input.force_rag,
-            collectionId: input.collectionId,
-          }),
-        }
-      ).then((r) => r.json())) as GetSimilarDocumentResponse;
+      // forward collectionId (if provided) to restrict the search to a single collection
+      const documents = (await runVectorSearch({
+        collectionName: index,
+        query: input.query,
+        filterIds: input.filter_ids,
+        retrievalMethod: input.retrievalMethod || 'full',
+        forceRag: input.force_rag,
+        collectionId: input.collectionId,
+      })) as unknown as GetSimilarDocumentResponse;
 
       return processResponseMostSImilartDocuments(documents);
     },
@@ -250,32 +215,18 @@ export const search = createRouter()
       isAnonymized: z.boolean().optional(),
     }),
     resolve: async ({ input }) => {
-      let index = process.env.ELASTIC_INDEX;
-      // The body spreads input so collectionId (if provided) will be forwarded to the indexer
-      let string = JSON.stringify({
-        ...input,
-        n_facets: 20,
-        page: input.cursor || 1, //comment
-      });
-      console.log('current index', index);
-      const res = await fetch(
-        `${process.env.API_INDEXER}/elastic/index/${index}/query`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ...input,
-            n_facets: 20,
-            page: input.cursor || 1,
-            collection_id: input.collectionId,
-            is_anonymized: input.isAnonymized,
-          }),
-        }
-      ).then((r) => r.json());
+      const index = process.env.ELASTIC_INDEX as string;
 
-      return res as FacetedQueryOutput;
+      return runFacetedSearch({
+        indexName: index,
+        text: input.text,
+        metadata: input.metadata,
+        annotations: input.annotations,
+        page: input.cursor || 1,
+        documentsPerPage: input.limit || 20,
+        collectionId: input.collectionId,
+        isAnonymized: input.isAnonymized,
+      }) as Promise<FacetedQueryOutput>;
     },
   })
   .mutation('rateTheConversation', {

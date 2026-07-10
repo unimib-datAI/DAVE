@@ -23,9 +23,13 @@ import {
 } from './utils';
 import { Annotation as GlobalAnnotation } from '@/atoms/annotations';
 
-export const documentReducer = createImmerReducer<State, Action>({
+const baseDocumentReducer = createImmerReducer<State, Action>({
   setData: (state, payload) => {
     state.data = payload.data;
+    state.dirty = false;
+  },
+  markSaved: (state) => {
+    state.dirty = false;
   },
   highlightAnnotation: (state, payload) => {
     state.ui.highlightAnnotation.entityId = payload.annotationId;
@@ -488,3 +492,29 @@ export const documentReducer = createImmerReducer<State, Action>({
     };
   },
 });
+
+// Action types that actually edit document content (as opposed to UI-only
+// state like the active view, highlighted annotation, or taxonomy tree
+// display). The save button's "unsaved changes" state is driven directly by
+// this flag rather than by diffing serialized snapshots after the fact -
+// diffing two independently-serialized copies of "the same" state is
+// fragile (see ToolbarContent.tsx history: a save response with extra
+// Mongo-only fields was enough to make a byte-for-byte diff falsely report
+// changes and revert the just-saved status).
+const DIRTYING_ACTIONS = new Set<Action['type']>([
+  'createAnnotationSet',
+  'deleteAnnotationSet',
+  'udpateAnnotationSets',
+  'addAnnotation',
+  'editAnnotation',
+  'deleteAnnotation',
+  'deleteTaxonomyType', // removes annotations of the deleted type
+]);
+
+export const documentReducer = (state: State, action: Action): State => {
+  const nextState = baseDocumentReducer(state, action);
+  if (DIRTYING_ACTIONS.has(action.type)) {
+    return { ...nextState, dirty: true };
+  }
+  return nextState;
+};

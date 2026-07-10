@@ -10,6 +10,11 @@ import { FlatTreeObj } from '../../../components/Tree';
 
 export type Action =
   | { type: 'setData'; payload: { data: Document } }
+  // Dispatched once a save request to the server has succeeded - the single
+  // source of truth for "does this document have unsaved changes" is the
+  // `dirty` flag below, set to true by every action that actually edits
+  // document content and cleared only here (or by a fresh `setData` load).
+  | { type: 'markSaved' }
   | {
       type: 'setCurrentEntityId';
       payload: { viewIndex: number; annotationId: number };
@@ -126,6 +131,16 @@ export type State = UIState & {
    * Document data
    */
   data: Document;
+  /**
+   * True whenever the document has been edited since the last successful
+   * save (or since it was loaded, if never saved). Set directly by every
+   * edit action - see documentReducer's DIRTYING_ACTIONS - rather than
+   * inferred after the fact by diffing snapshots, which is fragile (two
+   * independently-serialized snapshots of "the same" state are easy to get
+   * subtly out of sync, e.g. one round-tripping through a server response
+   * with extra fields).
+   */
+  dirty: boolean;
 };
 export type DocumentMetadataFeatures = {
   annoruolo: Number;

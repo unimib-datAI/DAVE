@@ -9,7 +9,6 @@ from actions import (
     create_elastic_index,
     delete_elastic_index,
     index_elastic_document,
-    query_elastic_index,
 )
 
 import json
@@ -35,29 +34,3 @@ import json
 # print(create_elastic_index("test"))
 # print(delete_elastic_index("test"))
 # index_elastic_document()
-print(
-    json.dumps(
-        query_elastic_index(
-            "test",
-            {
-                "text": "sentenza",
-                # "annotations": [{"type": "persona", "value": "CTU"}],
-                "page": 1,
-                "n_facets": 10000,
-            },
-        ),
-        indent=4,
-    )
-)
-
-# res = query_elastic_index(
-#     "test",
-#     {
-#         "text": "sentenza",
-#         "annotations": [{"type": "persona", "value": "CTU"}],
-#         # "metadata": [{"type": "anno sentenza", "value": "2021"}],
-#         "page": 2,
-#     },
-# )
-
-# print(len(res["hits"]))

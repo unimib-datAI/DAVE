@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { search as runVectorSearch } from './vectorSearch';
 
 /**
  * Multi-Agent RAG System
@@ -847,10 +848,8 @@ RESPOND ONLY WITH JSON: {"strategy": "...", "reasoning": "..."}`;
     retrievalMethod: string,
     forceRag: boolean
   ): Promise<RetrievedDocument[]> {
-    if (!this.indexerBaseURL || !this.indexName) {
-      console.warn(
-        '[MultiAgent] indexerBaseURL or indexName not set – skipping retrieval'
-      );
+    if (!this.indexName) {
+      console.warn('[MultiAgent] indexName not set – skipping retrieval');
       return [];
     }
 
@@ -862,46 +861,35 @@ RESPOND ONLY WITH JSON: {"strategy": "...", "reasoning": "..."}`;
     // round-trips to O(1) — the slowest single request sets the pace.
     const batchResults = await Promise.all(
       queries.slice(0, MAX_QUERIES_PER_RETRIEVER).map(async (query) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15_000);
+        const timeout = new Promise<'timeout'>((resolve) =>
+          setTimeout(() => resolve('timeout'), 15_000)
+        );
         try {
-          const resp = await fetch(
-            `${this.indexerBaseURL}/chroma/collection/${this.indexName}/query`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                query,
-                filter_ids: this.filterIds,
-                retrievalMethod,
-                force_rag: forceRag,
-                collectionId: this.collectionId,
-              }),
-              signal: controller.signal,
-            }
-          );
-          clearTimeout(timeoutId);
+          const result = await Promise.race([
+            runVectorSearch({
+              collectionName: this.indexName,
+              query,
+              filterIds: this.filterIds,
+              retrievalMethod,
+              forceRag,
+              collectionId: this.collectionId,
+            }),
+            timeout,
+          ]);
 
-          if (!resp.ok) {
+          if (result === 'timeout') {
             console.warn(
-              `[MultiAgent][callIndexer] ${resp.status} for query "${query}"`
+              `[MultiAgent][callIndexer] Timeout for query "${query}"`
             );
             return [] as RawIndexerDoc[];
           }
 
-          return (await resp.json()) as RawIndexerDoc[];
+          return result as unknown as RawIndexerDoc[];
         } catch (err) {
-          clearTimeout(timeoutId);
-          if ((err as any)?.name === 'AbortError') {
-            console.warn(
-              `[MultiAgent][callIndexer] Timeout for query "${query}"`
-            );
-          } else {
-            console.error(
-              `[MultiAgent][callIndexer] Error for query "${query}":`,
-              err
-            );
-          }
+          console.error(
+            `[MultiAgent][callIndexer] Error for query "${query}":`,
+            err
+          );
           return [] as RawIndexerDoc[];
         }
       })

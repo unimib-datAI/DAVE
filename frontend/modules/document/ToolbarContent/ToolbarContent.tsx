@@ -1,13 +1,14 @@
 import styled from '@emotion/styled';
 import {
   selectDocumentData,
+  selectDocumentDirty,
   useDocumentDispatch,
   useSelector,
   selectCurrentAnnotationSetName,
 } from '../DocumentProvider/selectors';
 import { HiArrowLeft } from '@react-icons/all-files/hi/HiArrowLeft';
 import { IconButton, useText } from '@/components';
-import { useMutation } from '@/utils/trpc';
+import { useMutation, useContext as useTrpcContext } from '@/utils/trpc';
 import { useRouter } from 'next/router';
 import { MouseEvent, useEffect, useRef, useState } from 'react';
 import SaveStatusIndicator from './SaveStatusIndicator';
@@ -15,8 +16,6 @@ import { AnnotationType } from '../DocumentProvider/types';
 import { EntityAnnotation } from '@/server/routers/document';
 import { useSession } from 'next-auth/react';
 import { message } from 'antd';
-import { useAtom } from 'jotai';
-import { activeCollectionAtom } from '@/atoms/collection';
 import { useDocumentPermissions } from '@/hooks/use-permissions';
 import { Button } from '@heroui/react';
 
@@ -33,24 +32,30 @@ const Container = styled.div({
 const ToolbarContent = () => {
   const t = useText('document');
   const document = useSelector(selectDocumentData);
+  // Single source of truth for "does this document have unsaved changes" -
+  // set directly by edit actions in the reducer (see DIRTYING_ACTIONS in
+  // reducer.ts) and cleared by dispatching `markSaved` below. Previously
+  // this was inferred by diffing a JSON snapshot of the last-saved state
+  // against the current state on every render, which was fragile: two
+  // independently-serialized copies of "the same" data are one shape
+  // difference away from a false positive (which is exactly what happened
+  // when the save response's shape changed).
+  const dirty = useSelector(selectDocumentDirty);
+  const dispatch = useDocumentDispatch();
   const { data: session, status } = useSession();
   // accessToken is not part of the typed Session interface here, cast to any
   const token = (session as any)?.accessToken as string | undefined;
   const save = useMutation(['document.save']);
+  const trpcContext = useTrpcContext();
   const router = useRouter();
   const currentAnnotationSetName = useSelector(selectCurrentAnnotationSetName);
-  const [currentCollection] = useAtom(activeCollectionAtom);
   const { canUpdate } = useDocumentPermissions();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [saveStatus, setSaveStatus] = useState<
-    'idle' | 'saving' | 'saved' | 'error'
-  >('saved');
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'error'>(
+    'idle'
+  );
   const [lastSaveTime, setLastSaveTime] = useState<Date | null>(null);
   const lastSaveTimeRef = useRef<number>(0);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [lastSavedAnnotationSets, setLastSavedAnnotationSets] =
-    useState<string>('');
-  const isInitialMount = useRef(true);
 
   const handleSave = () => {
     if (saveTimeoutRef.current) {
@@ -59,7 +64,7 @@ const ToolbarContent = () => {
     }
 
     // Prevent duplicate saves in quick succession
-    if (saveStatus === 'saved' && Date.now() - lastSaveTimeRef.current < 3000) {
+    if (!dirty && Date.now() - lastSaveTimeRef.current < 3000) {
       return;
     }
 
@@ -69,7 +74,7 @@ const ToolbarContent = () => {
       return;
     }
 
-    if (!token || !currentCollection || !currentCollection?.id) {
+    if (!token || !document.collectionId) {
       message.warning('Not Authorized');
       return;
     }
@@ -77,37 +82,40 @@ const ToolbarContent = () => {
     setSaveStatus('saving');
     lastSaveTimeRef.current = Date.now();
 
-    // Save the document with annotation sets and features
+    // Save the document with annotation sets and features. `collectionId`
+    // comes from the document itself (its actual owning collection), not
+    // from the globally-persisted "active collection" atom - that atom can
+    // be stale/mismatched (e.g. left over from a previously browsed
+    // collection) and previously caused facet-cache updates to be written
+    // under the wrong collection.
     save.mutate(
       {
-        collectionId: currentCollection.id,
+        collectionId: document.collectionId,
         token,
         docId: String(document.id),
         annotationSets: document.annotation_sets,
         features: document.features,
       },
       {
-        onSuccess: (data) => {
-          // Set saved state
-          setTimeout(() => {
-            lastSaveTimeRef.current = Date.now();
-            setSaveStatus('saved');
-            setHasUnsavedChanges(false);
-            setLastSaveTime(new Date());
-          }, 200);
+        onSuccess: () => {
+          setSaveStatus('idle');
+          lastSaveTimeRef.current = Date.now();
+          setLastSaveTime(new Date());
+          dispatch({ type: 'markSaved' });
 
-          // Update the saved annotation sets reference
-          const serializedState = JSON.stringify({
-            annotation_sets: Array.isArray(data)
-              ? data.reduce((obj, set) => {
-                  obj[set.name] = set;
-                  return obj;
-                }, {} as any)
-              : data,
-            features: document.features,
-          });
+          // The facets sidebar (pages/search/index.tsx) fetches
+          // collection.facetsCache/facetsCachePaginated/facetsCacheSearch
+          // with staleTime: Infinity and refetchOnMount: false, so it never
+          // notices new/changed facet-cache entries on its own - invalidate
+          // them here so a save is reflected without a manual hard refresh.
+          try {
+            trpcContext.invalidateQueries(['collection.facetsCache']);
+            trpcContext.invalidateQueries(['collection.facetsCachePaginated']);
+            trpcContext.invalidateQueries(['collection.facetsCacheSearch']);
+          } catch (e) {
+            console.error('Failed to invalidate facets queries', e);
+          }
 
-          setLastSavedAnnotationSets(serializedState);
           // Notify other UI that document has been saved so they can react (e.g. refresh status)
           try {
             window.dispatchEvent(
@@ -119,8 +127,8 @@ const ToolbarContent = () => {
             // Ignore errors in non-browser or restricted environments
           }
         },
-        onError: (error) => {
-          console.error('Failed to save document:', error);
+        onError: (error: any) => {
+          console.error('Failed to save document:', error?.message ?? error);
           setSaveStatus('error');
 
           // Retry save after 5 seconds on failure
@@ -152,117 +160,14 @@ const ToolbarContent = () => {
     };
   }, [handleSave]);
 
-  // Check for unsaved changes whenever document state changes
+  // Cleanup any pending retry timeout on unmount
   useEffect(() => {
-    // Skip the initial render
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      // Initialize last saved state on first load
-      setLastSavedAnnotationSets(
-        JSON.stringify({
-          annotation_sets: document.annotation_sets,
-          features: document.features,
-        })
-      );
-      setSaveStatus('saved');
-      return;
-    }
-
-    // Skip if we're in the middle of saving
-    if (saveStatus === 'saving') return;
-
-    // Deep comparison for detecting unsaved changes
-    const hasChanges = (() => {
-      try {
-        // Skip if lastSavedAnnotationSets is empty or not initialized
-        if (!lastSavedAnnotationSets) {
-          return false;
-        }
-
-        const currentSets = document.annotation_sets;
-        const savedData = JSON.parse(lastSavedAnnotationSets);
-        const savedSets = savedData.annotation_sets || savedData;
-
-        // Check if clusters have changed
-        if (
-          document.features?.clusters &&
-          (!savedData.features?.clusters ||
-            JSON.stringify(document.features.clusters) !==
-              JSON.stringify(savedData.features?.clusters))
-        ) {
-          return true;
-        }
-
-        // Compare the number of annotation sets
-        const currentSetKeys = Object.keys(currentSets);
-        const savedSetKeys = Object.keys(savedSets);
-
-        if (currentSetKeys.length !== savedSetKeys.length) {
-          return true;
-        }
-
-        // Check each annotation set
-        for (const setKey of currentSetKeys) {
-          const currentSet = currentSets[setKey];
-          const savedSet = savedSets[setKey];
-
-          // If set doesn't exist in saved state or next_annid is different
-          if (!savedSet || currentSet.next_annid !== savedSet.next_annid) {
-            return true;
-          }
-
-          // Compare annotation counts
-          if (currentSet.annotations.length !== savedSet.annotations.length) {
-            return true;
-          }
-
-          // Compare individual annotations by ID
-          const currentAnnotationsById = new Map(
-            currentSet.annotations.map((ann) => [ann.id, ann])
-          );
-
-          for (const savedAnn of savedSet.annotations) {
-            const currentAnn = currentAnnotationsById.get(savedAnn.id);
-            if (
-              !currentAnn ||
-              currentAnn.type !== savedAnn.type ||
-              currentAnn.start !== savedAnn.start ||
-              currentAnn.end !== savedAnn.end
-            ) {
-              return true;
-            }
-          }
-        }
-
-        return false;
-      } catch (e) {
-        console.error('Error comparing annotation sets:', e);
-        return true;
-      }
-    })();
-
-    // Update unsaved changes state
-    if (hasChanges) {
-      setHasUnsavedChanges(true);
-      if (saveStatus === 'saved') {
-        setSaveStatus('idle');
-      }
-    } else if (!hasChanges && saveStatus === 'idle') {
-      setHasUnsavedChanges(false);
-    }
-
-    // Cleanup timeout on unmount
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
     };
-  }, [
-    document.annotation_sets,
-    document.features,
-    lastSavedAnnotationSets,
-    saveStatus,
-  ]);
+  }, []);
 
   const handleBack = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -290,11 +195,11 @@ const ToolbarContent = () => {
   const saveButtonLabel =
     saveStatus === 'saving'
       ? t('toolbar.saving')
-      : saveStatus === 'saved' && !hasUnsavedChanges
-      ? t('toolbar.saved')
-      : hasUnsavedChanges
+      : saveStatus === 'error'
+      ? t('toolbar.saveError')
+      : dirty
       ? `${t('toolbar.save')} *`
-      : t('toolbar.save');
+      : t('toolbar.saved');
 
   return (
     <Container>
@@ -321,10 +226,10 @@ const ToolbarContent = () => {
         }}
       >
         <SaveStatusIndicator
-          status={saveStatus}
+          status={saveStatus === 'error' ? 'error' : saveStatus === 'saving' ? 'saving' : dirty ? 'idle' : 'saved'}
           lastSaveTime={lastSaveTime}
           onRetry={handleSave}
-          hasUnsavedChanges={hasUnsavedChanges}
+          hasUnsavedChanges={dirty}
         />
         <Button
           auto
@@ -341,13 +246,11 @@ const ToolbarContent = () => {
           color={
             saveStatus === 'error'
               ? 'danger'
-              : saveStatus === 'saved' && !hasUnsavedChanges
-              ? 'success'
               : saveStatus === 'saving'
               ? 'primary'
-              : hasUnsavedChanges
+              : dirty
               ? 'warning'
-              : 'primary'
+              : 'success'
           }
           css={{
             marginLeft: '10px',
