@@ -125,18 +125,6 @@ def query_chroma(collection_name, options):
         print(e)
 
 
-def query_elastic_index(index_name, options):
-    try:
-        r = requests.post(
-            INDEXER_BASE_URL
-            + "/elastic/index/{index_name}/query".replace("{index_name}", index_name),
-            json=options,
-        )
-        return r.json()
-    except HTTPError as e:
-        print(e)
-
-
 def add_annotations_to_document(index_name, document_id, mentions):
     """
     Add or remove annotations to/from a document in Elasticsearch.

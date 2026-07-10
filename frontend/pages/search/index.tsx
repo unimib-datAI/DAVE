@@ -131,9 +131,16 @@ const Search = () => {
     ],
     {
       enabled: !!(activeCollection && activeCollection.id),
-      staleTime: Infinity, // never re-fetch automatically
+      // staleTime: Infinity means this never goes stale (and thus never
+      // refetches) on its own - the only way it updates is an explicit
+      // trpcContext.invalidateQueries(['collection.facetsCachePaginated'])
+      // call (see ToolbarContent.tsx's save handler). refetchOnMount is
+      // intentionally left at its default (true) so that once invalidated,
+      // navigating back to this page actually picks up the fresh data -
+      // refetchOnMount: false would otherwise keep serving the stale cache
+      // even after invalidation.
+      staleTime: Infinity,
       refetchOnWindowFocus: false,
-      refetchOnMount: false,
     }
   );
 
@@ -143,8 +150,19 @@ const Search = () => {
       ? { annotations: facetsCache.facets, metadata: [] }
       : undefined;
 
+  // The results column is now its own scroll container (see resultsScrollEl
+  // below) rather than the whole page scrolling as one document - the
+  // infinite-scroll sentinel must be observed relative to THAT container
+  // (`root`), not the browser viewport (the default), otherwise it never
+  // intersects since the results column's own scrolling no longer moves the
+  // viewport at all. `resultsScrollEl` is set via a callback ref so this
+  // updates (and useInView re-subscribes) once the DOM node actually mounts.
+  const [resultsScrollEl, setResultsScrollEl] = useState<HTMLDivElement | null>(
+    null
+  );
   const { ref, inView } = useInView({
     threshold: 0,
+    root: resultsScrollEl,
   });
 
   useEffect(() => {
@@ -187,31 +205,34 @@ const Search = () => {
   // Build id_ER to display_name map from facets (prefer cache when available)
   const filterIdToDisplayName = useMemo(() => {
     const map: Record<string, string> = {};
-    const source = facetsCache || (data && data.pages?.[0]?.facets);
-    if (!source) return map;
 
-    // If backend returned an array (cached format)
-    if (Array.isArray(source)) {
-      source.forEach((group: any) => {
+    const addFromGroups = (groups: any[]) => {
+      (groups || []).forEach((group: any) => {
         (group.children || []).forEach((child: any) => {
           (child.ids_ER || []).forEach((id: string) => {
-            map[id] =
-              child.display_name || child.displayName || child.key || '';
+            if (!map[id]) {
+              map[id] =
+                child.display_name || child.displayName || child.key || '';
+            }
           });
         });
       });
-      return map;
+    };
+
+    // Live search-result facets are the source of the ids a user actually
+    // clicks in FacetFilter, so they take priority.
+    if (data?.pages?.[0]?.facets?.annotations) {
+      addFromGroups(data.pages[0].facets.annotations);
     }
 
-    if (source.annotations) {
-      source.annotations.forEach((facet: any) => {
-        (facet.children || []).forEach((child: any) => {
-          (child.ids_ER || []).forEach((id: string) => {
-            map[id] = child.display_name;
-          });
-        });
-      });
+    // Fall back to the collection-level facets cache. Its paginated endpoint
+    // returns `{ facets: [...] }`, not `{ annotations: [...] }`.
+    if (facetsCache?.facets) {
+      addFromGroups(facetsCache.facets);
+    } else if (Array.isArray(facetsCache)) {
+      addFromGroups(facetsCache);
     }
+
     return map;
   }, [facetsCache, data]);
 
@@ -339,7 +360,12 @@ const Search = () => {
 
   return data ? (
     <ToolbarLayout>
-      <div className="flex flex-col h-screen">
+      {/* overflow-hidden here: the page itself must never scroll as one
+          document - the facets sidebar and the results column below each
+          get their own independent overflow-y-auto region instead. Without
+          this, there is no bounded scroll container for either column, so
+          "scrolling the sidebar" actually just scrolls the whole page. */}
+      <div className="flex flex-col h-screen overflow-hidden">
         <div className="flex flex-col py-6 mt-16 px-24">
           <form
             id="search-form"
@@ -359,7 +385,7 @@ const Search = () => {
         <motion.div
           id="search-main"
           style={{ ...(isFetching && { pointerEvents: 'none' }) }}
-          className="flex relative px-24"
+          className="flex relative px-24 flex-1 overflow-hidden"
           variants={variants}
           animate={isFetching ? 'isFetching' : 'isNotFetching'}
           transition={{ duration: 0.5 }}
@@ -390,10 +416,15 @@ const Search = () => {
             </div>
           )}
           <div
-            className="flex-grow flex flex-col gap-4 p-6"
+            ref={setResultsScrollEl}
+            className="flex-grow flex flex-col gap-4 p-6 overflow-y-auto overscroll-contain h-full"
             style={{ zIndex: 5 }}
           >
-            <div className="flex flex-col sticky top-16 bg-white py-6 z-10">
+            {/* top-0, not top-16: this header sticks relative to the
+                results column's own scroll container (see overflow-y-auto
+                above), which no longer has a fixed navbar overlapping its
+                internal top edge the way the old window-level scroll did. */}
+            <div className="flex flex-col sticky top-0 bg-white py-6 z-10">
               <h4 id="results-count" className="text-lg font-semibold">
                 {`${data.pages[0].pagination.total_hits} ${t('results')}`}
                 {text &&

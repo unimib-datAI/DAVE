@@ -292,13 +292,13 @@ export const DocumentController = {
     //delete all docs
     await Document.deleteMany({ collectionId });
     // Delete docs from elastic index
-    const elasticUrl =
-      process.env.QAVECTORIZER_ADDRESS || "http://qavectorizer:7863";
+    const nextjsUrl =
+      process.env.NEXTJS_API_BASE_URL || "http://ui:3000/holmes24";
 
     for (const docId of docIds) {
       try {
         await axios.delete(
-          `${elasticUrl}/elastic/index/${elasticIndex}/doc/${docId}`,
+          `${nextjsUrl}/api/elastic/index/${elasticIndex}/doc/${docId}`,
         );
       } catch (error) {
         console.error(

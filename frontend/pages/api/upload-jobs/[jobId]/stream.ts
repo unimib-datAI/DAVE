@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import fetchJson from '@/lib/fetchJson';
-import { getJWTHeader } from '@/utils/trpc';
+import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
+import { UploadJobController } from '@/lib/documentsBackend/uploadJobController';
 import { isTerminalStatus, UploadJob } from '@/lib/upload/types';
 
 export const config = {
@@ -9,7 +9,6 @@ export const config = {
   },
 };
 
-const baseURL = `${process.env.API_BASE_URI}`;
 const POLL_INTERVAL_MS = 1000;
 // Cap a single connection's lifetime; EventSource reconnects automatically,
 // so this just bounds how long any one server-side handle stays open.
@@ -32,9 +31,10 @@ export default async function handler(
   const jobId = req.query.jobId as string;
   const token = (req.query.token as string) || '';
 
-  let authHeader: string;
+  let userId: string;
   try {
-    authHeader = getJWTHeader(token);
+    const user = await getRequestUser(token);
+    userId = user.sub;
   } catch (error) {
     res.status(401).json({ message: 'No authentication token provided' });
     return;
@@ -68,12 +68,19 @@ export default async function handler(
 
   const poll = async () => {
     try {
-      const headers: Record<string, string> = {};
-      if (authHeader) headers.Authorization = authHeader;
-      const job = await fetchJson<any, UploadJob>(
-        `${baseURL}/upload-jobs/${encodeURIComponent(jobId)}`,
-        { headers }
-      );
+      const job = (await UploadJobController.getByJobId(jobId)) as any as
+        | (UploadJob & { userId?: string })
+        | null;
+      if (!job) {
+        send('error', { message: 'Job not found' });
+        stop();
+        return;
+      }
+      if (job.userId !== userId) {
+        send('error', { message: 'Access denied' });
+        stop();
+        return;
+      }
 
       const payload = JSON.stringify(job);
       if (payload !== lastPayload) {
@@ -89,10 +96,7 @@ export default async function handler(
       send('error', {
         message: error?.message || 'Failed to fetch job status',
       });
-      // A missing/inaccessible job is not going to start existing later.
-      if (error?.response?.status === 404 || error?.response?.status === 403) {
-        stop();
-      }
+      stop();
     }
   };
 

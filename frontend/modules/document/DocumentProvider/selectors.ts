@@ -72,6 +72,7 @@ export function useSelector<T>(cb: (state: State) => T) {
 // input selectors just select part of the state
 export const selectDocumentId = (state: State) => state.data.id;
 export const selectDocumentData = (state: State) => state.data;
+export const selectDocumentDirty = (state: State) => state.dirty;
 export const selectDocumentText = (state: State) => state.data.text;
 export const selectDocumentAnnotationSets = (state: State) =>
   state.data.annotation_sets;

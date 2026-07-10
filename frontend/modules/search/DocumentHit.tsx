@@ -6,6 +6,7 @@ import {
   deanonymizeFacetsAtom,
   deanonymizedFacetNamesAtom,
 } from '@/utils/atoms';
+import { activeCollectionAtom } from '@/atoms/collection';
 
 type DocumentHitProps = {
   hit: FacetedQueryHit;
@@ -22,6 +23,7 @@ const DocumentHit = ({
 }: DocumentHitProps) => {
   const [deanonymize] = useAtom(deanonymizeFacetsAtom);
   const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
+  const [activeCollection] = useAtom(activeCollectionAtom);
   // Find matching annotation ids and display names
   const matchedItems = Array.isArray(hit.annotations)
     ? hit.annotations.filter((ann: any) => selectedFilters.includes(ann.id_ER))
@@ -49,7 +51,18 @@ const DocumentHit = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      <Link href={`/documents/${hit.mongo_id ? hit.mongo_id : hit.id}`}>
+      <Link
+        href={{
+          pathname: `/documents/${hit.mongo_id ? hit.mongo_id : hit.id}`,
+          // Disambiguates duplicate documents that share the same
+          // content-hash id across different collections - this hit came
+          // from searching activeCollection, so that's the collection this
+          // document should be opened/edited/saved as belonging to.
+          query: activeCollection?.id
+            ? { collectionId: activeCollection.id }
+            : undefined,
+        }}
+      >
         <div
           id={`document-hit-container-${hit._id}`}
           className={`rounded-md overflow-hidden border-solid p-4 bg-white hover:shadow-lg hover:-translate-y-6 transition-all ${

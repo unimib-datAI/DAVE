@@ -203,6 +203,15 @@ const facetsMetadataOrder = ['anno sentenza', 'anno ruolo'];
 const toGroupedFacets = (facetsInput: any) => {
   if (!facetsInput) return [] as any[];
 
+  // Paginated/cache endpoints (e.g. collection.facetsCachePaginated) return
+  // `{ facets: [...], pagination }`. Unwrap before falling through to the
+  // array/annotations handling below, otherwise this - and anything derived
+  // from it, like the facet-type map used while searching - silently ends up
+  // empty.
+  if (!Array.isArray(facetsInput) && Array.isArray(facetsInput.facets)) {
+    return toGroupedFacets(facetsInput.facets);
+  }
+
   // If the cache returns an array of grouped facets, use it directly
   if (Array.isArray(facetsInput)) {
     return (facetsInput as any[]).map((group) => ({
@@ -300,152 +309,9 @@ const Facets = ({
     }
   );
 
-  // Create search queries for each facet group (6 common Italian groups)
-  // Each is conditionally enabled based on whether we're searching and the group exists
-  const personaQuery = useQuery(
-    [
-      'collection.facetsCacheSearch',
-      {
-        id: collection?.id || '',
-        key: 'persona',
-        query: value.filter,
-        page: 1,
-        limit: 20,
-        token,
-      },
-    ],
-    {
-      enabled:
-        shouldSearch && !!collection?.id && facetGroupsMap.has('persona'),
-    }
-  );
-
-  const luogoQuery = useQuery(
-    [
-      'collection.facetsCacheSearch',
-      {
-        id: collection?.id || '',
-        key: 'luogo',
-        query: value.filter,
-        page: 1,
-        limit: 20,
-        token,
-      },
-    ],
-    {
-      enabled: shouldSearch && !!collection?.id && facetGroupsMap.has('luogo'),
-    }
-  );
-
-  const organizzazioneQuery = useQuery(
-    [
-      'collection.facetsCacheSearch',
-      {
-        id: collection?.id || '',
-        key: 'organizzazione',
-        query: value.filter,
-        page: 1,
-        limit: 20,
-        token,
-      },
-    ],
-    {
-      enabled:
-        shouldSearch &&
-        !!collection?.id &&
-        facetGroupsMap.has('organizzazione'),
-    }
-  );
-
-  const dataQuery = useQuery(
-    [
-      'collection.facetsCacheSearch',
-      {
-        id: collection?.id || '',
-        key: 'data',
-        query: value.filter,
-        page: 1,
-        limit: 20,
-        token,
-      },
-    ],
-    {
-      enabled: shouldSearch && !!collection?.id && facetGroupsMap.has('data'),
-    }
-  );
-
-  const denarroQuery = useQuery(
-    [
-      'collection.facetsCacheSearch',
-      {
-        id: collection?.id || '',
-        key: 'denaro',
-        query: value.filter,
-        page: 1,
-        limit: 20,
-        token,
-      },
-    ],
-    {
-      enabled: shouldSearch && !!collection?.id && facetGroupsMap.has('denaro'),
-    }
-  );
-
-  const normaQuery = useQuery(
-    [
-      'collection.facetsCacheSearch',
-      {
-        id: collection?.id || '',
-        key: 'norma',
-        query: value.filter,
-        page: 1,
-        limit: 20,
-        token,
-      },
-    ],
-    {
-      enabled: shouldSearch && !!collection?.id && facetGroupsMap.has('norma'),
-    }
-  );
-
-  // Map all search queries for easy access
-  const allSearchQueries = useMemo(
-    () => ({
-      persona: personaQuery,
-      luogo: luogoQuery,
-      organizzazione: organizzazioneQuery,
-      data: dataQuery,
-      denaro: denarroQuery,
-      norma: normaQuery,
-    }),
-    [
-      personaQuery,
-      luogoQuery,
-      organizzazioneQuery,
-      dataQuery,
-      denarroQuery,
-      normaQuery,
-    ]
-  );
-
   // Combine results from either paginated or search queries
   const allFacets = useMemo(() => {
-    if (shouldSearch) {
-      // Combine search results from all facet groups
-      const combinedResults = Array.from(facetGroupsMap.keys())
-        .map((key) => {
-          const query = allSearchQueries[key as keyof typeof allSearchQueries];
-          if (query?.data) {
-            // Search endpoint returns { facets: [...], facetType, query, pagination: {...} }
-            const facetsArray = query.data?.facets || query.data;
-            const groupedData = toGroupedFacets(facetsArray);
-            return groupedData.length > 0 ? groupedData[0] : null;
-          }
-          return null;
-        })
-        .filter(Boolean);
-      return combinedResults;
-    } else {
+    if (!shouldSearch) {
       // Use paginated results when not searching
       const paginatedData = paginatedQuery.data;
       if (!paginatedData) {
@@ -455,7 +321,18 @@ const Facets = ({
       const facetsArray = paginatedData?.facets || paginatedData;
       return toGroupedFacets(facetsArray);
     }
-  }, [shouldSearch, paginatedQuery.data, allSearchQueries, facetGroupsMap, initialGroupedFacets]);
+
+    // "Find filter" searches for a facet TYPE/category by name (e.g. typing
+    // "date" surfaces the DATE category with all its values) - it does not
+    // search inside individual entity values. Searching within one already
+    // visible category's values is handled by that category's own search
+    // box in FacetFilter.
+    const normalizedQuery = value.filter.trim().toLowerCase();
+    return initialGroupedFacets.filter((group: any) =>
+      (group.key || '').toLowerCase().includes(normalizedQuery)
+    );
+  }, [shouldSearch, paginatedQuery.data, initialGroupedFacets, value.filter]);
+
   // Log paginated facets query
   useEffect(() => {
     if (paginatedQuery.isFetching) {
@@ -465,27 +342,6 @@ const Facets = ({
       console.log('[Facets] Paginated query success:', paginatedQuery.data.pagination);
     }
   }, [paginatedQuery.isFetching, paginatedQuery.isSuccess]);
-
-  // Log search queries
-  useEffect(() => {
-    if (shouldSearch && value.filter.trim()) {
-      const loadingGroups = Object.entries(allSearchQueries)
-        .filter(([_, q]) => q?.isFetching)
-        .map(([key]) => key);
-      
-      if (loadingGroups.length > 0) {
-        console.log(`[Facets] Searching for "${value.filter}" in groups:`, loadingGroups);
-      }
-      
-      const successGroups = Object.entries(allSearchQueries)
-        .filter(([_, q]) => q?.isSuccess && q?.data)
-        .map(([key, q]) => `${key}(${q?.data?.pagination?.total || 0})`);
-      
-      if (successGroups.length > 0) {
-        console.log('[Facets] Search results:', successGroups.join(', '));
-      }
-    }
-  }, [shouldSearch, value.filter, allSearchQueries]);
 
 
   // Fetch de-anonymized names when global toggle is activated
@@ -563,14 +419,23 @@ const Facets = ({
     });
   }, [filteredFacets, collection?.config, value.filter]);
 
-  const isLoading = shouldSearch
-    ? Object.values(allSearchQueries).some((q) => q?.isLoading)
-    : paginatedQuery.isLoading;
+  const isLoading = !shouldSearch && paginatedQuery.isLoading;
 
 
-  return allFacets.length > 0 ? (
-    <div className="sticky top-16 w-72 h-[calc(100vh-4rem)]">
-      <div className="overflow-y-auto h-full">
+  // Only hide the entire panel (including the search box) when there is no
+  // base facet data to work with at all - e.g. before anything has loaded,
+  // or the collection genuinely has none. A "Find filter" query that
+  // matches nothing must NOT hide the panel: that would remove the search
+  // box itself, leaving no way to clear the query and see results again
+  // without a full page reload.
+  return initialGroupedFacets.length > 0 ? (
+    // No more `sticky`/calculated height: this panel is a direct child of
+    // search/index.tsx's #search-main, which is itself a fixed-height,
+    // non-scrolling flex row (flex-1 overflow-hidden) - so `h-full` here
+    // already gives this panel exactly the right bounded height to scroll
+    // independently within, with no reliance on window-scroll offsets.
+    <div className="w-72 h-full">
+      <div className="overflow-y-auto h-full overscroll-contain">
         <div className="flex flex-col pr-6 py-6 gap-8">
           <div className="flex flex-col gap-3">
             <div className="text-lg font-semibold">{t('filter')}</div>
@@ -594,6 +459,10 @@ const Facets = ({
               />
             </div>
           </div>
+
+          {orderedFacets.length === 0 && (
+            <div className="text-sm text-slate-500">{t('noMatchingFilters')}</div>
+          )}
 
           {orderedFacets.map(({ filterType, ...facet }: any) => {
             if (

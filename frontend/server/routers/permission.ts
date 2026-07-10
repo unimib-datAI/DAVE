@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { createRouter } from '../context';
 import { TRPCError } from '@trpc/server';
-import fetchJson from '@/lib/fetchJson';
-
-const baseURL = `${process.env.API_BASE_URI}`;
+import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
+import { requireAdmin, PermissionDeniedError } from '@/lib/documentsBackend/permission';
+import { PermissionModel } from '@/lib/db/models/Permission';
+import { dbConnect } from '@/lib/db/connection';
 
 export type DAVEPermissions = {
   _id: string;
@@ -25,19 +26,6 @@ export type DAVEPermissions = {
     llm: string[];
     pipeline: string[];
   };
-};
-
-const getJWTHeader = (token?: string) => {
-  if (!token) {
-    if (process.env.USE_AUTH === 'false') {
-      return '';
-    }
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'No authentication token provided',
-    });
-  }
-  return `Bearer ${token}`;
 };
 
 const rolesArray = z.array(z.string());
@@ -79,25 +67,25 @@ export const permissions = createRouter()
       }
 
       try {
-        const headers: Record<string, string> = {};
-        const authHeader = getJWTHeader(token);
-        if (authHeader) {
-          headers.Authorization = authHeader;
+        // GET /api/permissions is auth-only in the old backend (any valid
+        // token, no specific permission check) - getRequestUser throws if
+        // the token is missing/invalid, matching that gate.
+        await getRequestUser(token);
+        await dbConnect();
+        const result = await PermissionModel.findOne({}).lean();
+        if (!result) {
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'No permissions configured',
+          });
         }
-
-        const result = await fetchJson<any, DAVEPermissions>(
-          `${baseURL}/permissions`,
-          { headers }
-        );
-        return result;
+        return result as any;
       } catch (error: any) {
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
-          code:
-            error?.status === 401
-              ? 'UNAUTHORIZED'
-              : error?.status === 403
-              ? 'FORBIDDEN'
-              : 'INTERNAL_SERVER_ERROR',
+          code: /missing bearer token/i.test(error?.message || '')
+            ? 'UNAUTHORIZED'
+            : 'INTERNAL_SERVER_ERROR',
           message: error?.message || 'Failed to fetch permissions',
         });
       }
@@ -112,31 +100,28 @@ export const permissions = createRouter()
       const { token, permissions } = input;
 
       try {
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-        };
-        const authHeader = getJWTHeader(token);
-        if (authHeader) {
-          headers.Authorization = authHeader;
+        const user = await getRequestUser(token);
+        // Admin role required, mirroring requireAdminRole - entirely
+        // bypassed when USE_AUTH=false (anonymous users get admin rights).
+        if (process.env.USE_AUTH !== 'false') {
+          requireAdmin(user);
         }
 
-        const result = await fetchJson<any, DAVEPermissions>(
-          `${baseURL}/permissions`,
-          {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify(permissions),
-          }
-        );
-        return result;
+        await dbConnect();
+        const result = await PermissionModel.findOneAndUpdate(
+          {},
+          { $set: permissions },
+          { new: true, upsert: true }
+        ).lean();
+        return result as any;
       } catch (error: any) {
+        if (error instanceof PermissionDeniedError) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: error.message });
+        }
         throw new TRPCError({
-          code:
-            error?.status === 401
-              ? 'UNAUTHORIZED'
-              : error?.status === 403
-              ? 'FORBIDDEN'
-              : 'INTERNAL_SERVER_ERROR',
+          code: /missing bearer token/i.test(error?.message || '')
+            ? 'UNAUTHORIZED'
+            : 'INTERNAL_SERVER_ERROR',
           message: error?.message || 'Failed to update permissions',
         });
       }

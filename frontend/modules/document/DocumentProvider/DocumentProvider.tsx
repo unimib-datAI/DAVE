@@ -24,6 +24,8 @@ import {
   globalAnonymizationAtom,
   isLoadingAnonymizationAtom,
 } from '@/utils/atoms';
+import { activeCollectionAtom } from '@/atoms/collection';
+import { useSession } from 'next-auth/react';
 /**
  * Fetches a document and provides it to the context consumer globally for the page.
  *
@@ -33,6 +35,12 @@ import {
  */
 const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   const [id] = useParam<string>('id');
+  // Disambiguates between duplicate documents sharing the same content-hash
+  // id across different collections (see documentController.ts findOne()) -
+  // passed as a `?collectionId=` query param by whatever linked here
+  // (search results, collection document lists). Falls back to undefined
+  // (ambiguous lookup) for links that don't carry it, e.g. bookmarks.
+  const [urlCollectionId] = useParam<string>('collectionId');
   // Map global anonymization atom to the local `deAnonimize` concept:
   // - `globalAnonymizationAtom` = true  -> documents are anonymized
   // - `deAnonimize` = true             -> show real (de-anonymized) document -> inverse of the atom
@@ -45,11 +53,31 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   };
 
   const { data, isFetching } = useQuery(
-    ['document.getDocument', { id: id, deAnonimize }],
+    ['document.getDocument', { id: id, deAnonimize, collectionId: urlCollectionId }],
     {
       staleTime: Infinity,
     }
   );
+
+  // The toolbar's collection selector (activeCollectionAtom) is a
+  // globally-persisted, manually-set choice - it does NOT automatically
+  // track whichever document is currently open. That mismatch previously
+  // caused saves to write facet-cache updates under the wrong collection
+  // (see ToolbarContent.tsx). Auto-sync it here: whenever a document loads,
+  // switch the active collection to the document's own collectionId so the
+  // two can never disagree while a document is open.
+  const { data: session } = useSession();
+  const token = (session as any)?.accessToken as string | undefined;
+  const [activeCollection, setActiveCollection] = useAtom(activeCollectionAtom);
+  const { data: docCollection } = useQuery(
+    ['collection.getById', { id: (data as any)?.collectionId, token }],
+    { enabled: !!(data as any)?.collectionId }
+  );
+  useEffect(() => {
+    if (docCollection && docCollection.id !== activeCollection?.id) {
+      setActiveCollection(docCollection as any);
+    }
+  }, [docCollection, activeCollection?.id, setActiveCollection]);
 
   // Keep isLoadingAnonymizationAtom in sync with the actual fetch state so the
   // toolbar toggle spinner reflects real loading (not a separate effect-driven state).
@@ -197,6 +225,7 @@ const initializeState = (data: Document): State => {
 
   return {
     data,
+    dirty: false,
     ...initialUIState,
     taxonomy,
     ui: {
