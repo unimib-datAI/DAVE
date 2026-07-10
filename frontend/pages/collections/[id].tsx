@@ -294,15 +294,24 @@ const Collection: NextPage = () => {
             >
               {t('backToCollections')}
             </Button>
-            <Button
-              variant="flat"
-              style={{ color: 'black' }}
-              onPress={() => setTypesModalOpen(true)}
-              color="secondary"
-              isDisabled={!canUpdate}
-            >
-              {t('editCollectionConfig')}
-            </Button>
+            <div style={{ display: 'flex', gap: 8 }}>
+  <Button
+    variant="flat"
+    color="default"
+    onPress={() => router.push(`/collections/${id}/entities`)}
+  >
+    Entity Registry
+  </Button>
+  <Button
+    variant="flat"
+    style={{ color: 'black' }}
+    onPress={() => setTypesModalOpen(true)}
+    color="secondary"
+    isDisabled={!canUpdate}
+  >
+    {t('editCollectionConfig')}
+  </Button>
+</div>
           </div>
           <h2 className="text-2xl font-bold mt-4">
             {t('collectionDocuments', {

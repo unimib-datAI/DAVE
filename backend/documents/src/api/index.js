@@ -8,6 +8,7 @@ import exportRoute from "./export";
 import search from "./search";
 import rag from "./rag";
 import permissionsRoute from "./permissions";
+import entity from "./entity";
 
 /**
  * Export all defined routes
@@ -18,6 +19,7 @@ export default () => {
   save(app);
   auth(app);
   collection(app);
+  entity(app);
   users(app);
   search(app);
   rag(app);

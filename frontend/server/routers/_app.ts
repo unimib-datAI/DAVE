@@ -1,6 +1,7 @@
 import { createRouter } from '../context';
 import { annotations } from './annotation';
 import { collections } from './collection';
+import { entity } from './entity';
 import { documents } from './document';
 import { infer } from './infer';
 import { permissions } from './permission';
@@ -17,6 +18,7 @@ export const appRouter = createRouter()
   .merge('document.', documents)
   .merge('annotation.', annotations)
   .merge('collection.', collections)
+  .merge('entity.', entity)
   .merge('infer.', infer)
   .merge('taxonomy', taxonomy)
   .merge('review.', review)

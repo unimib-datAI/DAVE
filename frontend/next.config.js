@@ -11,6 +11,7 @@ const getBasePath = () => {
 
 const nextConfig = {
   reactStrictMode: true,
+  swcMinify: false,
   experimental: {
     emotion: true,
   },
