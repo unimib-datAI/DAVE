@@ -72,6 +72,9 @@ export const permissions = createRouter()
         // the token is missing/invalid, matching that gate.
         await getRequestUser(token);
         await dbConnect();
+        // First run: the permissions collection is empty on a fresh Mongo -
+        // seed the defaults instead of hard-failing every request.
+        await PermissionModel.ensureDefaultPermissions();
         const result = await PermissionModel.findOne({}).lean();
         if (!result) {
           throw new TRPCError({
