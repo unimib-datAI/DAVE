@@ -142,6 +142,15 @@ services:
       ANONYMIZATION_PIPELINE_ADDRESS: $ANONYMIZATION_PIPELINE_ADDRESS
       USE_AUTH: $USE_AUTH
       NEXT_PUBLIC_USE_AUTH: $USE_AUTH
+      # Already covered by `env_file: ".env"` above, but listed explicitly
+      # too for clarity/consistency with docker-compose.yml (production),
+      # which has no env_file and needs these listed to pass them through at
+      # all. See that file's comment for why these are needed now.
+      MONGO: $MONGO
+      ANONYMIZATION_ENDPOINT: $ANONYMIZATION_ENDPOINT
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

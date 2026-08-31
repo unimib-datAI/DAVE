@@ -52,3 +52,5 @@ export_logs
 output
 cache
 experiments
+
+scripts/.last_test_collection.json

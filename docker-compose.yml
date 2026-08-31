@@ -177,6 +177,15 @@ services:
       ANNOTATION_NILPREDICTION_URL: $ANNOTATION_NILPREDICTION_URL
       ANNOTATION_NILCLUSTER_URL: $ANNOTATION_NILCLUSTER_URL
       ANNOTATION_CONSOLIDATION_URL: $ANNOTATION_CONSOLIDATION_URL
+      # The entire backend/documents Express service (Mongo access, Keycloak
+      # admin user-management, anonymization/decryption, local JWT auth) has
+      # been ported into this Next.js app - it now needs these directly,
+      # where previously only the (now-decommissioned) `documents` service did.
+      MONGO: $MONGO
+      ANONYMIZATION_ENDPOINT: $ANONYMIZATION_ENDPOINT
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
