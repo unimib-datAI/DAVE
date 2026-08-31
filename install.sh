@@ -163,9 +163,8 @@ info "              also hard-requires an NVIDIA GPU in this file (a fixed"
 info "              'deploy: reservations: devices' block), unless this"
 info "              installer strips it for you below."
 info ""
-info "Neither file starts an LLM/text-generation service - DAVE does not"
-info "manage that here; point the app at an LLM through its own settings once"
-info "it's running, if you use that feature."
+info "Neither file starts an LLM/text-generation service - you'll be asked"
+info "below to point DAVE at one you already have running."
 MODE=development
 choose MODE "Which compose file do you want to set up?" 1 development production
 
@@ -275,7 +274,25 @@ SENTENCE_TRANSFORMER_EMBEDDING_MODEL="${SENTENCE_TRANSFORMER_EMBEDDING_MODEL:-se
 ask SENTENCE_TRANSFORMER_EMBEDDING_MODEL "  Sentence-transformer model" "$SENTENCE_TRANSFORMER_EMBEDDING_MODEL"
 
 # ----------------------------------------------------------------------------
-# 8. Annotation / NER services (optional, external)
+# 8. LLM (address/key/name of an LLM you already run - this installer does
+#    not start or manage an LLM/text-generation service itself)
+# ----------------------------------------------------------------------------
+step "Language model (LLM)"
+info "DAVE does not run an LLM service for you - point it at one you already"
+info "have (OpenAI-compatible API). Leave blank to configure this later."
+API_LLM="${API_LLM:-}"
+ask API_LLM "  LLM API base URL (e.g. http://host:port/v1)" "$API_LLM"
+TEXT_GENERATION_KEY="${TEXT_GENERATION_KEY:-}"
+ask TEXT_GENERATION_KEY "  LLM API key (blank if none required)" "$TEXT_GENERATION_KEY"
+MODEL_NAME="${MODEL_NAME:-default-model}"
+ask MODEL_NAME "  Model name" "$MODEL_NAME"
+TEXT_GENERATION_ADDR="$API_LLM"
+TEXT_GENERATION="$API_LLM"
+LLM_NAME="$MODEL_NAME"
+LLM_KEY="$TEXT_GENERATION_KEY"
+
+# ----------------------------------------------------------------------------
+# 9. Annotation / NER services (optional, external)
 # ----------------------------------------------------------------------------
 step "Annotation / entity-linking services (optional)"
 info "External NER/entity-linking/anonymization endpoints. Leave unset unless"
@@ -300,7 +317,7 @@ if [ "$CONFIGURE_ANNOTATION" = y ]; then
 fi
 
 # ----------------------------------------------------------------------------
-# 9. Secrets (generated, not asked)
+# 10. Secrets (generated, not asked)
 # ----------------------------------------------------------------------------
 step "Generating secrets"
 NEXTAUTH_SECRET="${NEXTAUTH_SECRET:-$(gen_secret 32)}"
@@ -313,7 +330,7 @@ KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:-$(gen_secret 16)}"
 ok "Secrets ready"
 
 # ----------------------------------------------------------------------------
-# 10. Fixed / standard defaults (never asked - match docker-compose.yml)
+# 11. Fixed / standard defaults (never asked - match docker-compose.yml)
 # ----------------------------------------------------------------------------
 RESTART_POLICY=unless-stopped
 VARIANT=default
@@ -335,19 +352,11 @@ OGG2NAME_INDEX="${ELASTIC_INDEX}_ogg2name"
 ANNOTATION_PIPELINE_PORT=8002
 KEYCLOAK_PORT=8080
 MONGO="mongodb://root:${MONGO_ROOT_PASSWORD}@mongo:27017/${ELASTIC_INDEX}?authSource=admin"
-# No LLM/text-generation service is started by this installer (neither
-# compose file runs one). Left blank; configure through DAVE's own settings
-# if you point it at an LLM yourself.
-API_LLM=
-TEXT_GENERATION=
-TEXT_GENERATION_ADDR=
-TEXT_GENERATION_KEY=
-MODEL_NAME=
-LLM_NAME=
-LLM_KEY=
+# API_LLM, TEXT_GENERATION(_ADDR), TEXT_GENERATION_KEY, MODEL_NAME, LLM_NAME
+# and LLM_KEY were already set in the LLM step above.
 
 # ----------------------------------------------------------------------------
-# 11. Summary
+# 12. Summary
 # ----------------------------------------------------------------------------
 step "Summary - review before anything is written"
 say ""
@@ -360,7 +369,9 @@ say "${BOLD}Login required:${NC}    $USE_AUTH"
 [ "$NEED_KEYCLOAK_SETUP" = y ] && say "  ${YELLOW}Keycloak secret:     placeholder - must be set after first run${NC}"
 say "${BOLD}Elasticsearch index:${NC} $ELASTIC_INDEX"
 say "${BOLD}Embedding model:${NC}   $SENTENCE_TRANSFORMER_EMBEDDING_MODEL"
-say "${BOLD}LLM:${NC}               not started/configured by this installer"
+say "${BOLD}LLM address:${NC}       $([ -n "$API_LLM" ] && echo "$API_LLM" || echo "(not set)")"
+say "${BOLD}LLM model name:${NC}    $MODEL_NAME"
+say "${BOLD}LLM API key:${NC}       $([ -n "$TEXT_GENERATION_KEY" ] && mask "$TEXT_GENERATION_KEY" || echo "(none)")"
 say ""
 say "${BOLD}Generated secrets (masked):${NC}"
 say "  NEXTAUTH_SECRET          $(mask "$NEXTAUTH_SECRET")"
@@ -380,7 +391,7 @@ ask_yn PROCEED "Write this configuration to .env?" y
 [ "$PROCEED" = y ] || die "Aborted - nothing was written."
 
 # ----------------------------------------------------------------------------
-# 12. Write .env
+# 13. Write .env
 # ----------------------------------------------------------------------------
 if [ -f .env ]; then
   BACKUP=".env.bak.$(date +%Y%m%d%H%M%S)"
@@ -467,7 +478,7 @@ chmod 600 .env
 ok "Wrote .env (permissions set to 600)"
 
 # ----------------------------------------------------------------------------
-# 13. GPU override file
+# 14. GPU override file
 # ----------------------------------------------------------------------------
 if [ "$STRIP_GPU_RESERVATION" = y ]; then
   cat > docker-compose.override.yml <<'EOF'
@@ -482,7 +493,7 @@ EOF
 fi
 
 # ----------------------------------------------------------------------------
-# 14. Validate
+# 15. Validate
 # ----------------------------------------------------------------------------
 if [ -x ./validate_env.sh ]; then
   step "Running validate_env.sh"
@@ -490,7 +501,7 @@ if [ -x ./validate_env.sh ]; then
 fi
 
 # ----------------------------------------------------------------------------
-# 15. Optionally build & start
+# 16. Optionally build & start
 # ----------------------------------------------------------------------------
 step "Start DAVE now?"
 START=n
@@ -504,7 +515,7 @@ else
 fi
 
 # ----------------------------------------------------------------------------
-# 16. Next steps
+# 17. Next steps
 # ----------------------------------------------------------------------------
 step "Next steps"
 say "  App URL:        $NEXT_PUBLIC_FULL_PATH"
