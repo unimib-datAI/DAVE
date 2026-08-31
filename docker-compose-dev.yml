@@ -85,19 +85,33 @@ services:
   ui:
     env_file: ".env"
     restart: $RESTART_POLICY
+    # Even in the "dev" compose file, ui is built and served in production
+    # mode (frontend/Dockerfile: `pnpm build` at image-build time, `pnpm
+    # start` at container start) rather than the hot-reloading `next dev`
+    # server - see frontend/Dockerfile-dev for that instead.
     build:
       context: ./frontend
-      dockerfile: Dockerfile-dev
+      dockerfile: Dockerfile
       args:
         ACCESS_USERNAME: $ACCESS_USERNAME
         ACCESS_PASSWORD: $ACCESS_PASSWORD
         API_BASE_URI: $API_BASE_URI
         API_USERNAME: $API_USERNAME
         API_PASSWORD: $API_PASSWORD
+        USE_AUTH: $USE_AUTH
+        LLM_NAME: $LLM_NAME
+        LLM_KEY: $LLM_KEY
+        NEXT_PUBLIC_LLM_NAME: $LLM_NAME
+        NEXT_PUBLIC_USE_AUTH: $USE_AUTH
         NEXTAUTH_SECRET: $NEXTAUTH_SECRET
         NEXTAUTH_URL: $NEXTAUTH_URL
+        NEXTAUTH_URL_INTERNAL: ${NEXTAUTH_URL_INTERNAL:-http://localhost:3000}
         NEXT_PUBLIC_BASE_PATH: $NEXT_PUBLIC_BASE_PATH
         NEXT_PUBLIC_FULL_PATH: $NEXT_PUBLIC_FULL_PATH
+        KEYCLOAK_ID: $KEYCLOAK_ID
+        KEYCLOAK_SECRET: $KEYCLOAK_SECRET
+        KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER:-http://keycloak:8080/realms/DAVE}
+        NEXT_PUBLIC_KEYCLOAK_ISSUER: ${KEYCLOAK_ISSUER}
         API_LLM: $API_LLM
         API_INDEXER: $API_INDEXER
         VARIANT: $VARIANT
@@ -107,7 +121,6 @@ services:
         ELASTIC_PORT: $ELASTIC_PORT
     ports:
       - $LISTEN_UI:3000
-      - 127.0.0.1:9229:9229
     networks:
       - dave_net
     environment:
@@ -153,23 +166,9 @@ services:
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    volumes:
-      - ./frontend/modules:/app/modules
-      - ./frontend/server:/app/server
-      - ./frontend/pages:/app/pages
-      - ./frontend/components:/app/components
-      - ./frontend/lib:/app/lib
-      - ./frontend/atoms:/app/atoms
-      - ./frontend/hooks:/app/hooks
-      - ./frontend/utils:/app/utils
-      - ./frontend/styles:/app/styles
-      - ./frontend/translation:/app/translation
-      - ./frontend/public:/app/public
-      - ./frontend/next.config.js:/app/next.config.js
-      - ./frontend/tsconfig.json:/app/tsconfig.json
-      - ./frontend/tailwind.config.js:/app/tailwind.config.js
-      - ./frontend/postcss.config.js:/app/postcss.config.js
-      - ./frontend/package.json:/app/package.json
+    # No source bind-mounts here: the image is a real `pnpm build` (see
+    # above), so a stale/mismatched host source tree can't shadow it. Rebuild
+    # (`docker compose -f docker-compose-dev.yml build ui`) to pick up changes.
 
   es:
     env_file: ".env"
