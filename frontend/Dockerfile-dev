@@ -1,5 +1,6 @@
 # Use node alpine as it's a small node image
-FROM node:18-alpine
+# Next.js 16 requires Node >=20.9.0 - keep in sync with the prod Dockerfile.
+FROM node:20-alpine
 
 ARG ACCESS_USERNAME
 ARG ACCESS_PASSWORD
