@@ -19,6 +19,9 @@ async function getPermission() {
     return cachedPermissions;
   }
   await dbConnect();
+  // First run: the permissions collection is empty on a fresh Mongo - seed
+  // the defaults instead of every permission check hard-failing.
+  await PermissionModel.ensureDefaultPermissions();
   cachedPermissions = await PermissionModel.findOne({}).lean();
   cacheExpiry = Date.now() + CACHE_TTL;
   return cachedPermissions;
