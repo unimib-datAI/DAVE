@@ -24,7 +24,11 @@ ARG NEXT_PUBLIC_LLM_NAME
 ARG USE_AUTH
 ARG NEXT_PUBLIC_USE_AUTH
 
-RUN npm install -g pnpm
+# Pinned to match the committed pnpm-lock.yaml (lockfileVersion 6.0, written
+# by pnpm 8). An unpinned `pnpm` installs whatever is latest, which can't
+# read that lockfile and also refuses to run native-module build scripts
+# (bcrypt, sharp, ...) without interactive approval - both break this build.
+RUN npm install -g pnpm@8
 
 # Create the directory on the node image
 # where our Next.js app will live
