@@ -1,17 +1,38 @@
 // Ported from backend/documents/src/utils/anonymization.js
 import axios from 'axios';
 
-const endpoint = process.env.ANONYMIZATION_ENDPOINT || 'http://10.0.0.108:8081';
+const endpoint = (process.env.ANONYMIZATION_ENDPOINT || '').trim();
+// Anonymization is optional. When ANONYMIZATION_ENDPOINT is not configured we
+// must NOT fall back to some default host: previously the default was an
+// unroutable internal IP, so every encrypt/decrypt call hung until the axios
+// timeout fired ("timeout of 8000ms exceeded" / ECONNABORTED) and spammed the
+// logs with "Error encrypting value". Instead, when no endpoint is set we skip
+// the network calls entirely and treat values as pass-through (not anonymized).
+const anonymizationEnabled = endpoint.length > 0;
+
+let warnedDisabled = false;
+function warnAnonymizationDisabled(): void {
+  if (warnedDisabled) return;
+  warnedDisabled = true;
+  console.info(
+    'ANONYMIZATION_ENDPOINT is not set - skipping anonymization service calls (values are left unencrypted).'
+  );
+}
+
 // None of the axios calls in this file had a timeout configured (neither
 // here nor in the original backend/documents/src/utils/anonymization.js),
-// so when the anonymization service is unreachable (e.g. ANONYMIZATION_ENDPOINT
-// unset/misconfigured and its default falls back to an unroutable internal
-// IP) a request hangs for the OS's TCP connect timeout - which can be
-// minutes or effectively indefinite depending on network config - and
-// nothing ever resolves the caller's loading state. Fail fast instead.
+// so when the anonymization service is unreachable a request hangs for the
+// OS's TCP connect timeout - which can be minutes or effectively indefinite
+// depending on network config - and nothing ever resolves the caller's
+// loading state. Fail fast instead.
 const REQUEST_TIMEOUT_MS = 8000;
 
 async function makeEncryptionRequest(valueToEncrypt: string): Promise<any> {
+  if (!anonymizationEnabled) {
+    warnAnonymizationDisabled();
+    // Pass-through: callers use `result.vaultKey || originalValue`.
+    return { fieldToEncrypt: valueToEncrypt, vaultKey: null, error: null };
+  }
   try {
     const res = await axios({
       method: 'post',
@@ -40,6 +61,14 @@ export async function makeDecryptionRequest(
   retries = 3
 ): Promise<any> {
   let lastError: any;
+  if (!anonymizationEnabled) {
+    warnAnonymizationDisabled();
+    return {
+      fieldToDecrypt: valueToDecrypt,
+      decryptedData: null,
+      error: null,
+    };
+  }
   if (valueToDecrypt.startsWith('vault:v1')) {
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
@@ -86,6 +115,15 @@ export async function makeBatchDecryptionRequest(
 ): Promise<any[]> {
   if (!Array.isArray(valuesToDecrypt) || valuesToDecrypt.length === 0) {
     return [];
+  }
+
+  if (!anonymizationEnabled) {
+    warnAnonymizationDisabled();
+    return valuesToDecrypt.map((v) => ({
+      fieldToDecrypt: v,
+      decryptedData: null,
+      error: null,
+    }));
   }
 
   // Only attempt batch for values that look like vault tokens; non-vault tokens
@@ -525,7 +563,9 @@ export async function encode(doc: any, anonymizeTypes: string[] | null = null): 
     doc.name = (doc.name ?? '') + '_ANNOTATED';
   }
 
-  doc.features.anonymized = true;
+  // Only mark the document as anonymized if the anonymization service actually
+  // ran; otherwise values are still plaintext.
+  doc.features.anonymized = anonymizationEnabled;
   return doc;
 }
 
