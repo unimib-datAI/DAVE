@@ -13,6 +13,11 @@ type DocumentHitProps = {
   highlight?: boolean;
   selectedFilters?: string[];
   filterIdToDisplayName?: Record<string, string>;
+  // Display names of the currently-selected facets that this document matches.
+  // Computed by the search page from the facets-cache `doc_ids` mapping because
+  // ES hits carry no usable `annotations` array; when provided this is the
+  // source of truth for the chips.
+  matchedDisplayNames?: string[];
 };
 
 const DocumentHit = ({
@@ -20,6 +25,7 @@ const DocumentHit = ({
   highlight,
   selectedFilters = [],
   filterIdToDisplayName = {},
+  matchedDisplayNames,
 }: DocumentHitProps) => {
   const [deanonymize] = useAtom(deanonymizeFacetsAtom);
   const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
@@ -40,6 +46,27 @@ const DocumentHit = ({
       return true;
     });
   })();
+
+  // Prefer the page-computed names (facets-cache backed); fall back to names
+  // derived from any real annotations on the hit.
+  const chipNames =
+    matchedDisplayNames && matchedDisplayNames.length > 0
+      ? Array.from(new Set(matchedDisplayNames))
+      : Array.from(
+          new Set(
+            uniqueMatchedItems.map((item: any) => {
+              const originalName =
+                item.display_name ||
+                filterIdToDisplayName[item.id_ER] ||
+                item.id_ER;
+              return deanonymize &&
+                item.display_name &&
+                deanonymizedNames[item.display_name]
+                ? deanonymizedNames[item.display_name]
+                : originalName;
+            })
+          )
+        );
 
   return (
     <motion.div
@@ -84,27 +111,12 @@ const DocumentHit = ({
             {hit.name}
           </div>
           {/* Chips for matched filters */}
-          {uniqueMatchedItems.length > 0 && (
+          {chipNames.length > 0 && (
             <div
               id={`document-hit-chips-${hit._id}`}
               className="flex flex-row flex-wrap gap-2 mt-4"
             >
-              {Array.from(
-                new Set(
-                  uniqueMatchedItems.map((item: any) => {
-                    const originalName =
-                      item.display_name ||
-                      filterIdToDisplayName[item.id_ER] ||
-                      item.id_ER;
-                    // Use de-anonymized name if available
-                    return deanonymize &&
-                      item.display_name &&
-                      deanonymizedNames[item.display_name]
-                      ? deanonymizedNames[item.display_name]
-                      : originalName;
-                  })
-                )
-              ).map((displayName: string, idx) => (
+              {chipNames.map((displayName: string, idx) => (
                 <span
                   key={displayName}
                   id={`document-hit-chip-${hit._id}-${idx}`}
