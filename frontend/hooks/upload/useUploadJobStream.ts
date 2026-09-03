@@ -6,9 +6,10 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useSession } from 'next-auth/react';
 import {
+  notifiedUploadJobIdsAtom,
   uploadJobsMapAtom,
   uploadNotificationsAtom,
 } from '@/atoms/uploadJobs';
@@ -24,8 +25,15 @@ export function useUploadJobStream(jobId: string | null | undefined) {
   const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
   const setJobsMap = useSetAtom(uploadJobsMapAtom);
   const setNotifications = useSetAtom(uploadNotificationsAtom);
+  const notifiedUploadJobIds = useAtomValue(notifiedUploadJobIdsAtom);
+  const setNotifiedUploadJobIds = useSetAtom(notifiedUploadJobIdsAtom);
   const trpcContext = useTrpcContext();
   const notifiedTerminalRef = useRef(false);
+  // Kept in a ref so `applyJob` always sees the current persisted set without
+  // needing it in the effect's dependency list (which would tear down and
+  // rebuild the stream every time a notification is recorded).
+  const notifiedUploadJobIdsRef = useRef(notifiedUploadJobIds);
+  notifiedUploadJobIdsRef.current = notifiedUploadJobIds;
 
   const jobQuery = useQuery(
     ['document.getUploadJob', { jobId: jobId as string, token }],
@@ -48,6 +56,16 @@ export function useUploadJobStream(jobId: string | null | undefined) {
 
       if (isTerminalStatus(job.status) && !notifiedTerminalRef.current) {
         notifiedTerminalRef.current = true;
+
+        // Only surface the "upload complete/failed" toast the first time this
+        // job reaches a terminal state. A later navigation or page reload
+        // re-subscribes to the (still-tracked) finished job and would
+        // otherwise pop the exact same notification every time.
+        if (notifiedUploadJobIdsRef.current.includes(job.jobId)) return;
+        setNotifiedUploadJobIds((prev) =>
+          prev.includes(job.jobId) ? prev : [job.jobId, ...prev].slice(0, 50)
+        );
+
         const failed = job.statistics.failed;
         const completed = job.statistics.completed;
         setNotifications((prev) => [

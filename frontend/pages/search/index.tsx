@@ -236,6 +236,91 @@ const Search = () => {
     return map;
   }, [facetsCache, data]);
 
+  // Map every facet `id_ER` (and its grouped aliases) to the set of document
+  // ids that carry that facet. The faceted-search backend indexes documents
+  // into Elasticsearch with an empty top-level `annotations` array (entity data
+  // lives in `features.clusters`, which the indexer drops), so a result hit
+  // has nothing to match a clicked facet against. The facets-cache response,
+  // however, already carries `doc_ids` per facet child - use that as the
+  // source of truth for "which document matched which filter".
+  const filterIdToDocIds = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+
+    const addFromGroups = (groups: any[]) => {
+      (groups || []).forEach((group: any) => {
+        (group.children || []).forEach((child: any) => {
+          const docIds = (child.doc_ids || []).map((d: any) => String(d));
+          if (docIds.length === 0) return;
+          const ids =
+            child.ids_ER && child.ids_ER.length > 0
+              ? child.ids_ER
+              : [child.key];
+          ids.forEach((rawId: string) => {
+            if (!rawId) return;
+            const id = rawId.toLowerCase().trim();
+            if (!map[id]) map[id] = new Set<string>();
+            docIds.forEach((d: string) => map[id].add(d));
+          });
+        });
+      });
+    };
+
+    if (data?.pages?.[0]?.facets?.annotations) {
+      addFromGroups(data.pages[0].facets.annotations);
+    }
+    if (facetsCache?.facets) {
+      addFromGroups(facetsCache.facets);
+    } else if (Array.isArray(facetsCache)) {
+      addFromGroups(facetsCache);
+    }
+
+    return map;
+  }, [facetsCache, data]);
+
+  // Returns the display names of every selected filter that matches a given
+  // hit - via the facets-cache `doc_ids` mapping first, then falling back to
+  // any real `annotations` on the ES hit (older documents / other pipelines).
+  const matchedFilterNamesForHit = useMemo(() => {
+    const validFilters = (selectedFilters || []).filter(
+      (f) => f && f.id_ER && f.id_ER.trim() !== ''
+    );
+    const normalized = validFilters.map((f) => ({
+      id: f.id_ER.toLowerCase().trim(),
+      name: (f.display_name || '').toLowerCase().trim(),
+      display:
+        (f.display_name && deanonymizedNames[f.display_name]) ||
+        f.display_name ||
+        filterIdToDisplayName[f.id_ER] ||
+        f.id_ER,
+    }));
+
+    return (hit: any): string[] => {
+      if (validFilters.length === 0) return [];
+      const hitId = String(hit.id);
+      const names = new Set<string>();
+
+      validFilters.forEach((_f, i) => {
+        if (filterIdToDocIds[normalized[i].id]?.has(hitId)) {
+          names.add(normalized[i].display);
+        }
+      });
+
+      if (Array.isArray(hit.annotations)) {
+        hit.annotations.forEach((ann: any) => {
+          const annId = (ann.id_ER || '').toLowerCase().trim();
+          const annName = (ann.display_name || '').toLowerCase().trim();
+          const match = normalized.find(
+            (n) =>
+              (n.id && n.id === annId) || (n.name && n.name === annName)
+          );
+          if (match) names.add(ann.display_name || match.display);
+        });
+      }
+
+      return Array.from(names);
+    };
+  }, [selectedFilters, filterIdToDocIds, filterIdToDisplayName, deanonymizedNames]);
+
   // Wrapper to ensure we never set empty filters. Accepts an array of `id_ER` strings
   // and stores objects of shape `{ id_ER, display_name }` in the atom.
   const setSelectedFilters = (filters: string[]) => {
@@ -306,48 +391,15 @@ const Search = () => {
     );
     if (validFilters.length === 0) return allHits;
 
-    // Normalize valid filters for consistent comparison (use `id_ER`)
-    const normalizedValidFilters = validFilters.map((f) =>
-      f.id_ER.toLowerCase().trim()
-    );
-
     const matches = allHits.filter(
-      (hit) =>
-        Array.isArray(hit.annotations) &&
-        hit.annotations.some(
-          (ann: any) =>
-            (ann.id_ER &&
-              ann.id_ER.trim() !== '' &&
-              normalizedValidFilters.includes(
-                ann.id_ER.toLowerCase().trim()
-              )) ||
-            (ann.display_name &&
-              ann.display_name.trim() !== '' &&
-              normalizedValidFilters.includes(
-                ann.display_name.toLowerCase().trim()
-              ))
-        )
+      (hit) => matchedFilterNamesForHit(hit).length > 0
     );
     const nonMatches = allHits.filter(
-      (hit) =>
-        !Array.isArray(hit.annotations) ||
-        !hit.annotations.some(
-          (ann: any) =>
-            (ann.id_ER &&
-              ann.id_ER.trim() !== '' &&
-              normalizedValidFilters.includes(
-                ann.id_ER.toLowerCase().trim()
-              )) ||
-            (ann.display_name &&
-              ann.display_name.trim() !== '' &&
-              normalizedValidFilters.includes(
-                ann.display_name.toLowerCase().trim()
-              ))
-        )
+      (hit) => matchedFilterNamesForHit(hit).length === 0
     );
     console.log('processed documents', [...matches, ...nonMatches]);
     return [...matches, ...nonMatches];
-  }, [data, selectedFilters, facetedDocuments]);
+  }, [data, selectedFilters, facetedDocuments, matchedFilterNamesForHit]);
 
   const handleSubmit = ({ text }: { text: string }) => {
     setSelectedFilters([]);
@@ -451,7 +503,7 @@ const Search = () => {
                     }, {})
                   ).map(([displayName, ids]) => (
                     <FilterChip
-                      key={String(displayName) + ids.join('-')}
+                      key={String(displayName) + (ids as string[]).join('-')}
                       value={displayName}
                       handleClear={() =>
                         // remove all filters that have this display name
@@ -480,36 +532,21 @@ const Search = () => {
                 gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))',
               }}
             >
-              {reorderedDocuments.map((hit) => (
-                <DocumentHit
-                  key={hit._id}
-                  hit={hit}
-                  highlight={
-                    Array.isArray(hit.annotations) &&
-                    hit.annotations.some((ann: any) => {
-                      const normalizedSelectedFilters = (
-                        selectedFilters || []
-                      ).map((f) =>
-                        f && f.id_ER ? f.id_ER.toLowerCase().trim() : ''
-                      );
-                      return (
-                        (ann.id_ER &&
-                          ann.id_ER.trim() !== '' &&
-                          normalizedSelectedFilters.includes(
-                            ann.id_ER.toLowerCase().trim()
-                          )) ||
-                        (ann.display_name &&
-                          ann.display_name.trim() !== '' &&
-                          normalizedSelectedFilters.includes(
-                            ann.display_name.toLowerCase().trim()
-                          ))
-                      );
-                    })
-                  }
-                  selectedFilters={(selectedFilters || []).map((f) => f.id_ER)}
-                  filterIdToDisplayName={filterIdToDisplayName}
-                />
-              ))}
+              {reorderedDocuments.map((hit) => {
+                const matchedDisplayNames = matchedFilterNamesForHit(hit);
+                return (
+                  <DocumentHit
+                    key={hit._id}
+                    hit={hit}
+                    highlight={matchedDisplayNames.length > 0}
+                    matchedDisplayNames={matchedDisplayNames}
+                    selectedFilters={(selectedFilters || []).map(
+                      (f) => f.id_ER
+                    )}
+                    filterIdToDisplayName={filterIdToDisplayName}
+                  />
+                );
+              })}
             </div>
             {hasNextPage && (
               <div ref={ref} id="load-more-container" className="w-full">
