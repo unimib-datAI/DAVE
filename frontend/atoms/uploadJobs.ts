@@ -20,6 +20,16 @@ export const uploadJobIdsAtom = atomWithStorage<string[]>(
   []
 );
 
+/**
+ * Job ids whose terminal ("upload complete" / "failed") notification has
+ * already been shown. Persisted so that reconnecting to an already-finished
+ * job after a navigation or page reload doesn't pop the same toast again.
+ */
+export const notifiedUploadJobIdsAtom = atomWithStorage<string[]>(
+  'dave_notified_upload_job_ids',
+  []
+);
+
 export const uploadJobsMapAtom = atom<Record<string, UploadJob>>({});
 
 /**
@@ -39,6 +49,10 @@ export const untrackUploadJobAtom = atom(null, (get, set, jobId: string) => {
   set(
     uploadJobIdsAtom,
     get(uploadJobIdsAtom).filter((id) => id !== jobId)
+  );
+  set(
+    notifiedUploadJobIdsAtom,
+    get(notifiedUploadJobIdsAtom).filter((id) => id !== jobId)
   );
   const map = { ...get(uploadJobsMapAtom) };
   delete map[jobId];

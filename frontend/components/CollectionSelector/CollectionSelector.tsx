@@ -137,10 +137,11 @@ const CollectionSelector = () => {
               activeCollection ? new Set([activeCollection.id]) : new Set()
             }
             onAction={(key) => handleCollectionSelect(key as string)}
-            // classNames={{
-            //   base: 'bg-white border border-gray-200 shadow-lg rounded-lg',
-            //   list: 'py-1',
-            // }}
+            // Cap the menu height so a long list of collections doesn't run off
+            // screen; the list scrolls instead.
+            classNames={{
+              base: 'max-h-[min(60vh,360px)] overflow-y-auto',
+            }}
           >
             {collections.map((collection) => (
               <DropdownItem
