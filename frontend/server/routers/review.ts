@@ -1,6 +1,6 @@
 import fetchJson from '@/lib/fetchJson';
 import { z } from 'zod';
-import { createRouter } from '../context';
+import { router, publicProcedure } from '../trpc';
 import { serverConfig } from '@/lib/config/server';
 import type {
   GetDocumentProps,
@@ -19,43 +19,44 @@ export type GetSourcesProps = {
   sources: Source[];
 };
 
-export const review = createRouter()
-  .query('getAllSources', {
-    resolve: ({ input }) => {
-      return fetchJson<void, GetSourcesProps>(`${baseURL}/review/source`);
-    },
-  })
-  .query('getSource', {
-    input: z.object({
-      sourceId: z.string(),
-      docId: z.string().optional(),
-    }),
-    resolve: ({ input }) => {
-      const { sourceId } = input;
+export const reviewRouter = router({
+  getAllSources: publicProcedure.query(() => {
+    return fetchJson<void, GetSourcesProps>(`${baseURL}/review/source`);
+  }),
+  getSource: publicProcedure
+    .input(
+      z.object({
+        sourceId: z.string(),
+        docId: z.string().optional(),
+      })
+    )
+    .query(({ input }) => {
       return fetchJson<void, GetSourceProps>(
-        `${baseURL}/review/source/${sourceId}`
+        `${baseURL}/review/source/${input.sourceId}`
       );
-    },
-  })
-  .query('getDocument', {
-    input: z.object({
-      sourceId: z.string(),
-      docId: z.string(),
     }),
-    resolve: ({ input }) => {
+  getDocument: publicProcedure
+    .input(
+      z.object({
+        sourceId: z.string(),
+        docId: z.string(),
+      })
+    )
+    .query(({ input }) => {
       const { sourceId, docId } = input;
       return fetchJson<void, GetDocumentProps>(
         `${baseURL}/review/source/${sourceId}/doc/${docId}`
       );
-    },
-  })
-  .mutation('saveDocument', {
-    input: z.object({
-      sourceId: z.string(),
-      docId: z.string(),
-      document: z.any(),
     }),
-    resolve: ({ input }) => {
+  saveDocument: publicProcedure
+    .input(
+      z.object({
+        sourceId: z.string(),
+        docId: z.string(),
+        document: z.any(),
+      })
+    )
+    .mutation(({ input }) => {
       const { sourceId, docId, document } = input;
       return fetchJson<any, PostSaveDocumentProps>(
         `${baseURL}/review/source/${sourceId}/doc/${docId}`,
@@ -66,5 +67,5 @@ export const review = createRouter()
           },
         }
       );
-    },
-  });
+    }),
+});

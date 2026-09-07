@@ -1,8 +1,9 @@
 import { z } from 'zod';
-import { createRouter } from '../context';
-import { TRPCError } from '@trpc/server';
-import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
-import { requireAdmin, PermissionDeniedError } from '@/lib/documentsBackend/permission';
+import { router, authedProcedure, TRPCError } from '../trpc';
+import {
+  requireAdmin,
+  PermissionDeniedError,
+} from '@/lib/documentsBackend/permission';
 import { PermissionModel } from '@/lib/db/models/Permission';
 import { dbConnect } from '@/lib/db/connection';
 import { serverConfig } from '@/lib/config/server';
@@ -30,69 +31,43 @@ const PermissionsInput = z.object({
   }),
 });
 
-export const permissions = createRouter()
-  .query('getCurrent', {
-    input: z.object({
-      token: z.string().optional(),
-    }),
-    async resolve({ input }) {
-      const { token } = input;
-
-      if (
-        (!token || typeof token !== 'string' || token.trim().length === 0) &&
-        serverConfig.app.useAuth
-      ) {
-        return null;
-      }
-
-      try {
-        // GET /api/permissions is auth-only in the old backend (any valid
-        // token, no specific permission check) - getRequestUser throws if
-        // the token is missing/invalid, matching that gate.
-        await getRequestUser(token);
-        await dbConnect();
-        // First run: the permissions collection is empty on a fresh Mongo -
-        // seed the defaults instead of hard-failing every request.
-        await PermissionModel.ensureDefaultPermissions();
-        const result = await PermissionModel.findOne({}).lean();
-        if (!result) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'No permissions configured',
-          });
-        }
-        return result as any;
-      } catch (error: any) {
-        if (error instanceof TRPCError) throw error;
+export const permissionsRouter = router({
+  // Any authenticated caller (mirrors the old backend's auth-only gate). Under
+  // USE_AUTH=false ctx.user is the anon user, so this still resolves.
+  getCurrent: authedProcedure.query(async () => {
+    try {
+      await dbConnect();
+      // Fresh Mongo: seed defaults rather than hard-failing every request.
+      await PermissionModel.ensureDefaultPermissions();
+      const result = await PermissionModel.findOne({}).lean();
+      if (!result) {
         throw new TRPCError({
-          code: /missing bearer token/i.test(error?.message || '')
-            ? 'UNAUTHORIZED'
-            : 'INTERNAL_SERVER_ERROR',
-          message: error?.message || 'Failed to fetch permissions',
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'No permissions configured',
         });
       }
-    },
-  })
-  .mutation('update', {
-    input: z.object({
-      token: z.string().optional(),
-      permissions: PermissionsInput,
-    }),
-    async resolve({ input }) {
-      const { token, permissions } = input;
-
+      return result as any;
+    } catch (error: any) {
+      if (error instanceof TRPCError) throw error;
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error?.message || 'Failed to fetch permissions',
+      });
+    }
+  }),
+  update: authedProcedure
+    .input(z.object({ permissions: PermissionsInput }))
+    .mutation(async ({ input, ctx }) => {
       try {
-        const user = await getRequestUser(token);
-        // Admin role required, mirroring requireAdminRole - entirely
-        // bypassed when USE_AUTH=false (anonymous users get admin rights).
+        // Admin required, unless USE_AUTH=false (anon users get admin rights).
         if (serverConfig.app.useAuth) {
-          requireAdmin(user);
+          requireAdmin(ctx.user);
         }
 
         await dbConnect();
         const result = await PermissionModel.findOneAndUpdate(
           {},
-          { $set: permissions },
+          { $set: input.permissions },
           { new: true, upsert: true }
         ).lean();
         return result as any;
@@ -101,11 +76,9 @@ export const permissions = createRouter()
           throw new TRPCError({ code: 'FORBIDDEN', message: error.message });
         }
         throw new TRPCError({
-          code: /missing bearer token/i.test(error?.message || '')
-            ? 'UNAUTHORIZED'
-            : 'INTERNAL_SERVER_ERROR',
+          code: 'INTERNAL_SERVER_ERROR',
           message: error?.message || 'Failed to update permissions',
         });
       }
-    },
-  });
+    }),
+});

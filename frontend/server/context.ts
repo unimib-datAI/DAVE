@@ -11,7 +11,10 @@
 // `authedProcedure` (see ./trpc) rejects it.
 
 import type { CreateNextContextOptions } from '@trpc/server/adapters/next';
-import { getRequestUser, type RequestUser } from '@/lib/documentsBackend/keycloakAuth';
+import {
+  getRequestUser,
+  type RequestUser,
+} from '@/lib/documentsBackend/keycloakAuth';
 
 export async function createContext({ req }: CreateNextContextOptions) {
   const authHeader = req.headers.authorization;

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createRouter } from '../context';
+import { router, publicProcedure, authedProcedure } from '../trpc';
 import { TRPCError } from '@trpc/server';
 import fetchJson from '@/lib/fetchJson';
 import fs from 'fs';
@@ -7,16 +7,25 @@ import path from 'path';
 import base from '@/components/TranslationProvider/translations/base';
 import { indexDocument } from '@/lib/documentIndexer';
 import { ServiceModel, serviceDTO } from '@/lib/db/models/Service';
-import { ConfigurationModel, configurationDTO } from '@/lib/db/models/Configuration';
+import {
+  ConfigurationModel,
+  configurationDTO,
+} from '@/lib/db/models/Configuration';
 import { DocumentController } from '@/lib/documentsBackend/documentController';
 import { dbConnect } from '@/lib/db/connection';
 import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
-import { requirePermission, PermissionDeniedError } from '@/lib/documentsBackend/permission';
+import {
+  requirePermission,
+  PermissionDeniedError,
+} from '@/lib/documentsBackend/permission';
 import { DocumentModel } from '@/lib/db/models/Document';
 import { AnnotationSetModel } from '@/lib/db/models/AnnotationSet';
 import { AnnotationModel } from '@/lib/db/models/Annotation';
 import { CollectionController } from '@/lib/documentsBackend/collectionController';
-import { deleteElasticDocument, addAnnotationsToDocumentEs } from '@/lib/elasticAdmin';
+import {
+  deleteElasticDocument,
+  addAnnotationsToDocumentEs,
+} from '@/lib/elasticAdmin';
 import {
   encode,
   makeDecryptionRequest,
@@ -142,9 +151,16 @@ async function insertDocumentAndUpdateFacetsCache(
   }
 
   try {
-    await CollectionController.updateCache({ toAdd: cachePayload }, collectionId);
+    await CollectionController.updateCache(
+      { toAdd: cachePayload },
+      collectionId
+    );
   } catch (e) {
-    console.error('Error updating facets cache for collection', collectionId, e);
+    console.error(
+      'Error updating facets cache for collection',
+      collectionId,
+      e
+    );
   }
 
   return doc;
@@ -230,8 +246,12 @@ export async function runAnnotateAndUpload(input: {
     await dbConnect();
 
     if (configurationId) {
-      const allConfigs = await ConfigurationModel.find({ userId: user.sub }).lean();
-      configToUse = allConfigs.find((c: any) => String(c._id) === configurationId);
+      const allConfigs = await ConfigurationModel.find({
+        userId: user.sub,
+      }).lean();
+      configToUse = allConfigs.find(
+        (c: any) => String(c._id) === configurationId
+      );
     } else {
       configToUse = await ConfigurationModel.findOne({
         userId: user.sub,
@@ -241,10 +261,7 @@ export async function runAnnotateAndUpload(input: {
 
     if (configToUse) {
       // New format: steps array takes priority over legacy services map
-      if (
-        Array.isArray(configToUse.steps) &&
-        configToUse.steps.length > 0
-      ) {
+      if (Array.isArray(configToUse.steps) && configToUse.steps.length > 0) {
         selectedServices = configToUse.steps;
       } else if (configToUse.services) {
         // Legacy: convert MongoDB Map to plain object
@@ -487,24 +504,34 @@ const moveEntitiesToCluster = async (
   const user = await getRequestUser(token);
   await requirePermission(user, 'document', 'update');
 
-  const document: any = await DocumentController.getFullDocById(id, false, false, false, true);
+  const document: any = await DocumentController.getFullDocById(
+    id,
+    false,
+    false,
+    false,
+    true
+  );
 
   // find and remove source and destination clusters
   const source = document.features.clusters[annotationSet].find(
     (cluster: any) => cluster.id === sourceCluster
   );
-  document.features.clusters[annotationSet] = document.features.clusters[annotationSet].filter(
-    (cluster: any) => cluster.id !== sourceCluster
-  );
+  document.features.clusters[annotationSet] = document.features.clusters[
+    annotationSet
+  ].filter((cluster: any) => cluster.id !== sourceCluster);
   const dest = document.features.clusters[annotationSet].find(
     (cluster: any) => cluster.id === destinationCluster
   );
-  document.features.clusters[annotationSet] = document.features.clusters[annotationSet].filter(
-    (cluster: any) => cluster.id !== destinationCluster
-  );
+  document.features.clusters[annotationSet] = document.features.clusters[
+    annotationSet
+  ].filter((cluster: any) => cluster.id !== destinationCluster);
   // move entities
-  const entObjects = source.mentions.filter((mention: any) => entities.includes(mention.id));
-  source.mentions = source.mentions.filter((mention: any) => !entities.includes(mention.id));
+  const entObjects = source.mentions.filter((mention: any) =>
+    entities.includes(mention.id)
+  );
+  source.mentions = source.mentions.filter(
+    (mention: any) => !entities.includes(mention.id)
+  );
   dest.mentions = dest.mentions.concat(entObjects);
   const clusters = [...document.features.clusters[annotationSet], source, dest];
 
@@ -518,7 +545,9 @@ const anonymizeMentionForEs = (mention: string) => {
   if (!mention) return '';
   return mention
     .split(' ')
-    .map((word) => (word.length > 0 ? word[0] + '*'.repeat(word.length - 1) : ''))
+    .map((word) =>
+      word.length > 0 ? word[0] + '*'.repeat(word.length - 1) : ''
+    )
     .join(' ');
 };
 
@@ -558,11 +587,18 @@ async function runSave({
   }
 
   // Update annotation sets in MongoDB
-  const resUpdate = await DocumentController.updateEntitiesAnnotationSet(docId, annotationSets);
+  const resUpdate = await DocumentController.updateEntitiesAnnotationSet(
+    docId,
+    annotationSets
+  );
 
   // Update facets cache entries for the collection based on saved annotations
   try {
-    const fullDoc: any = await DocumentController.findOne(docId, null, collectionId);
+    const fullDoc: any = await DocumentController.findOne(
+      docId,
+      null,
+      collectionId
+    );
     if (collectionId) {
       const toAdd: Record<string, any[]> = {};
       const toDelete: Record<string, any[]> = {};
@@ -595,7 +631,9 @@ async function runSave({
             const entry = buildEntry(ann, existingDoc.id);
             const facetType = entry.type || 'unknown';
             oldMaps[facetType] = oldMaps[facetType] || new Map();
-            const key = `${entry.id_ER}||${String(entry.display_name || '').toLowerCase()}`;
+            const key = `${entry.id_ER}||${String(
+              entry.display_name || ''
+            ).toLowerCase()}`;
             oldMaps[facetType].set(key, entry);
           }
         }
@@ -608,7 +646,9 @@ async function runSave({
           const entry = buildEntry(ann, fullDoc.id);
           const facetType = entry.type || 'unknown';
           newMaps[facetType] = newMaps[facetType] || new Map();
-          const key = `${entry.id_ER}||${String(entry.display_name || '').toLowerCase()}`;
+          const key = `${entry.id_ER}||${String(
+            entry.display_name || ''
+          ).toLowerCase()}`;
           if (!newMaps[facetType].has(key)) {
             newMaps[facetType].set(key, entry);
             toAdd[facetType] = toAdd[facetType] || [];
@@ -646,7 +686,11 @@ async function runSave({
         try {
           await CollectionController.updateCache(cachePayload, collectionId);
         } catch (e) {
-          console.error('Failed to update facets cache for collection', collectionId, e);
+          console.error(
+            'Failed to update facets cache for collection',
+            collectionId,
+            e
+          );
         }
       }
     }
@@ -657,7 +701,10 @@ async function runSave({
   // Update features if provided
   let featuresUpdateResult: any = null;
   if (features !== undefined) {
-    featuresUpdateResult = await DocumentController.updateDocumentFeatures(docId, features);
+    featuresUpdateResult = await DocumentController.updateDocumentFeatures(
+      docId,
+      features
+    );
   }
 
   // Update Elasticsearch index if elasticIndex is provided
@@ -668,7 +715,11 @@ async function runSave({
       let clustersToUse = features?.clusters;
 
       if (!clustersToUse) {
-        const doc: any = await DocumentController.findOne(docId, null, collectionId);
+        const doc: any = await DocumentController.findOne(
+          docId,
+          null,
+          collectionId
+        );
         clustersToUse = doc.features?.clusters;
       } else {
         console.log('Using clusters from provided features');
@@ -680,11 +731,15 @@ async function runSave({
           (name) => name === 'entities_'
         );
 
-        if (entitiesAnnotationSetName && (clustersToUse as any)[entitiesAnnotationSetName]) {
+        if (
+          entitiesAnnotationSetName &&
+          (clustersToUse as any)[entitiesAnnotationSetName]
+        ) {
           const clusters = (clustersToUse as any)[entitiesAnnotationSetName];
 
           // Get the annotations from the annotation set
-          const annotations = annotationSets[entitiesAnnotationSetName]?.annotations || [];
+          const annotations =
+            annotationSets[entitiesAnnotationSetName]?.annotations || [];
 
           // Transform individual annotations to Elasticsearch format. `id_ER`
           // must use the same scheme as the facets cache (buildEntry() above
@@ -704,7 +759,11 @@ async function runSave({
               const cluster = clusters.find((c: any) => c.id === clusterId);
               const type = annotation.type || 'unknown';
               const mention = annotation.features?.mention || '';
-              const shouldAnonymize = ['persona', 'parte', 'controparte'].includes(type);
+              const shouldAnonymize = [
+                'persona',
+                'parte',
+                'controparte',
+              ].includes(type);
               const isLinked = cluster ? Boolean(cluster.url) : false;
               const id_ER = isLinked ? cluster.url : `${docId}_${mention}`;
               return {
@@ -720,16 +779,23 @@ async function runSave({
                     ? anonymizeMentionForEs(cluster.title)
                     : cluster.title
                   : shouldAnonymize
-                    ? anonymizeMentionForEs(mention)
-                    : mention,
+                  ? anonymizeMentionForEs(mention)
+                  : mention,
               };
             })
             .filter((m: any) => m !== null);
 
           // Update Elasticsearch directly (in-process, no HTTP hop needed)
-          await addAnnotationsToDocumentEs(elasticIndex, String(docId), mentions, collectionId);
+          await addAnnotationsToDocumentEs(
+            elasticIndex,
+            String(docId),
+            mentions,
+            collectionId
+          );
         } else {
-          console.log('No entities annotation set found or no clusters in that set');
+          console.log(
+            'No entities annotation set found or no clusters in that set'
+          );
         }
       } else {
         console.log('No clusters found in features');
@@ -752,7 +818,10 @@ async function runSave({
  * each doc via getFullDocById and flattens its annotation sets into a single
  * annotations array, enriching each with display_name/is_linked/id_ER.
  */
-async function fetchDocumentsByIdsEnriched(ids: string[], deAnonimize: boolean) {
+async function fetchDocumentsByIdsEnriched(
+  ids: string[],
+  deAnonimize: boolean
+) {
   const results = await Promise.allSettled(
     ids.map(async (id) => {
       const doc: any = await DocumentController.getFullDocById(
@@ -771,7 +840,10 @@ async function fetchDocumentsByIdsEnriched(ids: string[], deAnonimize: boolean) 
             set.annotations.forEach((entity: any) => {
               const ann = { ...entity };
               try {
-                const mention = (doc.text || '').substring(entity.start, entity.end);
+                const mention = (doc.text || '').substring(
+                  entity.start,
+                  entity.end
+                );
                 const linking = entity.features?.linking;
                 if (linking && linking.is_nil === false) {
                   ann.display_name = entity.features?.title || mention;
@@ -808,67 +880,67 @@ async function fetchDocumentsByIdsEnriched(ids: string[], deAnonimize: boolean) 
     .map((r: any) => r.value);
 }
 
-export const documents = createRouter()
-  .query('getDocument', {
-    input: z.object({
-      id: z.any(),
-      deAnonimize: z.boolean().default(false),
-      // Disambiguates between duplicate documents that share the same
-      // content-hash id across different collections - pass the collection
-      // the document is being opened from whenever it's known.
-      collectionId: z.string().optional(),
-    }),
-    resolve: ({ input }) => {
+export const documentsRouter = router({
+  getDocument: publicProcedure
+    .input(
+      z.object({
+        id: z.any(),
+        deAnonimize: z.boolean().default(false),
+        // Disambiguates between duplicate documents that share the same
+        // content-hash id across different collections - pass the collection
+        // the document is being opened from whenever it's known.
+        collectionId: z.string().optional(),
+      })
+    )
+    .query(({ input }) => {
       const { id, deAnonimize, collectionId } = input;
       return getDocumentById(id, deAnonimize, collectionId);
-    },
-  })
-  .query('inifniteDocuments', {
-    input: z.object({
-      q: z.string().nullish(),
-      limit: z.number().min(1).max(100).nullish(),
-      cursor: z.number().nullish(),
     }),
-    resolve: ({ input }) => {
+
+  inifniteDocuments: publicProcedure
+    .input(
+      z.object({
+        q: z.string().nullish(),
+        limit: z.number().min(1).max(100).nullish(),
+        cursor: z.number().nullish(),
+      })
+    )
+    .query(({ input }) => {
       const { q: qInput, cursor: cursorInput, limit: limitInput } = input;
       const q = qInput || '';
       const cursor = cursorInput || 1;
       const limit = limitInput || 20;
 
       return getDocuments(cursor, limit, q);
-    },
-  })
+    }),
+
   // Services CRUD - ported from documents backend's Service model + routes
-  .query('getServices', {
-    input: z.object({
-      token: z.string(),
-    }),
-    resolve: async () => {
+  getServices: authedProcedure.query(async () => {
+    try {
+      await dbConnect();
+      return await ServiceModel.find({}).lean();
+    } catch (error: any) {
+      console.error('Failed to fetch services', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error.message || 'Failed to fetch services',
+      });
+    }
+  }),
+
+  createService: authedProcedure
+    .input(
+      z.object({
+        name: z.string(),
+        uri: z.string(),
+        serviceType: z.string(),
+        description: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const body = input;
       try {
-        await dbConnect();
-        return await ServiceModel.find({}).lean();
-      } catch (error: any) {
-        console.error('Failed to fetch services', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message || 'Failed to fetch services',
-        });
-      }
-    },
-  })
-  .mutation('createService', {
-    input: z.object({
-      name: z.string(),
-      uri: z.string(),
-      serviceType: z.string(),
-      description: z.string().optional(),
-      token: z.string(),
-    }),
-    resolve: async ({ input }) => {
-      const { token, ...body } = input;
-      try {
-        const user = await getRequestUser(token);
-        await requirePermission(user, 'settings', 'pipeline');
+        await requirePermission(ctx.user, 'settings', 'pipeline');
         await dbConnect();
         const svc = serviceDTO(body);
         return await svc.save();
@@ -889,27 +961,32 @@ export const documents = createRouter()
           message: error.message || 'Failed to create service',
         });
       }
-    },
-  })
-  .mutation('updateService', {
-    input: z.object({
-      id: z.string(),
-      name: z.string().optional(),
-      uri: z.string().optional(),
-      serviceType: z.string().optional(),
-      description: z.string().optional(),
-      disabled: z.boolean().optional(),
-      token: z.string(),
     }),
-    resolve: async ({ input }) => {
-      const { token, id, ...update } = input;
+
+  updateService: authedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        uri: z.string().optional(),
+        serviceType: z.string().optional(),
+        description: z.string().optional(),
+        disabled: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { id, ...update } = input;
       try {
-        const user = await getRequestUser(token);
-        await requirePermission(user, 'settings', 'pipeline');
+        await requirePermission(ctx.user, 'settings', 'pipeline');
         await dbConnect();
-        const updated = await ServiceModel.findByIdAndUpdate(id, update, { new: true });
+        const updated = await ServiceModel.findByIdAndUpdate(id, update, {
+          new: true,
+        });
         if (!updated) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Service not found' });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Service not found',
+          });
         }
         return updated;
       } catch (error: any) {
@@ -923,22 +1000,20 @@ export const documents = createRouter()
           message: error.message || 'Failed to update service',
         });
       }
-    },
-  })
-  .mutation('deleteService', {
-    input: z.object({
-      id: z.string(),
-      token: z.string(),
     }),
-    resolve: async ({ input }) => {
-      const { id, token } = input;
+
+  deleteService: authedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input, ctx }) => {
       try {
-        const user = await getRequestUser(token);
-        await requirePermission(user, 'settings', 'pipeline');
+        await requirePermission(ctx.user, 'settings', 'pipeline');
         await dbConnect();
-        const deleted = await ServiceModel.findByIdAndDelete(id);
+        const deleted = await ServiceModel.findByIdAndDelete(input.id);
         if (!deleted) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Service not found' });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Service not found',
+          });
         }
         return { message: 'deleted' };
       } catch (error: any) {
@@ -952,78 +1027,64 @@ export const documents = createRouter()
           message: error.message || 'Failed to delete service',
         });
       }
-    },
-  })
+    }),
+
   // Configuration endpoints
-  .query('getConfigurations', {
-    input: z.object({
-      token: z.string(),
-    }),
-    resolve: async ({ input }) => {
+  getConfigurations: authedProcedure.query(async ({ ctx }) => {
+    try {
+      await dbConnect();
+      return await ConfigurationModel.find({ userId: ctx.user.sub }).lean();
+    } catch (error: any) {
+      console.error('Failed to fetch configurations', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error.message || 'Failed to fetch configurations',
+      });
+    }
+  }),
+
+  getActiveConfiguration: authedProcedure.query(async ({ ctx }) => {
+    try {
+      await dbConnect();
+      const activeConfig = await ConfigurationModel.findOne({
+        userId: ctx.user.sub,
+        isActive: true,
+      }).lean();
+      // null (not a throw) when there is no active configuration.
+      return activeConfig || null;
+    } catch (error: any) {
+      console.error('Failed to fetch active configuration', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error.message || 'Failed to fetch active configuration',
+      });
+    }
+  }),
+
+  createConfiguration: authedProcedure
+    .input(
+      z.object({
+        name: z.string(),
+        steps: z.array(z.any()).optional(),
+        services: z.record(z.any()).optional(),
+        isActive: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { name, steps, services, isActive } = input;
       try {
-        const user = await getRequestUser(input.token);
-        await dbConnect();
-        return await ConfigurationModel.find({ userId: user.sub }).lean();
-      } catch (error: any) {
-        console.error('Failed to fetch configurations', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message || 'Failed to fetch configurations',
-        });
-      }
-    },
-  })
-  .query('getActiveConfiguration', {
-    input: z.object({
-      token: z.string(),
-    }),
-    resolve: async ({ input }) => {
-      try {
-        const user = await getRequestUser(input.token);
-        await dbConnect();
-        const activeConfig = await ConfigurationModel.findOne({
-          userId: user.sub,
-          isActive: true,
-        }).lean();
-        // If no active configuration, return null instead of throwing
-        // (mirrors the old backend's 404-means-null behavior on this query)
-        return activeConfig || null;
-      } catch (error: any) {
-        console.error('Failed to fetch active configuration', error);
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: error.message || 'Failed to fetch active configuration',
-        });
-      }
-    },
-  })
-  .mutation('createConfiguration', {
-    input: z.object({
-      name: z.string(),
-      // steps: ordered array of pipeline steps (new format)
-      steps: z.array(z.any()).optional(),
-      // services: legacy slot-map kept for backward compat
-      services: z.record(z.any()).optional(),
-      isActive: z.boolean().optional(),
-      token: z.string(),
-    }),
-    resolve: async ({ input }) => {
-      const { token, name, steps, services, isActive } = input;
-      try {
-        const user = await getRequestUser(token);
-        await requirePermission(user, 'settings', 'pipeline');
+        await requirePermission(ctx.user, 'settings', 'pipeline');
         await dbConnect();
 
-        // If this is set as active, deactivate all other configurations for this user
         if (isActive) {
           await ConfigurationModel.updateMany(
-            { userId: user.sub, isActive: true },
+            { userId: ctx.user.sub, isActive: true },
             { $set: { isActive: false } }
           );
         }
 
         const config = configurationDTO({
-          userId: user.sub,
+          userId: ctx.user.sub,
           name,
           steps,
           services,
@@ -1047,41 +1108,45 @@ export const documents = createRouter()
           message: error.message || 'Failed to create configuration',
         });
       }
-    },
-  })
-  .mutation('updateConfiguration', {
-    input: z.object({
-      id: z.string(),
-      name: z.string().optional(),
-      // steps: ordered array of pipeline steps (new format)
-      steps: z.array(z.any()).optional(),
-      // services: legacy slot-map kept for backward compat
-      services: z.record(z.any()).optional(),
-      isActive: z.boolean().optional(),
-      token: z.string(),
     }),
-    resolve: async ({ input }) => {
-      const { token, id, ...update } = input;
+
+  updateConfiguration: authedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        steps: z.array(z.any()).optional(),
+        services: z.record(z.any()).optional(),
+        isActive: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { id, ...update } = input;
       try {
-        const user = await getRequestUser(token);
-        await requirePermission(user, 'settings', 'pipeline');
+        await requirePermission(ctx.user, 'settings', 'pipeline');
         await dbConnect();
 
-        // Verify the configuration belongs to the user
-        const existingConfig = await ConfigurationModel.findOne({ _id: id, userId: user.sub });
+        const existingConfig = await ConfigurationModel.findOne({
+          _id: id,
+          userId: ctx.user.sub,
+        });
         if (!existingConfig) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Configuration not found' });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Configuration not found',
+          });
         }
 
-        // If setting this as active, deactivate all other configurations
         if (update.isActive) {
           await ConfigurationModel.updateMany(
-            { userId: user.sub, _id: { $ne: id }, isActive: true },
+            { userId: ctx.user.sub, _id: { $ne: id }, isActive: true },
             { $set: { isActive: false } }
           );
         }
 
-        return await ConfigurationModel.findByIdAndUpdate(id, update, { new: true });
+        return await ConfigurationModel.findByIdAndUpdate(id, update, {
+          new: true,
+        });
       } catch (error: any) {
         if (error instanceof TRPCError) throw error;
         if (error instanceof PermissionDeniedError) {
@@ -1093,23 +1158,24 @@ export const documents = createRouter()
           message: error.message || 'Failed to update configuration',
         });
       }
-    },
-  })
-  .mutation('deleteConfiguration', {
-    input: z.object({
-      id: z.string(),
-      token: z.string(),
     }),
-    resolve: async ({ input }) => {
-      const { id, token } = input;
+
+  deleteConfiguration: authedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input, ctx }) => {
       try {
-        const user = await getRequestUser(token);
-        await requirePermission(user, 'settings', 'pipeline');
+        await requirePermission(ctx.user, 'settings', 'pipeline');
         await dbConnect();
 
-        const deleted = await ConfigurationModel.findOneAndDelete({ _id: id, userId: user.sub });
+        const deleted = await ConfigurationModel.findOneAndDelete({
+          _id: input.id,
+          userId: ctx.user.sub,
+        });
         if (!deleted) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Configuration not found' });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Configuration not found',
+          });
         }
         return { message: 'deleted' };
       } catch (error: any) {
@@ -1123,33 +1189,32 @@ export const documents = createRouter()
           message: error.message || 'Failed to delete configuration',
         });
       }
-    },
-  })
-  .mutation('activateConfiguration', {
-    input: z.object({
-      id: z.string(),
-      token: z.string(),
     }),
-    resolve: async ({ input }) => {
-      const { id, token } = input;
+
+  activateConfiguration: authedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const { id } = input;
       try {
-        const user = await getRequestUser(token);
-        await requirePermission(user, 'settings', 'pipeline');
+        await requirePermission(ctx.user, 'settings', 'pipeline');
         await dbConnect();
 
-        // Verify the configuration belongs to the user
-        const existingConfig = await ConfigurationModel.findOne({ _id: id, userId: user.sub });
+        const existingConfig = await ConfigurationModel.findOne({
+          _id: id,
+          userId: ctx.user.sub,
+        });
         if (!existingConfig) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Configuration not found' });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Configuration not found',
+          });
         }
 
-        // Deactivate all other configurations for this user
         await ConfigurationModel.updateMany(
-          { userId: user.sub, _id: { $ne: id } },
+          { userId: ctx.user.sub, _id: { $ne: id } },
           { $set: { isActive: false } }
         );
 
-        // Activate this configuration
         return await ConfigurationModel.findByIdAndUpdate(
           id,
           { $set: { isActive: true } },
@@ -1166,26 +1231,21 @@ export const documents = createRouter()
           message: error.message || 'Failed to activate configuration',
         });
       }
-    },
-  })
-  .mutation('moveEntitiesToCluster', {
-    input: z.object({
-      id: z.string(),
-      annotationSet: z.string(),
-      entities: z.array(z.number()),
-      sourceCluster: z.number(),
-      destinationCluster: z.number(),
-      token: z.string().optional(),
     }),
-    resolve: async ({ input }) => {
-      const {
-        id,
-        annotationSet,
-        entities,
-        sourceCluster,
-        destinationCluster,
-        token,
-      } = input;
+
+  moveEntitiesToCluster: authedProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        annotationSet: z.string(),
+        entities: z.array(z.number()),
+        sourceCluster: z.number(),
+        destinationCluster: z.number(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { id, annotationSet, entities, sourceCluster, destinationCluster } =
+        input;
       try {
         const moveRes = await moveEntitiesToCluster(
           id,
@@ -1193,9 +1253,8 @@ export const documents = createRouter()
           annotationSet,
           sourceCluster,
           destinationCluster,
-          token
+          ctx.token
         );
-        console.log('moveRes', moveRes);
         return moveRes;
       } catch (error: any) {
         if (error instanceof PermissionDeniedError) {
@@ -1207,17 +1266,19 @@ export const documents = createRouter()
           message: `Document with id '${id}' not found.`,
         });
       }
-    },
-  })
-  .mutation('deleteDocument', {
-    input: z.object({ docId: z.string() }),
-    resolve: async ({ input }) => {
+    }),
+
+  deleteDocument: publicProcedure
+    .input(z.object({ docId: z.string() }))
+    .mutation(async ({ input }) => {
       const { docId } = input;
       try {
         await dbConnect();
         const elasticIndex = serverConfig.elastic.index;
 
-        const deletedDoc: any = await DocumentModel.findOneAndDelete({ id: docId });
+        const deletedDoc: any = await DocumentModel.findOneAndDelete({
+          id: docId,
+        });
         const annotationSets = await AnnotationSetModel.find({ docId });
         await Promise.all(
           annotationSets.map(async (annSet) => {
@@ -1226,13 +1287,18 @@ export const documents = createRouter()
         );
         await AnnotationSetModel.deleteMany({ docId });
         if (deletedDoc?.collectionId && deletedDoc?.id) {
-          await CollectionController.deleteCacheForDoc(deletedDoc.id, deletedDoc.collectionId);
+          await CollectionController.deleteCacheForDoc(
+            deletedDoc.id,
+            deletedDoc.collectionId
+          );
         }
         if (elasticIndex) {
           try {
             await deleteElasticDocument(elasticIndex, docId);
           } catch (error: any) {
-            console.error(`Error deleting document from Elasticsearch: ${error.message}`);
+            console.error(
+              `Error deleting document from Elasticsearch: ${error.message}`
+            );
           }
         }
         return deletedDoc;
@@ -1244,39 +1310,43 @@ export const documents = createRouter()
           }`,
         });
       }
-    },
-  })
-  .mutation('deleteAnnotationSet', {
-    input: z.object({
-      docId: z.string(),
-      annotationSetId: z.string(),
     }),
-    resolve: async ({ input }) => {
+
+  deleteAnnotationSet: publicProcedure
+    .input(
+      z.object({
+        docId: z.string(),
+        annotationSetId: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
       const { annotationSetId } = input;
       await dbConnect();
-      const result = await AnnotationSetModel.deleteOne({ _id: annotationSetId } as any);
+      const result = await AnnotationSetModel.deleteOne({
+        _id: annotationSetId,
+      } as any);
       await AnnotationModel.deleteMany({ annotationSetId } as any);
       return result;
-    },
-  })
-  .mutation('save', {
-    input: z.object({
-      collectionId: z.string(),
-      docId: z.string(),
-      token: z.string(),
-      annotationSets: z.record(z.string(), z.any()),
-      features: z
-        .object({
-          clusters: z.record(z.string(), z.array(z.any())).optional(),
-        })
-        .optional(),
     }),
-    resolve: async ({ input }) => {
-      const { docId, annotationSets, features, token, collectionId } = input;
+
+  save: authedProcedure
+    .input(
+      z.object({
+        collectionId: z.string(),
+        docId: z.string(),
+        annotationSets: z.record(z.string(), z.any()),
+        features: z
+          .object({
+            clusters: z.record(z.string(), z.array(z.any())).optional(),
+          })
+          .optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { docId, annotationSets, features, collectionId } = input;
       const elasticIndex = serverConfig.elastic.index;
       try {
         console.log('Saving annotations for document:', docId);
-        console.log('Features being saved:', features);
 
         const result = await runSave({
           docId,
@@ -1284,7 +1354,7 @@ export const documents = createRouter()
           features,
           collectionId,
           elasticIndex,
-          token,
+          token: ctx.token ?? '',
         });
 
         console.log('Successfully saved annotations for document:', docId);
@@ -1326,30 +1396,31 @@ export const documents = createRouter()
           return Object.values(annotationSets);
         }
       }
-    },
-  })
-  .mutation('createDocument', {
-    input: z.object({
-      document: z.object({
-        text: z.string(),
-        annotation_sets: z.record(z.string(), z.any()),
-        preview: z.string().optional(),
-        name: z.string().optional(),
-        features: z.record(z.string(), z.any()).optional(),
-        offset_type: z.string().optional(),
-      }),
-      collectionId: z.string(),
-      token: z.string().optional(),
-      toAnonymize: z.boolean(),
-      anonymizeTypes: z.array(z.string()).optional(),
     }),
-    resolve: async ({ input }) => runCreateDocument(input),
-  })
-  .mutation('deanonymizeKey', {
-    input: z.object({
-      key: z.string(),
-    }),
-    resolve: async ({ input }) => {
+
+  createDocument: authedProcedure
+    .input(
+      z.object({
+        document: z.object({
+          text: z.string(),
+          annotation_sets: z.record(z.string(), z.any()),
+          preview: z.string().optional(),
+          name: z.string().optional(),
+          features: z.record(z.string(), z.any()).optional(),
+          offset_type: z.string().optional(),
+        }),
+        collectionId: z.string(),
+        toAnonymize: z.boolean(),
+        anonymizeTypes: z.array(z.string()).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) =>
+      runCreateDocument({ ...input, token: ctx.token ?? '' })
+    ),
+
+  deanonymizeKey: publicProcedure
+    .input(z.object({ key: z.string() }))
+    .mutation(async ({ input }) => {
       const { key } = input;
 
       try {
@@ -1375,13 +1446,11 @@ export const documents = createRouter()
           }`,
         });
       }
-    },
-  })
-  .mutation('deanonymizeKeys', {
-    input: z.object({
-      keys: z.array(z.string()),
     }),
-    resolve: async ({ input }) => {
+
+  deanonymizeKeys: publicProcedure
+    .input(z.object({ keys: z.array(z.string()) }))
+    .mutation(async ({ input }) => {
       const { keys } = input;
 
       try {
@@ -1404,14 +1473,16 @@ export const documents = createRouter()
           }`,
         });
       }
-    },
-  })
-  .query('getDocumentsByIds', {
-    input: z.object({
-      ids: z.array(z.string()),
-      deAnonimize: z.boolean().optional(),
     }),
-    resolve: async ({ input }) => {
+
+  getDocumentsByIds: publicProcedure
+    .input(
+      z.object({
+        ids: z.array(z.string()),
+        deAnonimize: z.boolean().optional(),
+      })
+    )
+    .query(async ({ input }) => {
       const { ids, deAnonimize } = input;
       try {
         const results = await Promise.allSettled(
@@ -1459,25 +1530,22 @@ export const documents = createRouter()
           message: error?.message || 'Failed to fetch documents by ids',
         });
       }
-    },
-  })
-  .mutation('fetchFacetDocuments', {
-    input: z.object({
-      ids: z.array(z.string()),
-      deAnonimize: z.boolean().optional(),
-      token: z.string().optional(),
     }),
-    resolve: async ({ input }) => {
-      const { ids, deAnonimize, token } = input;
-      // If auth is enabled but no token supplied, avoid calling backend and return empty
-      if (
-        (!token || typeof token !== 'string' || token.trim().length === 0) &&
-        serverConfig.app.useAuth
-      ) {
-        return [];
-      }
+
+  fetchFacetDocuments: authedProcedure
+    .input(
+      z.object({
+        ids: z.array(z.string()),
+        deAnonimize: z.boolean().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { ids, deAnonimize } = input;
       try {
-        const result = await fetchDocumentsByIdsEnriched(ids, deAnonimize ?? false);
+        const result = await fetchDocumentsByIdsEnriched(
+          ids,
+          deAnonimize ?? false
+        );
         console.log(
           '[trpc.document.fetchFacetDocuments] fetched',
           Array.isArray(result) ? result.length : 'non-array'
@@ -1512,50 +1580,52 @@ export const documents = createRouter()
             'Failed to fetch facet documents',
         });
       }
-    },
-  })
-  .mutation('annotateAndUpload', {
-    input: z.object({
-      text: z.string(),
-      collectionId: z.string(),
-      name: z.string().optional(),
-      token: z.string().optional(),
-      configurationId: z.string().optional(),
-      toAnonymize: z.boolean(),
-      anonymizeTypes: z.array(z.string()).optional(),
     }),
-    resolve: async ({ input }) => runAnnotateAndUpload(input),
-  })
-  .mutation('createUploadJob', {
-    input: z.object({
-      collectionId: z.string(),
-      uploadType: z.enum(['json', 'txt']),
-      files: z
-        .array(z.object({ fileName: z.string(), content: z.string() }))
-        .min(1),
-      token: z.string().optional(),
-      configurationId: z.string().optional(),
-      toAnonymize: z.boolean().optional(),
-      anonymizeTypes: z.array(z.string()).optional(),
-    }),
-    resolve: async ({ input }) => {
+
+  annotateAndUpload: authedProcedure
+    .input(
+      z.object({
+        text: z.string(),
+        collectionId: z.string(),
+        name: z.string().optional(),
+        configurationId: z.string().optional(),
+        toAnonymize: z.boolean(),
+        anonymizeTypes: z.array(z.string()).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) =>
+      runAnnotateAndUpload({ ...input, token: ctx.token ?? '' })
+    ),
+
+  createUploadJob: authedProcedure
+    .input(
+      z.object({
+        collectionId: z.string(),
+        uploadType: z.enum(['json', 'txt']),
+        files: z
+          .array(z.object({ fileName: z.string(), content: z.string() }))
+          .min(1),
+        configurationId: z.string().optional(),
+        toAnonymize: z.boolean().optional(),
+        anonymizeTypes: z.array(z.string()).optional(),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
       const {
         collectionId,
         uploadType,
         files,
-        token,
         configurationId,
         toAnonymize,
         anonymizeTypes,
       } = input;
-      const tokenForApi = token ?? '';
+      const tokenForApi = ctx.token ?? '';
 
       let job: any;
       try {
-        const user = await getRequestUser(tokenForApi);
-        await requirePermission(user, 'collections', 'update');
+        await requirePermission(ctx.user, 'collections', 'update');
         job = await UploadJobController.create({
-          userId: user.sub,
+          userId: ctx.user.sub,
           collectionId,
           uploadType,
           fileNames: files.map((f) => f.fileName),
@@ -1672,62 +1742,62 @@ export const documents = createRouter()
       })();
 
       return { jobId };
-    },
-  })
-  .query('getUploadJob', {
-    input: z.object({ jobId: z.string(), token: z.string().optional() }),
-    resolve: async ({ input }) => {
-      const user = await getRequestUser(input.token);
+    }),
+
+  getUploadJob: authedProcedure
+    .input(z.object({ jobId: z.string() }))
+    .query(async ({ input, ctx }) => {
       const job: any = await UploadJobController.getByJobId(input.jobId);
       if (!job) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Job not found' });
       }
-      if (job.userId !== user.sub) {
+      if (job.userId !== ctx.user.sub) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
       }
       return job;
-    },
-  })
-  .query('getRecentUploadJobs', {
-    input: z.object({
-      collectionId: z.string().optional(),
-      token: z.string().optional(),
-      limit: z.number().optional(),
     }),
-    resolve: async ({ input }) => {
-      const user = await getRequestUser(input.token);
+
+  getRecentUploadJobs: authedProcedure
+    .input(
+      z.object({
+        collectionId: z.string().optional(),
+        limit: z.number().optional(),
+      })
+    )
+    .query(async ({ input, ctx }) => {
       return UploadJobController.listRecent({
-        userId: user.sub,
+        userId: ctx.user.sub,
         collectionId: input.collectionId,
         limit: input.limit,
       });
-    },
-  })
-  .mutation('dismissUploadJob', {
-    input: z.object({ jobId: z.string(), token: z.string().optional() }),
-    resolve: async ({ input }) => {
-      const user = await getRequestUser(input.token);
-      const deleted = await UploadJobController.remove(input.jobId, user.sub);
+    }),
+
+  dismissUploadJob: authedProcedure
+    .input(z.object({ jobId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
+      const deleted = await UploadJobController.remove(
+        input.jobId,
+        ctx.user.sub
+      );
       if (!deleted) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Job not found' });
       }
       return { message: 'deleted' };
-    },
-  })
-  .mutation('cancelUploadJob', {
-    input: z.object({ jobId: z.string(), token: z.string().optional() }),
-    resolve: async ({ input }) => {
+    }),
+
+  cancelUploadJob: authedProcedure
+    .input(z.object({ jobId: z.string() }))
+    .mutation(async ({ input, ctx }) => {
       // Signal the background processing loop (see `createUploadJob`) to
       // stop before its next file, and mark the job cancelled right away so
       // the UI reflects it immediately.
       cancelledUploadJobIds.add(input.jobId);
       try {
-        const user = await getRequestUser(input.token);
         const existing: any = await UploadJobController.getByJobId(input.jobId);
         if (!existing) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Job not found' });
         }
-        if (existing.userId !== user.sub) {
+        if (existing.userId !== ctx.user.sub) {
           throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
         }
         return await UploadJobController.updateStatus(input.jobId, 'cancelled');
@@ -1742,6 +1812,5 @@ export const documents = createRouter()
           }`,
         });
       }
-    },
-  });
-
+    }),
+});

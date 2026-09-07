@@ -1,26 +1,27 @@
-import { createRouter } from '../context';
-import { annotations } from './annotation';
-import { collections } from './collection';
-import { documents } from './document';
-import { infer } from './infer';
-import { permissions } from './permission';
-import { review } from './review';
-import { search } from './search';
-import { taxonomy } from './taxonomy';
-import { wikipedia } from './wikipedia';
-import { users } from './user';
+import { router } from '../trpc';
+import { annotationsRouter } from './annotation';
+import { collectionsRouter } from './collection';
+import { documentsRouter } from './document';
+import { inferRouter } from './infer';
+import { permissionsRouter } from './permission';
+import { reviewRouter } from './review';
+import { searchRouter } from './search';
+import { taxonomyRouter } from './taxonomy';
+import { wikipediaRouter } from './wikipedia';
+import { usersRouter } from './user';
+
+export const appRouter = router({
+  document: documentsRouter,
+  annotation: annotationsRouter,
+  collection: collectionsRouter,
+  infer: inferRouter,
+  taxonomy: taxonomyRouter,
+  review: reviewRouter,
+  wikipedia: wikipediaRouter,
+  search: searchRouter,
+  user: usersRouter,
+  permission: permissionsRouter,
+});
 
 // export type definition of API
 export type AppRouter = typeof appRouter;
-
-export const appRouter = createRouter()
-  .merge('document.', documents)
-  .merge('annotation.', annotations)
-  .merge('collection.', collections)
-  .merge('infer.', infer)
-  .merge('taxonomy', taxonomy)
-  .merge('review.', review)
-  .merge('wikipedia.', wikipedia)
-  .merge('search.', search)
-  .merge('user.', users)
-  .merge('permission.', permissions);

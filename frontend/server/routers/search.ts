@@ -1,16 +1,12 @@
 import { z } from 'zod';
-import { createRouter } from '../context';
-import { TRPCError } from '@trpc/server';
+import { router, publicProcedure, TRPCError } from '../trpc';
 import { runFacetedSearch } from '@/lib/facetedSearch';
 import { search as runVectorSearch } from '@/lib/vectorSearch';
 import { addAnnotationsToDocumentEs } from '@/lib/elasticAdmin';
 import { ChatController } from '@/lib/documentsBackend/chatController';
 import { serverConfig } from '@/lib/config/server';
 import type { Document } from '@/lib/types/document';
-import type {
-  DocumentWithChunk,
-  FacetedQueryOutput,
-} from '@/lib/types/search';
+import type { DocumentWithChunk, FacetedQueryOutput } from '@/lib/types/search';
 
 export type MostSimilarDocument = {
   id: number;
@@ -82,7 +78,11 @@ async function addAnnotationsToDocument(
     console.log('Annotations:', JSON.stringify(mentions, null, 2));
     console.log('====================================================');
 
-    const result = await addAnnotationsToDocumentEs(index, documentId, mentions);
+    const result = await addAnnotationsToDocumentEs(
+      index,
+      documentId,
+      mentions
+    );
 
     console.log('========== SERVER: ANNOTATION SAVE RESPONSE ==========');
     console.log('Response:', JSON.stringify(result, null, 2));
@@ -105,19 +105,20 @@ async function addAnnotationsToDocument(
   }
 }
 
-export const search = createRouter()
-  .mutation('mostSimilarDocuments', {
-    input: z.object({
-      query: z.string(),
-      filter_ids: z.array(z.string()).optional(),
-      retrievalMethod: z.string().optional(),
-      force_rag: z.boolean().optional(),
-      collectionId: z.string().optional(),
-    }),
-    resolve: async ({ input }) => {
+export const searchRouter = router({
+  mostSimilarDocuments: publicProcedure
+    .input(
+      z.object({
+        query: z.string(),
+        filter_ids: z.array(z.string()).optional(),
+        retrievalMethod: z.string().optional(),
+        force_rag: z.boolean().optional(),
+        collectionId: z.string().optional(),
+      })
+    )
+    .mutation(async ({ input }) => {
       const index = serverConfig.elastic.index;
       console.log('*** most similar collection id ***', input.collectionId);
-      // forward collectionId (if provided) to restrict the search to a single collection
       const documents = (await runVectorSearch({
         collectionName: index,
         query: input.query,
@@ -128,29 +129,31 @@ export const search = createRouter()
       })) as unknown as GetSimilarDocumentResponse;
 
       return processResponseMostSImilartDocuments(documents);
-    },
-  })
-  .query('facetedSearch', {
-    input: z.object({
-      text: z.string(),
-      metadata: z.array(
-        z.object({
-          value: z.string(),
-          type: z.string(),
-        })
-      ),
-      annotations: z.array(
-        z.object({
-          value: z.string(),
-          type: z.string(),
-        })
-      ),
-      limit: z.number().min(1).max(100).nullish(),
-      cursor: z.number().nullish(),
-      collectionId: z.string().optional(),
-      isAnonymized: z.boolean().optional(),
     }),
-    resolve: async ({ input }) => {
+
+  facetedSearch: publicProcedure
+    .input(
+      z.object({
+        text: z.string(),
+        metadata: z.array(
+          z.object({
+            value: z.string(),
+            type: z.string(),
+          })
+        ),
+        annotations: z.array(
+          z.object({
+            value: z.string(),
+            type: z.string(),
+          })
+        ),
+        limit: z.number().min(1).max(100).nullish(),
+        cursor: z.number().nullish(),
+        collectionId: z.string().optional(),
+        isAnonymized: z.boolean().optional(),
+      })
+    )
+    .query(async ({ input }) => {
       const index = serverConfig.elastic.index;
 
       return runFacetedSearch({
@@ -163,40 +166,41 @@ export const search = createRouter()
         collectionId: input.collectionId,
         isAnonymized: input.isAnonymized,
       }) as Promise<FacetedQueryOutput>;
-    },
-  })
-  .mutation('rateTheConversation', {
-    input: z.object({
-      conversation: z.unknown(),
-      rating: z.number(),
     }),
-    resolve: async ({ input }) => {
+
+  rateTheConversation: publicProcedure
+    .input(
+      z.object({
+        conversation: z.unknown(),
+        rating: z.number(),
+      })
+    )
+    .mutation(async ({ input }) => {
       return rateTheConversation(input.conversation, input.rating);
-    },
-  })
-  .mutation('addAnnotations', {
-    input: z.object({
-      indexName: z.string(),
-      documentId: z.string(),
-      annotations: z.array(
-        z.object({
-          id: z.number(),
-          id_ER: z.string().optional(),
-          start: z.number(),
-          end: z.number(),
-          type: z.string(),
-          mention: z.string(),
-          is_linked: z.boolean().optional(),
-          display_name: z.string().optional(),
-          to_delete: z.boolean().optional(),
-        })
-      ),
     }),
-    resolve: async ({ input }) => {
+
+  addAnnotations: publicProcedure
+    .input(
+      z.object({
+        indexName: z.string(),
+        documentId: z.string(),
+        annotations: z.array(
+          z.object({
+            id: z.number(),
+            id_ER: z.string().optional(),
+            start: z.number(),
+            end: z.number(),
+            type: z.string(),
+            mention: z.string(),
+            is_linked: z.boolean().optional(),
+            display_name: z.string().optional(),
+            to_delete: z.boolean().optional(),
+          })
+        ),
+      })
+    )
+    .mutation(async ({ input }) => {
       const { indexName, documentId, annotations } = input;
-      console.log('========== SERVER: ANNOTATION REQUEST RECEIVED ==========');
-      console.log('Input received:', JSON.stringify(input, null, 2));
-      console.log('=========================================================');
       return addAnnotationsToDocument(indexName, documentId, annotations);
-    },
-  });
+    }),
+});
