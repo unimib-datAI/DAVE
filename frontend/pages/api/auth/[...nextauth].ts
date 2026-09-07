@@ -1,10 +1,11 @@
 import NextAuth, { NextAuthOptions } from 'next-auth';
 import KeycloakProvider from 'next-auth/providers/keycloak';
+import { serverConfig, publicConfig } from '@/lib/config/server';
 
 // Keycloak configuration
-const KEYCLOAK_ID = process.env.KEYCLOAK_ID || '';
-const KEYCLOAK_SECRET = process.env.KEYCLOAK_SECRET || '';
-const KEYCLOAK_ISSUER = process.env.KEYCLOAK_ISSUER || '';
+const KEYCLOAK_ID = serverConfig.keycloak.clientId;
+const KEYCLOAK_SECRET = serverConfig.keycloak.clientSecret;
+const KEYCLOAK_ISSUER = serverConfig.keycloak.issuer;
 console.log('keycloak issuer', KEYCLOAK_ISSUER);
 async function refreshAccessToken(token: any) {
   try {
@@ -77,12 +78,12 @@ async function refreshAccessToken(token: any) {
 }
 
 export const authOptions: NextAuthOptions = {
-  secret: process.env.NEXTAUTH_SECRET,
+  secret: serverConfig.nextAuth.secret,
   session: {
     strategy: 'jwt',
   },
   pages: {
-    signIn: `${process.env.NEXT_PUBLIC_BASE_PATH}/sign-in`,
+    signIn: `${publicConfig.basePath}/sign-in`,
   },
   cookies: {
     sessionToken: {

@@ -1,8 +1,8 @@
 import {
   AnnotationSet,
-  Candidate,
+  LinkingCandidate,
   EntityAnnotation,
-} from '@/server/routers/document';
+} from '@/lib/types/document';
 import { deepEqual } from '@/utils/shared';
 import { Draft } from 'immer';
 import {
@@ -216,7 +216,7 @@ export const scrollEntityIntoView = (id: number) => {
 /**
  * Compose unique id given a candidate id and indexer
  */
-export const getCandidateId = (candidate: Candidate | undefined) => {
+export const getCandidateId = (candidate: LinkingCandidate | undefined) => {
   if (!candidate) {
     return '';
   }

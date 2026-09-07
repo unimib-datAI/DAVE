@@ -1,13 +1,13 @@
 import styled from '@emotion/styled';
 import { AnimatePresence, motion } from 'framer-motion';
 import * as Portal from '@radix-ui/react-portal';
-import { Candidate } from '@/server/routers/document';
+import { LinkingCandidate } from '@/lib/types/document';
 import { useQuery } from '@/utils/trpc';
 
 type Anchor = {
   x: number;
   y: number;
-  candidate: Candidate;
+  candidate: LinkingCandidate;
 };
 
 type LinkPopoverProps = {

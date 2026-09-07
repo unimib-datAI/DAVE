@@ -6,6 +6,7 @@ import { authOptions } from '../../auth/[...nextauth]';
 import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
 import { requirePermission, PermissionDeniedError } from '@/lib/documentsBackend/permission';
 import { CollectionController } from '@/lib/documentsBackend/collectionController';
+import { publicConfig } from '@/lib/config/server';
 
 export const config = {
   api: {
@@ -25,7 +26,7 @@ export default async function handler(
 
   try {
     let token: string | undefined;
-    if (process.env.NEXT_PUBLIC_USE_AUTH !== 'false') {
+    if (publicConfig.useAuth) {
       const session = (await getServerSession(req, res, authOptions)) as any;
       token = session?.accessToken;
       if (!token) {

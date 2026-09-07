@@ -7,8 +7,9 @@
 // so it survives module re-evaluation across hot reloads.
 
 import mongoose from 'mongoose';
+import { serverConfig } from '@/lib/config/server';
 
-const MONGO_URI = process.env.MONGO;
+const MONGO_URI = serverConfig.mongo.uri;
 
 type MongooseCache = {
   conn: typeof mongoose | null;

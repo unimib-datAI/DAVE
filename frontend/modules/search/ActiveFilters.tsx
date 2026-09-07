@@ -1,4 +1,4 @@
-import { Facet, FacetedQueryOutput } from '@/server/routers/search';
+import { Facet, FacetedQueryOutput } from '@/lib/types/search';
 import { X } from 'lucide-react';
 import { useRouter } from 'next/router';
 import { useAtom } from 'jotai';

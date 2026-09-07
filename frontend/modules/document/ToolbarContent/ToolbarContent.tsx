@@ -5,6 +5,7 @@ import {
   useDocumentDispatch,
   useSelector,
   selectCurrentAnnotationSetName,
+  useDocumentContext,
 } from '../DocumentProvider/selectors';
 import { HiArrowLeft } from '@react-icons/all-files/hi/HiArrowLeft';
 import { IconButton, useText } from '@/components';
@@ -13,7 +14,7 @@ import { useRouter } from 'next/router';
 import { MouseEvent, useEffect, useRef, useState } from 'react';
 import SaveStatusIndicator from './SaveStatusIndicator';
 import { AnnotationType } from '../DocumentProvider/types';
-import { EntityAnnotation } from '@/server/routers/document';
+import { EntityAnnotation } from '@/lib/types/document';
 import { useSession } from 'next-auth/react';
 import { message } from 'antd';
 import { useDocumentPermissions } from '@/hooks/use-permissions';
@@ -50,6 +51,9 @@ const ToolbarContent = () => {
   const router = useRouter();
   const currentAnnotationSetName = useSelector(selectCurrentAnnotationSetName);
   const { canUpdate } = useDocumentPermissions();
+  // QuickView documents aren't backed by a server record - there's nothing to
+  // save them to, so the save controls are hidden entirely.
+  const { readOnly } = useDocumentContext();
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'error'>(
     'idle'
@@ -219,7 +223,7 @@ const ToolbarContent = () => {
       </h4>
       <div
         style={{
-          display: 'flex',
+          display: readOnly ? 'none' : 'flex',
           alignItems: 'center',
           marginLeft: 'auto',
           gap: 10,

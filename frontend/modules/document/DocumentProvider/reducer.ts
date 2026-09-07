@@ -4,7 +4,7 @@ import {
   AnnotationSet,
   Cluster,
   EntityAnnotation,
-} from '@/server/routers/document';
+} from '@/lib/types/document';
 import { createImmerReducer } from '@/utils/immerReducer';
 import { removeProps } from '@/utils/shared';
 import {
@@ -177,8 +177,19 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
     const { next_annid, annotations } =
       state.data.annotation_sets[activeAnnotationSet];
 
+    // `next_annid` from the ingestion pipeline is not always > every existing
+    // id (some producers leave it at 0/1). Trusting it blindly makes a new
+    // annotation collide with an existing one, and the renderer then drops
+    // whichever loses the id lookup - entities "disappear". Derive a
+    // guaranteed-unique id instead.
+    const maxExistingId = annotations.reduce(
+      (max, ann) => (typeof ann.id === 'number' && ann.id > max ? ann.id : max),
+      -1
+    );
+    const newAnnId = Math.max(next_annid ?? 0, maxExistingId + 1);
+
     console.log(
-      `Current annotations count: ${annotations.length}, next_annid: ${next_annid}`
+      `Current annotations count: ${annotations.length}, next_annid: ${next_annid}, using id: ${newAnnId}`
     );
 
     // Initialize clusters if they don't exist
@@ -254,7 +265,7 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
     }
 
     const newAnnotation: any = {
-      id: next_annid,
+      id: newAnnId,
       start,
       end,
       type: type,
@@ -276,11 +287,11 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
       annotations,
       newAnnotation
     );
-    state.data.annotation_sets[activeAnnotationSet].next_annid = next_annid + 1;
+    state.data.annotation_sets[activeAnnotationSet].next_annid = newAnnId + 1;
 
     // Add the mention to the cluster
     matchingCluster.mentions.push({
-      id: next_annid,
+      id: newAnnId,
       mention: text,
     });
 

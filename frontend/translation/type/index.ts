@@ -245,6 +245,8 @@ export type Translation = {
       metadataContent: {
         title: string;
         description: string;
+        empty: string;
+        fields?: Record<string, string>;
       };
       addContent: {
         title: string;

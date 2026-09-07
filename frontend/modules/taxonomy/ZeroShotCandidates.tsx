@@ -1,5 +1,5 @@
 import { useParam } from '@/hooks';
-import { Candidate } from '@/server/routers/taxonomy';
+import { SpecializationCandidate } from '@/lib/types/taxonomy';
 import styled from '@emotion/styled';
 import { Button } from '@heroui/react';
 import Link from 'next/link';
@@ -8,7 +8,7 @@ import { useState } from 'react';
 import CandidatesList from './CandidatesList';
 
 type ZeroShotCandidatesProps = {
-  candidates: Candidate[];
+  candidates: SpecializationCandidate[];
 };
 
 const Container = styled.div({

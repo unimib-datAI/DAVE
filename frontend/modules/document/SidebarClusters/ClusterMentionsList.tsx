@@ -1,4 +1,4 @@
-import { Cluster, EntityAnnotation } from '@/server/routers/document';
+import { Cluster, EntityAnnotation } from '@/lib/types/document';
 import styled from '@emotion/styled';
 import { Fragment, MouseEvent, useState, useCallback } from 'react';
 import { scrollEntityIntoView } from '../DocumentProvider/utils';

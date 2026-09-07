@@ -1,42 +1,18 @@
 import fetchJson from '@/lib/fetchJson';
 import { z } from 'zod';
 import { createRouter } from '../context';
-import { Candidate, Document } from './document';
+import { serverConfig } from '@/lib/config/server';
+import type {
+  GetDocumentProps,
+  GetSourceProps,
+  Source,
+} from '@/lib/types/review';
 
-const baseURL = `${process.env.API_BASE_URI}`;
-
-export type GetDocumentProps = {
-  docId: string;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  currentDocument: Document;
-};
-
-export type SourceDoc = {
-  id: string;
-  name: string;
-  done: boolean;
-  nAnnotations: number;
-};
-
-export type GetSourceProps = {
-  id: string;
-  name: string;
-  total: number;
-  doneIds: string[];
-  docs: SourceDoc[];
-};
+const baseURL = serverConfig.externalBackend.baseUri;
 
 export type PostSaveDocumentProps = {
   sourceId: string;
   docId: string;
-};
-
-export type Source = {
-  id: string;
-  name: string;
-  total: number;
-  done: number;
 };
 
 export type GetSourcesProps = {

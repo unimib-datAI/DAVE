@@ -1,6 +1,6 @@
 import { Skeleton } from '@/components/Skeleton';
 import { cn } from '@/lib/utils';
-import { DocumentWithChunk } from '@/server/routers/search';
+import { DocumentWithChunk } from '@/lib/types/search';
 import { Tooltip } from '@heroui/react';
 import { AnimatePresence, Variants, motion } from 'framer-motion';
 import {

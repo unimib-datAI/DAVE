@@ -1,5 +1,5 @@
 import { Flex } from '@/components';
-import { Candidate } from '@/server/routers/document';
+import { LinkingCandidate } from '@/lib/types/document';
 import styled from '@emotion/styled';
 import { Checkbox } from '@heroui/react';
 import { MouseEvent } from 'react';
@@ -32,7 +32,7 @@ const LinkItemDetailsContainer = styled.div({
 });
 
 type LinkItemProps = {
-  candidate: Candidate;
+  candidate: LinkingCandidate;
   selected: boolean;
   onClick: () => void;
 };
@@ -66,7 +66,7 @@ const LinkItem = ({ candidate, selected, onClick }: LinkItemProps) => {
 };
 
 type LinkListProps = {
-  candidates: Candidate[] | undefined;
+  candidates: LinkingCandidate[] | undefined;
   value: { title: string; url: string } | undefined;
   onChange: (candidate: { title: string; url: string }) => void;
 };

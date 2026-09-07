@@ -1,9 +1,9 @@
 import { Annotation } from '@/lib/ner/core/types';
 import {
   AdditionalAnnotationProps,
-  Candidate,
+  LinkingCandidate,
   EntityAnnotation,
-} from '@/server/routers/document';
+} from '@/lib/types/document';
 import styled from '@emotion/styled';
 
 import {
@@ -147,7 +147,7 @@ type OptionItemProps = {
   index: number;
   selected: boolean;
   highlight: boolean;
-  candidate: Candidate;
+  candidate: LinkingCandidate;
   onClick: () => void;
   onMouseMove: (event: MouseEvent<HTMLElement>) => void;
   onMouseLeave: (event: MouseEvent<HTMLElement>) => void;
@@ -206,7 +206,7 @@ const ReviewListItem = ({
   const [popOverState, setPopOverState] = useState<{
     x: number;
     y: number;
-    candidate: Candidate;
+    candidate: LinkingCandidate;
   } | null>(null);
 
   const { additional_candidates, url } = annotation.features;
@@ -234,7 +234,7 @@ const ReviewListItem = ({
 
   const handleMouseMove = (
     event: MouseEvent<HTMLElement>,
-    candidate: Candidate
+    candidate: LinkingCandidate
   ) => {
     const bbox = event.currentTarget.getBoundingClientRect();
     const x = event.pageX - event.currentTarget.offsetLeft + 20;

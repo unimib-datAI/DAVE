@@ -22,7 +22,7 @@ import {
 } from '@/modules/review/ReviewProvider/selectors';
 import { createNewCandidate } from '@/modules/review/ReviewProvider/utils';
 import Searchbar from '@/modules/review/Searchbar/Searchbar';
-import { Candidate, EntityAnnotation } from '@/server/routers/document';
+import { LinkingCandidate, EntityAnnotation } from '@/lib/types/document';
 import { useMutation, useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
 import { Virtualizer } from '@tanstack/react-virtual';
@@ -257,7 +257,7 @@ const ReviewDocument = () => {
     });
   };
 
-  const handleItemSelected = (candidate: Candidate) => {
+  const handleItemSelected = (candidate: LinkingCandidate) => {
     nextItem({
       cursor: currentItemListCursor,
       candidate,
@@ -280,7 +280,7 @@ const ReviewDocument = () => {
   const nextItem = (props: {
     cursor: number;
     index?: number;
-    candidate?: Candidate;
+    candidate?: LinkingCandidate;
     withAdd?: boolean;
   }) => {
     flushSync(() => {

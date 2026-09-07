@@ -1,4 +1,4 @@
-import { Candidate } from '@/server/routers/document';
+import { LinkingCandidate } from '@/lib/types/document';
 import { useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
 import { Collapse, Checkbox, Text, Link } from '@heroui/react';
@@ -10,7 +10,7 @@ import 'react-loading-skeleton/dist/skeleton.css';
 import { getCandidateId } from '../DocumentProvider/utils';
 
 type AnnotationLinkCollapseContentProps = {
-  candidate: Candidate;
+  candidate: LinkingCandidate;
   fetchData: boolean;
 };
 
@@ -89,7 +89,7 @@ const AnnotationLinkCollapseContent = ({
 };
 
 type AnnotationLinkDetailsProps = {
-  candidates: Candidate[] | undefined;
+  candidates: LinkingCandidate[] | undefined;
   selectedId?: string;
 };
 

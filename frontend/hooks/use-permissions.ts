@@ -1,7 +1,7 @@
 import { useQuery } from '@/utils/trpc';
 import { useSession } from 'next-auth/react';
 import { isAuthEnabled, getUserRolesFromToken } from '@/utils/auth';
-import type { DAVEPermissions } from '@/server/routers/permission';
+import type { DAVEPermissions } from '@/lib/types/permission';
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 

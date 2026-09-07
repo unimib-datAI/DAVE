@@ -1,5 +1,5 @@
 import { getAllNodeData, getNodesPath } from '@/components/Tree';
-import { Cluster } from '@/server/routers/document';
+import { Cluster } from '@/lib/types/document';
 import styled from '@emotion/styled';
 import { type } from 'os';
 import { darken } from 'polished';

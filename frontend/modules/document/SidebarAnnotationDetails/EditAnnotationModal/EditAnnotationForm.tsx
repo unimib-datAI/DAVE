@@ -1,6 +1,6 @@
 import { Flex, useText } from '@/components';
 import { useForm, useInput } from '@/hooks';
-import { Candidate, EntityAnnotation } from '@/server/routers/document';
+import { LinkingCandidate, EntityAnnotation } from '@/lib/types/document';
 import styled from '@emotion/styled';
 import { Button, Input, ModalBody, ModalFooter } from '@heroui/react';
 import Text from '@/components/HtmlText';
@@ -36,7 +36,7 @@ const Form = styled.form({
   flexDirection: 'column',
 });
 
-function matchTitleContains(items: Candidate[], value: string) {
+function matchTitleContains(items: LinkingCandidate[], value: string) {
   const regex = new RegExp(value, 'i');
   return items.filter((cand) => cand.title.match(regex));
 }

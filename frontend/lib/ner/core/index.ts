@@ -74,16 +74,22 @@ export const pythonToJSIndex = <T>(
   return jsIndex;
 };
 
-// def js_to_python_index(js_index, js_string):
-//     python_index = 0
-//     for i in range(js_index):
-//         if ord(js_string[python_index]) >= 0xD800 and ord(js_string[python_index]) <= 0xDBFF:
-//             python_index += 2  # Skip high surrogate
-//         else:
-//             python_index += 1
-//         if python_index > len(js_string) - 1:
-//             break
-//     return python_index
+/**
+ * Inverse of `pythonToJSIndex`: convert a JS (UTF-16 code unit) string index
+ * to the equivalent Python (Unicode codepoint) index. Identity for text with
+ * no characters outside the BMP.
+ */
+export const jsToPythonIndex = (jsIndex: number, jsString: string): number => {
+  if (jsIndex <= 0 || jsString.length === 0) return 0;
+  let py = 0;
+  let i = 0;
+  while (i < jsIndex && i < jsString.length) {
+    const code = jsString.charCodeAt(i);
+    i += code >= 0xd800 && code <= 0xdbff ? 2 : 1;
+    py += 1;
+  }
+  return py;
+};
 
 // # Example usage:
 // js_string = "JavaScript 😊"  # JavaScript string containing an emoji

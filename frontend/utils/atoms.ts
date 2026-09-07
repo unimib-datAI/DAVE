@@ -1,4 +1,4 @@
-import { FacetedQueryHit } from '@/server/routers/search';
+import { FacetedQueryHit } from '@/lib/types/search';
 import { atom } from 'jotai';
 import { atomWithStorage } from 'jotai/utils';
 

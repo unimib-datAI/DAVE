@@ -8,12 +8,13 @@
 // @ts-ignore - no type definitions published for this package
 import KcAdminClient from '@keycloak/keycloak-admin-client';
 import axios from 'axios';
+import { serverConfig } from '@/lib/config/server';
 
-const KEYCLOAK_ISSUER = process.env.KEYCLOAK_ISSUER || 'http://keycloak:8080/realms/dave';
-const KEYCLOAK_ADMIN_USER = process.env.KEYCLOAK_ADMIN || 'admin';
-const KEYCLOAK_ADMIN_PASSWORD = process.env.KEYCLOAK_ADMIN_PASSWORD || 'admin';
-const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_ID || 'dave_client';
-const KEYCLOAK_CLIENT_SECRET = process.env.KEYCLOAK_SECRET || '';
+const KEYCLOAK_ISSUER = serverConfig.keycloak.issuer;
+const KEYCLOAK_ADMIN_USER = serverConfig.keycloak.adminUser;
+const KEYCLOAK_ADMIN_PASSWORD = serverConfig.keycloak.adminPassword;
+const KEYCLOAK_CLIENT_ID = serverConfig.keycloak.clientId;
+const KEYCLOAK_CLIENT_SECRET = serverConfig.keycloak.clientSecret;
 
 // Extract realm from issuer URL (e.g., "http://keycloak:8080/realms/dave" -> "dave")
 const getRealm = () => {

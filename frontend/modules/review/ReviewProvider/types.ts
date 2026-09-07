@@ -1,13 +1,13 @@
 import {
-  Candidate, Document, EntityAnnotation,
-} from '@/server/routers/document';
+  LinkingCandidate, Document, EntityAnnotation,
+} from '@/lib/types/document';
 
 export type Action =
   | { type: 'setState'; payload: { data: State } }
   | { type: 'updateTime'; payload: { time: number; cursor: number } }
   | { type: 'setActiveItem'; payload: { cursor: number } }
-  | { type: 'addCandidateOptionItem'; payload: { cursor?: number; index?: number; candidate?: Candidate; } }
-  | { type: 'nextAnnotation'; payload: { cursor?: number; index?: number; candidate?: Candidate; } }
+  | { type: 'addCandidateOptionItem'; payload: { cursor?: number; index?: number; candidate?: LinkingCandidate; } }
+  | { type: 'nextAnnotation'; payload: { cursor?: number; index?: number; candidate?: LinkingCandidate; } }
   | { type: 'prevAnnotation' }
   | { type: 'skipAnnotation' }
   | { type: 'nilAnnotation' }

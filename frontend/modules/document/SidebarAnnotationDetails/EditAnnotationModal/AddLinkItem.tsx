@@ -5,7 +5,7 @@ import { Dispatch, SetStateAction } from 'react';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import AddCandidateForm from './AddCandidateForm';
 import { useToggle } from '@/hooks';
-import { EntityAnnotation } from '@/server/routers/document';
+import { EntityAnnotation } from '@/lib/types/document';
 
 type AddLinkItemProps = {
   annotation: EntityAnnotation;

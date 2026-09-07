@@ -1,6 +1,6 @@
 import { useText } from '@/components';
 import { getAllNodeData, getNodesPath } from '@/components/Tree';
-import { Cluster, EntityAnnotation } from '@/server/routers/document';
+import { Cluster, EntityAnnotation } from '@/lib/types/document';
 import styled from '@emotion/styled';
 import { darken } from 'polished';
 import { useEffect, useMemo } from 'react';

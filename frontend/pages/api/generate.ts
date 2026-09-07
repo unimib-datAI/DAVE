@@ -1,6 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
 import { executeMultiAgent } from '@/lib/multiAgent';
+import { serverConfig } from '@/lib/config/server';
 
 /**
  * Server-side proxy for text generation using OpenAI-compatible API
@@ -41,12 +42,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     } = req.body;
 
     // Determine which settings to use
-    let baseURL = process.env.API_LLM || 'http://localhost:8000/v1';
-    let apiKey = process.env.LLM_KEY || 'dummy-key';
+    let baseURL = serverConfig.llm.baseUrl;
+    let apiKey = serverConfig.llm.apiKey;
     // Prefer model from request, then environment, then fallback default
-    const envModel =
-      process.env.LLM_NAME || process.env.DEFAULT_MODEL || 'phi4-mini';
-    let modelToUse = model ?? envModel;
+    let modelToUse = model ?? serverConfig.llm.model;
 
     // If custom settings are provided and enabled, use them
     if (customSettings?.useCustomSettings) {
@@ -109,8 +108,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           temperature: temperature,
           max_tokens: max_tokens,
           // Retrieval params – used by the multi-agent's internal retrievers
-          indexerBaseURL: process.env.API_INDEXER,
-          indexName: process.env.ELASTIC_INDEX,
+          indexerBaseURL: serverConfig.embeddings.baseUrl,
+          indexName: serverConfig.elastic.index,
           // collectionId may arrive as a full collection object or a plain string
           collectionId:
             typeof collectionId === 'string'

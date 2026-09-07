@@ -1,4 +1,4 @@
-import { Cluster } from '@/server/routers/document';
+import { Cluster } from '@/lib/types/document';
 import { beautifyString, groupBy, isEmptyObject } from '@/utils/shared';
 import { useContext, useMemo, useCallback } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
@@ -102,6 +102,11 @@ export const selectDocumentTagTypeFilter = createSelector(
 export const selectDocumentActiveAnnotationSet = createSelector(
   [selectViews, selectViewIndex],
   (views, viewIndex) => views[viewIndex].activeAnnotationSet
+);
+
+export const selectViewRenderMode = createSelector(
+  [selectViews, selectViewIndex],
+  (views, viewIndex) => views[viewIndex]?.renderMode ?? 'markdown'
 );
 
 export const selectActiveEntityAnnotations = createSelector(

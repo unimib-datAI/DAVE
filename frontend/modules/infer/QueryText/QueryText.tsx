@@ -16,7 +16,7 @@ import { flattenTree, getAllNodeData } from '@/components/Tree';
 import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
 import NER from '@/components/NER/NER';
 import AnnotationSetFilter from './AnnotationSetFilter';
-import { Document } from '@/server/routers/document';
+import { Document } from '@/lib/types/document';
 import { FiDownload } from '@react-icons/all-files/fi/FiDownload';
 
 type QueryTextProps = {

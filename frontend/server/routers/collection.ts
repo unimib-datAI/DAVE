@@ -7,26 +7,11 @@ import { CollectionController } from '@/lib/documentsBackend/collectionControlle
 import { DocumentController } from '@/lib/documentsBackend/documentController';
 import { FacetEntryModel } from '@/lib/db/models/FacetEntry';
 import { dbConnect } from '@/lib/db/connection';
-
-export type collectionDocInfo = {
-  name: string;
-  preview?: string;
-  id: string;
-};
-export type Collection = {
-  id: string;
-  name: string;
-  ownerId: string;
-  allowedUserIds: string[];
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type User = {
-  userId: string;
-  email: string;
-  name?: string;
-};
+import { serverConfig } from '@/lib/config/server';
+import type {
+  Collection,
+  CollectionUser,
+} from '@/lib/types/collection';
 
 /**
  * Maps errors thrown by CollectionController.update/delete (plain Error
@@ -127,7 +112,7 @@ export const collections = createRouter()
       // error on initial page load before the client has a token yet).
       if (
         (!token || typeof token !== 'string' || token.trim().length === 0) &&
-        process.env.USE_AUTH !== 'false'
+        serverConfig.app.useAuth
       ) {
         return [] as Collection[];
       }
@@ -505,7 +490,7 @@ export const collections = createRouter()
     async resolve({ input }) {
       const { id, token } = input;
       try {
-        const elasticIndex = process.env.ELASTIC_INDEX || '';
+        const elasticIndex = serverConfig.elastic.index;
         const user = await getRequestUser(token);
         await requirePermission(user, 'collections', 'delete');
         const collection = await CollectionController.delete(id, user.sub, elasticIndex);
@@ -528,9 +513,9 @@ export const collections = createRouter()
       // return an empty users list early (same defensive guard as `getAll`).
       if (
         (!token || typeof token !== 'string' || token.trim().length === 0) &&
-        process.env.USE_AUTH !== 'false'
+        serverConfig.app.useAuth
       ) {
-        return [] as User[];
+        return [] as CollectionUser[];
       }
 
       try {

@@ -171,6 +171,7 @@ export const initialUIState: Omit<UIState, 'taxonomy'> = {
         typeFilter: [],
         activeAnnotationSet: '',
         activeSection: undefined,
+        renderMode: 'markdown',
       },
     ],
   },

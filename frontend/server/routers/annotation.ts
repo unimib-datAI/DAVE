@@ -2,6 +2,7 @@ import fetchJson from "@/lib/fetchJson";
 import { z } from "zod";
 import { createRouter } from "../context";
 import { getAuthHeader } from "../get-auth-header";
+import { serverConfig } from "@/lib/config/server";
 
 export type GetAnnotationDetails = {
   props: {
@@ -15,7 +16,7 @@ export type GetAnnotationDetails = {
 }
 
 const getAnnotationById = async (id: number, indexer: number) => {
-  const response = await fetchJson<any, GetAnnotationDetails>(`${process.env.API_BASE_URI}/indexer/info`, {
+  const response = await fetchJson<any, GetAnnotationDetails>(`${serverConfig.externalBackend.baseUri}/indexer/info`, {
     method: 'POST',
     headers: {
       Authorization: getAuthHeader(),

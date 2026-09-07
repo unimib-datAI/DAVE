@@ -1,7 +1,7 @@
-import { Candidate } from "@/server/routers/document";
+import { LinkingCandidate } from "@/lib/types/document";
 import { State } from "./types";
 
-export const addIfUnique = (candidates: Candidate[], candidate: Candidate) => {
+export const addIfUnique = (candidates: LinkingCandidate[], candidate: LinkingCandidate) => {
   if (candidates.find((cand) => cand.url === candidate.url)) {
     return candidates;
   }
@@ -9,13 +9,13 @@ export const addIfUnique = (candidates: Candidate[], candidate: Candidate) => {
   return candidates.concat(candidate);
 }
 
-export const setNextItem = (state: State, { cursor, index, candidate }: { cursor?: number; index?: number; candidate?: Candidate; }) => {
+export const setNextItem = (state: State, { cursor, index, candidate }: { cursor?: number; index?: number; candidate?: LinkingCandidate; }) => {
   if (!state.currentDocument) {
     return state;
   }
   const annSet = Object.keys(state.currentDocument.annotation_sets)[0];
 
-  let selectedCandidate = candidate as Candidate;
+  let selectedCandidate = candidate as LinkingCandidate;
 
   if (!candidate && cursor == null && index == null) {
     return state;
@@ -73,7 +73,7 @@ export const setNextItem = (state: State, { cursor, index, candidate }: { cursor
   return newState;
 }
 
-export const createNewCandidate = (candidate: Partial<Candidate>): Candidate => {
+export const createNewCandidate = (candidate: Partial<LinkingCandidate>): LinkingCandidate => {
   return {
     id: 0,
     indexer: 0,

@@ -264,6 +264,7 @@ const t: Translation = {
       metadataContent: {
         title: 'Metadati del documento',
         description: 'Visualizza i metadati del documento',
+        empty: 'Nessun metadato disponibile per questo documento.',
       },
       addContent: {
         title: 'Aggiungi annotazione',
@@ -401,6 +402,7 @@ const t: Translation = {
       metadataContent: {
         title: 'Metadati del documento',
         description: 'Visualizza i metadati del documento',
+        empty: 'Nessun metadato disponibile per questo documento.',
         fields: {
           name: 'Nome',
           nomegiudice: 'Nome Giudice',

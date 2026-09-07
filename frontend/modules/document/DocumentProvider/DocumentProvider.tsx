@@ -11,9 +11,9 @@ import {
 import { useAtom, useAtomValue } from 'jotai';
 import { Provider, createStore } from 'jotai';
 import { documentStateAtom } from './DocumentContext';
-import { Document } from '@/server/routers/document';
+import { Document } from '@/lib/types/document';
 import { documentReducer } from './reducer';
-import { State } from './types';
+import { RenderMode, State } from './types';
 import { baseTaxonomy, initialUIState } from './state';
 import { SkeletonLayout } from '../SkeletonLayout';
 import { orderAnnotations } from '@/lib/ner/core';
@@ -33,7 +33,21 @@ import { useSession } from 'next-auth/react';
  * and `setDeAnonimize` through the context as before, but mapped to the global atom
  * (deAnonimize = !globalAnonymizationAtom).
  */
-const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
+type DocumentProviderProps = {
+  /**
+   * When provided, the document is taken directly from this object instead of
+   * being fetched from the server by `id`. Used by the QuickView page
+   * (`pages/quickView.tsx`), which builds a `Document` from a pasted/linked
+   * JSON payload. In this mode the remote `document.getDocument` query is
+   * disabled and there is nothing to save back to.
+   */
+  document?: Document;
+};
+
+const DocumentProvider = ({
+  children,
+  document: injectedDocument,
+}: PropsWithChildren<DocumentProviderProps>) => {
   const [id] = useParam<string>('id');
   // Disambiguates between duplicate documents sharing the same content-hash
   // id across different collections (see documentController.ts findOne()) -
@@ -56,6 +70,7 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
     ['document.getDocument', { id: id, deAnonimize, collectionId: urlCollectionId }],
     {
       staleTime: Infinity,
+      enabled: injectedDocument == null,
     }
   );
 
@@ -97,24 +112,33 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
     if (overrideData !== null) setOverrideData(null);
   }
 
-  const effectiveData = overrideData ?? data;
+  const effectiveData = overrideData ?? injectedDocument ?? data;
 
   const updateData = (newData: any) => {
     setOverrideData(newData);
   };
 
-  if (isFetching || !effectiveData) {
+  if ((injectedDocument == null && isFetching) || !effectiveData) {
     return <SkeletonLayout />;
   }
 
   return (
     <DocumentContext.Provider
-      value={{ data: effectiveData, updateData, deAnonimize, setDeAnonimize }}
+      value={{
+        data: effectiveData,
+        updateData,
+        // QuickView payloads carry their own plain text - there is no
+        // anonymization layer to peel back, so always show it in full.
+        deAnonimize: injectedDocument != null ? true : deAnonimize,
+        setDeAnonimize,
+        readOnly: injectedDocument != null,
+      }}
     >
       <DocumentStateProvider
         data={effectiveData}
         isAnonymized={isAnonymized}
         setIsAnonymized={setIsAnonymized}
+        initialRenderMode={injectedDocument != null ? 'classic' : undefined}
       >
         {children}
       </DocumentStateProvider>
@@ -126,17 +150,20 @@ type DocumentStateProviderProps = {
   data: Document;
   isAnonymized: boolean;
   setIsAnonymized: (val: boolean) => void;
+  /** Overrides the default (`markdown`) render mode of the initial view. */
+  initialRenderMode?: RenderMode;
 };
 
 const DocumentStateProvider = ({
   data,
   isAnonymized,
   setIsAnonymized,
+  initialRenderMode,
   children,
 }: PropsWithChildren<DocumentStateProviderProps>) => {
   const store = useMemo(() => {
     const s = createStore();
-    s.set(documentStateAtom, initializeState(data));
+    s.set(documentStateAtom, initializeState(data, initialRenderMode));
     // Seed the isolated store so the toggle renders with the correct initial state
     s.set(globalAnonymizationAtom, isAnonymized);
     return s;
@@ -145,8 +172,8 @@ const DocumentStateProvider = ({
 
   // Re-initialize when data changes (e.g. after refetch)
   useEffect(() => {
-    store.set(documentStateAtom, initializeState(data));
-  }, [data, store]);
+    store.set(documentStateAtom, initializeState(data, initialRenderMode));
+  }, [data, store, initialRenderMode]);
 
   // Sync default-store value → isolated store (e.g. toggle pressed elsewhere)
   useEffect(() => {
@@ -170,7 +197,10 @@ const DocumentStateProvider = ({
 /**
  * Lazy initializer for the reducer
  */
-const initializeState = (data: Document): State => {
+const initializeState = (
+  data: Document,
+  initialRenderMode: RenderMode = 'markdown'
+): State => {
   const entityAnnotationSets = Object.values(data.annotation_sets).filter(
     (annSet) => annSet.name.startsWith('entities_')
   );
@@ -235,6 +265,7 @@ const initializeState = (data: Document): State => {
           typeFilter: Array.from(typeFilter),
           activeAnnotationSet,
           activeSection: undefined,
+          renderMode: initialRenderMode,
         },
       ],
     },

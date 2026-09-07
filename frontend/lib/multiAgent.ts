@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { search as runVectorSearch } from './vectorSearch';
+import { serverConfig } from '@/lib/config/server';
 
 /**
  * Multi-Agent RAG System
@@ -321,8 +322,8 @@ class MultiAgentSystem {
     this.temperature = options.temperature ?? 0.7;
     this.max_tokens = options.max_tokens ?? 1500;
     this.indexerBaseURL =
-      options.indexerBaseURL ?? process.env.API_INDEXER ?? '';
-    this.indexName = options.indexName ?? process.env.ELASTIC_INDEX ?? '';
+      options.indexerBaseURL ?? serverConfig.embeddings.baseUrl ?? '';
+    this.indexName = options.indexName ?? serverConfig.elastic.index ?? '';
     this.collectionId = options.collectionId;
     this.filterIds = options.filterIds;
   }

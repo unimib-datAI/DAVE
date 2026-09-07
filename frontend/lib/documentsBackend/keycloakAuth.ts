@@ -9,9 +9,10 @@
 import jwt from 'jsonwebtoken';
 // @ts-ignore - no type definitions published for this package
 import jwksClient from 'jwks-rsa';
+import { serverConfig } from '@/lib/config/server';
 
-const KEYCLOAK_ISSUER = process.env.KEYCLOAK_ISSUER || 'http://keycloak:8080/realms/dave';
-const KEYCLOAK_CLIENT_ID = process.env.KEYCLOAK_ID || 'dave-client';
+const KEYCLOAK_ISSUER = serverConfig.keycloak.issuer;
+const KEYCLOAK_CLIENT_ID = serverConfig.keycloak.clientId;
 
 export type RequestUser = {
   sub: string;
@@ -102,7 +103,7 @@ export async function getRequestUser(
   browserId = 'anon-user'
 ): Promise<RequestUser> {
   if (!token) {
-    if (process.env.USE_AUTH === 'false') {
+    if (!serverConfig.app.useAuth) {
       return {
         sub: browserId,
         email: `${browserId}@example.com`,

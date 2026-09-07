@@ -1,5 +1,5 @@
 import { useForm } from '@/hooks';
-import { FacetedQueryOutput } from '@/server/routers/search';
+import { FacetedQueryOutput } from '@/lib/types/search';
 import Fuse from 'fuse.js';
 import { SearchIcon } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';

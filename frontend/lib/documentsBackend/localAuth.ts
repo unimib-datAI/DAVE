@@ -10,13 +10,11 @@ import { RefreshTokenModel } from '../db/models/RefreshToken';
 import { UserModel, IUser } from '../db/models/User';
 import { dbConnect } from '../db/connection';
 import { HTTPError } from './httpError';
+import { serverConfig } from '@/lib/config/server';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret';
-const ACCESS_EXPIRES = parseInt(process.env.ACCESS_TOKEN_EXPIRES_IN || '3600', 10);
-const REFRESH_EXPIRES = parseInt(
-  process.env.REFRESH_TOKEN_EXPIRES_IN || `${7 * 24 * 3600}`,
-  10
-);
+const JWT_SECRET = serverConfig.localAuth.jwtSecret;
+const ACCESS_EXPIRES = serverConfig.localAuth.accessTokenExpiresSec;
+const REFRESH_EXPIRES = serverConfig.localAuth.refreshTokenExpiresSec;
 
 function signAccessToken(user: { userId: string; email: string }) {
   return jwt.sign(

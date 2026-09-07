@@ -3,12 +3,14 @@
 // depend on it (indexing, faceted search, RAG retrieval) has moved here and
 // calls this client whenever it needs a vector.
 
+import { serverConfig } from '@/lib/config/server';
+
 export type EmbedModel = 'main' | 'chunk';
 
 async function embed(texts: string[], model: EmbedModel): Promise<number[][]> {
   if (texts.length === 0) return [];
 
-  const baseUrl = process.env.API_INDEXER;
+  const baseUrl = serverConfig.embeddings.baseUrl;
   if (!baseUrl) {
     throw new Error('API_INDEXER is not configured');
   }

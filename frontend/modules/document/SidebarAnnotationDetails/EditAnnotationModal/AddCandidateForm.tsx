@@ -3,7 +3,7 @@ import { useForm, useInput } from '@/hooks';
 import styled from '@emotion/styled';
 import { Button, Divider, FormElement, Input, Textarea } from '@heroui/react';
 import { ChangeEvent, useState, Dispatch, SetStateAction } from 'react';
-import { EntityAnnotation } from '@/server/routers/document';
+import { EntityAnnotation } from '@/lib/types/document';
 
 const Container = styled.div({
   display: 'flex',
@@ -77,7 +77,7 @@ const AddCandidateLink = ({ url, setUrl }: AddCandidateLinkProps) => {
 };
 
 import { useDocumentDispatch } from '../../DocumentProvider/selectors';
-import { Candidate } from '@/server/routers/document';
+import { LinkingCandidate } from '@/lib/types/document';
 import { message } from 'antd';
 
 type AddCandidateFormProps = {
@@ -105,8 +105,8 @@ const AddCandidateForm = ({
   const handleSubmit = () => {
     if (!title || !url) return;
 
-    // Fill all required Candidate fields with defaults or dummy values
-    const newCandidate: Candidate = {
+    // Fill all required LinkingCandidate fields with defaults or dummy values
+    const newCandidate: LinkingCandidate = {
       id: Date.now(), // or a better unique id if available
       indexer: 0,
       score: 0,

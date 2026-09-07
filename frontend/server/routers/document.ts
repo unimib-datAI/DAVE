@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { createRouter } from '../context';
 import { TRPCError } from '@trpc/server';
 import fetchJson from '@/lib/fetchJson';
-import { Annotation } from '@/lib/ner/core/types';
 import fs from 'fs';
 import path from 'path';
 import base from '@/components/TranslationProvider/translations/base';
@@ -24,79 +23,12 @@ import {
   makeBatchDecryptionRequest,
 } from '@/lib/documentsBackend/anonymization';
 import { UploadJobController } from '@/lib/documentsBackend/uploadJobController';
-
-export type Document = {
-  _id: string;
-  id: number;
-  name: string;
-  preview: string;
-  text: string;
-  collectionId: string;
-  features: {
-    clusters: {
-      [key: string]: Cluster[];
-    };
-    anonymized?: boolean;
-  };
-  annotation_sets: {
-    [key: string]: AnnotationSet<EntityAnnotation>;
-    // entities: AnnotationSet<EntityAnnotation>;
-    // Sections?: AnnotationSet<SectionAnnotation>;
-    // sentences: AnnotationSet;
-  };
-};
-
-export type Cluster = {
-  id: number;
-  title: string;
-  type: string;
-  mentions: { id: number; mention: string }[];
-};
-
-export type AnnotationSet<P = []> = {
-  _id?: string;
-  name: string;
-  next_annid: number;
-  annotations: P[];
-};
-
-export type Candidate = {
-  id: number;
-  indexer: number;
-  score: number;
-  raw_score: number;
-  norm_score: number;
-  title: string;
-  url: string;
-  wikipedia_id?: string;
-};
-
-export type AdditionalAnnotationProps = {
-  mention: string;
-  cluster: number;
-  title: string;
-  url: string;
-  is_nil: boolean;
-  review_time?: number;
-  additional_candidates: Candidate[];
-  ner: {
-    source: string;
-    spacy_model: string;
-    type: string;
-    score: number;
-  };
-  linking: {
-    source: string;
-    is_nil: boolean;
-    nil_score: number;
-    top_candidate: Candidate;
-    candidates: Candidate[];
-  };
-  types?: string[];
-};
-
-export type EntityAnnotation = Annotation<AdditionalAnnotationProps>;
-export type SectionAnnotation = Annotation;
+import { serverConfig } from '@/lib/config/server';
+import type {
+  Document,
+  EntityAnnotation,
+  GetPaginatedDocuments,
+} from '@/lib/types/document';
 
 /**
  * Indexes a just-created document into Elasticsearch (chunking + embedding +
@@ -112,7 +44,7 @@ export type SectionAnnotation = Annotation;
  * here, since that's an existing, already-relied-upon capability.
  */
 async function indexCreatedDocument(doc: any, token: string) {
-  const elasticIndex = process.env.ELASTIC_INDEX;
+  const elasticIndex = serverConfig.elastic.index;
   if (!elasticIndex || !doc?.id) return;
 
   let textDeanonymized: string | undefined;
@@ -359,24 +291,12 @@ export async function runAnnotateAndUpload(input: {
         'CONSOLIDATION',
       ];
       const defaultUriForSlot: Record<string, string> = {
-        NER:
-          process.env.ANNOTATION_SPACYNER_URL ||
-          'http://spacyner:80/api/spacyner',
-        NEL:
-          process.env.ANNOTATION_BLINK_URL ||
-          'http://biencoder:80/api/blink/biencoder/mention/doc',
-        INDEXER:
-          process.env.ANNOTATION_INDEXER_URL ||
-          'http://indexer:80/api/indexer/search/doc',
-        NILPREDICTION:
-          process.env.ANNOTATION_NILPREDICTION_URL ||
-          'http://nilpredictor:80/api/nilprediction/doc',
-        CLUSTERING:
-          process.env.ANNOTATION_NILCLUSTER_URL ||
-          'http://clustering:80/api/clustering',
-        CONSOLIDATION:
-          process.env.ANNOTATION_CONSOLIDATION_URL ||
-          'http://consolidation:80/api/consolidation',
+        NER: serverConfig.annotationPipeline.ner,
+        NEL: serverConfig.annotationPipeline.nel,
+        INDEXER: serverConfig.annotationPipeline.indexer,
+        NILPREDICTION: serverConfig.annotationPipeline.nilPrediction,
+        CLUSTERING: serverConfig.annotationPipeline.nilClustering,
+        CONSOLIDATION: serverConfig.annotationPipeline.consolidation,
       };
       for (const slot of LEGACY_SLOTS) {
         const entry = raw[slot];
@@ -539,26 +459,6 @@ const getDocumentById = async (
       message: `Document with id '${id}' not found.`,
     });
   }
-};
-
-export type GetDocumentsDoc = {
-  _id: string;
-  id: number;
-  name: string;
-  preview: string;
-};
-
-export type GetPaginatedDocuments = {
-  docs: GetDocumentsDoc[];
-  totalDocs: number;
-  limit: number;
-  totalPages: number;
-  page: number;
-  pagingCounter: number;
-  hasPrevPage: boolean;
-  hasNextPage: boolean;
-  prevPage: number | null;
-  nextPage: number | null;
 };
 
 const getDocuments = async (
@@ -1315,7 +1215,7 @@ export const documents = createRouter()
       const { docId } = input;
       try {
         await dbConnect();
-        const elasticIndex = process.env.ELASTIC_INDEX;
+        const elasticIndex = serverConfig.elastic.index;
 
         const deletedDoc: any = await DocumentModel.findOneAndDelete({ id: docId });
         const annotationSets = await AnnotationSetModel.find({ docId });
@@ -1373,7 +1273,7 @@ export const documents = createRouter()
     }),
     resolve: async ({ input }) => {
       const { docId, annotationSets, features, token, collectionId } = input;
-      const elasticIndex = process.env.ELASTIC_INDEX;
+      const elasticIndex = serverConfig.elastic.index;
       try {
         console.log('Saving annotations for document:', docId);
         console.log('Features being saved:', features);
@@ -1572,7 +1472,7 @@ export const documents = createRouter()
       // If auth is enabled but no token supplied, avoid calling backend and return empty
       if (
         (!token || typeof token !== 'string' || token.trim().length === 0) &&
-        process.env.USE_AUTH !== 'false'
+        serverConfig.app.useAuth
       ) {
         return [];
       }

@@ -22,7 +22,7 @@ import { motion } from 'framer-motion';
 import { useDocumentEventListener, useWindowEventListener } from '@/hooks';
 import { useOnClickOutside } from 'usehooks-ts';
 import { Virtualizer } from '@tanstack/react-virtual';
-import { Candidate } from '@/server/routers/document';
+import { LinkingCandidate } from '@/lib/types/document';
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
 import ShortcutButton from '@/components/ShortcutButton/ShortcutButton';
 import { createNewCandidate } from '../ReviewProvider/utils';
@@ -203,7 +203,7 @@ const ItemContentContainer = styled.div({
 type SearchbarProps = HTMLAttributes<HTMLInputElement> & {
   active?: boolean;
   value?: string;
-  onItemSelected: (candidate: Candidate) => void;
+  onItemSelected: (candidate: LinkingCandidate) => void;
   onOpen: () => void;
   onClose: () => void;
 };

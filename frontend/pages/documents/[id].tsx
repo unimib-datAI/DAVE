@@ -47,6 +47,16 @@ const Document: NextPageWithLayout = () => {
       });
     }
 
+    // Highlight up-front so the renderer (which virtualizes the document body)
+    // scrolls the containing block into view - the element usually isn't
+    // mounted yet, so a bare getElementById below would otherwise no-op.
+    if (annotationId != null) {
+      dispatch({
+        type: 'highlightAnnotation',
+        payload: { annotationId: Number(annotationId) },
+      });
+    }
+
     setTimeout(() => {
       if (annotationId != null) {
         //todo: add loading

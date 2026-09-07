@@ -4,8 +4,16 @@ import { darken } from 'polished';
 
 type MetadataCardProps = {
   title: string;
-  content: String | Number;
+  content: string | number;
 };
+
+/** Turn a raw feature key (e.g. `cf_giudice`) into a readable label. */
+const humanize = (key: string) =>
+  key
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
 
 const ClusterContainer = styled.button<{}>(() => ({
   position: 'relative',
@@ -51,9 +59,10 @@ const Tag = styled.span<{ color: string }>(({ color }) => ({
 const MetadataCard = ({ title, content }: MetadataCardProps) => {
   const t = useText('document');
 
-  // Translate the title using the metadata fields
+  // Prefer an explicit translation for known fields, fall back to a
+  // humanized version of the raw key.
   const translatedTitle =
-    t(`leftSidebar.metadataContent.fields.${title}`) || title;
+    t(`leftSidebar.metadataContent.fields.${title}`) || humanize(title);
 
   return (
     <>
@@ -70,7 +79,16 @@ const MetadataCard = ({ title, content }: MetadataCardProps) => {
         >
           {translatedTitle}
         </strong>
-        <span style={{ fontSize: '12px' }}>{content}</span>
+        <span
+          style={{
+            fontSize: '12px',
+            textAlign: 'start',
+            whiteSpace: 'pre-line',
+            wordBreak: 'break-word',
+          }}
+        >
+          {content}
+        </span>
       </ClusterContainer>
     </>
   );

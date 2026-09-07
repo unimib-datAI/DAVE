@@ -2,6 +2,7 @@ import styled from '@emotion/styled';
 import { selectViews, useSelector } from '../DocumentProvider/selectors';
 import { useViewIndex } from '../ViewProvider/ViewProvider';
 import FixedItems from './FixedItems';
+import RenderModeToggle from './RenderModeToggle';
 import SelectAnnotationSet from './SelectAnnotationSet';
 import SelectTypeFilter from './SelectTypeFilter';
 import { AnonimizeSwitch } from './AnonimizeSwitch';
@@ -35,6 +36,7 @@ const Toolsbar = () => {
       <ItemsContainer>
         <SelectAnnotationSet />
         <SelectTypeFilter />
+        <RenderModeToggle />
         {/*<AnonimizeSwitch />*/}
         {/*<DeAnonimizeButton />*/}
       </ItemsContainer>

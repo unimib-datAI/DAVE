@@ -1,4 +1,4 @@
-import { Candidate } from '@/server/routers/document';
+import { LinkingCandidate } from '@/lib/types/document';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useCallback } from 'react';
 import { createSelector } from 'reselect';
@@ -116,7 +116,7 @@ export const selectCurrentEntities = createSelector(
         }
         return acc;
       },
-      {} as Record<string, Candidate>
+      {} as Record<string, LinkingCandidate>
     );
 
     return Object.values(candidatesIndex);

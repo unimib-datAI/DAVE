@@ -18,8 +18,8 @@ import {
 } from 'antd';
 import { Button, Spinner } from '@heroui/react';
 import { Shield, Lock, Users } from 'lucide-react';
-import type { DAVEPermissions } from '@/server/routers/permission';
-import type { User } from '@/server/routers/user';
+import type { DAVEPermissions } from '@/lib/types/permission';
+import type { KeycloakUser } from '@/lib/types/user';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Static config – roles and permission map
@@ -60,7 +60,7 @@ const AdminPage: NextPage = () => {
 
   // Users state
   const [userModalOpen, setUserModalOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<KeycloakUser | null>(null);
   const [userForm] = Form.useForm();
 
   const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';

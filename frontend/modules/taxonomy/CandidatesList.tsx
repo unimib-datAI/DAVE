@@ -1,4 +1,4 @@
-import { Candidate } from '@/server/routers/taxonomy';
+import { SpecializationCandidate } from '@/lib/types/taxonomy';
 import styled from '@emotion/styled';
 import { Tooltip, Checkbox } from '@heroui/react';
 import { FiChevronDown } from '@react-icons/all-files/fi/FiChevronDown';
@@ -6,19 +6,19 @@ import Link from 'next/link';
 import { useMemo, useState, MouseEvent } from 'react';
 
 type CandidatesListProps = {
-  candidates: Candidate[];
+  candidates: SpecializationCandidate[];
   selectedItems?: number[];
   selectable?: boolean;
-  getUrl: (candidate: Candidate) => string;
+  getUrl: (candidate: SpecializationCandidate) => string;
   onChange?: (index: number) => void;
 };
 
 type CandidateItemProps = {
   index: number;
   selectable: boolean;
-  candidate: Candidate;
+  candidate: SpecializationCandidate;
   isSelected?: boolean;
-  getUrl: (candidate: Candidate) => string;
+  getUrl: (candidate: SpecializationCandidate) => string;
   onClick: () => void;
 };
 

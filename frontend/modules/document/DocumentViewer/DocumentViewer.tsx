@@ -1,7 +1,8 @@
 import VirtualizedNER from '@/components/NER/VirtualizedNER';
+import MarkdownNER from '@/components/NER/MarkdownNER';
 import { SelectionNode } from '@/components/NER/TextNode';
 import { useHashUrlId } from '@/hooks';
-import { EntityAnnotation } from '@/server/routers/document';
+import { EntityAnnotation } from '@/lib/types/document';
 import styled from '@emotion/styled';
 import {
   MouseEvent,
@@ -20,6 +21,8 @@ import {
   selectFilteredEntityAnnotationsWithSearch,
   selectHighlightAnnotationId,
   selectSectionsSidebar,
+  selectViewRenderMode,
+  useDocumentContext,
   useDocumentDispatch,
   useSelector,
 } from '../DocumentProvider/selectors';
@@ -50,6 +53,10 @@ const DocumentViewer = () => {
   const addSelectionColor = useSelector(selectAddSelectionColor);
   const highlightAnnotationId = useSelector(selectHighlightAnnotationId);
   const sectionsSidebar = useSelector(selectSectionsSidebar);
+  const renderMode = useSelector((state) =>
+    selectViewRenderMode(state, viewIndex)
+  );
+  const { deAnonimize } = useDocumentContext();
 
   // Cache the last selection to avoid unnecessary re-renders
   const [lastSelection, setLastSelection] = useState<SelectionNode | null>(
@@ -192,6 +199,24 @@ const DocumentViewer = () => {
       handleTagDelete,
     ]
   );
+
+  if (renderMode === 'markdown') {
+    return (
+      <MarkdownNER
+        text={text}
+        entityAnnotations={allAnnotations}
+        taxonomy={taxonomy}
+        highlightAnnotation={highlightAnnotationId}
+        isAddMode={action.value === 'add'}
+        addSelectionColor={addSelectionColor}
+        deAnonimize={deAnonimize}
+        showAnnotationDelete
+        onTagClick={handleTagClick}
+        onTagDelete={handleTagDelete}
+        onTextSelection={onTextSelection}
+      />
+    );
+  }
 
   return (
     <Container>

@@ -9,6 +9,7 @@
 import { PermissionModel } from '../db/models/Permission';
 import { dbConnect } from '../db/connection';
 import { RequestUser, getUserRoles } from './keycloakAuth';
+import { serverConfig } from '@/lib/config/server';
 
 let cachedPermissions: any = null;
 let cacheExpiry = 0;
@@ -51,7 +52,7 @@ export async function requirePermission(
   section: string,
   action: string
 ): Promise<void> {
-  if (process.env.USE_AUTH === 'false') {
+  if (!serverConfig.app.useAuth) {
     return;
   }
 

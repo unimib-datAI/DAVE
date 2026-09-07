@@ -1,6 +1,6 @@
 import { useInput } from '@/hooks';
 import useDebounce from '@/hooks/use-debounce';
-import { GetPaginatedDocuments } from '@/server/routers/document';
+import { GetPaginatedDocuments } from '@/lib/types/document';
 import { useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
 import { Modal, ModalContent, ModalBody, Spinner } from '@heroui/react';

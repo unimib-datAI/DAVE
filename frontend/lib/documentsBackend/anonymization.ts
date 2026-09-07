@@ -1,7 +1,8 @@
 // Ported from backend/documents/src/utils/anonymization.js
 import axios from 'axios';
+import { serverConfig } from '@/lib/config/server';
 
-const endpoint = (process.env.ANONYMIZATION_ENDPOINT || '').trim();
+const endpoint = serverConfig.anonymization.endpoint;
 // Anonymization is optional. When ANONYMIZATION_ENDPOINT is not configured we
 // must NOT fall back to some default host: previously the default was an
 // unroutable internal IP, so every encrypt/decrypt call hung until the axios

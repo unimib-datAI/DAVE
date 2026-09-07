@@ -1,5 +1,5 @@
 import { activeCollectionAtom } from '@/atoms/collection';
-import { DocumentWithChunk } from '@/server/routers/search';
+import { DocumentWithChunk } from '@/lib/types/search';
 import { getPromptAndMessage } from '@/utils/textGeneration';
 import { llmSettingsAtom, DEFAULT_SYSTEM_PROMPT } from '@/atoms/llmSettings';
 import { useAtom } from 'jotai';

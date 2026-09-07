@@ -1,4 +1,4 @@
-import { Source, SourceDoc } from '@/server/routers/review';
+import { Source, SourceDoc } from '@/lib/types/review';
 import { useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
 

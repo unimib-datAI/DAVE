@@ -2,7 +2,6 @@ import { useText } from '@/components';
 import styled from '@emotion/styled';
 import { selectDocumentData, useSelector } from '../DocumentProvider/selectors';
 import { createObjectFromJson } from '@/utils/shared';
-import { DocumentMetadataFeatures } from '../DocumentProvider/types';
 import MetadataList from './MetadataList';
 
 const Container = styled.div({
@@ -31,7 +30,7 @@ const SidebarMetadata = () => {
 
   const documentData = useSelector(selectDocumentData);
 
-  const features = createObjectFromJson<DocumentMetadataFeatures>(
+  const features = createObjectFromJson<Record<string, unknown>>(
     documentData?.features
   );
   return documentData ? (

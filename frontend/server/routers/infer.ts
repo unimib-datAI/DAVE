@@ -2,7 +2,8 @@ import fetchJson from '@/lib/fetchJson';
 import { z } from 'zod';
 import { createRouter } from '../context';
 import { getAuthHeader } from '../get-auth-header';
-import { Document } from './document';
+import { serverConfig } from '@/lib/config/server';
+import type { Document } from '@/lib/types/document';
 
 type InferOptions = {
   save: boolean;
@@ -14,7 +15,7 @@ const defaultOptions = {
 
 const inferText = async (value: string, options: InferOptions) => {
   const response = await fetchJson<any, Document>(
-    `${process.env.API_BASE_URI}/pipeline`,
+    `${serverConfig.externalBackend.baseUri}/pipeline`,
     {
       method: 'POST',
       headers: {

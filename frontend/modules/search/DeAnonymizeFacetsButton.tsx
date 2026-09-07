@@ -6,7 +6,7 @@ import {
   deanonymizedFacetNamesAtom,
   isLoadingAnonymizationAtom,
 } from '@/utils/atoms';
-import { FacetedQueryOutput } from '@/server/routers/search';
+import { FacetedQueryOutput } from '@/lib/types/search';
 import { useEffect, useState } from 'react';
 import { useText } from '@/components/TranslationProvider';
 

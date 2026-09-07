@@ -1,11 +1,11 @@
-import { Candidate } from '@/server/routers/taxonomy';
+import { SpecializationCandidate } from '@/lib/types/taxonomy';
 import styled from '@emotion/styled';
 import { Button, Text } from '@heroui/react';
 import { useState } from 'react';
 import CandidatesList from './CandidatesList';
 
 type FewShotExamplesProps = {
-  candidates: Candidate[];
+  candidates: SpecializationCandidate[];
 };
 
 const Container = styled.div({

@@ -7,7 +7,7 @@ import { useRouter } from 'next/router';
 import { useEffect, useState, ReactNode } from 'react';
 import { FiArrowLeft } from '@react-icons/all-files/fi/FiArrowLeft';
 import styled from '@emotion/styled';
-import { collectionDocInfo } from '@/server/routers/collection';
+import { collectionDocInfo } from '@/lib/types/collection';
 import { FiTrash2 } from '@react-icons/all-files/fi/FiTrash2';
 import {
   message,

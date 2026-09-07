@@ -3,27 +3,15 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createRouter } from "../context";
 import { getAuthHeader } from "../get-auth-header";
+import { serverConfig } from "@/lib/config/server";
+import type { SpecializationCandidate } from "@/lib/types/taxonomy";
 
-export type Candidate = {
-  mention: string;
-  mention_type: string;
-  text: string;
-  offset_doc_start: number;
-  offset_doc_end: number;
-  offset_ex_start: number;
-  offset_ex_end: number;
-  doc_id: number;
-  id: number;
-  predict_proba?: number;
-  type_pred?: string;
-}
-
-const baseURL = `${process.env.API_BASE_URI}/specialization`;
+const baseURL = `${serverConfig.externalBackend.baseUri}/specialization`;
 
 
-const getZeroShotExamples = async (type_id: string, verbalizer: string[], ancestor_type_id: string): Promise<Candidate[]> => {
+const getZeroShotExamples = async (type_id: string, verbalizer: string[], ancestor_type_id: string): Promise<SpecializationCandidate[]> => {
   try {
-    const candidates = fetchJson<any, Candidate[]>(
+    const candidates = fetchJson<any, SpecializationCandidate[]>(
       `${baseURL}/zero`,
       {
         method: 'POST',
@@ -48,8 +36,8 @@ const getZeroShotExamples = async (type_id: string, verbalizer: string[], ancest
   }
 };
 
-const getFewShotExamples = async (type_id: string): Promise<Candidate[]> => {
-  const candidates = fetchJson<any, Candidate[]>(
+const getFewShotExamples = async (type_id: string): Promise<SpecializationCandidate[]> => {
+  const candidates = fetchJson<any, SpecializationCandidate[]>(
     `${baseURL}/few`,
     {
       method: 'POST',

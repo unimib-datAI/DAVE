@@ -1,10 +1,11 @@
 import { toBase64 } from '@/utils/shared';
+import { serverConfig } from '@/lib/config/server';
 
 export const getAuthHeader = () => {
-  if (process.env.USE_AUTH === 'false') {
+  if (!serverConfig.app.useAuth) {
     return ''; // No Authorization header when auth is disabled
   }
   return `Basic ${toBase64(
-    `${process.env.API_USERNAME}:${process.env.API_PASSWORD}`
+    `${serverConfig.externalBackend.username}:${serverConfig.externalBackend.password}`
   )}`;
 };

@@ -1,5 +1,5 @@
 import { Flex, useText } from '@/components';
-import { EntityAnnotation } from '@/server/routers/document';
+import { EntityAnnotation } from '@/lib/types/document';
 import styled from '@emotion/styled';
 import { scrollEntityIntoView } from '../DocumentProvider/utils';
 import EntityContext from './EntityContext';

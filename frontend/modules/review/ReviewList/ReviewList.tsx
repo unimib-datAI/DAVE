@@ -1,4 +1,4 @@
-import { AdditionalAnnotationProps, Candidate } from "@/server/routers/document";
+import { AdditionalAnnotationProps, LinkingCandidate } from "@/lib/types/document";
 import styled from "@emotion/styled";
 import { forwardRef, MouseEvent, useRef, useState } from "react";
 import { flushSync } from "react-dom";

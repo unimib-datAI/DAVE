@@ -2,7 +2,6 @@ import fetchJson from "@/lib/fetchJson";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { createRouter } from "../context";
-import { Candidate, Document } from "./document";
 
 export type GetDataProps = {
   title: string;

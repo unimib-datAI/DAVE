@@ -1,6 +1,6 @@
 import { useText } from "@/components";
 import { BaseSelect, Option } from "@/components/BaseSelect";
-import { AnnotationSet, EntityAnnotation } from "@/server/routers/document";
+import { AnnotationSet, EntityAnnotation } from "@/lib/types/document";
 import t from "@/translation/eng";
 import { MouseEvent, useMemo } from "react";
 

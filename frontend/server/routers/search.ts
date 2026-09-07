@@ -1,11 +1,16 @@
 import { z } from 'zod';
 import { createRouter } from '../context';
-import { Document } from './document';
 import { TRPCError } from '@trpc/server';
 import { runFacetedSearch } from '@/lib/facetedSearch';
 import { search as runVectorSearch } from '@/lib/vectorSearch';
 import { addAnnotationsToDocumentEs } from '@/lib/elasticAdmin';
 import { ChatController } from '@/lib/documentsBackend/chatController';
+import { serverConfig } from '@/lib/config/server';
+import type { Document } from '@/lib/types/document';
+import type {
+  DocumentWithChunk,
+  FacetedQueryOutput,
+} from '@/lib/types/search';
 
 export type MostSimilarDocument = {
   id: number;
@@ -28,79 +33,10 @@ type GetSimilarDocument = {
 
 export type GetSimilarDocumentResponse = GetSimilarDocument[];
 
-export type FacetedQueryHit = {
-  _id: string;
-  id: Number;
-  mongo_id: string;
-  text: string;
-  name: string;
-  metadata: HitMetadata[];
-  annotations: HitAnnotation[];
-};
-
-export type HitMetadata = {
-  type: string;
-  value: string;
-};
-
-export type HitAnnotation = {
-  start: number;
-  end: number;
-  mention: string;
-  type: string;
-  id_ER: string;
-  display_name?: string;
-};
-
-export type Facet = {
-  key: string;
-  n_children: number;
-  doc_count: number;
-  children: {
-    key: string;
-    ids_ER: string[];
-    display_name: string;
-    is_linked?: boolean;
-    doc_count: number;
-  }[];
-};
-
-export type FacetedQueryOutput = {
-  hits: FacetedQueryHit[];
-  facets: {
-    metadata: Facet[];
-    annotations: Facet[];
-  };
-  pagination: {
-    current_page: number;
-    total_hits: number;
-    total_pages: number;
-  };
-};
-
 export type AddAnnotationsResponse = {
   result: string;
   document_id: string;
   annotations_added: number;
-};
-
-export type DocumentChunk = {
-  id: string;
-  distance: number;
-  metadata: {
-    doc_id: string;
-    chunk_size: number;
-  };
-  text: string;
-  text_anonymized?: string;
-};
-
-export type DocumentWithChunk = {
-  id: number;
-  title: string;
-  preview: string;
-  chunks: DocumentChunk[];
-  full_docs?: boolean;
 };
 
 const processResponseMostSImilartDocuments = (
@@ -137,7 +73,7 @@ async function addAnnotationsToDocument(
   mentions: any[]
 ): Promise<AddAnnotationsResponse> {
   try {
-    const index = process.env.ELASTIC_INDEX as string;
+    const index = serverConfig.elastic.index;
 
     console.log('========== SERVER: ANNOTATION SAVE REQUEST ==========');
     console.log('Index name:', indexName);
@@ -179,7 +115,7 @@ export const search = createRouter()
       collectionId: z.string().optional(),
     }),
     resolve: async ({ input }) => {
-      const index = process.env.ELASTIC_INDEX as string;
+      const index = serverConfig.elastic.index;
       console.log('*** most similar collection id ***', input.collectionId);
       // forward collectionId (if provided) to restrict the search to a single collection
       const documents = (await runVectorSearch({
@@ -215,7 +151,7 @@ export const search = createRouter()
       isAnonymized: z.boolean().optional(),
     }),
     resolve: async ({ input }) => {
-      const index = process.env.ELASTIC_INDEX as string;
+      const index = serverConfig.elastic.index;
 
       return runFacetedSearch({
         indexName: index,

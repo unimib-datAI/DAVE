@@ -5,28 +5,7 @@ import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
 import { requireAdmin, PermissionDeniedError } from '@/lib/documentsBackend/permission';
 import { PermissionModel } from '@/lib/db/models/Permission';
 import { dbConnect } from '@/lib/db/connection';
-
-export type DAVEPermissions = {
-  _id: string;
-  collections: {
-    create: string[];
-    update: string[];
-    delete: string[];
-    view: string[];
-    deAnonimize: string[];
-  };
-  document: {
-    update: string[];
-  };
-  chat: {
-    canUse: string[];
-    canDevMode: string[];
-  };
-  settings: {
-    llm: string[];
-    pipeline: string[];
-  };
-};
+import { serverConfig } from '@/lib/config/server';
 
 const rolesArray = z.array(z.string());
 
@@ -61,7 +40,7 @@ export const permissions = createRouter()
 
       if (
         (!token || typeof token !== 'string' || token.trim().length === 0) &&
-        process.env.USE_AUTH !== 'false'
+        serverConfig.app.useAuth
       ) {
         return null;
       }
@@ -106,7 +85,7 @@ export const permissions = createRouter()
         const user = await getRequestUser(token);
         // Admin role required, mirroring requireAdminRole - entirely
         // bypassed when USE_AUTH=false (anonymous users get admin rights).
-        if (process.env.USE_AUTH !== 'false') {
+        if (serverConfig.app.useAuth) {
           requireAdmin(user);
         }
 

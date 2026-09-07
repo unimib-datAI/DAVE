@@ -2,6 +2,11 @@
 // Elasticsearch, ported from qavectorizer's retriever.py + the `retrievers`
 // dict in app.py.
 
+import { serverConfig } from '@/lib/config/server';
+
+const r = serverConfig.sourceRetrievers;
+const apiDoc = (base: string) => `${base}/api/document`;
+
 async function retrieve(baseUrl: string, id: string): Promise<any | null> {
   try {
     const res = await fetch(`${baseUrl}/${id}`);
@@ -15,27 +20,17 @@ async function retrieve(baseUrl: string, id: string): Promise<any | null> {
 }
 
 const retrieverUrls: Record<string, string> = {
-  batini: (process.env.PIPELINE_ADDRESS || 'http://10.0.0.108:3001') + '/api/document',
-  bologna_renzo_matched_1:
-    (process.env.DEMO_PIPELINE_ADDRESS || 'http://10.0.0.108:3002') + '/api/document',
-  sperimentazione:
-    (process.env.SPERIMENTAZIONE_PIPELINE_ADDRESS || 'http://10.0.0.108:3003') +
-    '/api/document',
-  indagini:
-    (process.env.INDAGINI_PIPELINE_ADDRESS || 'http://10.0.0.108:3004') + '/api/document',
-  mirko: (process.env.MIRKO_PIPELINE_ADDRESS || 'http://10.0.0.108:3005') + '/api/document',
-  doc_eng_1:
-    (process.env.RENZO_PIPELINE_ADDRESS || 'http://10.0.0.108:3006') + '/api/document',
-  messages:
-    (process.env.MESSAGES_PIPELINE_ADDRESS || 'http://10.0.0.108:3007') + '/api/document',
-  eu: (process.env.EU_PIPELINE_ADDRESS || 'http://10.0.0.108:3008') + '/api/document',
-  eu_v2: (process.env.EU_V2_PIPELINE_ADDRESS || 'http://10.0.0.108:3009') + '/api/document',
-  anonymization:
-    (process.env.ANONYMIZATION_PIPELINE_ADDRESS || 'http://documents:3001') +
-    '/api/document',
-  anonymized:
-    (process.env.ANONYMIZATION_PIPELINE_ADDRESS || 'http://documents:3001') +
-    '/api/document',
+  batini: apiDoc(r.batini),
+  bologna_renzo_matched_1: apiDoc(r.demo),
+  sperimentazione: apiDoc(r.sperimentazione),
+  indagini: apiDoc(r.indagini),
+  mirko: apiDoc(r.mirko),
+  doc_eng_1: apiDoc(r.renzo),
+  messages: apiDoc(r.messages),
+  eu: apiDoc(r.eu),
+  eu_v2: apiDoc(r.euV2),
+  anonymization: apiDoc(r.anonymization),
+  anonymized: apiDoc(r.anonymization),
   eu_anonymized: 'http://10.0.0.108:3011/api/document',
 };
 

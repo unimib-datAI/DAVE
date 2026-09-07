@@ -4,18 +4,7 @@ import { TRPCError } from '@trpc/server';
 import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
 import { requireAdmin, PermissionDeniedError } from '@/lib/documentsBackend/permission';
 import { keycloakService } from '@/lib/documentsBackend/keycloakService';
-
-export type User = {
-  id: string;
-  email: string;
-  username?: string;
-  firstName?: string;
-  lastName?: string;
-  name?: string;
-  roles: string[];
-  createdAt?: string;
-  updatedAt?: string;
-};
+import type { KeycloakUser } from '@/lib/types/user';
 
 function toUserTRPCError(error: any, fallbackMessage: string): TRPCError {
   if (error instanceof PermissionDeniedError) {
@@ -44,7 +33,7 @@ export const users = createRouter()
       const { token } = input;
 
       if (!token || typeof token !== 'string' || token.trim().length === 0) {
-        return [] as User[];
+        return [] as KeycloakUser[];
       }
 
       try {
@@ -67,7 +56,7 @@ export const users = createRouter()
             };
           })
         );
-        return usersWithRoles as User[];
+        return usersWithRoles as KeycloakUser[];
       } catch (error: any) {
         throw toUserTRPCError(error, 'Failed to fetch users');
       }

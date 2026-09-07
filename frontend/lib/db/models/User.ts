@@ -2,8 +2,9 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
+import { serverConfig } from '@/lib/config/server';
 
-const SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || '12', 10);
+const SALT_ROUNDS = serverConfig.localAuth.bcryptSaltRounds;
 
 export interface IUser extends Document {
   userId: string;
@@ -110,10 +111,8 @@ UserSchema.methods.validatePassword = async function (
   const count = await User.countDocuments({});
 
   if (count === 0) {
-    const adminEmail = (process.env.ADMIN_EMAIL || 'admin@daveadmin.com')
-      .toLowerCase()
-      .trim();
-    const adminPassword = process.env.ADMIN_PASSWORD || 'daveAdmin42!';
+    const adminEmail = serverConfig.adminSeed.email.toLowerCase().trim();
+    const adminPassword = serverConfig.adminSeed.password;
 
     const user = new User({
       name: 'Admin',

@@ -1,8 +1,8 @@
 import { Annotation } from '@/lib/ner/core/types';
 import {
   AdditionalAnnotationProps,
-  Candidate,
-} from '@/server/routers/document';
+  LinkingCandidate,
+} from '@/lib/types/document';
 import styled from '@emotion/styled';
 import { Link } from '@heroui/react';
 import { useState, ReactNode } from 'react';
@@ -44,7 +44,7 @@ const ListItemContent = styled.div({
 });
 
 type ListAdditionalCandidatesProps = {
-  candidates: Candidate[];
+  candidates: LinkingCandidate[];
 };
 
 const ListAdditionalCandidates = ({

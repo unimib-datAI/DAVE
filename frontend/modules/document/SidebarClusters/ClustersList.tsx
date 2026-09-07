@@ -1,4 +1,4 @@
-import { Cluster } from '@/server/routers/document';
+import { Cluster } from '@/lib/types/document';
 import styled from '@emotion/styled';
 import { useState } from 'react';
 import { ProcessedCluster } from '../DocumentProvider/types';

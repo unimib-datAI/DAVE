@@ -1,4 +1,4 @@
-import { FacetedQueryHit } from '@/server/routers/search';
+import { FacetedQueryHit } from '@/lib/types/search';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useAtom } from 'jotai';

@@ -6,7 +6,7 @@ import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import styled from "@emotion/styled";
 import { FiX } from "@react-icons/all-files/fi/FiX";
 import { useMutation } from "@/utils/trpc";
-import { AnnotationSet, EntityAnnotation } from "@/server/routers/document";
+import { AnnotationSet, EntityAnnotation } from "@/lib/types/document";
 import { ConfirmationDialog, useConfirmationDialog, useText } from "@/components";
 
 const DeleteButton = styled.button({

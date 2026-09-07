@@ -1,5 +1,5 @@
 import { Message } from '@/hooks/use-chat';
-import { DocumentWithChunk } from '@/server/routers/search';
+import { DocumentWithChunk } from '@/lib/types/search';
 
 export type Action =
   | { type: 'setMessages'; payload: { messages: Message[] } }

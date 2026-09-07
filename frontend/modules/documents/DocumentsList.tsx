@@ -5,7 +5,7 @@ import DocumentCard from './DocumentCard';
 import { FaTh } from '@react-icons/all-files/fa/FaTh';
 import { FaListUl } from '@react-icons/all-files/fa/FaListUl';
 import { InfiniteData } from 'react-query';
-import { GetPaginatedDocuments } from '@/server/routers/document';
+import { GetPaginatedDocuments } from '@/lib/types/document';
 import { useText } from '@/components';
 
 type DocumentsListProps = {

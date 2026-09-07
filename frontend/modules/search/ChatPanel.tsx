@@ -17,7 +17,7 @@ import { useMutation } from '@/utils/trpc';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/Tabs';
 import { MostSimilarDocumentsListSkeleton } from './MostSimilarDocumentsListSkeleton';
 import Link from 'next/link';
-import { DocumentWithChunk } from '@/server/routers/search';
+import { DocumentWithChunk } from '@/lib/types/search';
 import { ButtonSend } from './ButtonSend';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';

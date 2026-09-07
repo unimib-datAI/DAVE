@@ -1,5 +1,5 @@
 import { ProcessedCluster } from '@/modules/document/DocumentProvider/types';
-import { Document } from '@/server/routers/document';
+import { Document } from '@/lib/types/document';
 
 /**
  * Encode a string to uri component.

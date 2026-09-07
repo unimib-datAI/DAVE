@@ -1,5 +1,5 @@
 import { useParam } from '@/hooks';
-import { GetDocumentProps, GetSourceProps } from '@/server/routers/review';
+import { GetDocumentProps, GetSourceProps } from '@/lib/types/review';
 import { useQuery } from '@/utils/trpc';
 import { PropsWithChildren, useEffect, useMemo } from 'react';
 import { Provider, createStore, useSetAtom } from 'jotai';

@@ -2,7 +2,7 @@ import { Annotation } from '@/lib/ner/core/types';
 import {
   AdditionalAnnotationProps,
   EntityAnnotation,
-} from '@/server/routers/document';
+} from '@/lib/types/document';
 import styled from '@emotion/styled';
 import { darken } from 'polished';
 import { useMemo, useCallback } from 'react';

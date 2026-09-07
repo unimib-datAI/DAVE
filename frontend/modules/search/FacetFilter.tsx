@@ -1,5 +1,5 @@
 import { useForm } from '@/hooks';
-import { Facet } from '@/server/routers/search';
+import { Facet } from '@/lib/types/search';
 import { Checkbox } from '@heroui/react';
 
 import { Option } from 'lucide-react';

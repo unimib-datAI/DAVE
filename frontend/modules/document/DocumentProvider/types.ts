@@ -1,10 +1,10 @@
 import {
   AnnotationSet,
-  Candidate,
+  LinkingCandidate,
   Cluster,
   Document,
   EntityAnnotation,
-} from '@/server/routers/document';
+} from '@/lib/types/document';
 import { FlatTreeNode, TreeItem } from '../../../components/Tree';
 import { FlatTreeObj } from '../../../components/Tree';
 
@@ -51,7 +51,7 @@ export type Action =
               title: string;
             }
           | undefined;
-        additional_candidates?: Candidate[];
+        additional_candidates?: LinkingCandidate[];
       };
     }
   | { type: 'deleteAnnotation'; payload: { viewIndex: number; id: number } }
@@ -96,10 +96,18 @@ export type ProcessedCluster = Cluster & {
   }[];
 };
 
+export type RenderMode = 'markdown' | 'classic';
+
 export type View = {
   typeFilter: string[];
   activeAnnotationSet: string;
   activeSection: string | undefined;
+  /**
+   * How the document body is rendered: `markdown` (react-markdown + inline
+   * entity mentions) or `classic` (the virtualized plain-text NER renderer).
+   * Toggled per-pane from the sub-toolbar. Defaults to `markdown`.
+   */
+  renderMode?: RenderMode;
 };
 
 export type UIState = {

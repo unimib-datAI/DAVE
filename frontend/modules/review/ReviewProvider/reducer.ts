@@ -1,4 +1,4 @@
-import { Candidate } from "@/server/routers/document";
+import { LinkingCandidate } from "@/lib/types/document";
 import { createReducer } from "@/utils/createReducer";
 import { Action, State } from "./types";
 import { addIfUnique, setNextItem } from "./utils";
@@ -65,7 +65,7 @@ export const reviewReducer = createReducer<State, Action>({
     const annSet = Object.keys(state.currentDocument.annotation_sets)[0];
     const { cursor, index, candidate } = payload;
 
-    let selectedCandidate = candidate as Candidate;
+    let selectedCandidate = candidate as LinkingCandidate;
 
     if (!candidate && cursor == null && index == null) {
       return state;

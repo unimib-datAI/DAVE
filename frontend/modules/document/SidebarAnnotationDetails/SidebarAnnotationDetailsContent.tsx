@@ -9,7 +9,7 @@ import {
   useDocumentDispatch,
   useSelector,
 } from '../DocumentProvider/selectors';
-import { EntityAnnotation } from '@/server/routers/document';
+import { EntityAnnotation } from '@/lib/types/document';
 import { getCandidateId } from '../DocumentProvider/utils';
 import { Flex, IconButton, useText } from '@/components';
 import { FiX } from '@react-icons/all-files/fi/FiX';
