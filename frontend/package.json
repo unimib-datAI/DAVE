@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "LOCALE=eng next dev",
+    "dev": "LOCALE=eng next dev -p 3010",
     "dev:debug": "LOCALE=eng NODE_OPTIONS='--inspect' next dev",
     "build": "next build",
     "start": "next start",
@@ -31,11 +31,12 @@
     "@radix-ui/react-slider": "^1.1.2",
     "@radix-ui/react-tabs": "^1.0.4",
     "@react-icons/all-files": "^4.1.0",
+    "@tanstack/react-query": "^5",
     "@tanstack/react-virtual": "3.13.19",
-    "@trpc/client": "^9.22.0",
-    "@trpc/next": "^9.22.0",
-    "@trpc/react": "^9.22.0",
-    "@trpc/server": "^9.22.0",
+    "@trpc/client": "^11.18.0",
+    "@trpc/next": "^11.18.0",
+    "@trpc/react-query": "^11",
+    "@trpc/server": "^11.18.0",
     "@xenova/transformers": "^2.17.2",
     "antd": "^5.20.1",
     "archiver": "7.0.1",
@@ -68,7 +69,6 @@
     "react-intersection-observer": "^9.3.5",
     "react-loading-skeleton": "^3.0.3",
     "react-markdown": "^10.1.0",
-    "react-query": "^3.39.3",
     "react-redux": "^9.2.0",
     "react-switch": "^7.0.0",
     "react-transition-group": "^4.4.2",
@@ -100,6 +100,6 @@
     "postcss": "^8.4.23",
     "prettier": "^2.8.8",
     "tailwindcss": "^3.3.2",
-    "typescript": "5.5.4"
+    "typescript": "5.7.3"
   }
 }
