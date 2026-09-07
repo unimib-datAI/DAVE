@@ -238,11 +238,10 @@ Ordered roughly by leverage.
    `runAnnotateAndUpload` / `runCreateDocument` / `runSave`, (d) upload-job
    orchestration extracted from the resolver (currently a fire-and-forget async
    IIFE — move to a proper worker/queue abstraction so multi-instance is safe).
-2. **No tRPC context/middleware** — `token` is smuggled through every input
-   schema. Introduce a real `createContext` that reads the header + resolves
-   `RequestUser` + exposes `requirePermission`. This alone removes a lot of
-   boilerplate. Decide tRPC v9 fate first (§ below).
-3. **tRPC v9 EOL** — **decided: upgrade to v11.** Not started yet. Blocks #2.
+2. ✅ **tRPC context/middleware** — done with #3. `createContext` resolves the
+   caller from headers; `token` is gone from every input schema;
+   `authedProcedure` gates the routes that need a user.
+3. ✅ **tRPC v9 → v11** — done, see [04-trpc-v11.md](./04-trpc-v11.md).
 4. **`lib/documentsBackend/*` port cleanup** — give it real types (drop `any`),
    swap `throw new Error(string)` for typed errors, replace `console.*` with a
    logger, and align naming with `lib/` (`XxxController` object literals vs the
@@ -272,8 +271,8 @@ Ordered roughly by leverage.
 
 1. ✅ Config module (#5) — landed, see [02-config-module.md](./02-config-module.md).
 2. ✅ Types extraction (#8) — landed, see [03-shared-types.md](./03-shared-types.md).
-3. tRPC v11 upgrade + real context (#3, #2) — decided, not started. The structural keystone. **Next up.**
-4. `document.ts` split (#1) — the biggest single win, easier after #3.
+3. ✅ tRPC v11 + real context (#3, #2) — landed, see [04-trpc-v11.md](./04-trpc-v11.md).
+4. `document.ts` split (#1) — the biggest single win, easier now #3 is done. **Next up.**
 5. `lib/documentsBackend` cleanup (#4) + re-enable type-checking (#10).
 6. Auth consolidation (#6).
 7. Proxy routers decision (#7).

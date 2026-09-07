@@ -15,7 +15,7 @@ Start with the layer maps, then drill into a module doc when you touch it.
 | 01 | [Server side](./01-server-side.md) | draft | Everything that runs in Node: tRPC routers, API routes, `lib/`, data layer, auth, RAG/search, external services |
 | 02 | [Config module](./02-config-module.md) | done | `lib/config/` — the env-var refactor, what moved where, what's still pending |
 | 03 | [Shared types](./03-shared-types.md) | done | `lib/types/` — types pulled out of `server/routers/*` so the client stops importing from server route modules |
-| 04 | [tRPC v9 → v11](./04-trpc-v11.md) | briefing | What the upgrade actually involves here + the decisions to make before starting |
+| 04 | [tRPC v9 → v11](./04-trpc-v11.md) | done | The upgrade: initTRPC + createContext, all routers + client migrated, react-query v5 |
 | 05 | Frontend — state management | _todo_ | Jotai atoms, the `*Provider` reducer pattern, tRPC client cache, URL/query state |
 | 06 | Frontend — UI | _todo_ | `pages/`, `modules/`, `components/`, layout/skeleton system, design-system usage |
 | 07 | Domain model | _todo_ | Deepen `lib/types/` into a documented domain model: Document / AnnotationSet / Annotation / Collection / FacetEntry / Configuration / Permission — shapes and invariants |
@@ -35,8 +35,8 @@ go so the docs stay current with the code.
 |--------|-------|-------|
 | Central config (`lib/config/`) | ✅ | Landed 2026-09-04. See [02-config-module.md](./02-config-module.md) |
 | Shared types (`lib/types/`) | ✅ | Landed 2026-09-07. Types out of `server/routers/*`; ~66 client import sites repointed; `Candidate`/`User` name collisions resolved. See [03-shared-types.md](./03-shared-types.md) |
-| tRPC infra (v9 → v11) | 🟨 | Spike done ([04-trpc-v11.md §0](./04-trpc-v11.md)): stack installs clean on Next 16, TS bump is free, v11 patterns proven. Turbopack forces one-shot big-bang. Ready to execute on user's go. |
-| `server/routers/*` boundary cleanup | ⬜ | Routers mix transport concerns, business logic, and external-service orchestration. `document.ts` is 1.8k lines |
+| tRPC infra (v9 → v11) | ✅ | Landed 2026-09-07 on `refactor/trpc-v11` (5 commits). initTRPC + createContext (token now a header, not per-input), all 10 routers + ~33 client files migrated, react-query v3→v5, TS 5.7. tsc 254→245, `next build` passes. See [04-trpc-v11.md](./04-trpc-v11.md). |
+| Split `document.ts` (service layer) | ⬜ | 1.8k-line `document.ts` still mixes 27 thin procedures + pipeline orchestration + a resolver-spawned upload loop. **Next up** per the suggested order. |
 | `lib/documentsBackend/*` (ported Express service) | ⬜ | Controllers ported from `backend/documents`. Naming + error handling inconsistent with rest of app |
 | Data layer (`lib/db`) | ⬜ | Mongoose models + connection. Mostly clean; needs typed DTOs and to stop leaking `any` |
 | Auth (NextAuth + Keycloak + local JWT) | ⬜ | Three overlapping auth paths; local JWT path has no UI caller |

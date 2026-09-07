@@ -1,6 +1,60 @@
 # 04 — tRPC v9 → v11 migration
 
-_Status: briefing + spike done (2026-09-07). Spike reverted; findings in §0._
+_Status: **DONE** (2026-09-07). Landed on branch `refactor/trpc-v11` in 5
+commits. Briefing + spike notes kept below for context._
+
+---
+
+## Outcome
+
+| | |
+|---|---|
+| **Commits** | `chore(next16)` config fixes → `build(trpc)` deps → `refactor(trpc) plumbing` → `refactor(trpc) routers` → `refactor(trpc) client` |
+| **Deps** | `@trpc/{server,client,next,react-query}@11.18`, `@tanstack/react-query@5.102`, `typescript@5.7.3`; dropped `@trpc/react` + `react-query@3` |
+| **`tsc`** | 254 → **245** errors (zero new; 9 pre-existing fixed as a side effect). Still `ignoreBuildErrors` per decision. |
+| **`next build`** | passes (Turbopack, Next 16). |
+| **Runtime** | not verified here — no backend/live app in this environment; user runs the real app. |
+
+### What changed
+
+- **`server/trpc.ts`** (new): `initTRPC.context<Context>().create()` →
+  `router`, `publicProcedure`, `authedProcedure` (rejects a null `ctx.user`).
+- **`server/context.ts`**: `createContext` resolves the caller **once** from
+  the `Authorization: Bearer` / `x-browser-id` headers. The v9 pattern of
+  `token: z.string().optional()` in every input + `getRequestUser(input.token)`
+  by hand is **gone** — every input schema lost its `token` field.
+- **`server/routers/*`** (10 routers, ~61 procedures): rewritten to the
+  builder API. `_app.ts` now nests properly (`router({ document, taxonomy,
+  … })`), which also fixed the old missing-dot bug on the taxonomy merge.
+  Permission checks (`requirePermission(ctx.user, …)`) stay explicit in the
+  resolvers.
+- **`utils/trpc.ts`**: `createReactQueryHooks` → `createTRPCNext`. The access
+  token rides an `Authorization` header sourced from a module-level holder
+  (`setAuthToken`) kept fresh by `AuthWatcher` in `_app.tsx`.
+- **`_app.tsx`**: `withTRPC(...)` → `trpc.withTRPC(MyApp)`; link/url/fetch
+  config moved into `utils/trpc.ts`.
+- **~33 client files**: `useQuery(['x.y', input], opts)` →
+  `trpc.x.y.useQuery(input, opts)`; `useContext()` → `trpc.useUtils()`;
+  `.invalidateQueries(['x.y'])` → `.x.y.invalidate()`.
+- **react-query v3 → v5**: mutation `isLoading` → `isPending`; `cacheTime` →
+  `gcTime`; `keepPreviousData: true` → `placeholderData: keepPreviousData`;
+  `useInfiniteQuery` gained `initialCursor`; the handful of `useQuery`
+  `onSuccess`/`onError` callbacks moved to `useEffect` (per decision).
+- **Latent type bugs fixed** (surfaced by v11's real inference):
+  `FacetedQueryHit.id: Number` → `number`; `.lean()` resolver results cast to
+  `any` where the client relied on shapes Mongoose doesn't type.
+
+### Follow-ups (not blocking)
+
+- `elastic.ts` router migrated but still not mounted in `_app.ts` (unchanged
+  from before — `search.addAnnotations` covers it).
+- `middleware.ts` → `proxy.ts` rename still pending (Next 16 deprecation
+  warning; deferred as its own change — see doc 04's config commit note).
+- `permissionInterceptor.ts` was left as-is; its `window.fetch` patch reads
+  the tRPC error envelope, which `httpLink` (still non-batched) keeps
+  compatible — **verify one real 403 in the running app**.
+- Re-enabling `ignoreBuildErrors` for `server/**` is now much more feasible
+  (the server tree is clean); still off per the standing decision.
 
 ---
 
