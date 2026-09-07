@@ -8,9 +8,7 @@ import styled from '@emotion/styled';
 import type { AppProps } from 'next/app';
 import GlobalStyles from '../styles/globalStyles';
 import NextNProgress from 'nextjs-progressbar';
-import { withTRPC } from '@trpc/next';
-import { httpLink } from '@trpc/client/links/httpLink';
-import { AppRouter } from '@/server/routers/_app';
+import { trpc, setAuthToken } from '@/utils/trpc';
 import { HeroUIProvider } from '@heroui/react';
 import { NextPage } from 'next';
 import { ReactElement, ReactNode, useEffect, useState, useRef } from 'react';
@@ -20,7 +18,6 @@ import {
   signOut,
   getSession,
 } from 'next-auth/react';
-import { useQuery } from '@/utils/trpc';
 import { useRouter } from 'next/router';
 import { useAtom } from 'jotai';
 import { loadLLMSettingsAtom } from '@/atoms/llmSettings';
@@ -30,7 +27,6 @@ import TaxonomyProvider from '@/modules/taxonomy/TaxonomyProvider';
 import { UploadProgressIndicator } from '@/components/UploadProgressIndicator';
 import { UploadNotificationCenter } from '@/components/UploadNotificationCenter';
 import { UploadJobsWatcher } from '@/components/UploadJobsWatcher';
-import { getBrowserId } from '@/utils/browserId';
 import { isAuthEnabled, getSignInUrl } from '@/utils/auth';
 import '@/styles/globals.css';
 
@@ -46,31 +42,6 @@ const Layout = styled.div`
   min-height: 100vh;
   background: #ffffff;
 `;
-
-const getTRPCUrl = () => {
-  // return process.env.NEXT_PUBLIC_VERCEL_URL
-  //   ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}/api/trpc`
-  //   : 'http://localhost:3000/api/trpc';
-  if (typeof window !== 'undefined') {
-    return `${process.env.NEXT_PUBLIC_BASE_PATH}/api/trpc`;
-  }
-
-  const url = process.env.VERCEL_URL
-    ? `https://${process.env.VERCEL_URL}/api/trpc`
-    : `${process.env.NEXT_PUBLIC_FULL_PATH}/api/trpc`;
-
-  return url;
-};
-
-const getTRPCHeaders = () => {
-  if (typeof window === 'undefined') return {};
-  if (process.env.NEXT_PUBLIC_USE_AUTH === 'false') {
-    return {
-      'X-Browser-ID': getBrowserId(),
-    };
-  }
-  return {};
-};
 
 /**
  * Wires the antd App.useApp() message API to the permission interceptor.
@@ -156,13 +127,19 @@ function MyApp({
       }
     }, [currentSession]);
 
-    // Setup a tRPC query to fetch collections. The query is enabled only when a valid token is present.
-    // We use the token stored in the session (session.accessToken). The query runs in background when enabled.
-    // When auth is disabled, token will be undefined but the query should still run
+    // The access token now rides as an Authorization header (see utils/trpc.ts).
+    // Publish it to the module-level holder whenever the session changes so the
+    // tRPC link picks it up on the next request.
     const token = (currentSession as any)?.accessToken;
-    const collectionsQuery = useQuery(['collection.getAll', { token }], {
+    useEffect(() => {
+      setAuthToken(token);
+    }, [token]);
+
+    // Background-fetch collections (populates the react-query cache that the
+    // collection selector reads). Enabled once a token is present, or always
+    // when auth is disabled.
+    const collectionsQuery = trpc.collection.getAll.useQuery(undefined, {
       enabled: authEnabled ? Boolean(token) : true,
-      // run in background, avoid refetch on window focus automatically unless desired
       refetchOnWindowFocus: false,
       retry: false,
     });
@@ -370,42 +347,5 @@ function MyApp({
   );
 }
 
-export default withTRPC<AppRouter>({
-  config({ ctx }) {
-    /**
-     * If you want to use SSR, you need to use the server's full URL
-     * @link https://trpc.io/docs/ssr
-     */
-    const url = getTRPCUrl();
-    const headers = getTRPCHeaders();
-
-    return {
-      url,
-      headers,
-      // Provide fetch at the TOP-LEVEL config so createTRPCClient picks it up via
-      // getFetch(opts.fetch).  If fetch is omitted here, tRPC does
-      // `window.fetch.bind(window)` at client-creation time (inside useState), which
-      // permanently captures the pre-patch reference and makes window.fetch patching
-      // (used by permissionInterceptor) invisible to tRPC requests.
-      // By passing a plain arrow function that references the free variable `fetch`,
-      // the lookup is deferred to call-time, so any window.fetch patch applied later
-      // (e.g. in a useEffect) IS picked up on every subsequent request.
-      fetch: (input: RequestInfo | URL, init?: RequestInit) =>
-        fetch(input, { ...(init || {}), credentials: 'omit' }),
-      // httpLink uses POST for all operations, avoiding 431 errors from large JWT
-      // tokens that would appear in GET query strings.
-      links: [
-        httpLink({
-          url,
-        }),
-      ],
-      /**
-       * @link https://react-query.tanstack.com/reference/QueryClient
-       */
-    };
-  },
-  /**
-   * @link https://trpc.io/docs/ssr
-   */
-  ssr: false,
-})(MyApp);
+// tRPC client config (links, url, headers, fetch) lives in utils/trpc.ts.
+export default trpc.withTRPC(MyApp);
