@@ -1,4 +1,4 @@
-import { useMutation } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { Eye, EyeOff } from 'lucide-react';
 import { useAtom } from 'jotai';
 import {
@@ -25,7 +25,7 @@ export function DeAnonymizeFacetsButton({
   const [isLoading, setIsLoading] = useState(false);
   const [, setGlobalLoading] = useAtom(isLoadingAnonymizationAtom);
 
-  const deanonymizeMutation = useMutation(['document.deanonymizeKeys']);
+  const deanonymizeMutation = trpc.document.deanonymizeKeys.useMutation();
 
   // Helper to collect display names from facets and fetch de-anonymized values
   const fetchAndSetDeAnonymizedNames = async () => {

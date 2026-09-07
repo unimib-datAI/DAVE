@@ -1,0 +1,726 @@
+{
+    "annotation_sets": {
+        "entities_": {
+            "name": "entities_",
+            "annotations": [
+                {
+                    "type": "CASE_ID",
+                    "start": 0,
+                    "end": 21,
+                    "id": 0,
+                    "features": {
+                        "text": "Case: EXT-CASE-513462"
+                    }
+                },
+                {
+                    "type": "CASE_ID",
+                    "start": 1901,
+                    "end": 1922,
+                    "id": 1,
+                    "features": {
+                        "text": "Case: EXT-CASE-513462"
+                    }
+                },
+                {
+                    "type": "CASE_ID",
+                    "start": 3718,
+                    "end": 3739,
+                    "id": 2,
+                    "features": {
+                        "text": "Case: EXT-CASE-513462"
+                    }
+                },
+                {
+                    "type": "ACTION_OWNER_ROLE",
+                    "start": 43,
+                    "end": 69,
+                    "id": 3,
+                    "features": {
+                        "text": "Advanced Technical Support"
+                    }
+                },
+                {
+                    "type": "ACTION_OWNER_ROLE",
+                    "start": 1944,
+                    "end": 1970,
+                    "id": 4,
+                    "features": {
+                        "text": "Advanced Technical Support"
+                    }
+                },
+                {
+                    "type": "ACTION_OWNER_ROLE",
+                    "start": 3761,
+                    "end": 3787,
+                    "id": 5,
+                    "features": {
+                        "text": "Advanced Technical Support"
+                    }
+                },
+                {
+                    "type": "ACTION_PLAN_NAME",
+                    "start": 90,
+                    "end": 106,
+                    "id": 6,
+                    "features": {
+                        "text": "PLAN-EXT-4973021"
+                    }
+                },
+                {
+                    "type": "ACTION_PLAN_NAME",
+                    "start": 1991,
+                    "end": 2007,
+                    "id": 7,
+                    "features": {
+                        "text": "PLAN-EXT-4973022"
+                    }
+                },
+                {
+                    "type": "ACTION_PLAN_NAME",
+                    "start": 3808,
+                    "end": 3824,
+                    "id": 8,
+                    "features": {
+                        "text": "PLAN-EXT-4973023"
+                    }
+                },
+                {
+                    "type": "SUBJECT",
+                    "start": 118,
+                    "end": 171,
+                    "id": 9,
+                    "features": {
+                        "text": "Network connectivity issues following software update"
+                    }
+                },
+                {
+                    "type": "SUBJECT",
+                    "start": 2019,
+                    "end": 2072,
+                    "id": 10,
+                    "features": {
+                        "text": "Network connectivity issues following software update"
+                    }
+                },
+                {
+                    "type": "SUBJECT",
+                    "start": 3836,
+                    "end": 3889,
+                    "id": 11,
+                    "features": {
+                        "text": "Network connectivity issues following software update"
+                    }
+                },
+                {
+                    "type": "ISSUE",
+                    "start": 218,
+                    "end": 258,
+                    "id": 12,
+                    "features": {
+                        "text": "intermittent network connectivity issues"
+                    }
+                },
+                {
+                    "type": "ISSUE",
+                    "start": 2119,
+                    "end": 2159,
+                    "id": 13,
+                    "features": {
+                        "text": "intermittent network connectivity issues"
+                    }
+                },
+                {
+                    "type": "ISSUE",
+                    "start": 3936,
+                    "end": 3976,
+                    "id": 14,
+                    "features": {
+                        "text": "intermittent network connectivity issues"
+                    }
+                },
+                {
+                    "type": "ISSUE",
+                    "start": 1475,
+                    "end": 1498,
+                    "id": 15,
+                    "features": {
+                        "text": "specific error messages"
+                    }
+                },
+                {
+                    "type": "ISSUE",
+                    "start": 2355,
+                    "end": 2378,
+                    "id": 16,
+                    "features": {
+                        "text": "specific error messages"
+                    }
+                },
+                {
+                    "type": "ISSUE",
+                    "start": 2381,
+                    "end": 2400,
+                    "id": 17,
+                    "features": {
+                        "text": "Network Unreachable"
+                    }
+                },
+                {
+                    "type": "ISSUE",
+                    "start": 2407,
+                    "end": 2427,
+                    "id": 18,
+                    "features": {
+                        "text": "Limited Connectivity"
+                    }
+                },
+                {
+                    "type": "LEVEL",
+                    "start": 314,
+                    "end": 330,
+                    "id": 19,
+                    "features": {
+                        "text": "Advanced Support"
+                    }
+                },
+                {
+                    "type": "LEVEL",
+                    "start": 2215,
+                    "end": 2231,
+                    "id": 20,
+                    "features": {
+                        "text": "Advanced Support"
+                    }
+                },
+                {
+                    "type": "LEVEL",
+                    "start": 4032,
+                    "end": 4048,
+                    "id": 21,
+                    "features": {
+                        "text": "Advanced Support"
+                    }
+                },
+                {
+                    "type": "TIMESTAMP",
+                    "start": 353,
+                    "end": 363,
+                    "id": 22,
+                    "features": {
+                        "text": "2023-10-20"
+                    }
+                },
+                {
+                    "type": "TIMESTAMP",
+                    "start": 2254,
+                    "end": 2264,
+                    "id": 23,
+                    "features": {
+                        "text": "2023-10-21"
+                    }
+                },
+                {
+                    "type": "TIMESTAMP",
+                    "start": 4071,
+                    "end": 4081,
+                    "id": 24,
+                    "features": {
+                        "text": "2023-10-22"
+                    }
+                },
+                {
+                    "type": "PERSON",
+                    "start": 1885,
+                    "end": 1898,
+                    "id": 25,
+                    "features": {
+                        "text": "Alice Johnson"
+                    }
+                },
+                {
+                    "type": "PERSON",
+                    "start": 3706,
+                    "end": 3715,
+                    "id": 26,
+                    "features": {
+                        "text": "David Lee"
+                    }
+                },
+                {
+                    "type": "PERSON",
+                    "start": 5702,
+                    "end": 5712,
+                    "id": 27,
+                    "features": {
+                        "text": "Rachel Kim"
+                    }
+                },
+                {
+                    "type": "CONFIG_OR_POLICY",
+                    "start": 2530,
+                    "end": 2542,
+                    "id": 28,
+                    "features": {
+                        "text": "DNS settings"
+                    }
+                },
+                {
+                    "type": "CONFIG_OR_POLICY",
+                    "start": 2892,
+                    "end": 2904,
+                    "id": 29,
+                    "features": {
+                        "text": "DNS settings"
+                    }
+                },
+                {
+                    "type": "CONFIG_OR_POLICY",
+                    "start": 3238,
+                    "end": 3250,
+                    "id": 30,
+                    "features": {
+                        "text": "DNS settings"
+                    }
+                },
+                {
+                    "type": "CONFIG_OR_POLICY",
+                    "start": 3076,
+                    "end": 3092,
+                    "id": 31,
+                    "features": {
+                        "text": "network policies"
+                    }
+                },
+                {
+                    "type": "CONFIG_OR_POLICY",
+                    "start": 4994,
+                    "end": 5011,
+                    "id": 32,
+                    "features": {
+                        "text": "routing protocols"
+                    }
+                },
+                {
+                    "type": "SYMPTOM_OR_ERROR",
+                    "start": 1182,
+                    "end": 1193,
+                    "id": 33,
+                    "features": {
+                        "text": "disruptions"
+                    }
+                },
+                {
+                    "type": "SYMPTOM_OR_ERROR",
+                    "start": 937,
+                    "end": 966,
+                    "id": 34,
+                    "features": {
+                        "text": "connectivity remains unstable"
+                    }
+                },
+                {
+                    "type": "SYMPTOM_OR_ERROR",
+                    "start": 4237,
+                    "end": 4256,
+                    "id": 35,
+                    "features": {
+                        "text": "TCP retransmissions"
+                    }
+                },
+                {
+                    "type": "SYMPTOM_OR_ERROR",
+                    "start": 4815,
+                    "end": 4834,
+                    "id": 36,
+                    "features": {
+                        "text": "TCP retransmissions"
+                    }
+                },
+                {
+                    "type": "SYMPTOM_OR_ERROR",
+                    "start": 4261,
+                    "end": 4295,
+                    "id": 37,
+                    "features": {
+                        "text": "SYN packets without acknowledgment"
+                    }
+                },
+                {
+                    "type": "SYMPTOM_OR_ERROR",
+                    "start": 4423,
+                    "end": 4447,
+                    "id": 38,
+                    "features": {
+                        "text": "potential latency issues"
+                    }
+                }
+            ],
+            "next_annid": 39
+        }
+    },
+    "text": "Case: EXT-CASE-513462\n\nAction Owner Role  \nAdvanced Technical Support\n\nAction Plan Name  \nPLAN-EXT-4973021\n\nSubject  \nNetwork connectivity issues following software update\n\nProblem Description  \nUsers are experiencing intermittent network connectivity issues after the recent software update was applied.\n\nLevel  \nAdvanced Support\n\nSystem Mod Stamp 1  \n2023-10-20 (timestamp anonymized)\n\nAction Description 1  \n- Conducted an initial review of the network configuration settings post-update.\n- Verified the status of the network adapters in the device manager, confirming that all drivers were reported as functional.\n- Instructions were followed to reset the network stack using the command line (ipconfig /release, ipconfig /renew, netsh int ip reset).\n- Observed that while the network interface was enabled, users continued to report sporadic disconnections and inability to access specific internal resources.\n\nOutcome: unresolved; connectivity remains unstable for several users.\n\nSystem Mod Stamp 2  \nNone\n\nResponse Description 1  \nHello,\n\nThank you for your detailed observations regarding the network connectivity issues. It is concerning that users are still experiencing disruptions despite the network stack reset.\n\nGiven the nature of the problem, it is plausible that the recent software update may have inadvertently caused a compatibility issue with the network drivers or settings. \n\nPlease consider the following diagnostic steps:\n1. Can you confirm if any specific error messages or codes are displayed during periods of disconnection?\n2. Have any changes been made to the firewall or security settings following the update that could affect connectivity?\n3. Is the issue consistent across all network types (e.g., wired versus wireless)?\n4. Could you test connectivity using a different network adapter, if available, to rule out hardware failure?\n\nKind regards,  \nAlice Johnson\n\n\nCase: EXT-CASE-513462\n\nAction Owner Role  \nAdvanced Technical Support\n\nAction Plan Name  \nPLAN-EXT-4973022\n\nSubject  \nNetwork connectivity issues following software update\n\nProblem Description  \nUsers are experiencing intermittent network connectivity issues after the recent software update was applied.\n\nLevel  \nAdvanced Support\n\nSystem Mod Stamp 1  \n2023-10-21 (timestamp anonymized)\n\nAction Description 1  \n- Received responses from users indicating specific error messages: \"Network Unreachable\" and \"Limited Connectivity.\"\n- Conducted a comparison of network settings before and after the software update; noted changes in DNS settings.\n- Reverted DNS server settings to the previous configuration and monitored connectivity. \n- Outcome: some users reported improved stability, but others still experienced drops in connectivity.\n\nSystem Mod Stamp 2  \nNone\n\nResponse Description 1  \nHello,\n\nThank you for your additional efforts to isolate the problem. It's encouraging that reverting DNS settings yielded partial improvements, but the ongoing issues for some users need further investigation.\n\nIt may be beneficial to assess whether the update included any changes to network policies or protocols that could be contributing to these connectivity issues. \n\nPlease explore the following:\n1. Can you provide details on the specific DNS settings that were applied by the software update?\n2. Are there any patterns regarding which users continue to experience connectivity problems (e.g., specific departments or locations)?\n3. Have you checked the event logs for any warnings or errors related to network services during the times users experienced disconnections?\n4. Could you run a packet capture during a disconnection event to analyze the traffic and identify possible anomalies?\n\nBest regards,  \nDavid Lee\n\n\nCase: EXT-CASE-513462\n\nAction Owner Role  \nAdvanced Technical Support\n\nAction Plan Name  \nPLAN-EXT-4973023\n\nSubject  \nNetwork connectivity issues following software update\n\nProblem Description  \nUsers are experiencing intermittent network connectivity issues after the recent software update was applied.\n\nLevel  \nAdvanced Support\n\nSystem Mod Stamp 1  \n2023-10-22 (timestamp anonymized)\n\nAction Description 1  \n- Conducted a packet capture during a reported disconnection event. \n- Analyzed the data and found repeated TCP retransmissions and SYN packets without acknowledgment, suggesting possible network congestion or misrouting.\n- Performed traceroutes to affected internal resources, which indicated potential latency issues at specific routers.\n- Initiated a temporary rollback of the software update on affected systems as a potential workaround.\n\nOutcome: some users reported stabilization, while others remained affected.\n\nSystem Mod Stamp 2  \nNone\n\nResponse Description 1  \nHello,\n\nThank you for your thorough analysis of the packet captures and network behavior. The findings regarding TCP retransmissions and latency at specific routers are insightful.\n\nConsidering the symptoms you've observed, it appears that the software update may have inadvertently affected routing protocols or introduced configuration issues within the network infrastructure. \n\nNext steps could include:\n1. Can you confirm if similar issues were present before the update, or have they only arisen after the recent installation?\n2. Could you collaborate with the network team to investigate the router configurations and potentially roll back any recent changes?\n3. Would it be possible to gather feedback from users about their experiences during the rollback process to identify if there are specific factors contributing to their issues?\n4. Have you considered testing the update on a non-critical system or in a controlled environment to see if the issues can be replicated?\n\nKind regards,  \nRachel Kim",
+    "features": {
+        "clusters": {
+            "entities_": [
+                {
+                    "id": 1,
+                    "title": "Case: EXT-CASE-513462",
+                    "type": "CASE_ID",
+                    "nelements": 3,
+                    "mentions": [
+                        {
+                            "id": 0,
+                            "mention": "Case: EXT-CASE-513462"
+                        },
+                        {
+                            "id": 1,
+                            "mention": "Case: EXT-CASE-513462"
+                        },
+                        {
+                            "id": 2,
+                            "mention": "Case: EXT-CASE-513462"
+                        }
+                    ]
+                },
+                {
+                    "id": 2,
+                    "title": "Advanced Technical Support",
+                    "type": "ACTION_OWNER_ROLE",
+                    "nelements": 3,
+                    "mentions": [
+                        {
+                            "id": 3,
+                            "mention": "Advanced Technical Support"
+                        },
+                        {
+                            "id": 4,
+                            "mention": "Advanced Technical Support"
+                        },
+                        {
+                            "id": 5,
+                            "mention": "Advanced Technical Support"
+                        }
+                    ]
+                },
+                {
+                    "id": 3,
+                    "title": "PLAN-EXT-4973021",
+                    "type": "ACTION_PLAN_NAME",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 6,
+                            "mention": "PLAN-EXT-4973021"
+                        }
+                    ]
+                },
+                {
+                    "id": 4,
+                    "title": "PLAN-EXT-4973022",
+                    "type": "ACTION_PLAN_NAME",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 7,
+                            "mention": "PLAN-EXT-4973022"
+                        }
+                    ]
+                },
+                {
+                    "id": 5,
+                    "title": "PLAN-EXT-4973023",
+                    "type": "ACTION_PLAN_NAME",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 8,
+                            "mention": "PLAN-EXT-4973023"
+                        }
+                    ]
+                },
+                {
+                    "id": 6,
+                    "title": "Network connectivity issues following software update",
+                    "type": "SUBJECT",
+                    "nelements": 3,
+                    "mentions": [
+                        {
+                            "id": 9,
+                            "mention": "Network connectivity issues following software update"
+                        },
+                        {
+                            "id": 10,
+                            "mention": "Network connectivity issues following software update"
+                        },
+                        {
+                            "id": 11,
+                            "mention": "Network connectivity issues following software update"
+                        }
+                    ]
+                },
+                {
+                    "id": 7,
+                    "title": "intermittent network connectivity issues",
+                    "type": "ISSUE",
+                    "nelements": 3,
+                    "mentions": [
+                        {
+                            "id": 12,
+                            "mention": "intermittent network connectivity issues"
+                        },
+                        {
+                            "id": 13,
+                            "mention": "intermittent network connectivity issues"
+                        },
+                        {
+                            "id": 14,
+                            "mention": "intermittent network connectivity issues"
+                        }
+                    ]
+                },
+                {
+                    "id": 8,
+                    "title": "specific error messages",
+                    "type": "ISSUE",
+                    "nelements": 2,
+                    "mentions": [
+                        {
+                            "id": 15,
+                            "mention": "specific error messages"
+                        },
+                        {
+                            "id": 16,
+                            "mention": "specific error messages"
+                        }
+                    ]
+                },
+                {
+                    "id": 9,
+                    "title": "Network Unreachable",
+                    "type": "ISSUE",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 17,
+                            "mention": "Network Unreachable"
+                        }
+                    ]
+                },
+                {
+                    "id": 10,
+                    "title": "Limited Connectivity",
+                    "type": "ISSUE",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 18,
+                            "mention": "Limited Connectivity"
+                        }
+                    ]
+                },
+                {
+                    "id": 11,
+                    "title": "Advanced Support",
+                    "type": "LEVEL",
+                    "nelements": 3,
+                    "mentions": [
+                        {
+                            "id": 19,
+                            "mention": "Advanced Support"
+                        },
+                        {
+                            "id": 20,
+                            "mention": "Advanced Support"
+                        },
+                        {
+                            "id": 21,
+                            "mention": "Advanced Support"
+                        }
+                    ]
+                },
+                {
+                    "id": 12,
+                    "title": "2023-10-20",
+                    "type": "TIMESTAMP",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 22,
+                            "mention": "2023-10-20"
+                        }
+                    ]
+                },
+                {
+                    "id": 13,
+                    "title": "2023-10-21",
+                    "type": "TIMESTAMP",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 23,
+                            "mention": "2023-10-21"
+                        }
+                    ]
+                },
+                {
+                    "id": 14,
+                    "title": "2023-10-22",
+                    "type": "TIMESTAMP",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 24,
+                            "mention": "2023-10-22"
+                        }
+                    ]
+                },
+                {
+                    "id": 15,
+                    "title": "Alice Johnson",
+                    "type": "PERSON",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 25,
+                            "mention": "Alice Johnson"
+                        }
+                    ]
+                },
+                {
+                    "id": 16,
+                    "title": "David Lee",
+                    "type": "PERSON",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 26,
+                            "mention": "David Lee"
+                        }
+                    ]
+                },
+                {
+                    "id": 17,
+                    "title": "Rachel Kim",
+                    "type": "PERSON",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 27,
+                            "mention": "Rachel Kim"
+                        }
+                    ]
+                },
+                {
+                    "id": 18,
+                    "title": "DNS settings",
+                    "type": "CONFIG_OR_POLICY",
+                    "nelements": 3,
+                    "mentions": [
+                        {
+                            "id": 28,
+                            "mention": "DNS settings"
+                        },
+                        {
+                            "id": 29,
+                            "mention": "DNS settings"
+                        },
+                        {
+                            "id": 30,
+                            "mention": "DNS settings"
+                        }
+                    ]
+                },
+                {
+                    "id": 19,
+                    "title": "network policies",
+                    "type": "CONFIG_OR_POLICY",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 31,
+                            "mention": "network policies"
+                        }
+                    ]
+                },
+                {
+                    "id": 20,
+                    "title": "routing protocols",
+                    "type": "CONFIG_OR_POLICY",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 32,
+                            "mention": "routing protocols"
+                        }
+                    ]
+                },
+                {
+                    "id": 21,
+                    "title": "disruptions",
+                    "type": "SYMPTOM_OR_ERROR",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 33,
+                            "mention": "disruptions"
+                        }
+                    ]
+                },
+                {
+                    "id": 22,
+                    "title": "connectivity remains unstable",
+                    "type": "SYMPTOM_OR_ERROR",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 34,
+                            "mention": "connectivity remains unstable"
+                        }
+                    ]
+                },
+                {
+                    "id": 23,
+                    "title": "TCP retransmissions",
+                    "type": "SYMPTOM_OR_ERROR",
+                    "nelements": 2,
+                    "mentions": [
+                        {
+                            "id": 35,
+                            "mention": "TCP retransmissions"
+                        },
+                        {
+                            "id": 36,
+                            "mention": "TCP retransmissions"
+                        }
+                    ]
+                },
+                {
+                    "id": 24,
+                    "title": "SYN packets without acknowledgment",
+                    "type": "SYMPTOM_OR_ERROR",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 37,
+                            "mention": "SYN packets without acknowledgment"
+                        }
+                    ]
+                },
+                {
+                    "id": 25,
+                    "title": "potential latency issues",
+                    "type": "SYMPTOM_OR_ERROR",
+                    "nelements": 1,
+                    "mentions": [
+                        {
+                            "id": 38,
+                            "mention": "potential latency issues"
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "offset_type": "p",
+    "name": "ticket_1"
+}

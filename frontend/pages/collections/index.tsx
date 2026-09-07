@@ -28,7 +28,7 @@ import {
   Collection,
 } from '@/atoms/collection';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
-import { useQuery, useMutation } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { useText } from '@/components/TranslationProvider';
 import { useCollectionPermissions } from '@/hooks';
 
@@ -146,38 +146,37 @@ const Collections: NextPage = () => {
     data: collectionsData,
     isLoading: collectionsLoading,
     refetch: refetchCollections,
-  } = useQuery(['collection.getAll', { token }], {
+  } = trpc.collection.getAll.useQuery(undefined, {
     enabled: tokenAvailable || authDisabled,
-    onSuccess: (data) => {
-      if (data) {
-        setCollections(data);
-      }
-    },
   });
+
+  useEffect(() => {
+    if (collectionsData) {
+      setCollections(collectionsData);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionsData]);
 
   const ownsAny = collections.some(
     (c) => c.ownerId === (session as any)?.user?.userId
   );
 
-  const { data: usersData } = useQuery(['user.getAllUsers', { token }], {
-    // Fetch users when:
-    //  - we have a token (or auth is disabled),
-    //  - the permission check finished,
-    //  - AND either the collection modal is open for managing shares OR
-    //    the current user owns at least one collection.
-    // This lets owners see shared user emails in the collection list without
-    // requiring them to open the edit modal, while still avoiding fetching
-    // the full user list for pure viewers.
+  const { data: usersData } = trpc.user.getAllUsers.useQuery(undefined, {
+    // Fetch users when we have a token (or auth is disabled), the permission
+    // check finished, AND either the collection modal is open for managing
+    // shares OR the current user owns at least one collection.
     enabled:
       (tokenAvailable || authDisabled) &&
       !permsLoading &&
       ((modalOpen && (canCreate || canUpdate)) || ownsAny),
-    onSuccess: (data) => {
-      if (data) {
-        setUsers(data);
-      }
-    },
   });
+
+  useEffect(() => {
+    if (usersData) {
+      setUsers(usersData);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [usersData]);
 
   // Ensure users state is cleared when:
   //  - permissions indicate the user cannot manage collections,
@@ -206,7 +205,7 @@ const Collections: NextPage = () => {
     session,
   ]);
 
-  const createMutation = useMutation(['collection.create'], {
+  const createMutation = trpc.collection.create.useMutation({
     onMutate: (variables) => {
       console.debug('[collection.create] onMutate', variables);
     },
@@ -220,7 +219,7 @@ const Collections: NextPage = () => {
     },
   });
 
-  const updateMutation = useMutation(['collection.update'], {
+  const updateMutation = trpc.collection.update.useMutation({
     onMutate: (variables) => {
       console.debug('[collection.update] onMutate', variables);
     },
@@ -234,7 +233,7 @@ const Collections: NextPage = () => {
     },
   });
 
-  const deleteMutation = useMutation(['collection.delete'], {
+  const deleteMutation = trpc.collection.delete.useMutation({
     onMutate: (variables) => {
       console.debug('[collection.delete] onMutate', variables);
     },
@@ -426,12 +425,7 @@ const Collections: NextPage = () => {
   };
 
   const handleDelete = async (collectionId: string) => {
-    const payload = {
-      id: collectionId,
-      token: authDisabled ? undefined : token,
-    };
-    console.info('[collections] delete payload', payload);
-    deleteMutation.mutate(payload);
+    deleteMutation.mutate({ id: collectionId });
   };
 
   const handleSubmit = async () => {
@@ -441,22 +435,16 @@ const Collections: NextPage = () => {
     if (!authDisabled && !token) return;
 
     if (editingCollection) {
-      const payload = {
+      updateMutation.mutate({
         id: editingCollection.id,
         name: formData.name,
         allowedUserIds: formData.allowedUserIds,
-        token: authDisabled ? undefined : token,
-      };
-      console.info('[collections] update payload', payload);
-      updateMutation.mutate(payload);
+      });
     } else {
-      const payload = {
+      createMutation.mutate({
         name: formData.name,
         allowedUserIds: formData.allowedUserIds,
-        token: authDisabled ? undefined : token,
-      };
-      console.info('[collections] create payload', payload);
-      createMutation.mutate(payload);
+      });
     }
   };
 
@@ -735,7 +723,7 @@ const Collections: NextPage = () => {
                 color="primary"
                 onPress={handleSubmit}
                 isDisabled={
-                  createMutation.isLoading || updateMutation.isLoading
+                  createMutation.isPending || updateMutation.isPending
                 }
               >
                 {editingCollection ? t('update') : t('create')}

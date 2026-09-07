@@ -1,5 +1,5 @@
 import { useParam } from '@/hooks';
-import { useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import {
   createContext,
   PropsWithChildren,
@@ -66,8 +66,8 @@ const DocumentProvider = ({
     setIsAnonymized(!value);
   };
 
-  const { data, isFetching } = useQuery(
-    ['document.getDocument', { id: id, deAnonimize, collectionId: urlCollectionId }],
+  const { data, isFetching } = trpc.document.getDocument.useQuery(
+    { id: id, deAnonimize, collectionId: urlCollectionId },
     {
       staleTime: Infinity,
       enabled: injectedDocument == null,
@@ -84,8 +84,8 @@ const DocumentProvider = ({
   const { data: session } = useSession();
   const token = (session as any)?.accessToken as string | undefined;
   const [activeCollection, setActiveCollection] = useAtom(activeCollectionAtom);
-  const { data: docCollection } = useQuery(
-    ['collection.getById', { id: (data as any)?.collectionId, token }],
+  const { data: docCollection } = trpc.collection.getById.useQuery(
+    { id: (data as any)?.collectionId },
     { enabled: !!(data as any)?.collectionId }
   );
   useEffect(() => {

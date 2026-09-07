@@ -5,7 +5,7 @@ import { useViewIndex } from "../ViewProvider/ViewProvider";
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import styled from "@emotion/styled";
 import { FiX } from "@react-icons/all-files/fi/FiX";
-import { useMutation } from "@/utils/trpc";
+import { trpc } from "@/utils/trpc";
 import { AnnotationSet, EntityAnnotation } from "@/lib/types/document";
 import { ConfirmationDialog, useConfirmationDialog, useText } from "@/components";
 
@@ -66,7 +66,7 @@ const SelectAnnotationSet = () => {
   const docId = useSelector(selectDocumentId);
   const activeAnnotationSet = useSelector((state) => selectDocumentActiveAnnotationSet(state, viewIndex));
   const annotationSets = useSelector(selectAllEntityAnnotationSets);
-  const deleteAnnotationSet = useMutation(['document.deleteAnnotationSet']);
+  const deleteAnnotationSet = trpc.document.deleteAnnotationSet.useMutation();
   const dispatch = useDocumentDispatch();
 
   const {

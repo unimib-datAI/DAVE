@@ -23,7 +23,7 @@ import {
 import { createNewCandidate } from '@/modules/review/ReviewProvider/utils';
 import Searchbar from '@/modules/review/Searchbar/Searchbar';
 import { LinkingCandidate, EntityAnnotation } from '@/lib/types/document';
-import { useMutation, useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import styled from '@emotion/styled';
 import { Virtualizer } from '@tanstack/react-virtual';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -90,12 +90,12 @@ const ReviewDocument = () => {
   const isDocDone = useSelector(selectIsDocDone);
   const [sourceId] = useParam<string>('source');
   const [docId] = useParam<string>('doc');
-  const saveDocumentMutation = useMutation(['review.saveDocument']);
+  const saveDocumentMutation = trpc.review.saveDocument.useMutation();
   const dispatch = useReviewDispatch();
   const router = useRouter();
   const currentAnnotation = useSelector(selectCurrentAnnotation);
 
-  const isLoading = loading || saveDocumentMutation.isLoading;
+  const isLoading = loading || saveDocumentMutation.isPending;
 
   useEffect(() => {
     if (listItems.length > 0) {

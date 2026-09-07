@@ -1033,7 +1033,9 @@ export const documentsRouter = router({
   getConfigurations: authedProcedure.query(async ({ ctx }) => {
     try {
       await dbConnect();
-      return await ConfigurationModel.find({ userId: ctx.user.sub }).lean();
+      return (await ConfigurationModel.find({
+        userId: ctx.user.sub,
+      }).lean()) as any[];
     } catch (error: any) {
       console.error('Failed to fetch configurations', error);
       throw new TRPCError({
@@ -1051,7 +1053,7 @@ export const documentsRouter = router({
         isActive: true,
       }).lean();
       // null (not a throw) when there is no active configuration.
-      return activeConfig || null;
+      return (activeConfig || null) as any;
     } catch (error: any) {
       console.error('Failed to fetch active configuration', error);
       throw new TRPCError({

@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAtom } from 'jotai';
 import { useSession } from 'next-auth/react';
-import { useQuery, useMutation } from '@/utils/trpc';
-import { useQueryClient } from 'react-query';
+import { trpc } from '@/utils/trpc';
 import { usePipelinePermissions } from '@/hooks/use-permissions';
 import {
   annotationSelectedServicesAtom,
@@ -26,7 +25,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
   const { data: session, status } = useSession();
   const token = (session as any)?.accessToken as string | undefined;
 
-  const queryClient = useQueryClient();
+  const utils = trpc.useUtils();
 
   const { canEdit: canEditPipeline } = usePipelinePermissions();
 
@@ -49,31 +48,27 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 
   // Fetch available services
   const { data: availableServices = [], isLoading: isServicesLoading } =
-    useQuery(['document.getServices', { token: token ?? '' }], {
+    trpc.document.getServices.useQuery(undefined, {
       enabled: status === 'authenticated' && !!token,
     });
 
   // Fetch user configurations
   const { data: configurations = [], refetch: refetchConfigurations } =
-    useQuery(['document.getConfigurations', { token: token ?? '' }], {
+    trpc.document.getConfigurations.useQuery(undefined, {
       enabled: status === 'authenticated' && !!token,
     });
 
   // Mutations
-  const createServiceMutation = useMutation(['document.createService']);
-  const deleteServiceMutation = useMutation(['document.deleteService']);
-  const createConfigurationMutation = useMutation([
-    'document.createConfiguration',
-  ]);
-  const updateConfigurationMutation = useMutation([
-    'document.updateConfiguration',
-  ]);
-  const deleteConfigurationMutation = useMutation([
-    'document.deleteConfiguration',
-  ]);
-  const activateConfigurationMutation = useMutation([
-    'document.activateConfiguration',
-  ]);
+  const createServiceMutation = trpc.document.createService.useMutation();
+  const deleteServiceMutation = trpc.document.deleteService.useMutation();
+  const createConfigurationMutation =
+    trpc.document.createConfiguration.useMutation();
+  const updateConfigurationMutation =
+    trpc.document.updateConfiguration.useMutation();
+  const deleteConfigurationMutation =
+    trpc.document.deleteConfiguration.useMutation();
+  const activateConfigurationMutation =
+    trpc.document.activateConfiguration.useMutation();
 
   // ── Service creation form ─────────────────────────────────────────────────
   const [newName, setNewName] = useState('');
@@ -102,10 +97,8 @@ export default function AnnotationConfigurationPage(): JSX.Element {
     const loadActiveConfig = async () => {
       if (!token) return;
       try {
-        const activeConfig = await queryClient.fetchQuery([
-          'document.getActiveConfiguration',
-          { token },
-        ]);
+        const activeConfig =
+          await utils.document.getActiveConfiguration.fetch();
         if (activeConfig) {
           setCurrentConfigId(activeConfig._id);
           setConfigName(activeConfig.name);
@@ -185,9 +178,8 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         uri,
         serviceType: newType.trim() || 'OTHER',
         description: '',
-        token,
       });
-      await queryClient.invalidateQueries(['document.getServices']);
+      await utils.document.getServices.invalidate();
       setNewName('');
       setNewUri('');
       setNewType('');
@@ -205,8 +197,8 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       return;
     }
     try {
-      await deleteServiceMutation.mutateAsync({ id: serviceId, token });
-      await queryClient.invalidateQueries(['document.getServices']);
+      await deleteServiceMutation.mutateAsync({ id: serviceId });
+      await utils.document.getServices.invalidate();
       // Remove any pipeline steps that referenced this service
       setPipelineSteps((prev) =>
         (Array.isArray(prev) ? prev : []).filter((s) => s.id !== serviceId)
@@ -315,7 +307,6 @@ export default function AnnotationConfigurationPage(): JSX.Element {
           id: currentConfigId,
           name,
           steps: steps,
-          token,
         });
         message.success('Configuration updated');
       } else {
@@ -323,7 +314,6 @@ export default function AnnotationConfigurationPage(): JSX.Element {
           name,
           steps: steps,
           isActive: true,
-          token,
         });
         setCurrentConfigId((created as any)._id);
         message.success('Configuration saved');
@@ -350,7 +340,6 @@ export default function AnnotationConfigurationPage(): JSX.Element {
         name,
         steps: steps,
         isActive: setAsActive,
-        token,
       });
       setCurrentConfigId((created as any)._id);
       setConfigName((created as any).name);
@@ -369,7 +358,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       return;
     }
     try {
-      await activateConfigurationMutation.mutateAsync({ id: configId, token });
+      await activateConfigurationMutation.mutateAsync({ id: configId });
       await refetchConfigurations();
       handleLoadConfiguration(configId);
       message.success('Configuration activated');
@@ -384,7 +373,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
       return;
     }
     try {
-      await deleteConfigurationMutation.mutateAsync({ id: configId, token });
+      await deleteConfigurationMutation.mutateAsync({ id: configId });
       await refetchConfigurations();
       if (currentConfigId === configId) {
         setCurrentConfigId(null);

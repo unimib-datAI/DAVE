@@ -1,5 +1,6 @@
 import { useClickOutside, useForm } from '@/hooks';
-import { useInfiniteQuery, useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
+import { keepPreviousData } from '@tanstack/react-query';
 import { useSession, getSession } from 'next-auth/react';
 import { MessageCircle, SearchIcon } from 'lucide-react';
 import { useRouter } from 'next/router';
@@ -90,9 +91,8 @@ const Search = () => {
     }
   }, [router.query]);
 
-  const { data, hasNextPage, fetchNextPage, isFetching } = useInfiniteQuery(
-    [
-      'search.facetedSearch',
+  const { data, hasNextPage, fetchNextPage, isFetching } =
+    trpc.search.facetedSearch.useInfiniteQuery(
       {
         text: (text as string) || '',
         ...facets,
@@ -101,34 +101,30 @@ const Search = () => {
           activeCollection && activeCollection.id ? activeCollection.id : 'N/A',
         isAnonymized,
       },
-    ],
-    {
-      staleTime: Infinity,
-      getNextPageParam: (lastPage) =>
-        lastPage.pagination.current_page < lastPage.pagination.total_pages
-          ? lastPage.pagination.current_page + 1
-          : undefined,
-      getPreviousPageParam: (firstPage) =>
-        firstPage.pagination.current_page > 1
-          ? firstPage.pagination.current_page - 1
-          : undefined,
-      keepPreviousData: true,
-    }
-  );
+      {
+        staleTime: Infinity,
+        initialCursor: 1,
+        getNextPageParam: (lastPage) =>
+          lastPage.pagination.current_page < lastPage.pagination.total_pages
+            ? lastPage.pagination.current_page + 1
+            : undefined,
+        getPreviousPageParam: (firstPage) =>
+          firstPage.pagination.current_page > 1
+            ? firstPage.pagination.current_page - 1
+            : undefined,
+        placeholderData: keepPreviousData,
+      }
+    );
 
   // Fetch facets cache for active collection via tRPC
   const { data: session } = useSession();
   const token = (session as any)?.accessToken;
-  const { data: facetsCache } = useQuery(
-    [
-      'collection.facetsCachePaginated',
-      {
-        id: activeCollection && activeCollection.id ? activeCollection.id : '',
-        page: 1,
-        limit: 20,
-        token,
-      },
-    ],
+  const { data: facetsCache } = trpc.collection.facetsCachePaginated.useQuery(
+    {
+      id: activeCollection && activeCollection.id ? activeCollection.id : '',
+      page: 1,
+      limit: 20,
+    },
     {
       enabled: !!(activeCollection && activeCollection.id),
       // staleTime: Infinity means this never goes stale (and thus never
@@ -146,7 +142,9 @@ const Search = () => {
 
   // Normalize cached facets - extract facets array from paginated response
   const normalizedCachedFacets =
-    facetsCache?.facets && Array.isArray(facetsCache.facets) && facetsCache.facets.length > 0
+    facetsCache?.facets &&
+    Array.isArray(facetsCache.facets) &&
+    facetsCache.facets.length > 0
       ? { annotations: facetsCache.facets, metadata: [] }
       : undefined;
 
@@ -310,8 +308,7 @@ const Search = () => {
           const annId = (ann.id_ER || '').toLowerCase().trim();
           const annName = (ann.display_name || '').toLowerCase().trim();
           const match = normalized.find(
-            (n) =>
-              (n.id && n.id === annId) || (n.name && n.name === annName)
+            (n) => (n.id && n.id === annId) || (n.name && n.name === annName)
           );
           if (match) names.add(ann.display_name || match.display);
         });
@@ -319,7 +316,12 @@ const Search = () => {
 
       return Array.from(names);
     };
-  }, [selectedFilters, filterIdToDocIds, filterIdToDisplayName, deanonymizedNames]);
+  }, [
+    selectedFilters,
+    filterIdToDocIds,
+    filterIdToDisplayName,
+    deanonymizedNames,
+  ]);
 
   // Wrapper to ensure we never set empty filters. Accepts an array of `id_ER` strings
   // and stores objects of shape `{ id_ER, display_name }` in the atom.

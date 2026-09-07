@@ -1,7 +1,7 @@
 import { FrownOutlined, MehOutlined, SmileOutlined } from '@ant-design/icons';
 import { Col, Flex, message, Rate, Row } from 'antd';
 import { AnimatePresence, motion } from 'framer-motion';
-import { useMutation } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import {
   useConversationRated,
   useChatDispatch,
@@ -16,7 +16,8 @@ export default function RateConversation({ state }: RateConversationProps) {
   const t = useText('chat');
   const ratedConversation = useConversationRated();
   const dispatch = useChatDispatch();
-  const rateConversationMutation = useMutation(['search.rateTheConversation']);
+  const rateConversationMutation =
+    trpc.search.rateTheConversation.useMutation();
 
   const customIcons: Record<number, React.ReactNode> = {
     1: <FrownOutlined style={{ fontSize: 24 }} />,

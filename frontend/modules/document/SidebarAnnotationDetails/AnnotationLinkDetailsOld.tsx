@@ -1,5 +1,5 @@
 import { LinkingCandidate } from '@/lib/types/document';
-import { useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import styled from '@emotion/styled';
 import { Collapse, Checkbox, Text, Link } from '@heroui/react';
 import { FiArrowUpRight } from '@react-icons/all-files/fi/FiArrowUpRight';
@@ -57,8 +57,8 @@ const AnnotationLinkCollapseContent = ({
   fetchData,
 }: AnnotationLinkCollapseContentProps) => {
   const { id, indexer } = candidate;
-  const { data, isLoading } = useQuery(
-    ['annotation.getAnnotationDetails', { id, indexer }],
+  const { data, isLoading } = trpc.annotation.getAnnotationDetails.useQuery(
+    { id, indexer },
     {
       staleTime: Infinity,
       enabled: fetchData,

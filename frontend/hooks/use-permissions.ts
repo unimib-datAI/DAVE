@@ -1,4 +1,4 @@
-import { useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { useSession } from 'next-auth/react';
 import { isAuthEnabled, getUserRolesFromToken } from '@/utils/auth';
 import type { DAVEPermissions } from '@/lib/types/permission';
@@ -14,7 +14,7 @@ export function usePermissions() {
   const token = (session as any)?.accessToken as string | undefined;
   const authEnabled = isAuthEnabled();
 
-  const query = useQuery(['permission.getCurrent', { token }], {
+  const query = trpc.permission.getCurrent.useQuery(undefined, {
     enabled: authEnabled ? Boolean(token) : true,
     staleTime: FIVE_MINUTES,
     refetchInterval: FIVE_MINUTES,

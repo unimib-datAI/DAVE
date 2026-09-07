@@ -1,5 +1,5 @@
 import { ToolbarLayout, useText } from '@/components';
-import { useContext, useMutation, useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { Button, Pagination, Spinner } from '@heroui/react';
 import { NextPage } from 'next';
 import { useSession, getSession } from 'next-auth/react';
@@ -155,7 +155,7 @@ const Collection: NextPage = () => {
   const router = useRouter();
   const { data: session, status } = useSession();
   const id = router.query.id as string | undefined;
-  const utils = useContext();
+  const utils = trpc.useUtils();
   const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
   const token = (session as any)?.accessToken as string | undefined;
   const enabled = authDisabled
@@ -175,12 +175,11 @@ const Collection: NextPage = () => {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
   const pageSize = 20;
-  const updateMutation = useMutation(['collection.update'], {
+  const updateMutation = trpc.collection.update.useMutation({
     onSuccess: (res) => {
-      // optionally invalidate or refetch queries
       try {
-        utils.invalidateQueries(['collection.getAll']);
-        utils.invalidateQueries(['collection.getById', { id }]);
+        utils.collection.getAll.invalidate();
+        utils.collection.getById.invalidate({ id: id ?? '' });
       } catch (e) {
         // ignore
       }
@@ -194,35 +193,28 @@ const Collection: NextPage = () => {
     string | null
   >(null);
   // delete mutation with onSuccess that updates cache locally
-  const deleteDocumentMutation = useMutation(['document.deleteDocument'], {
+  const deleteDocumentMutation = trpc.document.deleteDocument.useMutation({
     onSuccess: (_result, variables) => {
-      // Build the same query key you use in useQuery
-      const queryKey = [
-        'collection.getCollectionInfo',
-        { id: id ?? '', token: (session as any)?.accessToken },
-      ] as const;
-
       // Remove the deleted doc from the cached array (instant local update)
-      utils.setQueryData(queryKey, (old: collectionDocInfo[] | undefined) =>
-        old
-          ? old.filter((d: collectionDocInfo) => d.id !== variables.docId)
-          : old
+      utils.collection.getCollectionInfo.setData(
+        { id: id ?? '' },
+        (old: collectionDocInfo[] | undefined) =>
+          old
+            ? old.filter((d: collectionDocInfo) => d.id !== variables.docId)
+            : old
       );
 
-      // Optionally show a success message
       message.success(t('documentDeleted'));
     },
     onError: () => {
       message.error(t('errorDeleting'));
     },
   });
-  const { data, isLoading, refetch } = useQuery(
-    [
-      'collection.getCollectionInfo',
-      { id: id ?? '', token: (session as any)?.accessToken },
-    ],
-    { enabled: enabled }
-  );
+  const { data, isLoading, refetch } =
+    trpc.collection.getCollectionInfo.useQuery(
+      { id: id ?? '' },
+      { enabled: enabled }
+    );
   async function handleDeleteDocument(docId: string) {
     try {
       await deleteDocumentMutation.mutateAsync({
@@ -428,7 +420,6 @@ const Collection: NextPage = () => {
                     typesToHide: selectedTypes,
                     typesOrder: typesOrder,
                   },
-                  token: authDisabled ? undefined : token,
                 });
                 // write atoms: update collections array and active collection
                 setAllCollections(updated);

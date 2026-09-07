@@ -3,7 +3,7 @@
 
 export type FacetedQueryHit = {
   _id: string;
-  id: Number;
+  id: number;
   mongo_id: string;
   text: string;
   name: string;

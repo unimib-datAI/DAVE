@@ -13,7 +13,7 @@ import { useAtom } from 'jotai';
 import { uploadModalOpenAtom } from '@/atoms/upload';
 import { useUploadJobs } from '@/hooks/upload';
 
-import { useMutation, useContext, useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { useRef, useState, useEffect } from 'react';
 import styled from '@emotion/styled';
 import { FiUpload } from '@react-icons/all-files/fi/FiUpload';
@@ -192,7 +192,6 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
     setAnonymizeTypesInput(anonymizeTypes.join(', '));
   }, [anonymizeTypes]);
   const txtFileInputRef = useRef<HTMLInputElement>(null);
-  const trpcContext = useContext();
   const token = session?.accessToken as string | undefined;
   const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
   // When auth is disabled, pass an empty string token to satisfy backend schema validation.
@@ -200,17 +199,15 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
 
   // Fetch configurations
   const { data: configurations = [], isLoading: configurationsLoading } =
-    useQuery(['document.getConfigurations', { token: tokenForApi }], {
+    trpc.document.getConfigurations.useQuery(undefined, {
       enabled: authDisabled || (status === 'authenticated' && !!token),
     });
 
   // Get active configuration
-  const { data: activeConfig, isLoading: activeConfigLoading } = useQuery(
-    ['document.getActiveConfiguration', { token: tokenForApi }],
-    {
+  const { data: activeConfig, isLoading: activeConfigLoading } =
+    trpc.document.getActiveConfiguration.useQuery(undefined, {
       enabled: authDisabled || (status === 'authenticated' && !!token),
-    }
-  );
+    });
 
   const handleFileSelect = (
     event: React.ChangeEvent<HTMLInputElement>,

@@ -5,7 +5,7 @@ import { getSession } from 'next-auth/react';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { useText } from '@/components/TranslationProvider';
 import { usePermissions, useIsAdmin } from '@/hooks';
-import { useMutation, useQuery, useContext } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import {
   Checkbox,
   message,
@@ -48,7 +48,7 @@ const AdminPage: NextPage = () => {
   const { data: session, status: sessionStatus } = useSession();
   const isAdmin = useIsAdmin();
   const { permissions, isLoading: isLoadingPermissions } = usePermissions();
-  const trpcCtx = useContext();
+  const trpcCtx = trpc.useUtils();
 
   const [draft, setDraft] = useState<DraftPermissions | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>(
@@ -75,11 +75,11 @@ const AdminPage: NextPage = () => {
     }
   }, [permissionsId]);
 
-  const updateMutation = useMutation(['permission.update'], {
+  const updateMutation = trpc.permission.update.useMutation({
     onSuccess: () => {
       setSaveState('saved');
       try {
-        trpcCtx.invalidateQueries(['permission.getCurrent']);
+        trpcCtx.permission.getCurrent.invalidate();
       } catch (_) {}
       setTimeout(() => setSaveState('idle'), 2500);
     },
@@ -89,15 +89,12 @@ const AdminPage: NextPage = () => {
     },
   });
 
-  const usersQuery = useQuery(
-    ['user.getAllUsers', { token: authDisabled ? undefined : token }],
-    {
-      enabled: !authDisabled && activeSection === 'users',
-      retry: false,
-    }
-  );
+  const usersQuery = trpc.user.getAllUsers.useQuery(undefined, {
+    enabled: !authDisabled && activeSection === 'users',
+    retry: false,
+  });
 
-  const createUserMutation = useMutation(['user.createUser'], {
+  const createUserMutation = trpc.user.createUser.useMutation({
     onSuccess: () => {
       message.success(t('users.createSuccess'));
       setUserModalOpen(false);
@@ -109,7 +106,7 @@ const AdminPage: NextPage = () => {
     },
   });
 
-  const updateUserMutation = useMutation(['user.updateUser'], {
+  const updateUserMutation = trpc.user.updateUser.useMutation({
     onSuccess: () => {
       message.success(t('users.updateSuccess'));
       setUserModalOpen(false);
@@ -122,7 +119,7 @@ const AdminPage: NextPage = () => {
     },
   });
 
-  const deleteUserMutation = useMutation(['user.deleteUser'], {
+  const deleteUserMutation = trpc.user.deleteUser.useMutation({
     onSuccess: () => {
       message.success(t('users.deleteSuccess'));
       usersQuery.refetch();
@@ -136,7 +133,6 @@ const AdminPage: NextPage = () => {
     if (!draft) return;
     setSaveState('saving');
     updateMutation.mutate({
-      token: authDisabled ? undefined : token,
       permissions: draft,
     });
   };
@@ -146,7 +142,6 @@ const AdminPage: NextPage = () => {
       if (editingUser) {
         const payload: any = {
           id: editingUser.id,
-          token: authDisabled ? undefined : token,
         };
         if (values.email) payload.email = values.email;
         if (values.firstName !== undefined)
@@ -162,7 +157,6 @@ const AdminPage: NextPage = () => {
           firstName: values.firstName,
           lastName: values.lastName,
           role: values.role || undefined,
-          token: authDisabled ? undefined : token,
         });
       }
     });
@@ -748,7 +742,6 @@ const AdminPage: NextPage = () => {
                                     onConfirm={() =>
                                       deleteUserMutation.mutate({
                                         id: user.id,
-                                        token: authDisabled ? undefined : token,
                                       })
                                     }
                                     okText={t('users.deleteConfirmOk')}
@@ -796,8 +789,8 @@ const AdminPage: NextPage = () => {
                         : t('users.addUser')
                     }
                     confirmLoading={
-                      createUserMutation.isLoading ||
-                      updateUserMutation.isLoading
+                      createUserMutation.isPending ||
+                      updateUserMutation.isPending
                     }
                     destroyOnClose
                   >

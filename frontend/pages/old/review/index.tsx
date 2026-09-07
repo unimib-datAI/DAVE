@@ -1,5 +1,5 @@
 import { Source } from '@/lib/types/review';
-import { useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import styled from '@emotion/styled';
 
 import { FiFolder } from '@react-icons/all-files/fi/FiFolder';
@@ -103,7 +103,7 @@ const Folder = ({ id, name, total, done }: FolderProps) => {
 };
 
 const ReviewPage = () => {
-  const { data, isFetching, isSuccess } = useQuery(['review.getAllSources']);
+  const { data, isFetching, isSuccess } = trpc.review.getAllSources.useQuery();
 
   const isLoading = isFetching && !data;
 

@@ -27,7 +27,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useMutation } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 
 import { getClustersGroups, groupBy } from '@/utils/shared';
 import { CheckboxChangeEvent } from 'antd/es/checkbox';
@@ -168,9 +168,8 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
   const context = useDocumentContext();
   const { data: session } = useSession();
   const token = (session as any)?.accessToken as string | undefined;
-  const moveEntitiesToClusters = useMutation([
-    'document.moveEntitiesToCluster',
-  ]);
+  const moveEntitiesToClusters =
+    trpc.document.moveEntitiesToCluster.useMutation();
   const t = useText('document');
   const { canUpdate } = useDocumentPermissions();
 
@@ -335,7 +334,6 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
           sourceCluster: sourceCluster?.id as number,
           annotationSet: annSetName as string,
           destinationCluster: dest?.id as number,
-          token,
         },
         {
           onSuccess: (data) => {

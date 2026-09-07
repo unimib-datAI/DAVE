@@ -1,7 +1,6 @@
 import type { GetServerSideProps, NextPage } from 'next';
 import { Button, ToolbarLayout } from '@/components';
 import styled from '@emotion/styled';
-import { useInfiniteQuery, useQuery } from '@/utils/trpc';
 import { NextPageWithLayout } from '../_app';
 import { ReactElement, useCallback, useEffect } from 'react';
 import ActionBar from '@/modules/documents/ActionBar';

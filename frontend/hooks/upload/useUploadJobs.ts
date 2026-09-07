@@ -10,7 +10,7 @@
 
 import { useCallback } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { useMutation } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import {
   uploadJobIdsAtom,
   uploadJobsMapAtom,
@@ -35,9 +35,9 @@ export function useUploadJobs() {
   const trackJob = useSetAtom(trackUploadJobAtom);
   const untrackJob = useSetAtom(untrackUploadJobAtom);
 
-  const createUploadJobMutation = useMutation(['document.createUploadJob']);
-  const dismissUploadJobMutation = useMutation(['document.dismissUploadJob']);
-  const cancelUploadJobMutation = useMutation(['document.cancelUploadJob']);
+  const createUploadJobMutation = trpc.document.createUploadJob.useMutation();
+  const dismissUploadJobMutation = trpc.document.dismissUploadJob.useMutation();
+  const cancelUploadJobMutation = trpc.document.cancelUploadJob.useMutation();
 
   const submitUploadJob = useCallback(
     async (input: SubmitUploadJobInput): Promise<string> => {
@@ -45,7 +45,6 @@ export function useUploadJobs() {
         collectionId: input.collectionId,
         uploadType: input.uploadType,
         files: input.files,
-        token: input.token,
         configurationId: input.configurationId,
         toAnonymize: input.toAnonymize,
         anonymizeTypes: input.anonymizeTypes,
@@ -60,7 +59,7 @@ export function useUploadJobs() {
     async (jobId: string, token: string) => {
       untrackJob(jobId);
       try {
-        await dismissUploadJobMutation.mutateAsync({ jobId, token });
+        await dismissUploadJobMutation.mutateAsync({ jobId });
       } catch {
         // best-effort — the job is already untracked client-side
       }
@@ -74,7 +73,7 @@ export function useUploadJobs() {
   // the user can dismiss it afterwards like any other finished job.
   const cancelJob = useCallback(
     async (jobId: string, token: string) => {
-      await cancelUploadJobMutation.mutateAsync({ jobId, token });
+      await cancelUploadJobMutation.mutateAsync({ jobId });
     },
     [cancelUploadJobMutation]
   );
@@ -89,6 +88,6 @@ export function useUploadJobs() {
     submitUploadJob,
     dismissJob,
     cancelJob,
-    isSubmitting: createUploadJobMutation.isLoading,
+    isSubmitting: createUploadJobMutation.isPending,
   };
 }

@@ -12,7 +12,7 @@ import {
   deanonymizedFacetNamesAtom,
   isLoadingAnonymizationAtom,
 } from '@/utils/atoms';
-import { useMutation, useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { useSession } from 'next-auth/react';
 
@@ -275,7 +275,7 @@ const Facets = ({
     deanonymizedFacetNamesAtom
   );
   const [collection] = useAtom(activeCollectionAtom);
-  const deanonymizeMutation = useMutation(['document.deanonymizeKeys']);
+  const deanonymizeMutation = trpc.document.deanonymizeKeys.useMutation();
   const [, setGlobalLoading] = useAtom(isLoadingAnonymizationAtom);
   const { data: session } = useSession();
   const token = (session as any)?.accessToken as string | undefined;
@@ -293,16 +293,12 @@ const Facets = ({
   );
 
   // Load initial paginated facets when filter is empty
-  const paginatedQuery = useQuery(
-    [
-      'collection.facetsCachePaginated',
-      {
-        id: collection?.id || '',
-        page: 1,
-        limit: 20,
-        token,
-      },
-    ],
+  const paginatedQuery = trpc.collection.facetsCachePaginated.useQuery(
+    {
+      id: collection?.id || '',
+      page: 1,
+      limit: 20,
+    },
     {
       enabled: !shouldSearch && !!collection?.id,
       staleTime: Infinity, // Cache indefinitely
@@ -339,10 +335,12 @@ const Facets = ({
       console.log('[Facets] Loading paginated query - page 1, limit 20');
     }
     if (paginatedQuery.isSuccess && paginatedQuery.data) {
-      console.log('[Facets] Paginated query success:', paginatedQuery.data.pagination);
+      console.log(
+        '[Facets] Paginated query success:',
+        paginatedQuery.data.pagination
+      );
     }
   }, [paginatedQuery.isFetching, paginatedQuery.isSuccess]);
-
 
   // Fetch de-anonymized names when global toggle is activated
   useEffect(() => {
@@ -384,11 +382,12 @@ const Facets = ({
 
     // Only fetch if there are vault keys in the facets
     const hasVaultKeys = allFacets.some((group: any) =>
-      (group.children || []).some((child: any) =>
-        child.display_name && child.display_name.startsWith('vault:v1')
+      (group.children || []).some(
+        (child: any) =>
+          child.display_name && child.display_name.startsWith('vault:v1')
       )
     );
-    
+
     if (hasVaultKeys) {
       fetchDeAnonymizedNames();
     } else {
@@ -420,7 +419,6 @@ const Facets = ({
   }, [filteredFacets, collection?.config, value.filter]);
 
   const isLoading = !shouldSearch && paginatedQuery.isLoading;
-
 
   // Only hide the entire panel (including the search box) when there is no
   // base facet data to work with at all - e.g. before anything has loaded,
@@ -461,7 +459,9 @@ const Facets = ({
           </div>
 
           {orderedFacets.length === 0 && (
-            <div className="text-sm text-slate-500">{t('noMatchingFilters')}</div>
+            <div className="text-sm text-slate-500">
+              {t('noMatchingFilters')}
+            </div>
           )}
 
           {orderedFacets.map(({ filterType, ...facet }: any) => {

@@ -14,7 +14,7 @@ import {
   facetsDocumentsAtom,
 } from '@/utils/atoms';
 import { activeCollectionAtom } from '@/atoms/collection';
-import { useMutation, useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { useText } from '@/components/TranslationProvider';
 
 type FacetFilterProps = {
@@ -58,7 +58,7 @@ const FacetFilter = ({
   const [deanonymize] = useAtom(deanonymizeFacetsAtom);
   const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
   const [facetedDocuments, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
-  const getDocsByIdsMutation = useMutation(['document.fetchFacetDocuments']);
+  const getDocsByIdsMutation = trpc.document.fetchFacetDocuments.useMutation();
   const [fetching, setFetching] = useState(false);
 
   const [page, setPage] = useState(1);
@@ -71,55 +71,58 @@ const FacetFilter = ({
   });
 
   // Search query when user types in the search box
-  const { data: searchData, isLoading: isSearching } = useQuery(
-    [
-      'collection.facetsCacheSearch',
+  const { data: searchData, isLoading: isSearching } =
+    trpc.collection.facetsCacheSearch.useQuery(
       {
         id: collection?.id || '',
         key: facet.key,
         query: value.filter.trim(), // User's search text
         page: 1,
         limit: 20,
-        token,
       },
-    ],
-    {
-      enabled: !!collection?.id && value.filter.trim().length > 0,
-    }
-  );
+      {
+        enabled: !!collection?.id && value.filter.trim().length > 0,
+      }
+    );
 
   // Fetch more items when user clicks "show more" (without search filter)
-  const { data: paginatedData, isLoading: isLoadingMore } = useQuery(
-    [
-      'collection.facetsCacheSearch',
+  const { data: paginatedData, isLoading: isLoadingMore } =
+    trpc.collection.facetsCacheSearch.useQuery(
       {
         id: collection?.id || '',
         key: facet.key,
         query: '', // Empty query matches all
         page,
         limit: 20,
-        token,
       },
-    ],
-    {
-      enabled: page > 1 && !!collection?.id && value.filter.trim().length === 0,
-    }
-  );
+      {
+        enabled:
+          page > 1 && !!collection?.id && value.filter.trim().length === 0,
+      }
+    );
 
   // Extract children from search or paginated results
   const paginatedChildren = useMemo(() => {
     // Use search results if user is searching
     if (value.filter.trim().length > 0 && searchData?.facets) {
-      console.log(`[FacetFilter] Search results for "${value.filter}":`, searchData.facets.length, 'items');
+      console.log(
+        `[FacetFilter] Search results for "${value.filter}":`,
+        searchData.facets.length,
+        'items'
+      );
       return searchData.facets || [];
     }
-    
+
     // Use paginated results for "show more"
     if (paginatedData?.facets) {
-      console.log(`[FacetFilter] Page ${page} results for ${facet.key}:`, paginatedData.facets.length, 'items');
+      console.log(
+        `[FacetFilter] Page ${page} results for ${facet.key}:`,
+        paginatedData.facets.length,
+        'items'
+      );
       return paginatedData.facets || [];
     }
-    
+
     return [];
   }, [paginatedData, searchData, value.filter, facet.key]);
 
@@ -141,7 +144,9 @@ const FacetFilter = ({
             existing.add(child.display_name);
           }
         });
-        console.log(`[FacetFilter] Accumulated ${newChildren.length} total items for ${facet.key}`);
+        console.log(
+          `[FacetFilter] Accumulated ${newChildren.length} total items for ${facet.key}`
+        );
         return newChildren;
       });
     }
@@ -203,7 +208,7 @@ const FacetFilter = ({
       // First page: show initial items from facet.children
       return filteredChildren.slice(0, MAX_VISIBLE_CHILDREN);
     }
-    
+
     // Show initial 20 + all accumulated paginated items
     const initial = filteredChildren.slice(0, MAX_VISIBLE_CHILDREN);
     return [...initial, ...accumulatedChildren];
@@ -395,7 +400,6 @@ const FacetFilter = ({
         })}
       </div>
 
-
       {facet.n_children > MAX_VISIBLE_CHILDREN ? (
         <div className="flex flex-row justify-between">
           {page > 1 ? (
@@ -415,7 +419,9 @@ const FacetFilter = ({
               className="text-xs border-none bg-transparent flex justify-start m-0 p-0 font-semibold underline cursor-pointer disabled:opacity-50"
               disabled={isLoadingMore || isSearching}
             >
-              {(isLoadingMore || isSearching) ? 'Loading...' : t('showMore', { count: MAX_VISIBLE_CHILDREN })}
+              {isLoadingMore || isSearching
+                ? 'Loading...'
+                : t('showMore', { count: MAX_VISIBLE_CHILDREN })}
             </button>
           ) : null}
         </div>

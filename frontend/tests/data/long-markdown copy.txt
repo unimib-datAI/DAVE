@@ -1,0 +1,2370 @@
+# Case Compendium - Support & Regulatory Archive
+
+This archive collects procedural records, correspondence and rulings.
+Lines are wrapped at the source; every newline should render as a break.
+It is intentionally long so the document view has to virtualize it.
+
+## Overview
+
+| Case | Claimant | Registry | Amount | Status |
+|------|----------|----------|--------|--------|
+| EXT-CASE-500137 | Johan Rossi | Continental Freight GmbH | EUR 252,228.00 | under review |
+| EXT-CASE-500274 | Johan Meyer | Orion Municipal Court | EUR 91,604.00 | settled |
+| EXT-CASE-500411 | Marco Rossi | Helios Data Registry | EUR 225,238.00 | dismissed |
+| EXT-CASE-500548 | Alice Kim | Aurora Compliance Office | EUR 735,665.00 | dismissed |
+| EXT-CASE-500685 | Yuki Bianchi | Vanguard Technical Support | EUR 605,284.00 | closed |
+| EXT-CASE-500822 | Fatima Costa | Sable & Finch LLP | EUR 350,284.00 | under review |
+| EXT-CASE-500959 | Diego Larsen | Blue Harbor Authority | EUR 106,094.00 | settled |
+| EXT-CASE-501096 | Johan Haddad | Blue Harbor Authority | EUR 620,270.00 | closed |
+| EXT-CASE-501233 | Noah Kim | Helios Data Registry | EUR 389,080.00 | dismissed |
+| EXT-CASE-501370 | Sofia Tanaka | Delta Regulatory Board | EUR 908,882.00 | appealed |
+| EXT-CASE-501507 | Diego Costa | Helios Data Registry | EUR 48,677.00 | under review |
+| EXT-CASE-501644 | Sofia Nguyen | Aurora Compliance Office | EUR 889,103.00 | settled |
+| EXT-CASE-501781 | Kwame Andersson | Blue Harbor Authority | EUR 168,379.00 | appealed |
+| EXT-CASE-501918 | Diego Meyer | Continental Freight GmbH | EUR 720,959.00 | closed |
+| EXT-CASE-502055 | Fatima Kim | Aurora Compliance Office | EUR 169,473.00 | settled |
+| EXT-CASE-502192 | Kwame Meyer | Orion Municipal Court | EUR 226,701.00 | appealed |
+| EXT-CASE-502329 | Marco Bianchi | Northwind Logistics S.p.A. | EUR 826,323.00 | settled |
+| EXT-CASE-502466 | Kwame Nguyen | Aurora Compliance Office | EUR 937,965.00 | dismissed |
+| EXT-CASE-502603 | Ravi Bianchi | Vanguard Technical Support | EUR 407,905.00 | settled |
+| EXT-CASE-502740 | Chen Kowalski | Meridian Trust Bank | EUR 254,762.00 | dismissed |
+| EXT-CASE-502877 | Kwame Costa | Delta Regulatory Board | EUR 440,919.00 | dismissed |
+| EXT-CASE-503014 | Tomas Haddad | Aurora Compliance Office | EUR 143,521.00 | settled |
+| EXT-CASE-503151 | Priya Larsen | Northwind Logistics S.p.A. | EUR 883,112.00 | under review |
+| EXT-CASE-503288 | Fatima Larsen | Sable & Finch LLP | EUR 612,065.00 | settled |
+| EXT-CASE-503425 | Tomas Petrov | Vanguard Technical Support | EUR 543,257.00 | dismissed |
+| EXT-CASE-503562 | Alice Meyer | Helios Data Registry | EUR 700,906.00 | dismissed |
+| EXT-CASE-503699 | Kwame Larsen | Blue Harbor Authority | EUR 116,300.00 | settled |
+| EXT-CASE-503836 | Fatima Andersson | Northwind Logistics S.p.A. | EUR 741,896.00 | appealed |
+| EXT-CASE-503973 | Fatima Kim | Helios Data Registry | EUR 893,640.00 | appealed |
+| EXT-CASE-504110 | Diego Okafor | Blue Harbor Authority | EUR 782,165.00 | dismissed |
+| EXT-CASE-504247 | Alice Petrov | Blue Harbor Authority | EUR 502,019.00 | closed |
+| EXT-CASE-504384 | Emma Tanaka | Continental Freight GmbH | EUR 247,059.00 | under review |
+| EXT-CASE-504521 | Priya Nguyen | Vanguard Technical Support | EUR 837,070.00 | dismissed |
+| EXT-CASE-504658 | Chen Okafor | Vanguard Technical Support | EUR 564,169.00 | appealed |
+| EXT-CASE-504795 | Yuki Bianchi | Orion Municipal Court | EUR 775,747.00 | under review |
+| EXT-CASE-504932 | Sofia Silva | Blue Harbor Authority | EUR 450,921.00 | dismissed |
+| EXT-CASE-505069 | Noah Nguyen | Aurora Compliance Office | EUR 232,065.00 | appealed |
+| EXT-CASE-505206 | Alice Petrov | Orion Municipal Court | EUR 237,602.00 | under review |
+| EXT-CASE-505343 | Alice Nguyen | Northwind Logistics S.p.A. | EUR 236,069.00 | closed |
+| EXT-CASE-505480 | Ravi Nguyen | Orion Municipal Court | EUR 245,285.00 | settled |
+| EXT-CASE-505617 | Diego Kim | Meridian Trust Bank | EUR 742,957.00 | dismissed |
+| EXT-CASE-505754 | Amara Bianchi | Vanguard Technical Support | EUR 828,416.00 | under review |
+| EXT-CASE-505891 | Johan Nguyen | Sable & Finch LLP | EUR 364,433.00 | settled |
+| EXT-CASE-506028 | Noah Tanaka | Northwind Logistics S.p.A. | EUR 691,669.00 | closed |
+| EXT-CASE-506165 | Marco Silva | Blue Harbor Authority | EUR 821,882.00 | closed |
+| EXT-CASE-506302 | Lena Bianchi | Aurora Compliance Office | EUR 551,459.00 | under review |
+| EXT-CASE-506439 | Yuki Okafor | Continental Freight GmbH | EUR 475,255.00 | closed |
+| EXT-CASE-506576 | Noah Larsen | Orion Municipal Court | EUR 102,051.00 | dismissed |
+| EXT-CASE-506713 | Alice Nguyen | Aurora Compliance Office | EUR 172,416.00 | settled |
+| EXT-CASE-506850 | Amara Bianchi | Sable & Finch LLP | EUR 926,060.00 | under review |
+| EXT-CASE-506987 | Tomas Rossi | Sable & Finch LLP | EUR 273,948.00 | settled |
+| EXT-CASE-507124 | Sofia Silva | Orion Municipal Court | EUR 679,735.00 | settled |
+| EXT-CASE-507261 | Chen Bianchi | Continental Freight GmbH | EUR 224,991.00 | closed |
+| EXT-CASE-507398 | Marco Costa | Blue Harbor Authority | EUR 60,051.00 | dismissed |
+| EXT-CASE-507535 | Amara Kim | Orion Municipal Court | EUR 163,058.00 | dismissed |
+| EXT-CASE-507672 | Priya Tanaka | Meridian Trust Bank | EUR 72,609.00 | closed |
+| EXT-CASE-507809 | Lena Silva | Helios Data Registry | EUR 913,583.00 | under review |
+| EXT-CASE-507946 | Marco Petrov | Helios Data Registry | EUR 431,673.00 | dismissed |
+| EXT-CASE-508083 | Ravi Kowalski | Aurora Compliance Office | EUR 687,733.00 | appealed |
+| EXT-CASE-508220 | Lena Kowalski | Sable & Finch LLP | EUR 136,687.00 | appealed |
+| EXT-CASE-508357 | Noah Haddad | Helios Data Registry | EUR 11,469.00 | dismissed |
+| EXT-CASE-508494 | Johan Nguyen | Orion Municipal Court | EUR 220,518.00 | appealed |
+| EXT-CASE-508631 | Chen Haddad | Helios Data Registry | EUR 902,250.00 | appealed |
+| EXT-CASE-508768 | Sofia Okafor | Vanguard Technical Support | EUR 855,556.00 | appealed |
+| EXT-CASE-508905 | Alice Meyer | Orion Municipal Court | EUR 308,954.00 | closed |
+| EXT-CASE-509042 | Chen Kowalski | Helios Data Registry | EUR 913,109.00 | dismissed |
+| EXT-CASE-509179 | Chen Kowalski | Continental Freight GmbH | EUR 621,215.00 | appealed |
+| EXT-CASE-509316 | Diego Meyer | Continental Freight GmbH | EUR 519,500.00 | appealed |
+| EXT-CASE-509453 | Marco Nguyen | Sable & Finch LLP | EUR 851,283.00 | closed |
+| EXT-CASE-509590 | Alice Haddad | Meridian Trust Bank | EUR 654,268.00 | under review |
+| EXT-CASE-509727 | Noah Kim | Sable & Finch LLP | EUR 576,009.00 | closed |
+| EXT-CASE-509864 | Priya Costa | Meridian Trust Bank | EUR 560,036.00 | appealed |
+| EXT-CASE-510001 | Chen Silva | Meridian Trust Bank | EUR 44,315.00 | appealed |
+| EXT-CASE-510138 | Marco Haddad | Aurora Compliance Office | EUR 700,255.00 | closed |
+| EXT-CASE-510275 | Emma Larsen | Orion Municipal Court | EUR 907,895.00 | settled |
+| EXT-CASE-510412 | Chen Bianchi | Meridian Trust Bank | EUR 821,830.00 | under review |
+| EXT-CASE-510549 | Yuki Rossi | Meridian Trust Bank | EUR 756,946.00 | appealed |
+| EXT-CASE-510686 | Yuki Larsen | Aurora Compliance Office | EUR 275,163.00 | closed |
+| EXT-CASE-510823 | Tomas Tanaka | Northwind Logistics S.p.A. | EUR 881,481.00 | under review |
+| EXT-CASE-510960 | Diego Tanaka | Vanguard Technical Support | EUR 360,312.00 | under review |
+| EXT-CASE-511097 | Lena Rossi | Aurora Compliance Office | EUR 410,336.00 | appealed |
+| EXT-CASE-511234 | Priya Larsen | Continental Freight GmbH | EUR 361,656.00 | dismissed |
+| EXT-CASE-511371 | Tomas Meyer | Orion Municipal Court | EUR 341,961.00 | closed |
+| EXT-CASE-511508 | Johan Kowalski | Meridian Trust Bank | EUR 596,985.00 | appealed |
+| EXT-CASE-511645 | Marco Nguyen | Delta Regulatory Board | EUR 446,353.00 | appealed |
+| EXT-CASE-511782 | Yuki Petrov | Orion Municipal Court | EUR 120,394.00 | dismissed |
+| EXT-CASE-511919 | Diego Kowalski | Northwind Logistics S.p.A. | EUR 727,446.00 | closed |
+| EXT-CASE-512056 | Diego Haddad | Sable & Finch LLP | EUR 73,971.00 | appealed |
+| EXT-CASE-512193 | Ravi Meyer | Helios Data Registry | EUR 739,921.00 | appealed |
+| EXT-CASE-512330 | Sofia Meyer | Sable & Finch LLP | EUR 336,412.00 | appealed |
+| EXT-CASE-512467 | Chen Bianchi | Sable & Finch LLP | EUR 682,962.00 | settled |
+| EXT-CASE-512604 | Fatima Petrov | Delta Regulatory Board | EUR 310,415.00 | dismissed |
+| EXT-CASE-512741 | Alice Kowalski | Continental Freight GmbH | EUR 217,440.00 | dismissed |
+| EXT-CASE-512878 | Ravi Andersson | Vanguard Technical Support | EUR 454,691.00 | under review |
+| EXT-CASE-513015 | Amara Larsen | Meridian Trust Bank | EUR 676,086.00 | appealed |
+| EXT-CASE-513152 | Ravi Nguyen | Aurora Compliance Office | EUR 690,317.00 | under review |
+| EXT-CASE-513289 | Diego Okafor | Northwind Logistics S.p.A. | EUR 49,250.00 | settled |
+| EXT-CASE-513426 | Priya Andersson | Sable & Finch LLP | EUR 909,644.00 | dismissed |
+| EXT-CASE-513563 | Diego Costa | Sable & Finch LLP | EUR 508,409.00 | under review |
+| EXT-CASE-513700 | Chen Meyer | Northwind Logistics S.p.A. | EUR 916,768.00 | closed |
+| EXT-CASE-513837 | Yuki Bianchi | Meridian Trust Bank | EUR 825,980.00 | dismissed |
+| EXT-CASE-513974 | Noah Rossi | Orion Municipal Court | EUR 257,939.00 | closed |
+| EXT-CASE-514111 | Noah Okafor | Vanguard Technical Support | EUR 685,543.00 | dismissed |
+| EXT-CASE-514248 | Ravi Larsen | Vanguard Technical Support | EUR 629,834.00 | dismissed |
+| EXT-CASE-514385 | Yuki Tanaka | Orion Municipal Court | EUR 458,918.00 | under review |
+| EXT-CASE-514522 | Amara Andersson | Continental Freight GmbH | EUR 771,253.00 | appealed |
+| EXT-CASE-514659 | Amara Meyer | Aurora Compliance Office | EUR 283,450.00 | closed |
+| EXT-CASE-514796 | Sofia Bianchi | Continental Freight GmbH | EUR 345,327.00 | dismissed |
+| EXT-CASE-514933 | Priya Okafor | Meridian Trust Bank | EUR 238,392.00 | under review |
+| EXT-CASE-515070 | Diego Nguyen | Sable & Finch LLP | EUR 419,338.00 | dismissed |
+| EXT-CASE-515207 | Noah Silva | Northwind Logistics S.p.A. | EUR 213,852.00 | settled |
+| EXT-CASE-515344 | Tomas Larsen | Delta Regulatory Board | EUR 714,020.00 | dismissed |
+| EXT-CASE-515481 | Tomas Andersson | Northwind Logistics S.p.A. | EUR 362,305.00 | settled |
+| EXT-CASE-515618 | Yuki Kim | Orion Municipal Court | EUR 821,617.00 | under review |
+| EXT-CASE-515755 | Amara Bianchi | Continental Freight GmbH | EUR 448,497.00 | closed |
+| EXT-CASE-515892 | Tomas Haddad | Sable & Finch LLP | EUR 743,169.00 | settled |
+| EXT-CASE-516029 | Chen Petrov | Orion Municipal Court | EUR 29,928.00 | settled |
+| EXT-CASE-516166 | Alice Nguyen | Sable & Finch LLP | EUR 140,887.00 | settled |
+| EXT-CASE-516303 | Fatima Rossi | Continental Freight GmbH | EUR 390,335.00 | under review |
+| EXT-CASE-516440 | Noah Haddad | Blue Harbor Authority | EUR 781,900.00 | settled |
+| EXT-CASE-516577 | Kwame Larsen | Sable & Finch LLP | EUR 260,854.00 | closed |
+| EXT-CASE-516714 | Amara Rossi | Orion Municipal Court | EUR 55,974.00 | appealed |
+| EXT-CASE-516851 | Lena Meyer | Helios Data Registry | EUR 801,980.00 | closed |
+| EXT-CASE-516988 | Alice Bianchi | Aurora Compliance Office | EUR 861,020.00 | dismissed |
+| EXT-CASE-517125 | Chen Bianchi | Meridian Trust Bank | EUR 486,685.00 | closed |
+| EXT-CASE-517262 | Diego Andersson | Continental Freight GmbH | EUR 787,377.00 | under review |
+| EXT-CASE-517399 | Johan Larsen | Meridian Trust Bank | EUR 320,110.00 | dismissed |
+| EXT-CASE-517536 | Alice Kowalski | Delta Regulatory Board | EUR 695,929.00 | settled |
+| EXT-CASE-517673 | Tomas Costa | Aurora Compliance Office | EUR 79,606.00 | under review |
+| EXT-CASE-517810 | Johan Costa | Continental Freight GmbH | EUR 872,700.00 | dismissed |
+| EXT-CASE-517947 | Johan Larsen | Delta Regulatory Board | EUR 803,042.00 | appealed |
+| EXT-CASE-518084 | Yuki Meyer | Blue Harbor Authority | EUR 72,518.00 | appealed |
+| EXT-CASE-518221 | Alice Tanaka | Sable & Finch LLP | EUR 844,501.00 | closed |
+| EXT-CASE-518358 | Yuki Haddad | Vanguard Technical Support | EUR 726,156.00 | settled |
+| EXT-CASE-518495 | Fatima Costa | Orion Municipal Court | EUR 668,276.00 | dismissed |
+| EXT-CASE-518632 | Amara Andersson | Sable & Finch LLP | EUR 847,748.00 | dismissed |
+| EXT-CASE-518769 | Kwame Haddad | Aurora Compliance Office | EUR 852,957.00 | closed |
+| EXT-CASE-518906 | Kwame Andersson | Aurora Compliance Office | EUR 770,475.00 | dismissed |
+| EXT-CASE-519043 | Tomas Haddad | Northwind Logistics S.p.A. | EUR 508,871.00 | appealed |
+| EXT-CASE-519180 | Fatima Andersson | Aurora Compliance Office | EUR 365,816.00 | appealed |
+| EXT-CASE-519317 | Ravi Kowalski | Delta Regulatory Board | EUR 720,901.00 | appealed |
+| EXT-CASE-519454 | Alice Kim | Aurora Compliance Office | EUR 89,247.00 | settled |
+| EXT-CASE-519591 | Amara Kim | Aurora Compliance Office | EUR 709,487.00 | settled |
+| EXT-CASE-519728 | Noah Larsen | Northwind Logistics S.p.A. | EUR 97,301.00 | under review |
+| EXT-CASE-519865 | Tomas Costa | Aurora Compliance Office | EUR 315,679.00 | dismissed |
+| EXT-CASE-520002 | Emma Andersson | Orion Municipal Court | EUR 545,352.00 | settled |
+| EXT-CASE-520139 | Ravi Haddad | Vanguard Technical Support | EUR 279,313.00 | appealed |
+| EXT-CASE-520276 | Lena Nguyen | Aurora Compliance Office | EUR 325,122.00 | dismissed |
+| EXT-CASE-520413 | Fatima Bianchi | Aurora Compliance Office | EUR 758,495.00 | appealed |
+| EXT-CASE-520550 | Sofia Nguyen | Aurora Compliance Office | EUR 305,232.00 | appealed |
+| EXT-CASE-520687 | Fatima Kowalski | Northwind Logistics S.p.A. | EUR 727,546.00 | under review |
+| EXT-CASE-520824 | Kwame Rossi | Northwind Logistics S.p.A. | EUR 568,299.00 | under review |
+| EXT-CASE-520961 | Amara Nguyen | Northwind Logistics S.p.A. | EUR 589,291.00 | settled |
+| EXT-CASE-521098 | Amara Andersson | Blue Harbor Authority | EUR 190,988.00 | closed |
+| EXT-CASE-521235 | Kwame Tanaka | Vanguard Technical Support | EUR 118,841.00 | closed |
+| EXT-CASE-521372 | Tomas Andersson | Helios Data Registry | EUR 592,644.00 | closed |
+| EXT-CASE-521509 | Chen Okafor | Delta Regulatory Board | EUR 313,087.00 | under review |
+| EXT-CASE-521646 | Johan Kim | Sable & Finch LLP | EUR 622,610.00 | dismissed |
+| EXT-CASE-521783 | Lena Larsen | Orion Municipal Court | EUR 391,461.00 | settled |
+| EXT-CASE-521920 | Sofia Tanaka | Delta Regulatory Board | EUR 441,312.00 | dismissed |
+| EXT-CASE-522057 | Marco Petrov | Helios Data Registry | EUR 783,212.00 | under review |
+| EXT-CASE-522194 | Kwame Meyer | Helios Data Registry | EUR 162,245.00 | under review |
+| EXT-CASE-522331 | Priya Okafor | Northwind Logistics S.p.A. | EUR 420,461.00 | dismissed |
+| EXT-CASE-522468 | Amara Kowalski | Northwind Logistics S.p.A. | EUR 239,295.00 | appealed |
+| EXT-CASE-522605 | Noah Nguyen | Aurora Compliance Office | EUR 272,806.00 | dismissed |
+| EXT-CASE-522742 | Diego Silva | Helios Data Registry | EUR 559,230.00 | under review |
+| EXT-CASE-522879 | Kwame Tanaka | Meridian Trust Bank | EUR 75,061.00 | under review |
+| EXT-CASE-523016 | Sofia Petrov | Delta Regulatory Board | EUR 297,449.00 | closed |
+| EXT-CASE-523153 | Noah Costa | Continental Freight GmbH | EUR 718,412.00 | appealed |
+| EXT-CASE-523290 | Amara Andersson | Helios Data Registry | EUR 614,040.00 | settled |
+| EXT-CASE-523427 | Ravi Petrov | Continental Freight GmbH | EUR 28,093.00 | under review |
+| EXT-CASE-523564 | Alice Larsen | Continental Freight GmbH | EUR 592,041.00 | under review |
+| EXT-CASE-523701 | Amara Kim | Vanguard Technical Support | EUR 940,284.00 | under review |
+| EXT-CASE-523838 | Yuki Meyer | Vanguard Technical Support | EUR 95,481.00 | appealed |
+| EXT-CASE-523975 | Yuki Haddad | Blue Harbor Authority | EUR 688,107.00 | under review |
+| EXT-CASE-524112 | Ravi Silva | Vanguard Technical Support | EUR 297,678.00 | settled |
+| EXT-CASE-524249 | Marco Andersson | Helios Data Registry | EUR 324,258.00 | appealed |
+| EXT-CASE-524386 | Johan Larsen | Sable & Finch LLP | EUR 887,526.00 | closed |
+| EXT-CASE-524523 | Noah Silva | Northwind Logistics S.p.A. | EUR 194,530.00 | appealed |
+| EXT-CASE-524660 | Amara Meyer | Vanguard Technical Support | EUR 780,052.00 | under review |
+| EXT-CASE-524797 | Kwame Kim | Meridian Trust Bank | EUR 296,448.00 | settled |
+| EXT-CASE-524934 | Johan Rossi | Delta Regulatory Board | EUR 820,245.00 | under review |
+| EXT-CASE-525071 | Sofia Kim | Northwind Logistics S.p.A. | EUR 567,417.00 | closed |
+| EXT-CASE-525208 | Lena Tanaka | Helios Data Registry | EUR 474,969.00 | closed |
+| EXT-CASE-525345 | Chen Andersson | Continental Freight GmbH | EUR 523,722.00 | appealed |
+| EXT-CASE-525482 | Yuki Tanaka | Vanguard Technical Support | EUR 485,249.00 | settled |
+| EXT-CASE-525619 | Chen Silva | Aurora Compliance Office | EUR 615,520.00 | under review |
+| EXT-CASE-525756 | Priya Kowalski | Sable & Finch LLP | EUR 350,956.00 | dismissed |
+| EXT-CASE-525893 | Kwame Tanaka | Northwind Logistics S.p.A. | EUR 291,743.00 | appealed |
+| EXT-CASE-526030 | Amara Tanaka | Meridian Trust Bank | EUR 459,551.00 | settled |
+| EXT-CASE-526167 | Emma Haddad | Orion Municipal Court | EUR 783,556.00 | settled |
+| EXT-CASE-526304 | Noah Haddad | Aurora Compliance Office | EUR 716,244.00 | dismissed |
+| EXT-CASE-526441 | Tomas Bianchi | Sable & Finch LLP | EUR 46,325.00 | settled |
+| EXT-CASE-526578 | Tomas Silva | Meridian Trust Bank | EUR 509,987.00 | closed |
+| EXT-CASE-526715 | Chen Kim | Delta Regulatory Board | EUR 341,890.00 | closed |
+| EXT-CASE-526852 | Noah Nguyen | Orion Municipal Court | EUR 934,467.00 | closed |
+| EXT-CASE-526989 | Chen Silva | Meridian Trust Bank | EUR 78,480.00 | appealed |
+| EXT-CASE-527126 | Ravi Petrov | Sable & Finch LLP | EUR 667,082.00 | appealed |
+| EXT-CASE-527263 | Tomas Haddad | Vanguard Technical Support | EUR 895,554.00 | closed |
+| EXT-CASE-527400 | Priya Bianchi | Continental Freight GmbH | EUR 234,764.00 | closed |
+| EXT-CASE-527537 | Yuki Nguyen | Helios Data Registry | EUR 456,170.00 | appealed |
+| EXT-CASE-527674 | Alice Rossi | Blue Harbor Authority | EUR 817,057.00 | appealed |
+| EXT-CASE-527811 | Emma Haddad | Sable & Finch LLP | EUR 151,250.00 | dismissed |
+| EXT-CASE-527948 | Yuki Petrov | Meridian Trust Bank | EUR 176,179.00 | closed |
+| EXT-CASE-528085 | Tomas Petrov | Aurora Compliance Office | EUR 511,934.00 | dismissed |
+| EXT-CASE-528222 | Chen Bianchi | Vanguard Technical Support | EUR 655,260.00 | settled |
+| EXT-CASE-528359 | Kwame Meyer | Northwind Logistics S.p.A. | EUR 922,823.00 | settled |
+| EXT-CASE-528496 | Sofia Meyer | Orion Municipal Court | EUR 163,075.00 | settled |
+| EXT-CASE-528633 | Emma Petrov | Continental Freight GmbH | EUR 656,985.00 | settled |
+| EXT-CASE-528770 | Kwame Andersson | Continental Freight GmbH | EUR 205,393.00 | settled |
+| EXT-CASE-528907 | Johan Bianchi | Sable & Finch LLP | EUR 587,367.00 | dismissed |
+| EXT-CASE-529044 | Sofia Costa | Continental Freight GmbH | EUR 24,849.00 | settled |
+| EXT-CASE-529181 | Kwame Rossi | Delta Regulatory Board | EUR 887,702.00 | closed |
+| EXT-CASE-529318 | Amara Tanaka | Continental Freight GmbH | EUR 796,818.00 | under review |
+| EXT-CASE-529455 | Emma Bianchi | Aurora Compliance Office | EUR 637,256.00 | under review |
+| EXT-CASE-529592 | Johan Meyer | Northwind Logistics S.p.A. | EUR 318,807.00 | settled |
+| EXT-CASE-529729 | Marco Petrov | Blue Harbor Authority | EUR 751,134.00 | closed |
+| EXT-CASE-529866 | Sofia Haddad | Sable & Finch LLP | EUR 181,205.00 | under review |
+| EXT-CASE-530003 | Emma Kim | Orion Municipal Court | EUR 937,279.00 | under review |
+| EXT-CASE-530140 | Kwame Tanaka | Vanguard Technical Support | EUR 827,302.00 | appealed |
+
+---
+
+## Case 1: EXT-CASE-500137
+
+**Filed:** 2025-02-15  
+**Registry:** Continental Freight GmbH  
+**Jurisdiction:** Rotterdam
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Johan Rossi, alleged losses of EUR 252,228.00 arising from the events described below.
+The respondent, Continental Freight GmbH, denied liability and relied on GDPR Art. 6(1)(f).
+
+### Parties
+
+- Claimant: Johan Rossi, represented by Lena Tanaka
+- Respondent: Continental Freight GmbH
+- Presiding: Tomas Tanaka
+
+### Statutory basis
+
+The tribunal considered D.Lgs. 231/2001 alongside Art. 1218 c.c..
+Damages, if any, were to be assessed at EUR 252,228.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Continental Freight GmbH well before the filing date.
+
+### Procedural log
+
+1. 2025-07-01 - filing received
+2. 2021-09-04 - hearing scheduled
+3. 2022-06-22 - evidence exchanged
+
+4. 2024-11-09 - oral argument
+5. 2023-07-27 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-500137",
+  "registry": "Continental Freight GmbH",
+
+  "amount": "EUR 252,228.00",
+  "status": "under review"
+}
+```
+
+### Correspondence
+
+From: Emma Nguyen  
+Date: 2024-04-16
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Alice Petrov  
+Date: 2023-06-20
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 2: EXT-CASE-500274
+
+**Filed:** 2020-11-03  
+**Registry:** Orion Municipal Court  
+**Jurisdiction:** Porto
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Johan Meyer, alleged losses of EUR 91,604.00 arising from the events described below.
+The respondent, Orion Municipal Court, denied liability and relied on Art. 96 c.p.c..
+
+### Parties
+
+- Claimant: Johan Meyer, represented by Yuki Nguyen
+- Respondent: Orion Municipal Court
+- Presiding: Chen Rossi
+
+### Statutory basis
+
+The tribunal considered Art. 2043 c.c. alongside Art. 96 c.p.c..
+Damages, if any, were to be assessed at EUR 91,604.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Orion Municipal Court well before the filing date.
+
+### Procedural log
+
+1. 2022-02-04 - filing received
+2. 2020-09-05 - hearing scheduled
+3. 2022-08-12 - evidence exchanged
+
+4. 2024-12-23 - oral argument
+5. 2023-07-19 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-500274",
+  "registry": "Orion Municipal Court",
+
+  "amount": "EUR 91,604.00",
+  "status": "settled"
+}
+```
+
+### Correspondence
+
+From: Chen Silva  
+Date: 2024-02-27
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Amara Petrov  
+Date: 2022-05-02
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 3: EXT-CASE-500411
+
+**Filed:** 2024-06-07  
+**Registry:** Helios Data Registry  
+**Jurisdiction:** Porto
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Marco Rossi, alleged losses of EUR 225,238.00 arising from the events described below.
+The respondent, Helios Data Registry, denied liability and relied on Directive 2011/83/EU.
+
+### Parties
+
+- Claimant: Marco Rossi, represented by Lena Tanaka
+- Respondent: Helios Data Registry
+- Presiding: Emma Nguyen
+
+### Statutory basis
+
+The tribunal considered D.Lgs. 231/2001 alongside D.Lgs. 231/2001.
+Damages, if any, were to be assessed at EUR 225,238.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Helios Data Registry well before the filing date.
+
+### Procedural log
+
+1. 2019-07-09 - filing received
+2. 2020-02-28 - hearing scheduled
+3. 2025-08-03 - evidence exchanged
+
+4. 2024-04-21 - oral argument
+5. 2024-10-01 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-500411",
+  "registry": "Helios Data Registry",
+
+  "amount": "EUR 225,238.00",
+  "status": "dismissed"
+}
+```
+
+### Correspondence
+
+From: Marco Larsen  
+Date: 2021-04-05
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Diego Nguyen  
+Date: 2025-09-07
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 4: EXT-CASE-500548
+
+**Filed:** 2023-04-27  
+**Registry:** Aurora Compliance Office  
+**Jurisdiction:** Kraków
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Alice Kim, alleged losses of EUR 735,665.00 arising from the events described below.
+The respondent, Aurora Compliance Office, denied liability and relied on D.Lgs. 231/2001.
+
+### Parties
+
+- Claimant: Alice Kim, represented by Chen Larsen
+- Respondent: Aurora Compliance Office
+- Presiding: Alice Kowalski
+
+### Statutory basis
+
+The tribunal considered GDPR Art. 6(1)(f) alongside GDPR Art. 6(1)(f).
+Damages, if any, were to be assessed at EUR 735,665.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Aurora Compliance Office well before the filing date.
+
+### Procedural log
+
+1. 2023-05-26 - filing received
+2. 2020-02-22 - hearing scheduled
+3. 2025-01-05 - evidence exchanged
+
+4. 2019-06-26 - oral argument
+5. 2025-04-19 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-500548",
+  "registry": "Aurora Compliance Office",
+
+  "amount": "EUR 735,665.00",
+  "status": "dismissed"
+}
+```
+
+### Correspondence
+
+From: Ravi Rossi  
+Date: 2020-05-02
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Chen Costa  
+Date: 2022-09-04
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 5: EXT-CASE-500685
+
+**Filed:** 2024-02-16  
+**Registry:** Vanguard Technical Support  
+**Jurisdiction:** Porto
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Yuki Bianchi, alleged losses of EUR 605,284.00 arising from the events described below.
+The respondent, Vanguard Technical Support, denied liability and relied on D.Lgs. 231/2001.
+
+### Parties
+
+- Claimant: Yuki Bianchi, represented by Johan Andersson
+- Respondent: Vanguard Technical Support
+- Presiding: Lena Petrov
+
+### Statutory basis
+
+The tribunal considered Art. 2043 c.c. alongside Art. 96 c.p.c..
+Damages, if any, were to be assessed at EUR 605,284.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Vanguard Technical Support well before the filing date.
+
+### Procedural log
+
+1. 2022-11-01 - filing received
+2. 2019-08-28 - hearing scheduled
+3. 2022-07-22 - evidence exchanged
+
+4. 2019-08-23 - oral argument
+5. 2022-02-03 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-500685",
+  "registry": "Vanguard Technical Support",
+
+  "amount": "EUR 605,284.00",
+  "status": "closed"
+}
+```
+
+### Correspondence
+
+From: Ravi Petrov  
+Date: 2020-02-05
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Kwame Petrov  
+Date: 2024-10-18
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 6: EXT-CASE-500822
+
+**Filed:** 2024-06-13  
+**Registry:** Sable & Finch LLP  
+**Jurisdiction:** Bergamo
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Fatima Costa, alleged losses of EUR 350,284.00 arising from the events described below.
+The respondent, Sable & Finch LLP, denied liability and relied on Art. 96 c.p.c..
+
+### Parties
+
+- Claimant: Fatima Costa, represented by Noah Kim
+- Respondent: Sable & Finch LLP
+- Presiding: Yuki Nguyen
+
+### Statutory basis
+
+The tribunal considered Art. 1218 c.c. alongside Reg. (EU) 2016/679.
+Damages, if any, were to be assessed at EUR 350,284.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Sable & Finch LLP well before the filing date.
+
+### Procedural log
+
+1. 2022-08-08 - filing received
+2. 2022-06-27 - hearing scheduled
+3. 2022-07-14 - evidence exchanged
+
+4. 2024-02-11 - oral argument
+5. 2022-06-22 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-500822",
+  "registry": "Sable & Finch LLP",
+
+  "amount": "EUR 350,284.00",
+  "status": "under review"
+}
+```
+
+### Correspondence
+
+From: Kwame Haddad  
+Date: 2020-11-16
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Priya Nguyen  
+Date: 2025-02-03
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 7: EXT-CASE-500959
+
+**Filed:** 2022-02-24  
+**Registry:** Blue Harbor Authority  
+**Jurisdiction:** Turin
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Diego Larsen, alleged losses of EUR 106,094.00 arising from the events described below.
+The respondent, Blue Harbor Authority, denied liability and relied on GDPR Art. 6(1)(f).
+
+### Parties
+
+- Claimant: Diego Larsen, represented by Marco Petrov
+- Respondent: Blue Harbor Authority
+- Presiding: Ravi Meyer
+
+### Statutory basis
+
+The tribunal considered Art. 1218 c.c. alongside Art. governance-clause 14.
+Damages, if any, were to be assessed at EUR 106,094.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Blue Harbor Authority well before the filing date.
+
+### Procedural log
+
+1. 2021-11-25 - filing received
+2. 2022-12-02 - hearing scheduled
+3. 2021-10-10 - evidence exchanged
+
+4. 2021-02-19 - oral argument
+5. 2023-04-05 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-500959",
+  "registry": "Blue Harbor Authority",
+
+  "amount": "EUR 106,094.00",
+  "status": "settled"
+}
+```
+
+### Correspondence
+
+From: Amara Bianchi  
+Date: 2025-02-12
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Emma Nguyen  
+Date: 2025-05-19
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 8: EXT-CASE-501096
+
+**Filed:** 2020-07-28  
+**Registry:** Blue Harbor Authority  
+**Jurisdiction:** Copenhagen
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Johan Haddad, alleged losses of EUR 620,270.00 arising from the events described below.
+The respondent, Blue Harbor Authority, denied liability and relied on Art. 2043 c.c..
+
+### Parties
+
+- Claimant: Johan Haddad, represented by Kwame Rossi
+- Respondent: Blue Harbor Authority
+- Presiding: Fatima Kowalski
+
+### Statutory basis
+
+The tribunal considered Art. 96 c.p.c. alongside D.Lgs. 231/2001.
+Damages, if any, were to be assessed at EUR 620,270.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Blue Harbor Authority well before the filing date.
+
+### Procedural log
+
+1. 2021-01-06 - filing received
+2. 2025-03-19 - hearing scheduled
+3. 2024-07-03 - evidence exchanged
+
+4. 2020-12-21 - oral argument
+5. 2019-02-24 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-501096",
+  "registry": "Blue Harbor Authority",
+
+  "amount": "EUR 620,270.00",
+  "status": "closed"
+}
+```
+
+### Correspondence
+
+From: Diego Silva  
+Date: 2022-08-11
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Fatima Haddad  
+Date: 2021-12-11
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 9: EXT-CASE-501233
+
+**Filed:** 2025-10-20  
+**Registry:** Helios Data Registry  
+**Jurisdiction:** Rotterdam
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Noah Kim, alleged losses of EUR 389,080.00 arising from the events described below.
+The respondent, Helios Data Registry, denied liability and relied on Art. 2043 c.c..
+
+### Parties
+
+- Claimant: Noah Kim, represented by Chen Okafor
+- Respondent: Helios Data Registry
+- Presiding: Marco Meyer
+
+### Statutory basis
+
+The tribunal considered Art. 1218 c.c. alongside Art. 96 c.p.c..
+Damages, if any, were to be assessed at EUR 389,080.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Helios Data Registry well before the filing date.
+
+### Procedural log
+
+1. 2022-11-14 - filing received
+2. 2022-10-15 - hearing scheduled
+3. 2022-05-07 - evidence exchanged
+
+4. 2025-09-04 - oral argument
+5. 2021-07-04 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-501233",
+  "registry": "Helios Data Registry",
+
+  "amount": "EUR 389,080.00",
+  "status": "dismissed"
+}
+```
+
+### Correspondence
+
+From: Sofia Meyer  
+Date: 2024-10-16
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Sofia Rossi  
+Date: 2020-07-20
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 10: EXT-CASE-501370
+
+**Filed:** 2019-01-07  
+**Registry:** Delta Regulatory Board  
+**Jurisdiction:** Marseille
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Sofia Tanaka, alleged losses of EUR 908,882.00 arising from the events described below.
+The respondent, Delta Regulatory Board, denied liability and relied on Reg. (EU) 2016/679.
+
+### Parties
+
+- Claimant: Sofia Tanaka, represented by Chen Larsen
+- Respondent: Delta Regulatory Board
+- Presiding: Kwame Kowalski
+
+### Statutory basis
+
+The tribunal considered D.Lgs. 231/2001 alongside Art. 1218 c.c..
+Damages, if any, were to be assessed at EUR 908,882.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Delta Regulatory Board well before the filing date.
+
+### Procedural log
+
+1. 2019-08-24 - filing received
+2. 2022-03-05 - hearing scheduled
+3. 2022-09-23 - evidence exchanged
+
+4. 2020-09-18 - oral argument
+5. 2025-11-26 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-501370",
+  "registry": "Delta Regulatory Board",
+
+  "amount": "EUR 908,882.00",
+  "status": "appealed"
+}
+```
+
+### Correspondence
+
+From: Emma Nguyen  
+Date: 2022-12-02
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Yuki Rossi  
+Date: 2022-02-28
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 11: EXT-CASE-501507
+
+**Filed:** 2021-10-14  
+**Registry:** Helios Data Registry  
+**Jurisdiction:** Bergamo
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Diego Costa, alleged losses of EUR 48,677.00 arising from the events described below.
+The respondent, Helios Data Registry, denied liability and relied on Art. governance-clause 14.
+
+### Parties
+
+- Claimant: Diego Costa, represented by Yuki Kowalski
+- Respondent: Helios Data Registry
+- Presiding: Johan Silva
+
+### Statutory basis
+
+The tribunal considered Art. 2043 c.c. alongside D.Lgs. 231/2001.
+Damages, if any, were to be assessed at EUR 48,677.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Helios Data Registry well before the filing date.
+
+### Procedural log
+
+1. 2020-10-15 - filing received
+2. 2025-12-12 - hearing scheduled
+3. 2019-07-28 - evidence exchanged
+
+4. 2019-04-14 - oral argument
+5. 2023-07-17 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-501507",
+  "registry": "Helios Data Registry",
+
+  "amount": "EUR 48,677.00",
+  "status": "under review"
+}
+```
+
+### Correspondence
+
+From: Priya Silva  
+Date: 2025-05-24
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Ravi Bianchi  
+Date: 2021-03-03
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 12: EXT-CASE-501644
+
+**Filed:** 2023-11-04  
+**Registry:** Aurora Compliance Office  
+**Jurisdiction:** Copenhagen
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Sofia Nguyen, alleged losses of EUR 889,103.00 arising from the events described below.
+The respondent, Aurora Compliance Office, denied liability and relied on Reg. (EU) 2016/679.
+
+### Parties
+
+- Claimant: Sofia Nguyen, represented by Emma Haddad
+- Respondent: Aurora Compliance Office
+- Presiding: Chen Bianchi
+
+### Statutory basis
+
+The tribunal considered Art. 1218 c.c. alongside GDPR Art. 6(1)(f).
+Damages, if any, were to be assessed at EUR 889,103.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Aurora Compliance Office well before the filing date.
+
+### Procedural log
+
+1. 2021-04-06 - filing received
+2. 2023-03-25 - hearing scheduled
+3. 2025-11-03 - evidence exchanged
+
+4. 2020-11-16 - oral argument
+5. 2022-10-25 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-501644",
+  "registry": "Aurora Compliance Office",
+
+  "amount": "EUR 889,103.00",
+  "status": "settled"
+}
+```
+
+### Correspondence
+
+From: Noah Meyer  
+Date: 2023-11-21
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Ravi Tanaka  
+Date: 2024-06-05
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 13: EXT-CASE-501781
+
+**Filed:** 2022-02-16  
+**Registry:** Blue Harbor Authority  
+**Jurisdiction:** Porto
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Kwame Andersson, alleged losses of EUR 168,379.00 arising from the events described below.
+The respondent, Blue Harbor Authority, denied liability and relied on Art. 96 c.p.c..
+
+### Parties
+
+- Claimant: Kwame Andersson, represented by Kwame Petrov
+- Respondent: Blue Harbor Authority
+- Presiding: Marco Haddad
+
+### Statutory basis
+
+The tribunal considered Art. 1218 c.c. alongside Art. 96 c.p.c..
+Damages, if any, were to be assessed at EUR 168,379.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Blue Harbor Authority well before the filing date.
+
+### Procedural log
+
+1. 2022-08-02 - filing received
+2. 2019-06-27 - hearing scheduled
+3. 2021-02-21 - evidence exchanged
+
+4. 2025-02-20 - oral argument
+5. 2023-09-13 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-501781",
+  "registry": "Blue Harbor Authority",
+
+  "amount": "EUR 168,379.00",
+  "status": "appealed"
+}
+```
+
+### Correspondence
+
+From: Noah Petrov  
+Date: 2023-12-02
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Noah Larsen  
+Date: 2023-11-07
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 14: EXT-CASE-501918
+
+**Filed:** 2021-10-16  
+**Registry:** Continental Freight GmbH  
+**Jurisdiction:** Copenhagen
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Diego Meyer, alleged losses of EUR 720,959.00 arising from the events described below.
+The respondent, Continental Freight GmbH, denied liability and relied on GDPR Art. 6(1)(f).
+
+### Parties
+
+- Claimant: Diego Meyer, represented by Marco Andersson
+- Respondent: Continental Freight GmbH
+- Presiding: Johan Larsen
+
+### Statutory basis
+
+The tribunal considered D.Lgs. 231/2001 alongside Art. 1218 c.c..
+Damages, if any, were to be assessed at EUR 720,959.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Continental Freight GmbH well before the filing date.
+
+### Procedural log
+
+1. 2023-11-06 - filing received
+2. 2019-04-23 - hearing scheduled
+3. 2022-08-17 - evidence exchanged
+
+4. 2023-10-06 - oral argument
+5. 2021-06-10 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-501918",
+  "registry": "Continental Freight GmbH",
+
+  "amount": "EUR 720,959.00",
+  "status": "closed"
+}
+```
+
+### Correspondence
+
+From: Tomas Silva  
+Date: 2025-06-22
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Marco Larsen  
+Date: 2024-11-11
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 15: EXT-CASE-502055
+
+**Filed:** 2019-06-04  
+**Registry:** Aurora Compliance Office  
+**Jurisdiction:** Copenhagen
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Fatima Kim, alleged losses of EUR 169,473.00 arising from the events described below.
+The respondent, Aurora Compliance Office, denied liability and relied on Art. governance-clause 14.
+
+### Parties
+
+- Claimant: Fatima Kim, represented by Sofia Kowalski
+- Respondent: Aurora Compliance Office
+- Presiding: Chen Haddad
+
+### Statutory basis
+
+The tribunal considered Art. 1218 c.c. alongside GDPR Art. 6(1)(f).
+Damages, if any, were to be assessed at EUR 169,473.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Aurora Compliance Office well before the filing date.
+
+### Procedural log
+
+1. 2021-05-21 - filing received
+2. 2024-11-13 - hearing scheduled
+3. 2020-10-23 - evidence exchanged
+
+4. 2019-05-18 - oral argument
+5. 2022-11-26 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-502055",
+  "registry": "Aurora Compliance Office",
+
+  "amount": "EUR 169,473.00",
+  "status": "settled"
+}
+```
+
+### Correspondence
+
+From: Ravi Tanaka  
+Date: 2020-11-23
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Priya Meyer  
+Date: 2024-07-17
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 16: EXT-CASE-502192
+
+**Filed:** 2021-01-12  
+**Registry:** Orion Municipal Court  
+**Jurisdiction:** Marseille
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Kwame Meyer, alleged losses of EUR 226,701.00 arising from the events described below.
+The respondent, Orion Municipal Court, denied liability and relied on GDPR Art. 6(1)(f).
+
+### Parties
+
+- Claimant: Kwame Meyer, represented by Diego Haddad
+- Respondent: Orion Municipal Court
+- Presiding: Amara Bianchi
+
+### Statutory basis
+
+The tribunal considered Reg. (EU) 2016/679 alongside GDPR Art. 6(1)(f).
+Damages, if any, were to be assessed at EUR 226,701.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Orion Municipal Court well before the filing date.
+
+### Procedural log
+
+1. 2020-02-10 - filing received
+2. 2025-02-17 - hearing scheduled
+3. 2025-09-27 - evidence exchanged
+
+4. 2024-09-02 - oral argument
+5. 2024-06-25 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-502192",
+  "registry": "Orion Municipal Court",
+
+  "amount": "EUR 226,701.00",
+  "status": "appealed"
+}
+```
+
+### Correspondence
+
+From: Chen Petrov  
+Date: 2022-03-06
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Fatima Tanaka  
+Date: 2024-10-26
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 17: EXT-CASE-502329
+
+**Filed:** 2020-12-15  
+**Registry:** Northwind Logistics S.p.A.  
+**Jurisdiction:** Milano
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Marco Bianchi, alleged losses of EUR 826,323.00 arising from the events described below.
+The respondent, Northwind Logistics S.p.A., denied liability and relied on Art. governance-clause 14.
+
+### Parties
+
+- Claimant: Marco Bianchi, represented by Emma Meyer
+- Respondent: Northwind Logistics S.p.A.
+- Presiding: Lena Andersson
+
+### Statutory basis
+
+The tribunal considered Art. 96 c.p.c. alongside Directive 2011/83/EU.
+Damages, if any, were to be assessed at EUR 826,323.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Northwind Logistics S.p.A. well before the filing date.
+
+### Procedural log
+
+1. 2020-09-08 - filing received
+2. 2021-08-27 - hearing scheduled
+3. 2020-06-22 - evidence exchanged
+
+4. 2023-08-15 - oral argument
+5. 2025-05-25 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-502329",
+  "registry": "Northwind Logistics S.p.A.",
+
+  "amount": "EUR 826,323.00",
+  "status": "settled"
+}
+```
+
+### Correspondence
+
+From: Tomas Kim  
+Date: 2023-07-06
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Diego Larsen  
+Date: 2023-03-28
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 18: EXT-CASE-502466
+
+**Filed:** 2021-01-21  
+**Registry:** Aurora Compliance Office  
+**Jurisdiction:** Porto
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Kwame Nguyen, alleged losses of EUR 937,965.00 arising from the events described below.
+The respondent, Aurora Compliance Office, denied liability and relied on D.Lgs. 231/2001.
+
+### Parties
+
+- Claimant: Kwame Nguyen, represented by Johan Costa
+- Respondent: Aurora Compliance Office
+- Presiding: Johan Kowalski
+
+### Statutory basis
+
+The tribunal considered Art. 1218 c.c. alongside GDPR Art. 6(1)(f).
+Damages, if any, were to be assessed at EUR 937,965.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Aurora Compliance Office well before the filing date.
+
+### Procedural log
+
+1. 2021-08-17 - filing received
+2. 2020-07-03 - hearing scheduled
+3. 2020-08-12 - evidence exchanged
+
+4. 2019-07-02 - oral argument
+5. 2022-09-12 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-502466",
+  "registry": "Aurora Compliance Office",
+
+  "amount": "EUR 937,965.00",
+  "status": "dismissed"
+}
+```
+
+### Correspondence
+
+From: Lena Silva  
+Date: 2019-06-08
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Alice Haddad  
+Date: 2019-12-21
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 19: EXT-CASE-502603
+
+**Filed:** 2021-03-05  
+**Registry:** Vanguard Technical Support  
+**Jurisdiction:** Milano
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Ravi Bianchi, alleged losses of EUR 407,905.00 arising from the events described below.
+The respondent, Vanguard Technical Support, denied liability and relied on Art. 96 c.p.c..
+
+### Parties
+
+- Claimant: Ravi Bianchi, represented by Amara Costa
+- Respondent: Vanguard Technical Support
+- Presiding: Chen Larsen
+
+### Statutory basis
+
+The tribunal considered Directive 2011/83/EU alongside Directive 2011/83/EU.
+Damages, if any, were to be assessed at EUR 407,905.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Vanguard Technical Support well before the filing date.
+
+### Procedural log
+
+1. 2023-01-03 - filing received
+2. 2019-05-07 - hearing scheduled
+3. 2025-03-18 - evidence exchanged
+
+4. 2024-10-17 - oral argument
+5. 2022-02-25 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-502603",
+  "registry": "Vanguard Technical Support",
+
+  "amount": "EUR 407,905.00",
+  "status": "settled"
+}
+```
+
+### Correspondence
+
+From: Sofia Bianchi  
+Date: 2021-02-02
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Lena Silva  
+Date: 2024-10-15
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 20: EXT-CASE-502740
+
+**Filed:** 2019-02-27  
+**Registry:** Meridian Trust Bank  
+**Jurisdiction:** Porto
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Chen Kowalski, alleged losses of EUR 254,762.00 arising from the events described below.
+The respondent, Meridian Trust Bank, denied liability and relied on Art. 2043 c.c..
+
+### Parties
+
+- Claimant: Chen Kowalski, represented by Lena Costa
+- Respondent: Meridian Trust Bank
+- Presiding: Chen Kowalski
+
+### Statutory basis
+
+The tribunal considered Art. governance-clause 14 alongside Art. 2043 c.c..
+Damages, if any, were to be assessed at EUR 254,762.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Meridian Trust Bank well before the filing date.
+
+### Procedural log
+
+1. 2023-06-08 - filing received
+2. 2023-07-06 - hearing scheduled
+3. 2024-11-03 - evidence exchanged
+
+4. 2023-06-03 - oral argument
+5. 2023-09-17 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-502740",
+  "registry": "Meridian Trust Bank",
+
+  "amount": "EUR 254,762.00",
+  "status": "dismissed"
+}
+```
+
+### Correspondence
+
+From: Alice Silva  
+Date: 2025-08-02
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Tomas Haddad  
+Date: 2021-12-01
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 21: EXT-CASE-502877
+
+**Filed:** 2021-02-12  
+**Registry:** Delta Regulatory Board  
+**Jurisdiction:** Kraków
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Kwame Costa, alleged losses of EUR 440,919.00 arising from the events described below.
+The respondent, Delta Regulatory Board, denied liability and relied on Art. 1218 c.c..
+
+### Parties
+
+- Claimant: Kwame Costa, represented by Ravi Okafor
+- Respondent: Delta Regulatory Board
+- Presiding: Marco Haddad
+
+### Statutory basis
+
+The tribunal considered D.Lgs. 231/2001 alongside GDPR Art. 6(1)(f).
+Damages, if any, were to be assessed at EUR 440,919.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Delta Regulatory Board well before the filing date.
+
+### Procedural log
+
+1. 2025-11-15 - filing received
+2. 2024-08-21 - hearing scheduled
+3. 2020-03-03 - evidence exchanged
+
+4. 2024-08-02 - oral argument
+5. 2021-04-02 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-502877",
+  "registry": "Delta Regulatory Board",
+
+  "amount": "EUR 440,919.00",
+  "status": "dismissed"
+}
+```
+
+### Correspondence
+
+From: Diego Rossi  
+Date: 2021-05-17
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Tomas Tanaka  
+Date: 2023-08-09
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 22: EXT-CASE-503014
+
+**Filed:** 2019-11-07  
+**Registry:** Aurora Compliance Office  
+**Jurisdiction:** Marseille
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Tomas Haddad, alleged losses of EUR 143,521.00 arising from the events described below.
+The respondent, Aurora Compliance Office, denied liability and relied on D.Lgs. 231/2001.
+
+### Parties
+
+- Claimant: Tomas Haddad, represented by Marco Tanaka
+- Respondent: Aurora Compliance Office
+- Presiding: Ravi Kowalski
+
+### Statutory basis
+
+The tribunal considered Art. 1218 c.c. alongside D.Lgs. 231/2001.
+Damages, if any, were to be assessed at EUR 143,521.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Aurora Compliance Office well before the filing date.
+
+### Procedural log
+
+1. 2022-07-24 - filing received
+2. 2022-07-11 - hearing scheduled
+3. 2020-08-23 - evidence exchanged
+
+4. 2022-06-26 - oral argument
+5. 2023-05-26 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-503014",
+  "registry": "Aurora Compliance Office",
+
+  "amount": "EUR 143,521.00",
+  "status": "settled"
+}
+```
+
+### Correspondence
+
+From: Priya Costa  
+Date: 2022-02-14
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Fatima Kim  
+Date: 2021-06-04
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 23: EXT-CASE-503151
+
+**Filed:** 2019-06-22  
+**Registry:** Northwind Logistics S.p.A.  
+**Jurisdiction:** Marseille
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Priya Larsen, alleged losses of EUR 883,112.00 arising from the events described below.
+The respondent, Northwind Logistics S.p.A., denied liability and relied on Art. 96 c.p.c..
+
+### Parties
+
+- Claimant: Priya Larsen, represented by Noah Petrov
+- Respondent: Northwind Logistics S.p.A.
+- Presiding: Yuki Okafor
+
+### Statutory basis
+
+The tribunal considered Directive 2011/83/EU alongside D.Lgs. 231/2001.
+Damages, if any, were to be assessed at EUR 883,112.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Northwind Logistics S.p.A. well before the filing date.
+
+### Procedural log
+
+1. 2022-01-24 - filing received
+2. 2025-06-20 - hearing scheduled
+3. 2022-05-21 - evidence exchanged
+
+4. 2025-01-03 - oral argument
+5. 2024-11-13 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-503151",
+  "registry": "Northwind Logistics S.p.A.",
+
+  "amount": "EUR 883,112.00",
+  "status": "under review"
+}
+```
+
+### Correspondence
+
+From: Emma Kim  
+Date: 2025-12-22
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Fatima Rossi  
+Date: 2020-10-22
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 24: EXT-CASE-503288
+
+**Filed:** 2025-08-02  
+**Registry:** Sable & Finch LLP  
+**Jurisdiction:** Lagos
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Fatima Larsen, alleged losses of EUR 612,065.00 arising from the events described below.
+The respondent, Sable & Finch LLP, denied liability and relied on Art. 1218 c.c..
+
+### Parties
+
+- Claimant: Fatima Larsen, represented by Lena Larsen
+- Respondent: Sable & Finch LLP
+- Presiding: Emma Haddad
+
+### Statutory basis
+
+The tribunal considered Art. governance-clause 14 alongside Art. 2043 c.c..
+Damages, if any, were to be assessed at EUR 612,065.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Sable & Finch LLP well before the filing date.
+
+### Procedural log
+
+1. 2023-03-22 - filing received
+2. 2022-06-12 - hearing scheduled
+3. 2022-02-19 - evidence exchanged
+
+4. 2020-09-12 - oral argument
+5. 2022-06-21 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-503288",
+  "registry": "Sable & Finch LLP",
+
+  "amount": "EUR 612,065.00",
+  "status": "settled"
+}
+```
+
+### Correspondence
+
+From: Kwame Bianchi  
+Date: 2019-01-24
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Fatima Andersson  
+Date: 2023-07-18
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 25: EXT-CASE-503425
+
+**Filed:** 2019-05-25  
+**Registry:** Vanguard Technical Support  
+**Jurisdiction:** Marseille
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Tomas Petrov, alleged losses of EUR 543,257.00 arising from the events described below.
+The respondent, Vanguard Technical Support, denied liability and relied on Directive 2011/83/EU.
+
+### Parties
+
+- Claimant: Tomas Petrov, represented by Diego Petrov
+- Respondent: Vanguard Technical Support
+- Presiding: Sofia Costa
+
+### Statutory basis
+
+The tribunal considered Directive 2011/83/EU alongside Reg. (EU) 2016/679.
+Damages, if any, were to be assessed at EUR 543,257.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Vanguard Technical Support well before the filing date.
+
+### Procedural log
+
+1. 2019-03-28 - filing received
+2. 2019-08-06 - hearing scheduled
+3. 2024-08-03 - evidence exchanged
+
+4. 2025-11-28 - oral argument
+5. 2021-11-12 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-503425",
+  "registry": "Vanguard Technical Support",
+
+  "amount": "EUR 543,257.00",
+  "status": "dismissed"
+}
+```
+
+### Correspondence
+
+From: Priya Kim  
+Date: 2023-05-10
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Fatima Costa  
+Date: 2024-12-21
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 26: EXT-CASE-503562
+
+**Filed:** 2020-06-17  
+**Registry:** Helios Data Registry  
+**Jurisdiction:** Kraków
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Alice Meyer, alleged losses of EUR 700,906.00 arising from the events described below.
+The respondent, Helios Data Registry, denied liability and relied on Art. 1218 c.c..
+
+### Parties
+
+- Claimant: Alice Meyer, represented by Diego Larsen
+- Respondent: Helios Data Registry
+- Presiding: Chen Bianchi
+
+### Statutory basis
+
+The tribunal considered Directive 2011/83/EU alongside Art. 2043 c.c..
+Damages, if any, were to be assessed at EUR 700,906.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Helios Data Registry well before the filing date.
+
+### Procedural log
+
+1. 2021-09-19 - filing received
+2. 2021-08-26 - hearing scheduled
+3. 2023-03-20 - evidence exchanged
+
+4. 2019-02-10 - oral argument
+5. 2022-12-24 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-503562",
+  "registry": "Helios Data Registry",
+
+  "amount": "EUR 700,906.00",
+  "status": "dismissed"
+}
+```
+
+### Correspondence
+
+From: Amara Kim  
+Date: 2022-07-27
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Priya Okafor  
+Date: 2021-11-03
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 27: EXT-CASE-503699
+
+**Filed:** 2022-08-22  
+**Registry:** Blue Harbor Authority  
+**Jurisdiction:** Copenhagen
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Kwame Larsen, alleged losses of EUR 116,300.00 arising from the events described below.
+The respondent, Blue Harbor Authority, denied liability and relied on D.Lgs. 231/2001.
+
+### Parties
+
+- Claimant: Kwame Larsen, represented by Chen Tanaka
+- Respondent: Blue Harbor Authority
+- Presiding: Fatima Larsen
+
+### Statutory basis
+
+The tribunal considered GDPR Art. 6(1)(f) alongside Art. governance-clause 14.
+Damages, if any, were to be assessed at EUR 116,300.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Blue Harbor Authority well before the filing date.
+
+### Procedural log
+
+1. 2023-01-27 - filing received
+2. 2019-09-05 - hearing scheduled
+3. 2021-03-06 - evidence exchanged
+
+4. 2021-12-08 - oral argument
+5. 2021-09-10 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-503699",
+  "registry": "Blue Harbor Authority",
+
+  "amount": "EUR 116,300.00",
+  "status": "settled"
+}
+```
+
+### Correspondence
+
+From: Priya Kowalski  
+Date: 2020-11-18
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Kwame Okafor  
+Date: 2024-05-20
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 28: EXT-CASE-503836
+
+**Filed:** 2023-02-17  
+**Registry:** Northwind Logistics S.p.A.  
+**Jurisdiction:** Lagos
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Fatima Andersson, alleged losses of EUR 741,896.00 arising from the events described below.
+The respondent, Northwind Logistics S.p.A., denied liability and relied on GDPR Art. 6(1)(f).
+
+### Parties
+
+- Claimant: Fatima Andersson, represented by Fatima Meyer
+- Respondent: Northwind Logistics S.p.A.
+- Presiding: Ravi Tanaka
+
+### Statutory basis
+
+The tribunal considered Art. 2043 c.c. alongside Art. 2043 c.c..
+Damages, if any, were to be assessed at EUR 741,896.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Northwind Logistics S.p.A. well before the filing date.
+
+### Procedural log
+
+1. 2019-01-21 - filing received
+2. 2025-10-09 - hearing scheduled
+3. 2024-04-25 - evidence exchanged
+
+4. 2023-07-20 - oral argument
+5. 2024-01-16 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-503836",
+  "registry": "Northwind Logistics S.p.A.",
+
+  "amount": "EUR 741,896.00",
+  "status": "appealed"
+}
+```
+
+### Correspondence
+
+From: Sofia Meyer  
+Date: 2021-08-08
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Tomas Kowalski  
+Date: 2022-02-23
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 29: EXT-CASE-503973
+
+**Filed:** 2019-03-15  
+**Registry:** Helios Data Registry  
+**Jurisdiction:** Hamburg
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Fatima Kim, alleged losses of EUR 893,640.00 arising from the events described below.
+The respondent, Helios Data Registry, denied liability and relied on Directive 2011/83/EU.
+
+### Parties
+
+- Claimant: Fatima Kim, represented by Noah Bianchi
+- Respondent: Helios Data Registry
+- Presiding: Ravi Petrov
+
+### Statutory basis
+
+The tribunal considered GDPR Art. 6(1)(f) alongside D.Lgs. 231/2001.
+Damages, if any, were to be assessed at EUR 893,640.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Helios Data Registry well before the filing date.
+
+### Procedural log
+
+1. 2025-12-11 - filing received
+2. 2024-06-13 - hearing scheduled
+3. 2020-06-17 - evidence exchanged
+
+4. 2023-02-11 - oral argument
+5. 2020-08-04 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-503973",
+  "registry": "Helios Data Registry",
+
+  "amount": "EUR 893,640.00",
+  "status": "appealed"
+}
+```
+
+### Correspondence
+
+From: Kwame Andersson  
+Date: 2020-03-04
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Marco Kowalski  
+Date: 2022-10-14
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 30: EXT-CASE-504110
+
+**Filed:** 2020-03-27  
+**Registry:** Blue Harbor Authority  
+**Jurisdiction:** Turin
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Diego Okafor, alleged losses of EUR 782,165.00 arising from the events described below.
+The respondent, Blue Harbor Authority, denied liability and relied on D.Lgs. 231/2001.
+
+### Parties
+
+- Claimant: Diego Okafor, represented by Diego Larsen
+- Respondent: Blue Harbor Authority
+- Presiding: Fatima Andersson
+
+### Statutory basis
+
+The tribunal considered Directive 2011/83/EU alongside Directive 2011/83/EU.
+Damages, if any, were to be assessed at EUR 782,165.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Blue Harbor Authority well before the filing date.
+
+### Procedural log
+
+1. 2021-08-01 - filing received
+2. 2019-07-17 - hearing scheduled
+3. 2022-04-07 - evidence exchanged
+
+4. 2023-06-02 - oral argument
+5. 2019-05-16 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-504110",
+  "registry": "Blue Harbor Authority",
+
+  "amount": "EUR 782,165.00",
+  "status": "dismissed"
+}
+```
+
+### Correspondence
+
+From: Amara Kowalski  
+Date: 2023-01-28
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Johan Silva  
+Date: 2020-05-24
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+---
+
+## Case 31: EXT-CASE-504247
+
+**Filed:** 2021-07-12  
+**Registry:** Blue Harbor Authority  
+**Jurisdiction:** Milano
+
+### Summary
+
+The parties exchanged submissions over several weeks and the tribunal reviewed the technical record in full.
+Correspondence was logged as it arrived and each attachment was verified against the manifest.
+Where a discrepancy was found the submitting party was asked to re-file within five working days.
+No adverse inference was drawn from the initial formatting issues, which were treated as clerical.
+
+The claimant, Alice Petrov, alleged losses of EUR 502,019.00 arising from the events described below.
+The respondent, Blue Harbor Authority, denied liability and relied on Art. governance-clause 14.
+
+### Parties
+
+- Claimant: Alice Petrov, represented by Marco Petrov
+- Respondent: Blue Harbor Authority
+- Presiding: Diego Haddad
+
+### Statutory basis
+
+The tribunal considered Art. 96 c.p.c. alongside Art. 1218 c.c..
+Damages, if any, were to be assessed at EUR 502,019.00.
+
+> On the question of foreseeability the tribunal observed that
+> the risk was known to Blue Harbor Authority well before the filing date.
+
+### Procedural log
+
+1. 2022-09-15 - filing received
+2. 2025-09-09 - hearing scheduled
+3. 2025-10-22 - evidence exchanged
+
+4. 2023-02-05 - oral argument
+5. 2019-07-12 - decision rendered
+
+### Machine record
+
+```json
+{
+  "case": "EXT-CASE-504247",
+  "registry": "Blue Harbor Authority",
+
+  "amount": "EUR 502,019.00",
+  "status": "closed"
+}
+```
+
+### Correspondence
+
+From: Ravi Kim  
+Date: 2021-03-07
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+
+From: Tomas Kim  
+Date: 2019-01-02
+
+Thank you for the update regarding this matter.
+We have reviewed the latest submission and will respond in due course.
+Please direct any further correspondence to the registry.
+

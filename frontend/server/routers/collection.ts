@@ -402,7 +402,7 @@ export const collectionsRouter = router({
           ctx.user.sub,
           elasticIndex
         );
-        return { message: 'Collection deleted', collection };
+        return { message: 'Collection deleted', collection: collection as any };
       } catch (error: any) {
         throw toCollectionTRPCError(error, 'Failed to delete collection');
       }

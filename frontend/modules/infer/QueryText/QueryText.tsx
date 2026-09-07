@@ -9,7 +9,7 @@ import {
 import { useInput, useOnceEffect } from '@/hooks';
 import styled from '@emotion/styled';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useMutation } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { Textarea, Tooltip } from '@heroui/react';
 import Text from '@/components/HtmlText';
 import { flattenTree, getAllNodeData } from '@/components/Tree';
@@ -58,7 +58,7 @@ const Column = styled.div`
 const QueryText = ({ contentExample }: QueryTextProps) => {
   const t = useText('infer');
 
-  const inferMutation = useMutation(['infer.getResults'], { ssr: false });
+  const inferMutation = trpc.infer.getResults.useMutation();
   // binds for the text area
   const { binds } = useInput(contentExample);
   // states
@@ -173,13 +173,13 @@ const QueryText = ({ contentExample }: QueryTextProps) => {
           {t('nWords', { n: binds.value.split(' ').length })}{' '}
         </Text>
       </TextAreaWrapper>
-      <Button onClick={onClick} loading={inferMutation.isLoading}>
+      <Button onClick={onClick} loading={inferMutation.isPending}>
         Compute
       </Button>
       {inferMutation.isError && (
         <Text color="error">Something went wrong :(</Text>
       )}
-      {doc && !inferMutation.isLoading ? (
+      {doc && !inferMutation.isPending ? (
         <Column>
           <Flex direction="row" gap="20px">
             <Tooltip content={'Download'} color="invert">

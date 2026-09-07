@@ -1,4 +1,3 @@
-import { useQuery } from '@/utils/trpc';
 import styled from '@emotion/styled';
 import {
   Dropdown,

@@ -14,7 +14,7 @@ import {
   uploadNotificationsAtom,
 } from '@/atoms/uploadJobs';
 import { isTerminalStatus, UploadJob } from '@/lib/upload/types';
-import { useQuery, useContext as useTrpcContext } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 
 const MAX_SSE_FAILURES = 3;
 const FALLBACK_POLL_MS = 4000;
@@ -27,7 +27,7 @@ export function useUploadJobStream(jobId: string | null | undefined) {
   const setNotifications = useSetAtom(uploadNotificationsAtom);
   const notifiedUploadJobIds = useAtomValue(notifiedUploadJobIdsAtom);
   const setNotifiedUploadJobIds = useSetAtom(notifiedUploadJobIdsAtom);
-  const trpcContext = useTrpcContext();
+  const trpcContext = trpc.useUtils();
   const notifiedTerminalRef = useRef(false);
   // Kept in a ref so `applyJob` always sees the current persisted set without
   // needing it in the effect's dependency list (which would tear down and
@@ -35,8 +35,8 @@ export function useUploadJobStream(jobId: string | null | undefined) {
   const notifiedUploadJobIdsRef = useRef(notifiedUploadJobIds);
   notifiedUploadJobIdsRef.current = notifiedUploadJobIds;
 
-  const jobQuery = useQuery(
-    ['document.getUploadJob', { jobId: jobId as string, token }],
+  const jobQuery = trpc.document.getUploadJob.useQuery(
+    { jobId: jobId as string },
     { enabled: false, retry: false }
   );
 
@@ -89,8 +89,8 @@ export function useUploadJobStream(jobId: string | null | undefined) {
             duration: 6000,
           },
         ]);
-        trpcContext.invalidateQueries(['search.facetedSearch']);
-        trpcContext.invalidateQueries(['document.inifniteDocuments']);
+        trpcContext.search.facetedSearch.invalidate();
+        trpcContext.document.inifniteDocuments.invalidate();
       }
     };
 
@@ -118,9 +118,9 @@ export function useUploadJobStream(jobId: string | null | undefined) {
     const startSSE = () => {
       const url = `${
         process.env.NEXT_PUBLIC_BASE_PATH || ''
-      }/api/upload-jobs/${encodeURIComponent(jobId)}/stream?token=${encodeURIComponent(
-        token
-      )}`;
+      }/api/upload-jobs/${encodeURIComponent(
+        jobId
+      )}/stream?token=${encodeURIComponent(token)}`;
       const es = new EventSource(url);
       source = es;
 

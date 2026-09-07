@@ -1,6 +1,6 @@
 import { ChildNodeWithColor } from '@/components/Tree';
 import { EntityAnnotation } from '@/lib/types/document';
-import { useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import styled from '@emotion/styled';
 import { useMemo } from 'react';
 import { Button } from '../Button';
@@ -30,11 +30,8 @@ const ContainerImgTitle = styled.div({
 const EntityCard = ({ annotation, getTaxonomyNode }: EntityCardProps) => {
   const { top_candidate } = annotation.features.linking;
 
-  const { data, isFetching } = useQuery(
-    [
-      'annotation.getAnnotationDetails',
-      { id: top_candidate.id, indexer: top_candidate.indexer },
-    ],
+  const { data, isFetching } = trpc.annotation.getAnnotationDetails.useQuery(
+    { id: top_candidate.id, indexer: top_candidate.indexer },
     { staleTime: Infinity, enabled: !!top_candidate }
   );
 

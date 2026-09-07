@@ -9,7 +9,7 @@ import {
 } from '../DocumentProvider/selectors';
 import { HiArrowLeft } from '@react-icons/all-files/hi/HiArrowLeft';
 import { IconButton, useText } from '@/components';
-import { useMutation, useContext as useTrpcContext } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { useRouter } from 'next/router';
 import { MouseEvent, useEffect, useRef, useState } from 'react';
 import SaveStatusIndicator from './SaveStatusIndicator';
@@ -46,8 +46,8 @@ const ToolbarContent = () => {
   const { data: session, status } = useSession();
   // accessToken is not part of the typed Session interface here, cast to any
   const token = (session as any)?.accessToken as string | undefined;
-  const save = useMutation(['document.save']);
-  const trpcContext = useTrpcContext();
+  const save = trpc.document.save.useMutation();
+  const trpcContext = trpc.useUtils();
   const router = useRouter();
   const currentAnnotationSetName = useSelector(selectCurrentAnnotationSetName);
   const { canUpdate } = useDocumentPermissions();
@@ -95,7 +95,6 @@ const ToolbarContent = () => {
     save.mutate(
       {
         collectionId: document.collectionId,
-        token,
         docId: String(document.id),
         annotationSets: document.annotation_sets,
         features: document.features,
@@ -113,9 +112,9 @@ const ToolbarContent = () => {
           // notices new/changed facet-cache entries on its own - invalidate
           // them here so a save is reflected without a manual hard refresh.
           try {
-            trpcContext.invalidateQueries(['collection.facetsCache']);
-            trpcContext.invalidateQueries(['collection.facetsCachePaginated']);
-            trpcContext.invalidateQueries(['collection.facetsCacheSearch']);
+            trpcContext.collection.facetsCache.invalidate();
+            trpcContext.collection.facetsCachePaginated.invalidate();
+            trpcContext.collection.facetsCacheSearch.invalidate();
           } catch (e) {
             console.error('Failed to invalidate facets queries', e);
           }
@@ -230,7 +229,15 @@ const ToolbarContent = () => {
         }}
       >
         <SaveStatusIndicator
-          status={saveStatus === 'error' ? 'error' : saveStatus === 'saving' ? 'saving' : dirty ? 'idle' : 'saved'}
+          status={
+            saveStatus === 'error'
+              ? 'error'
+              : saveStatus === 'saving'
+              ? 'saving'
+              : dirty
+              ? 'idle'
+              : 'saved'
+          }
           lastSaveTime={lastSaveTime}
           onRetry={handleSave}
           hasUnsavedChanges={dirty}

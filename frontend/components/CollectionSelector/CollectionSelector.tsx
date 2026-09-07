@@ -17,7 +17,7 @@ import styled from '@emotion/styled';
 import { FiFolder } from '@react-icons/all-files/fi/FiFolder';
 import { FiPlus } from '@react-icons/all-files/fi/FiPlus';
 import { useRouter } from 'next/router';
-import { useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { isAuthEnabled } from '@/utils/auth';
 
 const Container = styled.div({
@@ -58,29 +58,26 @@ const CollectionSelector = () => {
   const [activeCollection, setActiveCollection] = useAtom(activeCollectionAtom);
   const [collections, setCollections] = useAtom(collectionsAtom);
 
-  const { data: collectionsData, isLoading } = useQuery(
-    [
-      'collection.getAll',
-      {
-        token: session?.accessToken,
-      },
-    ],
+  const { data: collectionsData, isLoading } = trpc.collection.getAll.useQuery(
+    undefined,
     {
       enabled:
         authDisabled ||
         !authEnabled ||
         (status === 'authenticated' && !!session?.accessToken),
-      onSuccess: (data) => {
-        if (data) {
-          setCollections(data);
-          // Set first collection as active if none selected
-          if (!activeCollection && data.length > 0) {
-            setActiveCollection(data[0]);
-          }
-        }
-      },
     }
   );
+
+  useEffect(() => {
+    if (collectionsData) {
+      setCollections(collectionsData);
+      // Set first collection as active if none selected
+      if (!activeCollection && collectionsData.length > 0) {
+        setActiveCollection(collectionsData[0]);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [collectionsData]);
 
   const handleCollectionSelect = (key: string | number) => {
     console.log('collection id ', key);

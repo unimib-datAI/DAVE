@@ -2,7 +2,7 @@ import styled from '@emotion/styled';
 import { AnimatePresence, motion } from 'framer-motion';
 import * as Portal from '@radix-ui/react-portal';
 import { LinkingCandidate } from '@/lib/types/document';
-import { useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 
 type Anchor = {
   x: number;
@@ -38,8 +38,8 @@ const LoadingSpinner = styled(motion.div)({
 });
 
 const LinkPopover = ({ anchor }: LinkPopoverProps) => {
-  const { data, isFetching } = useQuery(
-    ['wikipedia.getData', { id: `${anchor?.candidate.wikipedia_id}` }],
+  const { data, isFetching } = trpc.wikipedia.getData.useQuery(
+    { id: `${anchor?.candidate.wikipedia_id}` },
     { enabled: !!anchor }
   );
 

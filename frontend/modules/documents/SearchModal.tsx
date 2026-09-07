@@ -1,7 +1,7 @@
 import { useInput } from '@/hooks';
 import useDebounce from '@/hooks/use-debounce';
 import { GetPaginatedDocuments } from '@/lib/types/document';
-import { useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import styled from '@emotion/styled';
 import { Modal, ModalContent, ModalBody, Spinner } from '@heroui/react';
 import { FiSearch } from '@react-icons/all-files/fi/FiSearch';
@@ -137,8 +137,8 @@ const SearchContent = () => {
   const t = useText('documents');
   const { binds } = useInput();
   const debouncedFilter = useDebounce(binds.value, 500);
-  const { data, isFetching } = useQuery(
-    ['document.inifniteDocuments', { q: debouncedFilter, limit: 10 }],
+  const { data, isFetching } = trpc.document.inifniteDocuments.useQuery(
+    { q: debouncedFilter, limit: 10 },
     { enabled: !!debouncedFilter }
   );
   const refInput = useRef<HTMLInputElement | null>(null);

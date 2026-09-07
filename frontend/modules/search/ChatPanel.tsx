@@ -13,7 +13,7 @@ import {
 import { FileText, RotateCcw, Lock } from 'lucide-react';
 import { ScrollArea } from '@/components/ScrollArea';
 import { Checkbox } from '@/components/Checkbox';
-import { useMutation } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/Tabs';
 import { MostSimilarDocumentsListSkeleton } from './MostSimilarDocumentsListSkeleton';
 import Link from 'next/link';
@@ -146,9 +146,8 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
       : [];
   const conversationRated = useConversationRated();
   const dispatch = useChatDispatch();
-  const mostSimilarDocumentsMutation = useMutation([
-    'search.mostSimilarDocuments',
-  ]);
+  const mostSimilarDocumentsMutation =
+    trpc.search.mostSimilarDocuments.useMutation();
 
   const { register, value, onSubmit, setValue } = useForm<Form>({
     temperature: llmSettings.defaultTemperature ?? 0.7,
@@ -245,7 +244,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     });
   };
 
-  const chatState = mostSimilarDocumentsMutation.isLoading
+  const chatState = mostSimilarDocumentsMutation.isPending
     ? 'searching'
     : isStreaming
     ? 'generating'

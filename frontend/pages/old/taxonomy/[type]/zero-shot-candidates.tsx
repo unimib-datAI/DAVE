@@ -3,13 +3,13 @@ import Layout, { LayoutContentProps } from "@/modules/taxonomy/Layout";
 import { useSelector } from "@/modules/taxonomy/TaxonomyProvider/selectors";
 import ZeroShotCandidates from "@/modules/taxonomy/ZeroShotCandidates";
 import { NextPageWithLayout } from "@/pages/_app";
-import { useQuery } from "@/utils/trpc";
+import { trpc } from "@/utils/trpc";
 import { ReactElement } from "react";
 
 const ZeroShotCandidatesPage: NextPageWithLayout<LayoutContentProps> = ({ type }) => {
   const taxonomyNode = useSelector((state) => state.taxonomy[type]);
 
-  const { data, isFetching } = useQuery(['taxonomygetZeroShotCandidates', { id: type, terms: taxonomyNode.terms || [], parent: taxonomyNode.parent as string }], { staleTime: Infinity });
+  const { data, isFetching } = trpc.taxonomy.getZeroShotCandidates.useQuery({ id: type, terms: taxonomyNode.terms || [], parent: taxonomyNode.parent as string }, { staleTime: Infinity });
 
   return (
     <Content

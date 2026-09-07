@@ -1,6 +1,6 @@
 import { useParam } from '@/hooks';
 import { GetDocumentProps, GetSourceProps } from '@/lib/types/review';
-import { useQuery } from '@/utils/trpc';
+import { trpc } from '@/utils/trpc';
 import { PropsWithChildren, useEffect, useMemo } from 'react';
 import { Provider, createStore, useSetAtom } from 'jotai';
 import { reviewReducer } from './reducer';
@@ -32,14 +32,16 @@ const ReviewProvider = ({ children }: PropsWithChildren<{}>) => {
   }, []);
   const [sourceId, routerReady] = useParam<string>('source');
   const [docId] = useParam<string>('doc');
-  const { data: sourceData, isFetching: isFetchingSource } = useQuery(
-    ['review.getSource', { sourceId, docId }],
-    { enabled: routerReady, staleTime: Infinity, cacheTime: 0 }
-  );
-  const { data: docData, isFetching: isFetchingDocData } = useQuery(
-    ['review.getDocument', { sourceId, docId }],
-    { enabled: routerReady, staleTime: Infinity, cacheTime: 0 }
-  );
+  const { data: sourceData, isFetching: isFetchingSource } =
+    trpc.review.getSource.useQuery(
+      { sourceId, docId },
+      { enabled: routerReady, staleTime: Infinity, gcTime: 0 }
+    );
+  const { data: docData, isFetching: isFetchingDocData } =
+    trpc.review.getDocument.useQuery(
+      { sourceId, docId },
+      { enabled: routerReady, staleTime: Infinity, gcTime: 0 }
+    );
   const isLoading =
     isFetchingDocData || isFetchingSource || !docData || !sourceData;
 
