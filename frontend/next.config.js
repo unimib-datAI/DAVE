@@ -11,17 +11,27 @@ const getBasePath = () => {
 
 const nextConfig = {
   reactStrictMode: true,
-  experimental: {
+  // Pin the workspace root so Turbopack doesn't walk up to a stray lockfile
+  // outside frontend/.
+  turbopack: {
+    root: __dirname,
+  },
+  compiler: {
+    // Next 16: emotion moved from experimental.emotion -> compiler.emotion
     emotion: true,
-    // Increase proxy body size limit to handle large document uploads (Next.js 16+)
+  },
+  experimental: {
+    // Raise the body-size limit for the proxy layer (large document uploads).
     proxyClientMaxBodySize: '150mb',
   },
-  // Increase body size limit to handle large document uploads
-  serverActions: {
-    bodySizeLimit: '150mb',
-  },
   images: {
-    domains: ['upload.wikimedia.org'],
+    // Next 16: images.domains was removed in favour of remotePatterns.
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'upload.wikimedia.org',
+      },
+    ],
   },
   // Disable TypeScript type checking during build
   typescript: {
@@ -29,13 +39,6 @@ const nextConfig = {
     // Ignoring TypeScript type errors can be dangerous.
     // The issues should be fixed eventually.
     ignoreBuildErrors: true,
-  },
-  // Disable ESLint checking during build
-  eslint: {
-    // !! WARN !!
-    // Ignoring ESLint errors can be dangerous.
-    // The issues should be fixed eventually.
-    ignoreDuringBuilds: true,
   },
   async redirects() {
     let redirectRoutes = [];
