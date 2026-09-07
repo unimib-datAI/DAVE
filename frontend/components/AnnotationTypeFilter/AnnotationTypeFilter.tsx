@@ -3,7 +3,7 @@ import {
   Taxonomy,
 } from '@/modules/document/DocumentProvider/types';
 import { getAnnotationTypes } from '@/modules/document/DocumentProvider/utils';
-import { EntityAnnotation } from '@/server/routers/document';
+import { EntityAnnotation } from '@/lib/types/document';
 import styled from '@emotion/styled';
 import { Checkbox } from '@heroui/react';
 import { useMemo, useState } from 'react';

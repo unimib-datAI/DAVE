@@ -1,5 +1,5 @@
 import { SectionNode } from "@/lib/ner/core/types";
-import { AdditionalAnnotationProps } from "@/server/routers/document";
+import { AdditionalAnnotationProps } from "@/lib/types/document";
 import { beautifyString } from "@/utils/shared";
 import styled from "@emotion/styled"
 import { FiLink } from "@react-icons/all-files/fi/FiLink";

@@ -4,10 +4,8 @@ import { ChildNodeWithColor, getAllNodeData } from '@/components/Tree';
 import {
   AdditionalAnnotationProps,
   EntityAnnotation,
-} from '@/server/routers/document';
-import styled from '@emotion/styled';
+} from '@/lib/types/document';
 import { Tooltip } from '@heroui/react';
-import { darken } from 'polished';
 import {
   ReactNode,
   useCallback,
@@ -19,84 +17,10 @@ import {
 import { useNERContext } from './nerContext';
 import { FiX } from '@react-icons/all-files/fi/FiX';
 import { FiLink } from '@react-icons/all-files/fi/FiLink';
-import { keyframes } from '@emotion/react';
+import { Tag, TagLabel, DeleteButton } from './EntityTag';
 import { useDocumentContext } from '../../modules/document/DocumentProvider/selectors';
 
 type EntityNodeProps = EntityNodeType<AdditionalAnnotationProps>;
-
-const pulse = keyframes`
-0% {
-  transform: scale(1);
-  box-shadow: 0 0 0 0 rgba(66, 153, 225, 0.5);
-}
-30% {
-  transform: scale(1.05);
-  box-shadow: 0 0 0 8px rgba(66, 153, 225, 0.2);
-}
-60% {
-  transform: scale(1.1);
-  box-shadow: 0 0 0 12px rgba(66, 153, 225, 0.1);
-}
-100% {
-  transform: scale(1);
-  box-shadow: 0 0 0 0 rgba(66, 153, 225, 0);
-}
-`;
-
-const Tag = styled.span<{ color: string; highlight: boolean }>(
-  ({ color, highlight }) => ({
-    display: 'inline-flex',
-    gap: '5px',
-    alignItems: 'center',
-    position: 'relative',
-    padding: '0px 5px',
-    borderRadius: '6px',
-    background: color,
-    color: darken(0.7, color),
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
-    lineHeight: 1.3,
-    border: `1px solid ${darken(0.05, color)}`,
-    ...(highlight && {
-      background: darken(0.1, color),
-      animation: `${pulse} 1200ms ease-out`,
-      zIndex: 9999,
-      position: 'relative',
-      border: `2px solid ${darken(0.3, color)}`,
-    }),
-    '& > button': {
-      background: darken(0.1, color),
-      '&:hover': {
-        background: darken(0.2, color),
-      },
-    },
-    transition: 'all 200ms ease-out',
-  })
-);
-
-const TagLabel = styled.span<{ color: string }>(({ color }) => ({
-  fontSize: '11px',
-  fontWeight: 600,
-  textTransform: 'uppercase',
-  padding: '0 3px',
-  borderRadius: '4px',
-  pointerEvents: 'none',
-  background: darken(0.35, color),
-  color: color,
-  verticalAlign: 'middle',
-}));
-
-const DeleteButton = styled.button({
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  border: 'none',
-  fontSize: '12px',
-  margin: 0,
-  padding: '2px',
-  borderRadius: '50%',
-  cursor: 'pointer',
-});
 
 import React from 'react';
 

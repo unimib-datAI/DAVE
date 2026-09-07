@@ -1,6 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { getAllNodeData, mapEntityType } from '@/components/Tree';
-import { EntityAnnotation, SectionAnnotation } from '@/server/routers/document';
+import { EntityAnnotation, SectionAnnotation } from '@/lib/types/document';
 import { FlattenedTaxonomy } from '@/modules/document/DocumentProvider/types';
 import useNER from '@/lib/ner/core/use-ner';
 import styled from '@emotion/styled';

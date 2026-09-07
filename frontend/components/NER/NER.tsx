@@ -1,7 +1,7 @@
 import useNER from '@/lib/ner/core/use-ner';
 import { FlattenedTaxonomy } from '@/modules/document/DocumentProvider/types';
 import { getAllNodeData, mapEntityType } from '@/components/Tree';
-import { EntityAnnotation, SectionAnnotation } from '@/server/routers/document';
+import { EntityAnnotation, SectionAnnotation } from '@/lib/types/document';
 import styled from '@emotion/styled';
 import {
   useCallback,

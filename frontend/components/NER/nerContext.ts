@@ -1,5 +1,5 @@
 import { ChildNodeWithColor } from "@/components/Tree";
-import { EntityAnnotation } from "@/server/routers/document";
+import { EntityAnnotation } from "@/lib/types/document";
 import { createContext, MouseEvent, ReactNode, useContext } from "react";
 import { SelectionNode } from "./TextNode";
 
