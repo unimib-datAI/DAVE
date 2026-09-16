@@ -99,16 +99,33 @@ export function useUploadJobStream(jobId: string | null | undefined) {
         source.close();
         source = null;
       }
+      // Codes that will never resolve by retrying (wrong owner, deleted job,
+      // expired session) - polling on these forever just spams the server
+      // with the identical rejected request every FALLBACK_POLL_MS.
+      const isPermanentError = (error: any) => {
+        const code = error?.data?.code ?? error?.shape?.data?.code;
+        return (
+          code === 'FORBIDDEN' ||
+          code === 'UNAUTHORIZED' ||
+          code === 'NOT_FOUND'
+        );
+      };
+
       const tick = async () => {
         if (cancelled) return;
         try {
           const job = await jobQuery.refetch();
-          if (job.data) applyJob(job.data as UploadJob);
-          if (job.data && isTerminalStatus((job.data as UploadJob).status)) {
+          if (job.data) {
+            applyJob(job.data as UploadJob);
+            if (isTerminalStatus((job.data as UploadJob).status)) {
+              return;
+            }
+          } else if (job.error && isPermanentError(job.error)) {
             return;
           }
         } catch (error) {
-          // best-effort; keep polling
+          if (isPermanentError(error)) return;
+          // best-effort; keep polling on transient/network errors
         }
         if (!cancelled) pollTimer = setTimeout(tick, FALLBACK_POLL_MS);
       };
