@@ -182,6 +182,10 @@ export const selectDocumentClusters = createSelector(
     const { text, annotation_sets, features } = doc;
     console.log('🔍 activeAnnotationSet:', activeAnnotationSet);
     console.log('🔍 annotation_sets:', annotation_sets);
+
+    if (!features?.clusters) {
+      return null;
+    }
     console.log('🔍 features.clusters:', features.clusters);
 
     let annSet = annotation_sets[activeAnnotationSet];
@@ -195,7 +199,7 @@ export const selectDocumentClusters = createSelector(
         annSet = foundSet;
       }
     }
-    if (!features.clusters) {
+    if (!annSet) {
       return null;
     }
 
