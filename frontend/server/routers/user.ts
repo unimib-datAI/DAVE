@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { createRouter } from '../context';
 import { TRPCError } from '@trpc/server';
-import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
+import { getRequestUser, getUserRoles } from '@/lib/documentsBackend/keycloakAuth';
 import { requireAdmin, PermissionDeniedError } from '@/lib/documentsBackend/permission';
 import { keycloakService } from '@/lib/documentsBackend/keycloakService';
+import { CollectionController } from '@/lib/documentsBackend/collectionController';
 
 export type User = {
   id: string;
@@ -68,6 +69,63 @@ export const users = createRouter()
           })
         );
         return usersWithRoles as User[];
+      } catch (error: any) {
+        throw toUserTRPCError(error, 'Failed to fetch users');
+      }
+    },
+  })
+
+  // Resolve email/name for a bounded set of user ids - unlike getAllUsers,
+  // this doesn't require the Keycloak `admin` realm role. Non-admin callers
+  // are restricted to ids of users they actually share a collection with
+  // (as owner or invitee), which is the only legitimate reason the
+  // collections page needs to resolve names today (showing "shared with"
+  // badges) - it shouldn't need to enumerate the entire user directory for
+  // that, and previously always failed for non-admin collection owners.
+  .query('getUsersByIds', {
+    input: z.object({
+      ids: z.array(z.string()),
+      token: z.string().optional(),
+    }),
+    async resolve({ input }) {
+      const { ids, token } = input;
+      if (ids.length === 0) return [] as User[];
+
+      if (!token || typeof token !== 'string' || token.trim().length === 0) {
+        return [] as User[];
+      }
+
+      try {
+        const user = await getRequestUser(token);
+
+        let permittedIds: string[];
+        if (getUserRoles(user).includes('admin')) {
+          permittedIds = ids;
+        } else {
+          const collections = await CollectionController.findByUserId(user.sub);
+          const allowedIds = new Set<string>();
+          collections.forEach((c: any) => {
+            allowedIds.add(c.ownerId);
+            (c.allowedUserIds || []).forEach((id: string) => allowedIds.add(id));
+          });
+          permittedIds = ids.filter((id) => allowedIds.has(id));
+        }
+
+        const resolvedUsers = await Promise.all(
+          permittedIds.map((id) => keycloakService.getUserById(id))
+        );
+        return resolvedUsers
+          .filter((u): u is NonNullable<typeof u> => u != null)
+          .map((u: any) => ({
+            id: u.id,
+            email: u.email,
+            username: u.username,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            name: u.name,
+            roles: [],
+            createdAt: u.createdAt,
+          })) as User[];
       } catch (error: any) {
         throw toUserTRPCError(error, 'Failed to fetch users');
       }
