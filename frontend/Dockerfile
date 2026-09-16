@@ -1,5 +1,8 @@
-# Use node alpine as it's a small node image
-FROM node:20-alpine
+# Debian-based (glibc), not alpine: onnxruntime-node (pulled in by
+# @xenova/transformers, used for in-process embeddings) ships prebuilt
+# native binaries that require glibc's dynamic linker and fail to load
+# under musl (ERR_DLOPEN_FAILED: "ld-linux-x86-64.so.2").
+FROM node:20-slim
 
 ARG ACCESS_USERNAME
 ARG ACCESS_PASSWORD
