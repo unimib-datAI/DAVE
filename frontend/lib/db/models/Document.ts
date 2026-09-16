@@ -42,6 +42,15 @@ export const DocumentModel: DocumentModelType =
       collectionId: { type: String, required: false, index: true },
     });
 
+    // The document id is a content hash; two documents sharing one is only
+    // valid across *different* collections (same source file uploaded into
+    // two collections), never within the same one - `insertFullDocument`
+    // relies on this index (not just its own pre-check) to catch duplicate
+    // rows from concurrent/duplicate uploads of identical content, which a
+    // check-then-insert without a DB-level constraint can't prevent on its
+    // own.
+    schema.index({ id: 1, collectionId: 1 }, { unique: true });
+
     // add field for auto increment id
     const AutoIncrement = Inc(mongoose);
     schema.plugin(AutoIncrement, { inc_field: 'inc_id' });
