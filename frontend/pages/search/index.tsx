@@ -20,6 +20,7 @@ import {
   facetsDocumentsAtom,
   selectedFiltersAtom,
   globalAnonymizationAtom,
+  filteredDocumentIdsAtom,
 } from '@/utils/atoms';
 import { deanonymizedFacetNamesAtom } from '@/utils/atoms';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
@@ -65,6 +66,7 @@ const Search = () => {
   const t = useText('search');
   const [facetedDocuments, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const [selectedFilters, setSelectedFiltersRaw] = useAtom(selectedFiltersAtom);
+  const [, setFilteredDocumentIds] = useAtom(filteredDocumentIdsAtom);
   const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
   const [seelctedFiltersDetails, setSelectedFiltersDetails] = useState([]);
   const [activeCollection] = useAtom(activeCollectionAtom);
@@ -400,6 +402,24 @@ const Search = () => {
     console.log('processed documents', [...matches, ...nonMatches]);
     return [...matches, ...nonMatches];
   }, [data, selectedFilters, facetedDocuments, matchedFilterNamesForHit]);
+
+  // Keep filteredDocumentIdsAtom in sync so other consumers (e.g. the chat's
+  // "use current search results" toggle) can scope RAG retrieval to exactly
+  // the documents currently matching the applied facet filters, without
+  // duplicating the facet -> document-id matching logic themselves. When no
+  // filter is applied, expose every currently loaded document instead.
+  useEffect(() => {
+    const validFilters = selectedFilters.filter(
+      (filter) => filter && filter.id_ER && filter.id_ER.trim() !== ''
+    );
+    const ids =
+      validFilters.length === 0
+        ? reorderedDocuments.map((hit: any) => String(hit.id))
+        : reorderedDocuments
+            .filter((hit: any) => matchedFilterNamesForHit(hit).length > 0)
+            .map((hit: any) => String(hit.id));
+    setFilteredDocumentIds(ids);
+  }, [reorderedDocuments, selectedFilters, matchedFilterNamesForHit]);
 
   const handleSubmit = ({ text }: { text: string }) => {
     setSelectedFilters([]);
