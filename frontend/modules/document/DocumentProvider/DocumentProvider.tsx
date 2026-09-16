@@ -175,7 +175,12 @@ const initializeState = (data: Document): State => {
     (annSet) => annSet.name.startsWith('entities_')
   );
 
-  const firstEntityAnnSet = entityAnnotationSets[0];
+  // Fall back to any available annotation set when none is prefixed
+  // `entities_` (e.g. a document whose sets were named/indexed differently),
+  // so `activeAnnotationSet` still resolves to a real key instead of being
+  // left as `''`, which downstream selectors can't look up.
+  const firstEntityAnnSet =
+    entityAnnotationSets[0] ?? Object.values(data.annotation_sets)[0];
   let typeFilter = new Set<string>();
   let activeAnnotationSet = '';
 

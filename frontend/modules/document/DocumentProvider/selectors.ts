@@ -138,8 +138,11 @@ export const selectCurrentEntity = createSelector(
     }
     const { viewIndex, entityIndex } = currentEntity;
     const { activeAnnotationSet } = views[viewIndex];
-    const { annotations } = annotationSets[activeAnnotationSet];
-    return annotations[entityIndex];
+    const annSet = annotationSets[activeAnnotationSet];
+    if (!annSet) {
+      return undefined;
+    }
+    return annSet.annotations[entityIndex];
   }
 );
 export const selectCurrentAnnotationSetName = createSelector(
@@ -155,7 +158,7 @@ export const selectCurrentAnnotationSetName = createSelector(
 
     const { annotation_sets } = doc;
     const annSet = annotation_sets[activeAnnotationSet];
-    return annSet.name;
+    return annSet ? annSet.name : null;
   }
 );
 export const selectDocumentClusters = createSelector(

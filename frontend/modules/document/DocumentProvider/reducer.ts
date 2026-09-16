@@ -69,6 +69,16 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
     const { name } = payload;
     const { [name]: omit, ...rest } = state.data.annotation_sets;
     state.data.annotation_sets = rest;
+
+    // Views pointing at the deleted set would otherwise be left referencing
+    // a key that no longer exists in annotation_sets, crashing selectors
+    // that read `.name`/`.annotations` off that lookup.
+    const fallback = Object.keys(rest)[0] ?? '';
+    state.ui.views.forEach((view) => {
+      if (view.activeAnnotationSet === name) {
+        view.activeAnnotationSet = fallback;
+      }
+    });
   },
   udpateAnnotationSets: (state, payload) => {
     const { annotationSets } = payload;
