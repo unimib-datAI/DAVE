@@ -208,10 +208,12 @@ export const collections = createRouter()
         if (!collection) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Collection not found' });
         }
-        const hasAccess = await CollectionController.hasAccess(id, user.sub);
-        if (!hasAccess) {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
-        }
+        // Facets are a read-only aggregate over a collection's documents, and
+        // document search/viewing (search.facetedSearch, document.getDocument)
+        // already has no per-collection ownership restriction - only the
+        // 'collections.view' role permission above gates this. No hasAccess
+        // check here for consistency (unlike getById/getCollectionInfo, which
+        // back collection management surfaces where ownership does matter).
 
         await buildFacetsCacheIfEmpty(id);
 
@@ -287,10 +289,9 @@ export const collections = createRouter()
         if (!collection) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Collection not found' });
         }
-        const hasAccess = await CollectionController.hasAccess(id, user.sub);
-        if (!hasAccess) {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
-        }
+        // See facetsCache above: no hasAccess/ownership check here, only the
+        // 'collections.view' role permission - matches search.facetedSearch,
+        // which already lets any user page through a collection's documents.
 
         await buildFacetsCacheIfEmpty(id);
 
@@ -389,10 +390,8 @@ export const collections = createRouter()
         if (!collection) {
           throw new TRPCError({ code: 'NOT_FOUND', message: 'Collection not found' });
         }
-        const hasAccess = await CollectionController.hasAccess(id, user.sub);
-        if (!hasAccess) {
-          throw new TRPCError({ code: 'FORBIDDEN', message: 'Access denied' });
-        }
+        // See facetsCache above: no hasAccess/ownership check here, only the
+        // 'collections.view' role permission.
 
         const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const pattern = escapeRegex(searchQuery);

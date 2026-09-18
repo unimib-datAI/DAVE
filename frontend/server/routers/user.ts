@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { createRouter } from '../context';
 import { TRPCError } from '@trpc/server';
-import { getRequestUser, getUserRoles } from '@/lib/documentsBackend/keycloakAuth';
-import { requireAdmin, PermissionDeniedError } from '@/lib/documentsBackend/permission';
+import { getRequestUser, getUserRoles, RequestUser } from '@/lib/documentsBackend/keycloakAuth';
+import { requireAdmin, requirePermission, PermissionDeniedError } from '@/lib/documentsBackend/permission';
 import { keycloakService } from '@/lib/documentsBackend/keycloakService';
 import { CollectionController } from '@/lib/documentsBackend/collectionController';
 
@@ -17,6 +17,21 @@ export type User = {
   createdAt?: string;
   updatedAt?: string;
 };
+
+// Anyone who can create or update collections needs to see the user
+// directory to populate the "share with" picker - that's not the same
+// privilege as the Keycloak admin operations below (create/update/delete
+// user), so this checks the configurable collections permission instead of
+// requiring the admin role outright.
+async function requireCollectionManager(user: RequestUser): Promise<void> {
+  try {
+    await requirePermission(user, 'collections', 'create');
+    return;
+  } catch (error) {
+    if (!(error instanceof PermissionDeniedError)) throw error;
+  }
+  await requirePermission(user, 'collections', 'update');
+}
 
 function toUserTRPCError(error: any, fallbackMessage: string): TRPCError {
   if (error instanceof PermissionDeniedError) {
@@ -33,10 +48,12 @@ function toUserTRPCError(error: any, fallbackMessage: string): TRPCError {
 }
 
 export const users = createRouter()
-  // Get all users (returns roles too). Admin-only, like every route in this
-  // router - these all call Keycloak's admin API (backend/documents'
-  // users.js), so are intentionally NOT live-tested against the real
-  // Keycloak instance during this port.
+  // Get all users (returns roles too). Used to populate the "share with"
+  // picker for anyone who can create/update collections, not just admins -
+  // see requireCollectionManager. The create/update/delete mutations below
+  // remain admin-only since those call Keycloak's admin API directly
+  // (backend/documents' users.js), so are intentionally NOT live-tested
+  // against the real Keycloak instance during this port.
   .query('getAllUsers', {
     input: z.object({
       token: z.string().optional(),
@@ -50,7 +67,7 @@ export const users = createRouter()
 
       try {
         const user = await getRequestUser(token);
-        requireAdmin(user);
+        await requireCollectionManager(user);
 
         const allUsers = await keycloakService.getAllUsers();
         const usersWithRoles = await Promise.all(
