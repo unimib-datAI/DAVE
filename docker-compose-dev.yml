@@ -85,13 +85,9 @@ services:
   ui:
     env_file: ".env"
     restart: $RESTART_POLICY
-    # Even in the "dev" compose file, ui is built and served in production
-    # mode (frontend/Dockerfile: `pnpm build` at image-build time, `pnpm
-    # start` at container start) rather than the hot-reloading `next dev`
-    # server - see frontend/Dockerfile-dev for that instead.
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile-dev
       args:
         ACCESS_USERNAME: $ACCESS_USERNAME
         ACCESS_PASSWORD: $ACCESS_PASSWORD
@@ -166,9 +162,14 @@ services:
       JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    # No source bind-mounts here: the image is a real `pnpm build` (see
-    # above), so a stale/mismatched host source tree can't shadow it. Rebuild
-    # (`docker compose -f docker-compose-dev.yml build ui`) to pick up changes.
+    # Bind-mount the source so `pnpm dev` (Dockerfile-dev) hot-reloads on
+    # host edits. node_modules/.next stay as container-only volumes so the
+    # bind mount doesn't shadow them with (possibly absent/mismatched) host
+    # copies.
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
 
   es:
     env_file: ".env"
