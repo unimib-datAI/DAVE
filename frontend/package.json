@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "LOCALE=eng next dev",
+    "dev": "LOCALE=eng next dev -p 3000",
     "dev:debug": "LOCALE=eng NODE_OPTIONS='--inspect' next dev",
     "build": "next build",
     "start": "next start",
@@ -57,7 +57,7 @@
     "mongoose": "6.3.2",
     "mongoose-paginate-v2": "1.6.3",
     "mongoose-sequence": "5.3.1",
-    "next": "16.1.6",
+    "next": "16.3.6",
     "next-auth": "^4.6.1",
     "nextjs-progressbar": "^0.0.14",
     "openai": "^6.10.0",
