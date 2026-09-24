@@ -35,15 +35,27 @@ const ClustersPage: NextPage = () => {
     { enabled: !!selectedDocId }
   );
 
-  // Group entities by type
+  const annotations = documentData?.annotation_sets['entities_'].annotations;
+
+  // Some mentions do not have a corresponding
+  // annotation in the document. These need to be filtered out.
   const clusters = documentData?.features.clusters['entities_'] ?? [];
-  const clusterGroups = groupBy(clusters, (c) => c.type);
+  const filteredClusters = clusters
+    .map((c) => ({
+      ...c,
+      mentions: c.mentions.filter((m) =>
+        annotations?.some((ann) => ann.id === m.id)
+      ),
+    }))
+    .filter((c) => c.mentions.length > 0);
+
+  // Group entities by type
+  const clusterGroups = groupBy(filteredClusters, (c) => c.type);
 
   // Get entities of the selected type
   const entitiesForType = selectedType ? clusterGroups[selectedType] : [];
 
   // Get document context for each mention of the current entity
-  const annotations = documentData?.annotation_sets['entities_'].annotations;
   const MENTION_PADDING = 30;
   const mentionsForSelectedEntity =
     selectedEntity && documentData
@@ -51,7 +63,7 @@ const ClustersPage: NextPage = () => {
           // For each mention for selected entity, find corresponding
           // mention in the document
           const ann = annotations?.find((ann) => ann.id === m.id);
-          if (!ann) return { ...m, context: m.mention };
+          if (!ann) return { ...m, context: 'none' };
 
           // Extract the sentence context from the document
           const start = Math.max(0, ann.start - MENTION_PADDING);
@@ -87,7 +99,6 @@ const ClustersPage: NextPage = () => {
   };
 
   const handleEntitySelection = (e: Cluster) => {
-    console.log(e);
     setSelectedEntity(e);
   };
 
@@ -239,7 +250,7 @@ const ListItem = styled.div`
 
   &[data-selected='true'] {
     background-color: var(--primary);
-    color: white;
+    color: var(--background);
     border-radius: 8px;
   }
 `;
