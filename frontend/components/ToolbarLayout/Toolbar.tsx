@@ -6,6 +6,10 @@ import { CollectionSelector } from '../CollectionSelector';
 import { GlobalAnonymizationToggle } from '../GlobalAnonymizationToggle';
 import { useRouter } from 'next/router';
 import { FiHome } from '@react-icons/all-files/fi/FiHome';
+import { Button } from '@heroui/react';
+import { useAtom } from 'jotai';
+import { activeCollectionAtom } from '@/atoms/collection';
+import { FiServer } from '@react-icons/all-files/fi/FiServer';
 
 const Container = styled.div({
   position: 'fixed',
@@ -30,7 +34,7 @@ const ToolbarContent = styled.div({
   minWidth: 0,
 });
 
-const RightActions = styled.div({
+const ActionsContainer = styled.div({
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
@@ -49,7 +53,6 @@ const Logo = styled.div({
 });
 
 const Toolbar = ({ children }: PropsWithChildren<{}>) => {
-  const router = useRouter();
   return (
     <Container id="toolbar">
       <Link href="/" passHref>
@@ -58,14 +61,54 @@ const Toolbar = ({ children }: PropsWithChildren<{}>) => {
         </Logo>
       </Link>
       <ToolbarContent>
-        <CollectionSelector />
+        <ActionsContainer>
+          <CollectionSelector />
+          <GoToClustersPageButton />
+        </ActionsContainer>
+
         {children}
-        <RightActions>
+        <ActionsContainer>
           <GlobalAnonymizationToggle />
           <LoginAvatar />
-        </RightActions>
+        </ActionsContainer>
       </ToolbarContent>
     </Container>
+  );
+};
+
+const ClustersButton = styled(Button)`
+  height: auto;
+  min-height: unset;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 150ms ease;
+
+  &:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+`;
+
+const GoToClustersPageButton = () => {
+  const router = useRouter();
+  const [activeCollection] = useAtom(activeCollectionAtom);
+  return (
+    <ClustersButton
+      variant="bordered"
+      onPress={() =>
+        router.push('collections/' + activeCollection?.id + '/clusters')
+      }
+    >
+      <div className="flex flex-row items-center gap-[8px]">
+        <FiServer />
+        <span>Clusters</span>
+      </div>
+    </ClustersButton>
   );
 };
 
