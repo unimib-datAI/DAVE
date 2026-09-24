@@ -11,18 +11,18 @@ import { useAtom } from 'jotai';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { FiServer } from '@react-icons/all-files/fi/FiServer';
 
-const Container = styled.div({
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  height: '48px',
-  display: 'flex',
-  flexDirection: 'row',
-  background: '#FFF',
-  borderBottom: '1px solid #F3F3F5',
-  zIndex: 10,
-});
+const Container = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--toolbar-height);
+  display: flex;
+  flex-direction: row;
+  background: #fff;
+  border-bottom: 1px solid #f3f3f5;
+  z-index: 10;
+`;
 
 const ToolbarContent = styled.div({
   display: 'flex',

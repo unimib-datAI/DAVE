@@ -191,7 +191,7 @@ export default ClustersPage;
 
 // 48px is the height of the toolbar
 const PageContainer = styled.div`
-  height: calc(100vh - 48px);
+  height: calc(100vh - var(--toolbar-height));
   overflow: hidden;
 `;
 
@@ -217,12 +217,12 @@ const PaneTitle = styled.div`
   gap: 8px;
   padding: 12px 12px;
   font-size: 16px;
-  font-weight: 500;
-  background-color: #f4f4f5;
+  font-weight: var(--font-semibold);
+  background-color: var(--muted);
 `;
 
 const Message = styled.p`
-  color: #949597;
+  color: var(--muted-foreground);
 `;
 
 const List = styled.div`
@@ -238,7 +238,7 @@ const ListItem = styled.div`
   cursor: pointer;
 
   &[data-selected='true'] {
-    background-color: hsl(var(--primary));
+    background-color: var(--primary);
     color: white;
     border-radius: 8px;
   }
