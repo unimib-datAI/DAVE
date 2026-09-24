@@ -12,10 +12,13 @@ import { FiServer } from '@react-icons/all-files/fi/FiServer';
 import { FiTag } from '@react-icons/all-files/fi/FiTag';
 import { FiFileText } from '@react-icons/all-files/fi/FiFileText';
 import { Cluster, Document } from '@/server/routers/document';
+import { activeCollectionAtom } from '@/atoms/collection';
+import { useAtom } from 'jotai';
+import { FiFile } from '@react-icons/all-files/fi/FiFile';
 
 const ClustersPage: NextPage = () => {
-  const router = useRouter();
-  const collectionId = router.query.id as string;
+  const [activeCollection] = useAtom(activeCollectionAtom);
+  const collectionId = activeCollection?.id;
   const { data: session } = useSession();
 
   // Component state
@@ -28,6 +31,7 @@ const ClustersPage: NextPage = () => {
     'collection.getCollectionInfo',
     { id: collectionId ?? '', token: (session as any)?.accessToken },
   ]);
+  console.log(collectionData);
 
   // Get the selected document's entities
   const { data: documentData } = useQuery(
@@ -52,8 +56,13 @@ const ClustersPage: NextPage = () => {
   // Group entities by type
   const clusterGroups = groupBy(filteredClusters, (c) => c.type);
 
-  // Get entities of the selected type
-  const entitiesForType = selectedType ? clusterGroups[selectedType] : [];
+  // Get entities of the selected type.
+  // Order alphabetically based on the name of the entity
+  const entitiesForType = selectedType
+    ? clusterGroups[selectedType].sort((c1, c2) =>
+        c1.title.localeCompare(c2.title)
+      )
+    : [];
 
   // Get document context for each mention of the current entity
   const MENTION_PADDING = 30;
@@ -71,7 +80,10 @@ const ClustersPage: NextPage = () => {
             documentData?.text.length,
             ann.end + MENTION_PADDING
           );
-          const context = '...' + documentData?.text.slice(start, end) + '...';
+          const context =
+            (start == 0 ? '' : '...') +
+            documentData?.text.slice(start, end) +
+            (end === documentData?.text.length ? '' : '...');
           return { ...m, context };
         })
       : [];
@@ -113,6 +125,9 @@ const ClustersPage: NextPage = () => {
               <h2>Documents</h2>
             </PaneTitle>
             <PaneContent>
+              {collectionData?.length == 0 && (
+                <Message>Collection is empty</Message>
+              )}
               <List>
                 {(collectionData ?? []).map((doc: Document) => {
                   return (
@@ -125,9 +140,6 @@ const ClustersPage: NextPage = () => {
                     </ListItem>
                   );
                 })}
-                {/* {[...Array(50)].map((i) => {
-                  return <ListItem key={i}>prova</ListItem>;
-                })} */}
               </List>
             </PaneContent>
           </Pane>
@@ -170,7 +182,7 @@ const ClustersPage: NextPage = () => {
                       data-selected={selectedEntity?.id === e.id}
                       onClick={() => handleEntitySelection(e)}
                     >
-                      {e.title}
+                      {e.title} ({e.mentions.length})
                     </ListItem>
                   );
                 })}
@@ -247,10 +259,14 @@ const List = styled.div`
 const ListItem = styled.div`
   padding: 8px 8px;
   cursor: pointer;
+  border-radius: 8px;
+
+  &:hover {
+    background-color: var(--muted);
+  }
 
   &[data-selected='true'] {
     background-color: var(--primary);
     color: var(--background);
-    border-radius: 8px;
   }
 `;
