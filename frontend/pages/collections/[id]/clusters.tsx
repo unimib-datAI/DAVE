@@ -2,18 +2,21 @@ import { ToolbarLayout, useText } from '@/components';
 import { MultiPane } from '@/components/MultiPane';
 import { GetServerSideProps, NextPage } from 'next';
 import { useQuery } from '@/utils/trpc';
-import { useRouter } from 'next/router';
 import { useSession, getSession } from 'next-auth/react';
 import styled from '@emotion/styled';
 import { useState } from 'react';
 import { groupBy } from '@/utils/shared';
 import { FiFolder } from '@react-icons/all-files/fi/FiFolder';
-import { FiServer } from '@react-icons/all-files/fi/FiServer';
 import { FiTag } from '@react-icons/all-files/fi/FiTag';
 import { FiFileText } from '@react-icons/all-files/fi/FiFileText';
 import { Cluster, Document } from '@/server/routers/document';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { useAtom } from 'jotai';
+import { createTaxonomy } from '@/modules/document/DocumentProvider/utils';
+import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
+import { getAllNodeData } from '@/components/Tree';
+import { darken } from 'polished';
+import { FiList } from '@react-icons/all-files/fi/FiList';
 
 const ClustersPage: NextPage = () => {
   const [activeCollection] = useAtom(activeCollectionAtom);
@@ -40,7 +43,14 @@ const ClustersPage: NextPage = () => {
     { enabled: !!selectedDocId }
   );
 
-  const annotations = documentData?.annotation_sets['entities_'].annotations;
+  const entityAnnotationSet = Object.values(
+    documentData?.annotation_sets ?? []
+  ).filter((set) => set.name === 'entities_');
+  console.log(entityAnnotationSet);
+
+  // Need this to get the correct colors for the types
+  const taxonomy = createTaxonomy(baseTaxonomy, entityAnnotationSet);
+  const annotations = entityAnnotationSet[0]?.annotations;
 
   // Some mentions do not have a corresponding
   // annotation in the document. These need to be filtered out.
@@ -147,23 +157,33 @@ const ClustersPage: NextPage = () => {
           {/* Cluster selection */}
           <Pane>
             <PaneTitle>
-              <FiServer />
-              <h2>{t('clusters')}</h2>
+              <FiList />
+              <h2>{t('types')}</h2>
             </PaneTitle>
             <PaneContent>
               {!selectedDocId && <Message>{t('selectDocument')}</Message>}
+              {selectedDocId && Object.keys(clusterGroups).length === 0 && (
+                <Message>{t('noEntitiesFound')}</Message>
+              )}
               <List>
-                {Object.keys(clusterGroups).map((type) => {
-                  return (
-                    <ListItem
-                      key={type}
-                      data-selected={type === selectedType}
-                      onClick={() => handleTypeSelection(type)}
-                    >
-                      {type} ({clusterGroups[type].length})
-                    </ListItem>
-                  );
-                })}
+                {selectedDocId &&
+                  Object.keys(clusterGroups).map((type) => {
+                    return (
+                      <div
+                        key={type}
+                        className="flex flex-row justify-between my-2 cursor-pointer"
+                        onClick={() => handleTypeSelection(type)}
+                      >
+                        <EntityTypeTag
+                          data-selected={type === selectedType}
+                          color={getAllNodeData(taxonomy, type).color}
+                        >
+                          {type}
+                        </EntityTypeTag>
+                        <span>({clusterGroups[type].length})</span>
+                      </div>
+                    );
+                  })}
               </List>
             </PaneContent>
           </Pane>
@@ -176,17 +196,18 @@ const ClustersPage: NextPage = () => {
             <PaneContent>
               {!selectedType && <Message>{t('selectType')}</Message>}
               <List>
-                {entitiesForType.map((e) => {
-                  return (
-                    <ListItem
-                      key={e.id}
-                      data-selected={selectedEntity?.id === e.id}
-                      onClick={() => handleEntitySelection(e)}
-                    >
-                      {e.title} ({e.mentions.length})
-                    </ListItem>
-                  );
-                })}
+                {selectedType &&
+                  entitiesForType.map((e) => {
+                    return (
+                      <ListItem
+                        key={e.id}
+                        data-selected={selectedEntity?.id === e.id}
+                        onClick={() => handleEntitySelection(e)}
+                      >
+                        {e.title} ({e.mentions.length})
+                      </ListItem>
+                    );
+                  })}
               </List>
             </PaneContent>
           </Pane>
@@ -199,9 +220,10 @@ const ClustersPage: NextPage = () => {
             <PaneContent>
               {!selectedEntity && <Message>{t('selectEntity')}</Message>}
               <List>
-                {mentionsForSelectedEntity.map((m) => {
-                  return <ListItem key={m.id}>{m.context}</ListItem>;
-                })}
+                {selectedEntity &&
+                  mentionsForSelectedEntity.map((m) => {
+                    return <ListItem key={m.id}>{m.context}</ListItem>;
+                  })}
               </List>
             </PaneContent>
           </Pane>
@@ -280,6 +302,15 @@ const List = styled.div`
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+`;
+
+const EntityTypeTag = styled.div`
+  background-color: ${(props) => props.color};
+  width: fit-content;
+  padding: 2px;
+  border-radius: 6px;
+  color: ${(props) => darken(0.7, props.color ?? '#FFFFFF')};
+  border: 1px solid ${(props) => darken(0.05, props.color ?? '#FFFFFF')};
 `;
 
 const ListItem = styled.div`

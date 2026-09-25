@@ -525,6 +525,7 @@ export type Translation = {
       browseDocs: string;
       logout: string;
       login: string;
+      browseEntities : string;
       manageTaxonomy: string;
       manageCollections: string;
       annotationConfig: string;
@@ -610,10 +611,11 @@ export type Translation = {
   };
   clusters: {
     documents: string;
-    clusters: string;
+    types: string;
     entity: string;
     mentions: string;
     collectionEmpty: string;
+    noEntitiesFound: string;
     selectDocument: string;
     selectType: string;
     selectEntity: string;

@@ -9,7 +9,8 @@ import { FiHome } from '@react-icons/all-files/fi/FiHome';
 import { Button } from '@heroui/react';
 import { useAtom } from 'jotai';
 import { activeCollectionAtom } from '@/atoms/collection';
-import { FiServer } from '@react-icons/all-files/fi/FiServer';
+import { useText } from '../TranslationProvider';
+import { FiTag } from '@react-icons/all-files/fi/FiTag';
 
 const Container = styled.div`
   position: fixed;
@@ -109,6 +110,7 @@ const ClustersButton = styled(Button)`
 const GoToClustersPageButton = () => {
   const router = useRouter();
   const [activeCollection] = useAtom(activeCollectionAtom);
+  const t = useText('common');
   return (
     <ClustersButton
       variant="bordered"
@@ -117,8 +119,8 @@ const GoToClustersPageButton = () => {
       }
     >
       <div className="flex flex-row items-center gap-[8px]">
-        <FiServer />
-        <span>Clusters</span>
+        <FiTag />
+        <span>{t('toolbar.browseEntities')}</span>
       </div>
     </ClustersButton>
   );
