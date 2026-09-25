@@ -24,6 +24,7 @@ export interface SubmitUploadJobInput {
   uploadType: 'json' | 'txt';
   files: Array<{ fileName: string; content: string }>;
   token: string;
+  refreshToken?: string;
   configurationId?: string;
   toAnonymize?: boolean;
   anonymizeTypes?: string[];
@@ -46,6 +47,7 @@ export function useUploadJobs() {
         uploadType: input.uploadType,
         files: input.files,
         token: input.token,
+        refreshToken: input.refreshToken,
         configurationId: input.configurationId,
         toAnonymize: input.toAnonymize,
         anonymizeTypes: input.anonymizeTypes,

@@ -83,6 +83,7 @@ const Login: NextPage<{}> = () => {
           <p style={{ textAlign: 'center', color: '#6b7280' }}>
             {t('subtitle')}
           </p>
+          <p>Test di prova</p>
           <div style={{ height: 8 }} />
 
           {error && (

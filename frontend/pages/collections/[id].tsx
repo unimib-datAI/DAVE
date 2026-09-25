@@ -227,6 +227,7 @@ const Collection: NextPage = () => {
     try {
       await deleteDocumentMutation.mutateAsync({
         docId: docId,
+        collectionId: id as string,
       });
     } catch (error) {
       console.error(`Error deleting the document ${docId}`);

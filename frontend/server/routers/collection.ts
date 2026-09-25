@@ -65,7 +65,14 @@ async function buildFacetsCacheIfEmpty(collectionId: string) {
   const docInfos = await CollectionController.getCollectionDocumentInfo(collectionId);
   for (const docInfo of docInfos || []) {
     try {
-      const fullDocument: any = await DocumentController.getFullDocById(String((docInfo as any).id));
+      const fullDocument: any = await DocumentController.getFullDocById(
+        String((docInfo as any).id),
+        false,
+        false,
+        false,
+        false,
+        collectionId
+      );
       const perDocPayload: Record<string, any[]> = {};
       const entityList = fullDocument.annotation_sets?.['entities_']?.annotations || [];
       for (const entity of entityList) {

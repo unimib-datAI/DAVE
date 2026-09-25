@@ -327,7 +327,14 @@ export const CollectionController = {
     try {
       for await (const docMeta of cursor) {
         // For each document metadata entry, fetch the full document payload.
-        const fullDoc = await DocumentController.getFullDocById((docMeta as any).id);
+        const fullDoc = await DocumentController.getFullDocById(
+          (docMeta as any).id,
+          false,
+          false,
+          false,
+          false,
+          collectionId
+        );
         yield fullDoc;
       }
     } finally {
@@ -380,7 +387,9 @@ export const CollectionController = {
     for (let i = 0; i < docInfos.length; i += batchSize) {
       const batch = docInfos.slice(i, i + batchSize);
       const docs = await Promise.all(
-        batch.map((d: any) => DocumentController.getFullDocById(d.id))
+        batch.map((d: any) =>
+          DocumentController.getFullDocById(d.id, false, false, false, false, collectionId)
+        )
       );
       for (const doc of docs) yield doc;
     }

@@ -8,20 +8,48 @@ import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
 import { useRef, useState, useMemo, useEffect } from 'react';
 import { useAtom } from 'jotai';
-import {
-  deanonymizeFacetsAtom,
-  deanonymizedFacetNamesAtom,
-  facetsDocumentsAtom,
-} from '@/utils/atoms';
+import { facetsDocumentsAtom } from '@/utils/atoms';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { useMutation, useQuery } from '@/utils/trpc';
 import { useText } from '@/components/TranslationProvider';
+import { useDeanonymizedFacetNames } from './useDeanonymizedFacetNames';
+
+// facetsCacheSearch rows carry no `key` - derive it like the facetsCache
+// query does, so every child has a stable identity for React keys,
+// de-duplication and selection.
+const normalizeChild = (child: any) => {
+  const ids_ER = Array.isArray(child.ids_ER)
+    ? child.ids_ER
+    : child.ids_ER
+    ? [child.ids_ER]
+    : [];
+  const doc_ids = Array.isArray(child.doc_ids)
+    ? child.doc_ids
+    : child.doc_ids
+    ? [child.doc_ids]
+    : [];
+  return {
+    ...child,
+    ids_ER,
+    doc_ids,
+    key: child.key || ids_ER[0] || child.display_name || '',
+  };
+};
+const childIdentity = (child: any) => `${child.key}\u0000${child.display_name}`;
+
+// Items shown per facet before "show more" (the backend pages by 20 too).
+const MAX_VISIBLE_CHILDREN = 20;
 
 type FacetFilterProps = {
   facet: Facet;
   filterType: string;
   highlight?: boolean;
-  onFilterChange: (filterType: string, updatedFilters: string[]) => void;
+  // `names` maps the ids being added to their raw display name.
+  onFilterChange: (
+    filterType: string,
+    updatedFilters: string[],
+    names?: Record<string, string>
+  ) => void;
   selectedFilters: string[];
   loadedDocIds?: string[];
 };
@@ -55,8 +83,6 @@ const FacetFilter = ({
 }: FacetFilterProps) => {
   const t = useText('search');
   const { data: session } = useSession();
-  const [deanonymize] = useAtom(deanonymizeFacetsAtom);
-  const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
   const [facetedDocuments, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const getDocsByIdsMutation = useMutation(['document.fetchFacetDocuments']);
   const [fetching, setFetching] = useState(false);
@@ -106,110 +132,96 @@ const FacetFilter = ({
     }
   );
 
-  // Extract children from search or paginated results
-  const paginatedChildren = useMemo(() => {
-    // Use search results if user is searching
-    if (value.filter.trim().length > 0 && searchData?.facets) {
-      console.log(`[FacetFilter] Search results for "${value.filter}":`, searchData.facets.length, 'items');
-      return searchData.facets || [];
-    }
-    
-    // Use paginated results for "show more"
-    if (paginatedData?.facets) {
-      console.log(`[FacetFilter] Page ${page} results for ${facet.key}:`, paginatedData.facets.length, 'items');
-      return paginatedData.facets || [];
-    }
-    
-    return [];
-  }, [paginatedData, searchData, value.filter, facet.key]);
-
-  // Accumulate children as we fetch more pages
+  // Accumulate raw "show more" pages. Grouping/decryption happens below
+  // over everything loaded, so paged items are merged and de-anonymized
+  // like the first page instead of being appended as-is.
   useEffect(() => {
     if (page === 1) {
-      // Reset on first page
       setAccumulatedChildren([]);
-    } else if (paginatedChildren && paginatedChildren.length > 0) {
-      // Append new children to accumulated list
-      // eslint-disable-next-line
-      setAccumulatedChildren((prev: any[]) => {
-        const newChildren = [...prev];
-        // Avoid duplicates based on display_name
-        const existing = new Set(newChildren.map((c) => c.display_name));
-        paginatedChildren.forEach((child: any) => {
-          if (!existing.has(child.display_name)) {
-            newChildren.push(child);
-            existing.add(child.display_name);
-          }
-        });
-        console.log(`[FacetFilter] Accumulated ${newChildren.length} total items for ${facet.key}`);
-        return newChildren;
+      return;
+    }
+    const pageChildren = (paginatedData?.facets || []).map(normalizeChild);
+    if (pageChildren.length === 0) return;
+    setAccumulatedChildren((prev: any[]) => {
+      const seen = new Set(prev.map(childIdentity));
+      const next = [...prev];
+      pageChildren.forEach((child: any) => {
+        const id = childIdentity(child);
+        if (!seen.has(id)) {
+          seen.add(id);
+          next.push(child);
+        }
       });
-    }
-  }, [paginatedChildren, page, facet.key]);
+      return next;
+    });
+  }, [paginatedData, page]);
 
-  const fuseOptions = {
-    // Only search by the displayed label (de-anonymized display_name).
-    keys: ['display_name'],
-  };
+  // Everything loaded for this facet: the initial page, "show more" pages
+  // and (while typing in the search box) the backend search results.
+  const searchQuery = value.filter.trim();
+  const loadedChildren = useMemo(() => {
+    const pool = [
+      ...facet.children.map(normalizeChild),
+      ...accumulatedChildren,
+      ...(searchQuery ? (searchData?.facets || []).map(normalizeChild) : []),
+    ];
+    const seen = new Set<string>();
+    return pool.filter((child) => {
+      const id = childIdentity(child);
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [facet.children, accumulatedChildren, searchData, searchQuery]);
 
-  // Show all items loaded from the backend (we load 20 per group)
-  // No need for client-side pagination since backend already paginates
-  const MAX_VISIBLE_CHILDREN = 20;
+  const resolveName = useDeanonymizedFacetNames(
+    useMemo(() => loadedChildren.map((child) => child.display_name), [loadedChildren])
+  );
 
-  // Group children by their display_name (or de-anonymized name) and combine their ids_ER
-  const groupedChildren = facet.children.reduce((acc, child) => {
-    // Use de-anonymized name if available, otherwise use display_name or key
-    const displayName =
-      deanonymize && child.display_name && deanonymizedNames[child.display_name]
-        ? deanonymizedNames[child.display_name]
-        : child.display_name || child.key;
-    const key = displayName?.toLowerCase() || '';
+  // Group children by their resolved name (the real name when
+  // de-anonymizing: the same person is stored under a different vault token
+  // per mention) and merge their ids_ER / doc_ids. `rawNames` keeps each
+  // id's stored display name so selected filters can be labelled later
+  // without freezing the de-anonymized text into them.
+  const groupedArray = useMemo(() => {
+    const groups: Record<string, any> = {};
+    loadedChildren.forEach((child) => {
+      const displayName = resolveName(child.display_name) || child.key;
+      const groupKey = (displayName || '').toLowerCase();
+      const rawNames: Record<string, string> = {};
+      [child.key, ...child.ids_ER].forEach((id: string) => {
+        if (id) rawNames[id] = child.display_name || '';
+      });
+      const existing = groups[groupKey];
+      if (!existing) {
+        groups[groupKey] = { ...child, display_name: displayName, rawNames };
+        return;
+      }
+      existing.ids_ER = Array.from(new Set([...existing.ids_ER, ...child.ids_ER]));
+      existing.doc_ids = Array.from(new Set([...existing.doc_ids, ...child.doc_ids]));
+      existing.doc_count = (existing.doc_count || 0) + (child.doc_count || 0);
+      existing.is_linked = existing.is_linked || child.is_linked;
+      existing.rawNames = { ...existing.rawNames, ...rawNames };
+    });
+    return Object.values(groups);
+  }, [loadedChildren, resolveName]);
 
-    if (!acc[key]) {
-      // store the canonical display_name (de-anonymized when available) so the grouped item shows the correct text
-      acc[key] = { ...child, display_name: displayName };
-    } else {
-      // Combine ids_ER arrays, removing duplicates
-      acc[key].ids_ER = Array.from(
-        new Set([...(acc[key].ids_ER || []), ...(child.ids_ER || [])])
+  const children = useMemo(() => {
+    const q = searchQuery.toLowerCase();
+    const visible = groupedArray
+      .filter((item) => !q || (item.display_name || item.key || '').toLowerCase().includes(q))
+      // Filter out anonymous personas
+      .filter((item) => item.display_name !== '[ANONYMOUS PERSONA]')
+      .sort((a, b) =>
+        (a.display_name || a.key || '').localeCompare(b.display_name || b.key || '')
       );
-      acc[key].doc_count = (acc[key].doc_count || 0) + (child.doc_count || 0);
-    }
-    return acc;
-  }, {} as Record<string, (typeof facet.children)[0]>);
+    // First page shows at most MAX_VISIBLE_CHILDREN; "show more" reveals
+    // everything loaded so far.
+    return page === 1 && !q ? visible.slice(0, MAX_VISIBLE_CHILDREN) : visible;
+  }, [groupedArray, searchQuery, page]);
 
-  const groupedArray = Object.values(groupedChildren);
-  const deduplicatedChildren = (() => {
-    const q = value.filter.trim().toLowerCase();
-    if (!q) return groupedArray;
-    return groupedArray.filter((item) =>
-      (item.display_name || item.key || '').toLowerCase().includes(q)
-    );
-  })();
-
-  // Filter out anonymous personas
-  const filteredAnonymous = deduplicatedChildren.filter(
-    (child) => child.display_name !== '[ANONYMOUS PERSONA]'
-  );
-
-  // Sort the filtered children
-  const filteredChildren = filteredAnonymous.sort((a, b) =>
-    (a.display_name || a.key || '').localeCompare(b.display_name || b.key || '')
-  );
-
-  // Combine initial children with accumulated paginated children
-  const allChildren = useMemo(() => {
-    if (accumulatedChildren.length === 0) {
-      // First page: show initial items from facet.children
-      return filteredChildren.slice(0, MAX_VISIBLE_CHILDREN);
-    }
-    
-    // Show initial 20 + all accumulated paginated items
-    const initial = filteredChildren.slice(0, MAX_VISIBLE_CHILDREN);
-    return [...initial, ...accumulatedChildren];
-  }, [filteredChildren, accumulatedChildren]);
-
-  const children = allChildren;
+  // Raw (ungrouped) rows loaded - what `n_children` counts.
+  const loadedRawCount = facet.children.length + accumulatedChildren.length;
 
   const handleChecked = (
     checked: boolean,
@@ -308,7 +320,7 @@ const FacetFilter = ({
 
     // Filter out any empty strings
     const cleanedFilters = updatedFilters.filter((f) => f && f.trim() !== '');
-    onFilterChange(filterType, cleanedFilters);
+    onFilterChange(filterType, cleanedFilters, checked ? option.rawNames : undefined);
   };
 
   return (
@@ -382,11 +394,7 @@ const FacetFilter = ({
                   className="text-base whitespace-nowrap text-ellipsis overflow-hidden w-48"
                 >
                   {filterType === 'annotation'
-                    ? deanonymize &&
-                      option.display_name &&
-                      deanonymizedNames[option.display_name]
-                      ? deanonymizedNames[option.display_name]
-                      : option.display_name || option.key
+                    ? option.display_name || option.key
                     : option.key}
                 </span>
               </div>
@@ -408,7 +416,7 @@ const FacetFilter = ({
               {t('showLess')}
             </button>
           ) : null}
-          {children.length < facet.n_children ? (
+          {loadedRawCount < facet.n_children ? (
             <button
               id={`facet-${facet.key}-show-more`}
               onClick={() => setPage((p) => p + 1)}

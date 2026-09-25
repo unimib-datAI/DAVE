@@ -9,7 +9,10 @@ import base from '@/components/TranslationProvider/translations/base';
 import { indexDocument } from '@/lib/documentIndexer';
 import { ServiceModel, serviceDTO } from '@/lib/db/models/Service';
 import { ConfigurationModel, configurationDTO } from '@/lib/db/models/Configuration';
-import { DocumentController } from '@/lib/documentsBackend/documentController';
+import {
+  DocumentController,
+  annotationSetScope,
+} from '@/lib/documentsBackend/documentController';
 import { dbConnect } from '@/lib/db/connection';
 import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
 import { requirePermission, PermissionDeniedError } from '@/lib/documentsBackend/permission';
@@ -24,6 +27,10 @@ import {
   makeBatchDecryptionRequest,
 } from '@/lib/documentsBackend/anonymization';
 import { UploadJobController } from '@/lib/documentsBackend/uploadJobController';
+import {
+  refreshKeycloakToken,
+  isAccessTokenStale,
+} from '@/lib/documentsBackend/keycloakRefresh';
 
 export type Document = {
   _id: string;
@@ -115,6 +122,18 @@ async function indexCreatedDocument(doc: any, token: string) {
   const elasticIndex = process.env.ELASTIC_INDEX;
   if (!elasticIndex || !doc?.id) return;
 
+  // `doc` is the bare Document record (no annotation sets), and its id is
+  // a content hash shared with other collections' copies - re-read this
+  // collection's copy with its annotation sets.
+  const fullDocument = await DocumentController.getFullDocById(
+    String(doc.id),
+    true,
+    false,
+    false,
+    false,
+    doc.collectionId
+  );
+
   let textDeanonymized: string | undefined;
   try {
     const deanonymized = await DocumentController.getFullDocById(
@@ -122,7 +141,8 @@ async function indexCreatedDocument(doc: any, token: string) {
       true,
       false,
       true,
-      true
+      true,
+      doc.collectionId
     );
     textDeanonymized = deanonymized?.text;
   } catch (error) {
@@ -133,14 +153,14 @@ async function indexCreatedDocument(doc: any, token: string) {
   }
 
   await indexDocument(elasticIndex, {
-    id: String(doc.id),
-    text: doc.text,
-    collectionId: doc.collectionId,
-    annotationSets: doc.annotation_sets,
-    preview: doc.preview,
-    name: doc.name,
-    features: doc.features,
-    offsetType: doc.offset_type,
+    id: String(fullDocument.id),
+    text: fullDocument.text,
+    collectionId: fullDocument.collectionId,
+    annotationSets: fullDocument.annotation_sets,
+    preview: fullDocument.preview,
+    name: fullDocument.name,
+    features: fullDocument.features,
+    offsetType: fullDocument.offset_type,
     textDeanonymized,
   });
 }
@@ -165,11 +185,16 @@ async function insertDocumentAndUpdateFacetsCache(
 
   const doc = await DocumentController.insertFullDocument(body);
 
+  // Scoped by collection: the id is a content hash, so without it this
+  // could read another collection's copy (e.g. the plaintext original of a
+  // just-anonymized upload) and slice its text with this copy's offsets.
   const fullDocument = await DocumentController.getFullDocById(
     String(doc.id),
     true,
     false,
-    false
+    false,
+    false,
+    doc.collectionId
   );
 
   // Always update facets cache for the collection when a document is
@@ -658,7 +683,11 @@ async function runSave({
   }
 
   // Update annotation sets in MongoDB
-  const resUpdate = await DocumentController.updateEntitiesAnnotationSet(docId, annotationSets);
+  const resUpdate = await DocumentController.updateEntitiesAnnotationSet(
+    docId,
+    annotationSets,
+    collectionId
+  );
 
   // Update facets cache entries for the collection based on saved annotations
   try {
@@ -1310,27 +1339,34 @@ export const documents = createRouter()
     },
   })
   .mutation('deleteDocument', {
-    input: z.object({ docId: z.string() }),
+    // `docId` is a content hash that other collections' copies may share -
+    // `collectionId` says which copy to delete.
+    input: z.object({ docId: z.string(), collectionId: z.string().optional() }),
     resolve: async ({ input }) => {
-      const { docId } = input;
+      const { docId, collectionId } = input;
       try {
         await dbConnect();
         const elasticIndex = process.env.ELASTIC_INDEX;
 
-        const deletedDoc: any = await DocumentModel.findOneAndDelete({ id: docId });
-        const annotationSets = await AnnotationSetModel.find({ docId });
-        await Promise.all(
-          annotationSets.map(async (annSet) => {
-            await AnnotationModel.deleteMany({ annotationSetId: annSet._id });
-          })
+        // Resolve the scope before deleting: annotationSetScope counts the
+        // copies sharing this id, which includes the one being deleted.
+        const target: any = await DocumentModel.findOne(
+          collectionId ? { id: docId, collectionId } : { id: docId }
+        ).lean();
+        if (!target) return null;
+        const annotationSets = await AnnotationSetModel.find(
+          await annotationSetScope(docId, target.collectionId, { forWrite: true })
         );
-        await AnnotationSetModel.deleteMany({ docId });
+        const deletedDoc: any = await DocumentModel.findOneAndDelete({ _id: target._id });
+        const annSetIds = annotationSets.map((annSet) => annSet._id);
+        await AnnotationModel.deleteMany({ annotationSetId: { $in: annSetIds } });
+        await AnnotationSetModel.deleteMany({ _id: { $in: annSetIds } });
         if (deletedDoc?.collectionId && deletedDoc?.id) {
           await CollectionController.deleteCacheForDoc(deletedDoc.id, deletedDoc.collectionId);
         }
         if (elasticIndex) {
           try {
-            await deleteElasticDocument(elasticIndex, docId);
+            await deleteElasticDocument(elasticIndex, docId, target.collectionId);
           } catch (error: any) {
             console.error(`Error deleting document from Elasticsearch: ${error.message}`);
           }
@@ -1634,6 +1670,7 @@ export const documents = createRouter()
         .array(z.object({ fileName: z.string(), content: z.string() }))
         .min(1),
       token: z.string().optional(),
+      refreshToken: z.string().optional(),
       configurationId: z.string().optional(),
       toAnonymize: z.boolean().optional(),
       anonymizeTypes: z.array(z.string()).optional(),
@@ -1644,11 +1681,33 @@ export const documents = createRouter()
         uploadType,
         files,
         token,
+        refreshToken,
         configurationId,
         toAnonymize,
         anonymizeTypes,
       } = input;
-      const tokenForApi = token ?? '';
+      // Mutable - refreshed in place as the (potentially long-running)
+      // job below outlives the short-lived access token it started with.
+      let tokenForApi = token ?? '';
+      let refreshTokenForApi = refreshToken ?? '';
+
+      // Refreshes `tokenForApi` when it's stale/near-expiry and a refresh
+      // token is available. Best-effort: if refreshing fails (or no
+      // refresh token was supplied), the caller proceeds with whatever
+      // token it has and lets the downstream call fail normally.
+      const ensureFreshToken = async () => {
+        if (!refreshTokenForApi || !isAccessTokenStale(tokenForApi)) return;
+        try {
+          const refreshed = await refreshKeycloakToken(refreshTokenForApi);
+          tokenForApi = refreshed.accessToken;
+          refreshTokenForApi = refreshed.refreshToken;
+        } catch (error) {
+          console.error(
+            'Failed to refresh Keycloak access token for upload job:',
+            error
+          );
+        }
+      };
 
       let job: any;
       try {
@@ -1712,6 +1771,8 @@ export const documents = createRouter()
 
             const fileId = fileIdByName.get(file.fileName);
             if (!fileId) continue;
+
+            await ensureFreshToken();
 
             await patchUploadJobFile(jobId, fileId, tokenForApi, {
               status: 'processing',

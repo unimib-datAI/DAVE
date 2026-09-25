@@ -11,6 +11,7 @@ import { getElasticClient } from './elasticClient';
 import { embedMain, embedChunks } from './embedClient';
 import { retrieveDocument } from './documentRetrievers';
 import { countTokens } from './tokenCounter';
+import { decryptFieldIfEncrypted } from './crypto/fieldEncryption';
 
 const CHUNK_INNER_HIT_FIELDS = [
   'chunks.vectors.text',
@@ -69,6 +70,8 @@ export async function search(params: VectorSearchParams): Promise<VectorSearchRe
   const chunksToGather = singleDocMode ? 20 : 100;
   const innerHitsSize = 50;
 
+  const client = getElasticClient();
+
   const { knnQuery, fullTextQuery } = buildQueries({
     query,
     embeddings: queryEmbedding,
@@ -77,9 +80,8 @@ export async function search(params: VectorSearchParams): Promise<VectorSearchRe
     collectionId,
     knnK,
     innerHitsSize,
+    chunkTextField: await resolveChunkTextField(client, collectionName),
   });
-
-  const client = getElasticClient();
 
   const runsDense =
     retrievalMethod === 'full' ||
@@ -90,10 +92,14 @@ export async function search(params: VectorSearchParams): Promise<VectorSearchRe
     retrievalMethod === 'hibrid_no_ner' ||
     retrievalMethod === 'full-text';
 
+  // Pass the queries as an explicit `body`: the installed client (8.0) only
+  // routes body keys it knows about into the request body and sends the
+  // rest - including top-level `knn`, added in client 8.4 - as URL params,
+  // which ES rejects ("contains unrecognized parameter: [knn]").
   const [denseResults, fulltextResults] = await Promise.all([
-    runsDense ? client.search({ index: collectionName, ...knnQuery } as any) : null,
+    runsDense ? client.search({ index: collectionName, body: knnQuery } as any) : null,
     runsFullText
-      ? client.search({ index: collectionName, ...fullTextQuery } as any)
+      ? client.search({ index: collectionName, body: fullTextQuery } as any)
       : null,
   ]);
 
@@ -156,7 +162,8 @@ function collectChunkRanks(response: any): Map<string, number> {
     if (!innerHits) continue;
     for (const chunkHit of innerHits) {
       const fields = chunkHit.fields.chunks[0].vectors[0];
-      const chunkText = fields.text[0];
+      // Some indexed chunks hold AES-encrypted text (see resolveChunkTextField)
+      const chunkText = decryptFieldIfEncrypted(fields.text[0]);
       const chunkTextAnonymized = (fields.text_anonymized || [chunkText])[0];
       ranks.set(encodeChunkId([docId, chunkText, chunkTextAnonymized]), tempRank);
       tempRank += 1;
@@ -173,7 +180,7 @@ function collectChunkRanksFullText(response: any): Map<string, number> {
     const innerHits = hit.inner_hits?.['chunks.vectors']?.hits?.hits;
     if (!innerHits) continue;
     for (const chunkHit of innerHits) {
-      const chunkText = chunkHit._source.text;
+      const chunkText = decryptFieldIfEncrypted(chunkHit._source.text);
       const chunkTextAnonymized = chunkHit._source.text_anonymized ?? chunkText;
       ranks.set(encodeChunkId([docId, chunkText, chunkTextAnonymized]), tempRank);
       tempRank += 1;
@@ -364,6 +371,47 @@ async function fullDocResults(fullDocs: any[]): Promise<VectorSearchResult[]> {
 
 // ── ES query builders ────────────────────────────────────────────────────
 
+const chunkTextFieldCache = new Map<string, string>();
+
+/**
+ * Field to full-text match chunk text against. Normally
+ * `chunks.vectors.text`, but indexes created while that field held
+ * AES-encrypted chunks (lib/crypto/fieldEncryption.ts - still the case for
+ * the chunks indexed back then, decrypted on read above) map it as
+ * `binary`, which can't be queried (ES never changes an existing field's
+ * type - only recreating the index fixes it). Those fall back to
+ * `chunks.vectors.text_anonymized`: the same chunks, with anonymized
+ * entities shown as their vault tokens.
+ */
+async function resolveChunkTextField(client: any, index: string): Promise<string> {
+  const cached = chunkTextFieldCache.get(index);
+  if (cached) return cached;
+  let field = 'chunks.vectors.text';
+  try {
+    const res: any = await client.indices.getFieldMapping({
+      index,
+      fields: 'chunks.vectors.text',
+    });
+    const types = Object.values(res ?? {}).map(
+      (idx: any) => idx?.mappings?.['chunks.vectors.text']?.mapping?.text?.type
+    );
+    if (types.some((type) => type && type !== 'text')) {
+      console.warn(
+        `[vectorSearch] "${index}" maps chunks.vectors.text as ${types.join(
+          '/'
+        )}, which full-text queries can't use - falling back to ` +
+          'chunks.vectors.text_anonymized. Recreate the index to restore it.'
+      );
+      field = 'chunks.vectors.text_anonymized';
+    }
+  } catch (error) {
+    // Mapping lookup is best-effort; keep the default field.
+    console.error('[vectorSearch] Could not read the chunk text mapping', error);
+  }
+  chunkTextFieldCache.set(index, field);
+  return field;
+}
+
 function buildQueries(params: {
   query: string;
   embeddings: number[];
@@ -372,15 +420,24 @@ function buildQueries(params: {
   collectionId?: string | null;
   knnK: number;
   innerHitsSize: number;
+  chunkTextField: string;
 }) {
-  const { query, embeddings, retrievalMethod, filterIds, collectionId, knnK, innerHitsSize } =
-    params;
+  const {
+    query,
+    embeddings,
+    retrievalMethod,
+    filterIds,
+    collectionId,
+    knnK,
+    innerHitsSize,
+    chunkTextField,
+  } = params;
 
   const shouldClauses =
     retrievalMethod === 'hibrid_no_ner'
-      ? [{ match: { 'chunks.vectors.text': { query, boost: 5.0 } } }]
+      ? [{ match: { [chunkTextField]: { query, boost: 5.0 } } }]
       : [
-          { match: { 'chunks.vectors.text': { query, boost: 5.0 } } },
+          { match: { [chunkTextField]: { query, boost: 5.0 } } },
           { match: { 'chunks.vectors.entities': { query, boost: 3.0 } } },
         ];
 
