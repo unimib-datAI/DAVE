@@ -52,7 +52,15 @@ const Logo = styled.div({
   borderRight: '1px solid #F3F3F5',
 });
 
-const Toolbar = ({ children }: PropsWithChildren<{}>) => {
+type ToolbarProps = {
+  hideCollectionActions: boolean;
+};
+
+const Toolbar = ({
+  hideCollectionActions,
+  children,
+}: PropsWithChildren<ToolbarProps>) => {
+  const [activeCollection] = useAtom(activeCollectionAtom);
   return (
     <Container id="toolbar">
       <Link href="/" passHref>
@@ -62,8 +70,12 @@ const Toolbar = ({ children }: PropsWithChildren<{}>) => {
       </Link>
       <ToolbarContent>
         <ActionsContainer>
-          <CollectionSelector />
-          <GoToClustersPageButton />
+          {hideCollectionActions ? (
+            <span>{activeCollection?.name}</span>
+          ) : (
+            <CollectionSelector />
+          )}
+          {!hideCollectionActions && <GoToClustersPageButton />}
         </ActionsContainer>
 
         {children}

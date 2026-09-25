@@ -14,7 +14,6 @@ import { FiFileText } from '@react-icons/all-files/fi/FiFileText';
 import { Cluster, Document } from '@/server/routers/document';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { useAtom } from 'jotai';
-import { FiFile } from '@react-icons/all-files/fi/FiFile';
 
 const ClustersPage: NextPage = () => {
   const [activeCollection] = useAtom(activeCollectionAtom);

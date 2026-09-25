@@ -103,7 +103,7 @@ Document.getLayout = function getLayout(page: ReactElement) {
   return (
     <>
       <DocumentProvider>
-        <ToolbarLayout toolbarContent={<ToolbarContent />}>
+        <ToolbarLayout toolbarContent={<ToolbarContent />} hideCollectionActions>
           <ContentLayout>{page}</ContentLayout>
         </ToolbarLayout>
       </DocumentProvider>

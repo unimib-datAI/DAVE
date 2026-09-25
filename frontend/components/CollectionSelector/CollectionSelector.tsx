@@ -114,57 +114,51 @@ const CollectionSelector = () => {
 
   return (
     <Container>
-      {router.pathname === '/documents/[id]' ? (
-        activeCollection?.name
-      ) : (
-        <Dropdown>
-          <DropdownTrigger>
-            <CollectionButton id="collectionSelector">
-              <div
-                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-              >
-                <FiFolder />
-                <span style={{ fontSize: 14, fontWeight: 500 }}>
-                  {activeCollection?.name || 'Select Collection'}
-                </span>
-              </div>
-            </CollectionButton>
-          </DropdownTrigger>
-          <DropdownMenu
-            aria-label="Collection selection"
-            selectionMode="single"
-            selectedKeys={
-              activeCollection ? new Set([activeCollection.id]) : new Set()
-            }
-            onAction={(key) => handleCollectionSelect(key as string)}
-            // Cap the menu height so a long list of collections doesn't run off
-            // screen; the list scrolls instead.
+      <Dropdown>
+        <DropdownTrigger>
+          <CollectionButton id="collectionSelector">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <FiFolder />
+              <span style={{ fontSize: 14, fontWeight: 500 }}>
+                {activeCollection?.name || 'Select Collection'}
+              </span>
+            </div>
+          </CollectionButton>
+        </DropdownTrigger>
+        <DropdownMenu
+          aria-label="Collection selection"
+          selectionMode="single"
+          selectedKeys={
+            activeCollection ? new Set([activeCollection.id]) : new Set()
+          }
+          onAction={(key) => handleCollectionSelect(key as string)}
+          // Cap the menu height so a long list of collections doesn't run off
+          // screen; the list scrolls instead.
+          classNames={{
+            base: 'max-h-[min(60vh,360px)] overflow-y-auto',
+          }}
+        >
+          {collections.map((collection) => (
+            <DropdownItem
+              key={collection.id}
+              // classNames={{
+              //   base: 'text-gray-900 data-[hover=true]:bg-gray-100',
+              // }}
+            >
+              {collection.name}
+            </DropdownItem>
+          ))}
+          <DropdownItem
+            key="manage"
+            startContent={<FiPlus />}
             classNames={{
-              base: 'max-h-[min(60vh,360px)] overflow-y-auto',
+              base: 'text-gray-900 data-[hover=true]:bg-gray-100',
             }}
           >
-            {collections.map((collection) => (
-              <DropdownItem
-                key={collection.id}
-                // classNames={{
-                //   base: 'text-gray-900 data-[hover=true]:bg-gray-100',
-                // }}
-              >
-                {collection.name}
-              </DropdownItem>
-            ))}
-            <DropdownItem
-              key="manage"
-              startContent={<FiPlus />}
-              classNames={{
-                base: 'text-gray-900 data-[hover=true]:bg-gray-100',
-              }}
-            >
-              Manage Collections
-            </DropdownItem>
-          </DropdownMenu>
-        </Dropdown>
-      )}
+            Manage Collections
+          </DropdownItem>
+        </DropdownMenu>
+      </Dropdown>
     </Container>
   );
 };
