@@ -803,8 +803,8 @@ const t: Translation = {
   },
   clusters: {
     documents: 'Documents',
-    types: 'Category',
-    entity: 'Entity',
+    types: 'Categories',
+    entities: 'Entities',
     mentions: 'Mentions',
     collectionEmpty: 'Collection is empty',
     noEntitiesFound: 'No entities in this document',

@@ -809,8 +809,8 @@ const t: Translation = {
   },
   clusters: {
     documents: 'Documenti',
-    types: 'Categoria',
-    entity: 'Entità',
+    types: 'Categorie',
+    entities: 'Entità',
     mentions: 'Menzioni',
     collectionEmpty: 'La collezione è vuota',
     noEntitiesFound: 'Il documento non ha entità',

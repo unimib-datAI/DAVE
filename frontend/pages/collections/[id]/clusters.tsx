@@ -17,6 +17,7 @@ import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
 import { getAllNodeData } from '@/components/Tree';
 import { darken } from 'polished';
 import { FiList } from '@react-icons/all-files/fi/FiList';
+import { FiFile } from '@react-icons/all-files/fi/FiFile';
 
 const ClustersPage: NextPage = () => {
   const [activeCollection] = useAtom(activeCollectionAtom);
@@ -76,7 +77,7 @@ const ClustersPage: NextPage = () => {
     : [];
 
   // Get document context for each mention of the current entity
-  const MENTION_PADDING = 30;
+  const MENTION_PADDING = 60;
   const mentionsForSelectedEntity =
     selectedEntity && documentData
       ? selectedEntity.mentions.map((m) => {
@@ -122,7 +123,11 @@ const ClustersPage: NextPage = () => {
   };
 
   const handleEntitySelection = (e: Cluster) => {
-    setSelectedEntity(e);
+    if (e.id === selectedEntity?.id) {
+      setSelectedEntity(undefined);
+    } else {
+      setSelectedEntity(e);
+    }
   };
 
   return (
@@ -147,14 +152,15 @@ const ClustersPage: NextPage = () => {
                       data-selected={doc.id === selectedDocId}
                       onClick={() => handleDocumentSelection(doc.id)}
                     >
-                      {doc.name}
+                      <FiFile />
+                      <ItemLabel>{doc.name}</ItemLabel>
                     </ListItem>
                   );
                 })}
               </List>
             </PaneContent>
           </Pane>
-          {/* Cluster selection */}
+          {/* Type selection */}
           <Pane>
             <PaneTitle>
               <FiList />
@@ -169,19 +175,23 @@ const ClustersPage: NextPage = () => {
                 {selectedDocId &&
                   Object.keys(clusterGroups).map((type) => {
                     return (
-                      <div
+                      <ListItem
                         key={type}
-                        className="flex flex-row justify-between my-2 cursor-pointer"
                         onClick={() => handleTypeSelection(type)}
+                        data-selected={type === selectedType}
                       >
                         <EntityTypeTag
-                          data-selected={type === selectedType}
                           color={getAllNodeData(taxonomy, type).color}
                         >
                           {type}
                         </EntityTypeTag>
-                        <span>({clusterGroups[type].length})</span>
-                      </div>
+                        <NumberLabel>
+                          <span>
+                            ({clusterGroups[type].length}{' '}
+                            {t('entities').toLowerCase()})
+                          </span>
+                        </NumberLabel>
+                      </ListItem>
                     );
                   })}
               </List>
@@ -191,7 +201,7 @@ const ClustersPage: NextPage = () => {
           <Pane>
             <PaneTitle>
               <FiTag />
-              <h2>{t('entity')}</h2>
+              <h2>{t('entities')}</h2>
             </PaneTitle>
             <PaneContent>
               {!selectedType && <Message>{t('selectType')}</Message>}
@@ -204,7 +214,11 @@ const ClustersPage: NextPage = () => {
                         data-selected={selectedEntity?.id === e.id}
                         onClick={() => handleEntitySelection(e)}
                       >
-                        {e.title} ({e.mentions.length})
+                        <FiTag />
+                        <ItemLabel>{e.title}</ItemLabel>
+                        <NumberLabel>
+                          ({e.mentions.length} {t('mentions').toLowerCase()})
+                        </NumberLabel>
                       </ListItem>
                     );
                   })}
@@ -222,7 +236,11 @@ const ClustersPage: NextPage = () => {
               <List>
                 {selectedEntity &&
                   mentionsForSelectedEntity.map((m) => {
-                    return <ListItem key={m.id}>{m.context}</ListItem>;
+                    return (
+                      <Mention key={m.id}>
+                        <p>{m.context}</p>
+                      </Mention>
+                    );
                   })}
               </List>
             </PaneContent>
@@ -260,7 +278,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   };
 };
 
-// 48px is the height of the toolbar
 const PageContainer = styled.div`
   height: calc(100vh - var(--toolbar-height));
   overflow: hidden;
@@ -275,7 +292,7 @@ const Pane = styled.div`
 const PaneContent = styled.div`
   display: flex;
   flex-direction: column;
-  padding: 24px 12px;
+  padding: 0px;
   overflow-y: hidden;
   flex: 1;
   min-height: 0;
@@ -286,14 +303,18 @@ const PaneTitle = styled.div`
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  padding: 12px 12px;
-  font-size: 16px;
+  padding: 12px 16px;
+  font-size: 14px;
   font-weight: var(--font-semibold);
-  background-color: var(--muted);
+  background-color: var(--background);
+  color: var(--muted-foreground);
+  border-bottom: 2px solid var(--muted);
 `;
 
 const Message = styled.p`
   color: var(--muted-foreground);
+  text-align: center;
+  margin: 24px 0;
 `;
 
 const List = styled.div`
@@ -307,16 +328,27 @@ const List = styled.div`
 const EntityTypeTag = styled.div`
   background-color: ${(props) => props.color};
   width: fit-content;
-  padding: 2px;
+  padding: 0px 4px;
   border-radius: 6px;
-  color: ${(props) => darken(0.7, props.color ?? '#FFFFFF')};
+  color: ${(props) => darken(0.7, props.color ?? '#FFFFFF')} !important;
+  font-size: 14px;
   border: 1px solid ${(props) => darken(0.05, props.color ?? '#FFFFFF')};
+  margin-right: auto;
 `;
 
 const ListItem = styled.div`
-  padding: 8px 8px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
   cursor: pointer;
-  border-radius: 8px;
+
+  font-size: 16px;
+
+  svg {
+    color: var(--muted-foreground);
+  }
 
   &:hover {
     background-color: var(--muted);
@@ -325,5 +357,41 @@ const ListItem = styled.div`
   &[data-selected='true'] {
     background-color: var(--primary);
     color: var(--background);
+
+    * {
+      color: var(--background);
+    }
+
+    svg {
+      color: var(--background);
+    }
   }
+`;
+
+const Mention = styled.div`
+  padding: 16px 16px;
+  cursor: pointer;
+  font-size: 16px;
+  border-bottom: 2px solid var(--muted);
+
+  &:hover {
+    background-color: var(--muted);
+  }
+`;
+
+const ItemLabel = styled.span`
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const NumberLabel = styled.div`
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  align-items: center;
+  color: var(--muted-foreground);
+  font-size: 14px;
 `;

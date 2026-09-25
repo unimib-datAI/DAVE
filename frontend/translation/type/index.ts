@@ -612,7 +612,7 @@ export type Translation = {
   clusters: {
     documents: string;
     types: string;
-    entity: string;
+    entities: string;
     mentions: string;
     collectionEmpty: string;
     noEntitiesFound: string;
