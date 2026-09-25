@@ -1,9 +1,9 @@
-import { ToolbarLayout } from '@/components';
+import { ToolbarLayout, useText } from '@/components';
 import { MultiPane } from '@/components/MultiPane';
-import { NextPage } from 'next';
+import { GetServerSideProps, NextPage } from 'next';
 import { useQuery } from '@/utils/trpc';
 import { useRouter } from 'next/router';
-import { useSession } from 'next-auth/react';
+import { useSession, getSession } from 'next-auth/react';
 import styled from '@emotion/styled';
 import { useState } from 'react';
 import { groupBy } from '@/utils/shared';
@@ -20,6 +20,9 @@ const ClustersPage: NextPage = () => {
   const collectionId = activeCollection?.id;
   const { data: session } = useSession();
 
+  // Translations
+  const t = useText('clusters');
+
   // Component state
   const [selectedDocId, setSelectedDocId] = useState<number | undefined>();
   const [selectedType, setSelectedType] = useState<string | undefined>();
@@ -30,7 +33,6 @@ const ClustersPage: NextPage = () => {
     'collection.getCollectionInfo',
     { id: collectionId ?? '', token: (session as any)?.accessToken },
   ]);
-  console.log(collectionData);
 
   // Get the selected document's entities
   const { data: documentData } = useQuery(
@@ -121,11 +123,11 @@ const ClustersPage: NextPage = () => {
           <Pane>
             <PaneTitle>
               <FiFolder />
-              <h2>Documents</h2>
+              <h2>{t('documents')}</h2>
             </PaneTitle>
             <PaneContent>
               {collectionData?.length == 0 && (
-                <Message>Collection is empty</Message>
+                <Message>{t('collectionEmpty')}</Message>
               )}
               <List>
                 {(collectionData ?? []).map((doc: Document) => {
@@ -146,10 +148,10 @@ const ClustersPage: NextPage = () => {
           <Pane>
             <PaneTitle>
               <FiServer />
-              <h2>Clusters</h2>
+              <h2>{t('clusters')}</h2>
             </PaneTitle>
             <PaneContent>
-              {!selectedDocId && <Message>Select a document</Message>}
+              {!selectedDocId && <Message>{t('selectDocument')}</Message>}
               <List>
                 {Object.keys(clusterGroups).map((type) => {
                   return (
@@ -169,10 +171,10 @@ const ClustersPage: NextPage = () => {
           <Pane>
             <PaneTitle>
               <FiTag />
-              <h2>Entity</h2>
+              <h2>{t('entity')}</h2>
             </PaneTitle>
             <PaneContent>
-              {!selectedType && <Message>Select an entity type</Message>}
+              {!selectedType && <Message>{t('selectType')}</Message>}
               <List>
                 {entitiesForType.map((e) => {
                   return (
@@ -192,10 +194,10 @@ const ClustersPage: NextPage = () => {
           <Pane>
             <PaneTitle>
               <FiFileText />
-              <h2>Mention</h2>
+              <h2>{t('mentions')}</h2>
             </PaneTitle>
             <PaneContent>
-              {!selectedEntity && <Message>Select an entity</Message>}
+              {!selectedEntity && <Message>{t('selectEntity')}</Message>}
               <List>
                 {mentionsForSelectedEntity.map((m) => {
                   return <ListItem key={m.id}>{m.context}</ListItem>;
@@ -210,6 +212,31 @@ const ClustersPage: NextPage = () => {
 };
 
 export default ClustersPage;
+
+// Protect this page - require authentication unless USE_AUTH is false
+export const getServerSideProps: GetServerSideProps = async (context) => {
+  if (process.env.USE_AUTH !== 'false') {
+    const session = await getSession(context);
+
+    if (!session) {
+      return {
+        redirect: {
+          destination: '/sign-in',
+          permanent: false,
+        },
+      };
+    }
+  }
+
+  const locale = process.env.LOCALE || 'eng';
+  const localeObj = (await import(`@/translation/${locale}`)).default;
+
+  return {
+    props: {
+      locale: localeObj,
+    },
+  };
+};
 
 // 48px is the height of the toolbar
 const PageContainer = styled.div`

@@ -608,4 +608,14 @@ export type Translation = {
       };
     };
   };
+  clusters: {
+    documents: string;
+    clusters: string;
+    entity: string;
+    mentions: string;
+    collectionEmpty: string;
+    selectDocument: string;
+    selectType: string;
+    selectEntity: string;
+  };
 };

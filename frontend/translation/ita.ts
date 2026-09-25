@@ -806,6 +806,16 @@ const t: Translation = {
       },
     },
   },
+  clusters: {
+    documents: 'Documenti',
+    clusters: 'Cluster',
+    entity: 'Entità',
+    mentions: 'Menzioni',
+    collectionEmpty: 'La collezione è vuota',
+    selectDocument: 'Seleziona un documento',
+    selectType: 'Seleziona un tipo di entità',
+    selectEntity: "Seleziona un'entità",
+  },
 };
 
 export default t;

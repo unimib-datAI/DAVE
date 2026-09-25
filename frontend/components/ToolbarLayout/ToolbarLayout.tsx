@@ -5,7 +5,7 @@ import Toolbar from "./Toolbar";
 
 type ToolbarSidebarLayoutProps = {
   toolbarContent?: ReactNode;
-  hideCollectionActions : boolean;
+  hideCollectionActions? : boolean;
   // siderbarContent?: ReactNode;
 }
 
@@ -15,7 +15,7 @@ const Container = styled.div({
 })
 
 
-const ToolbarLayout = ({ toolbarContent, hideCollectionActions, children }: PropsWithChildren<ToolbarSidebarLayoutProps>) => {
+const ToolbarLayout = ({ toolbarContent, hideCollectionActions = false, children }: PropsWithChildren<ToolbarSidebarLayoutProps>) => {
   return (
     <Container>
       <Toolbar hideCollectionActions={hideCollectionActions}>

@@ -800,6 +800,16 @@ const t: Translation = {
       },
     },
   },
+  clusters: {
+    documents: 'Documents',
+    clusters: 'Clusters',
+    entity: 'Entity',
+    mentions: 'Mentions',
+    collectionEmpty : 'Collection is empty',
+    selectDocument: 'Select a document',
+    selectType: 'Select an entity type',
+    selectEntity: 'Select an entity',
+  },
 };
 
 export default t;
