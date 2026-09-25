@@ -159,24 +159,46 @@ const Collections: NextPage = () => {
     (c) => c.ownerId === (session as any)?.user?.userId
   );
 
-  const { data: usersData } = useQuery(['user.getAllUsers', { token }], {
-    // Fetch users when:
-    //  - we have a token (or auth is disabled),
-    //  - the permission check finished,
-    //  - AND either the collection modal is open for managing shares OR
-    //    the current user owns at least one collection.
-    // This lets owners see shared user emails in the collection list without
-    // requiring them to open the edit modal, while still avoiding fetching
-    // the full user list for pure viewers.
+  // Ids that need a name/email resolved to render "shared with" badges on
+  // the collections the current user owns - a bounded set, unlike the full
+  // user directory.
+  const sharedUserIds = Array.from(
+    new Set(
+      collections
+        .filter((c) => c.ownerId === (session as any)?.user?.userId)
+        .flatMap((c) => c.allowedUserIds || [])
+    )
+  );
+
+  const mergeUsers = (data: any) => {
+    if (!data) return;
+    setUsers((prev) => {
+      const byId = new Map(prev.map((u) => [u.id, u]));
+      data.forEach((u: any) => byId.set(u.id, u));
+      return Array.from(byId.values());
+    });
+  };
+
+  // Scoped, non-admin-only lookup - resolves badge names for owners without
+  // requiring the Keycloak `admin` realm role (see user.getUsersByIds).
+  useQuery(
+    ['user.getUsersByIds', { ids: sharedUserIds, token }],
+    {
+      enabled:
+        (tokenAvailable || authDisabled) && !permsLoading && sharedUserIds.length > 0,
+      onSuccess: mergeUsers,
+    }
+  );
+
+  // Full user directory - only needed to populate the "add user" picker in
+  // the share modal, which genuinely requires admin (Keycloak realm role).
+  useQuery(['user.getAllUsers', { token }], {
     enabled:
       (tokenAvailable || authDisabled) &&
       !permsLoading &&
-      ((modalOpen && (canCreate || canUpdate)) || ownsAny),
-    onSuccess: (data) => {
-      if (data) {
-        setUsers(data);
-      }
-    },
+      modalOpen &&
+      (canCreate || canUpdate),
+    onSuccess: mergeUsers,
   });
 
   // Ensure users state is cleared when:

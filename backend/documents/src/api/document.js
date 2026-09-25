@@ -9,7 +9,6 @@ import { AnnotationSetController } from "../controllers/annotationSet";
 import { Annotation, annotationDTO } from "../models/annotation";
 import {
   encode,
-  decode,
   makeDecryptionRequest,
   makeBatchDecryptionRequest,
 } from "../utils/anonymization";
@@ -78,10 +77,10 @@ const deleteDoc = async (req, res, next) => {
     // Delete from Elasticsearch if index name provided
     if (elasticIndex) {
       try {
-        const elasticUrl =
-          process.env.QAVECTORIZER_ADDRESS || "http://qavectorizer:7863";
+        const nextjsUrl =
+          process.env.NEXTJS_API_BASE_URL || "http://ui:3000/holmes24";
         await axios.delete(
-          `${elasticUrl}/elastic/index/${elasticIndex}/doc/${docId}`,
+          `${nextjsUrl}/api/elastic/index/${elasticIndex}/doc/${docId}`,
         );
       } catch (error) {
         console.error(
@@ -1041,8 +1040,7 @@ export default (app) => {
       },
     }),
     asyncRoute(async (req, res, next) => {
-      const { elasticIndex, toAnonymize, anonymizeTypes, collectionId } =
-        req.body;
+      const { toAnonymize, anonymizeTypes, collectionId } = req.body;
 
       // Anonymize the document if requested
       if (toAnonymize) {
@@ -1050,64 +1048,16 @@ export default (app) => {
       }
 
       const doc = await DocumentController.insertFullDocument(req.body);
+      // Elasticsearch indexing (chunking, embedding, and writing the
+      // document into Elasticsearch) now happens in the Next.js frontend
+      // right after this endpoint returns - see lib/documentIndexer.ts and
+      // runCreateDocument/runAnnotateAndUpload in server/routers/document.ts.
       let fullDocument = await DocumentController.getFullDocById(
         doc.id,
         true,
         false,
         false,
       );
-      if (elasticIndex) {
-        const elasticUrl =
-          process.env.QAVECTORIZER_ADDRESS || "http://qavectorizer:7863";
-        const indexUrl = `${elasticUrl}/${elasticIndex}/_doc`;
-
-        try {
-          // Fetch the full document with annotation sets for de-anonymization
-
-          let deAnonymizedDoc;
-
-          // Check if anonymization service is available before attempting decode
-
-          try {
-            // Try to de-anonymize the document for generation context
-            deAnonymizedDoc = await decode(fullDocument);
-          } catch (decryptError) {
-            // If decryption fails, continue with original document
-            console.warn(
-              "Decryption failed, using original text for Elasticsearch",
-            );
-            deAnonymizedDoc = fullDocument;
-          }
-
-          // Prepare payload with both anonymized and de-anonymized versions
-          const elasticPayload = {
-            id: doc.id, // Ensure id is included
-            text: req.body.text, // Anonymized text
-            text_deanonymized: deAnonymizedDoc.text, // De-anonymized text for generation (or original if decryption failed)
-            collectionId: req.body.collectionId,
-            annotation_sets: req.body.annotation_sets, // Keep annotations anonymized
-            preview: req.body.preview, // Keep preview anonymized
-            name: req.body.name,
-            features: req.body.features,
-            offset_type: req.body.offset_type,
-          };
-
-          const response = await axios.post(indexUrl, elasticPayload);
-        } catch (error) {
-          console.error("Error posting to Elasticsearch:", error.message);
-          if (error.response) {
-            console.error("Response status:", error.response.status);
-            console.error("Response data:", error.response.data);
-          }
-          // Re-throw to make the error visible to the client
-          throw new Error(
-            `Failed to index document in Elasticsearch: ${error.message}`,
-          );
-        }
-        // Cache update moved out of the elasticIndex block so that
-        // facets cache is updated for every created document, not
-        // only when an elastic index is provided.
-      }
       // Always update facets cache for the collection when a document is created.
       // This ensures batch uploads update the cache for every document.
       let cachePayload = {};

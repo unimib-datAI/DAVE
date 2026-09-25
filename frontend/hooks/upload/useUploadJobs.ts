@@ -24,6 +24,7 @@ export interface SubmitUploadJobInput {
   uploadType: 'json' | 'txt';
   files: Array<{ fileName: string; content: string }>;
   token: string;
+  refreshToken?: string;
   configurationId?: string;
   toAnonymize?: boolean;
   anonymizeTypes?: string[];
@@ -37,6 +38,7 @@ export function useUploadJobs() {
 
   const createUploadJobMutation = useMutation(['document.createUploadJob']);
   const dismissUploadJobMutation = useMutation(['document.dismissUploadJob']);
+  const cancelUploadJobMutation = useMutation(['document.cancelUploadJob']);
 
   const submitUploadJob = useCallback(
     async (input: SubmitUploadJobInput): Promise<string> => {
@@ -45,6 +47,7 @@ export function useUploadJobs() {
         uploadType: input.uploadType,
         files: input.files,
         token: input.token,
+        refreshToken: input.refreshToken,
         configurationId: input.configurationId,
         toAnonymize: input.toAnonymize,
         anonymizeTypes: input.anonymizeTypes,
@@ -67,6 +70,17 @@ export function useUploadJobs() {
     [dismissUploadJobMutation, untrackJob]
   );
 
+  // Cancels a still-running job. Unlike `dismissJob`, this keeps the job
+  // tracked so its (now 'cancelled') terminal state stays visible — the
+  // live stream (see useUploadJobStream) picks up the status change and
+  // the user can dismiss it afterwards like any other finished job.
+  const cancelJob = useCallback(
+    async (jobId: string, token: string) => {
+      await cancelUploadJobMutation.mutateAsync({ jobId, token });
+    },
+    [cancelUploadJobMutation]
+  );
+
   const jobs: UploadJob[] = jobIds
     .map((id) => jobsMap[id])
     .filter((job): job is UploadJob => Boolean(job));
@@ -76,6 +90,7 @@ export function useUploadJobs() {
     jobs,
     submitUploadJob,
     dismissJob,
+    cancelJob,
     isSubmitting: createUploadJobMutation.isLoading,
   };
 }

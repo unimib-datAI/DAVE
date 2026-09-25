@@ -339,6 +339,7 @@ const t: Translation = {
     loadMore: 'Load More',
     filter: 'Filter',
     findFilter: 'Find filter',
+    noMatchingFilters: 'No matching filters',
     clearAllFilters: 'Clear all filters',
     searchDocuments: 'Search documents',
     findFacet: 'Find {facet}',

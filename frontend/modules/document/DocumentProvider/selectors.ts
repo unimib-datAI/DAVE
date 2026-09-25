@@ -72,6 +72,7 @@ export function useSelector<T>(cb: (state: State) => T) {
 // input selectors just select part of the state
 export const selectDocumentId = (state: State) => state.data.id;
 export const selectDocumentData = (state: State) => state.data;
+export const selectDocumentDirty = (state: State) => state.dirty;
 export const selectDocumentText = (state: State) => state.data.text;
 export const selectDocumentAnnotationSets = (state: State) =>
   state.data.annotation_sets;
@@ -137,8 +138,11 @@ export const selectCurrentEntity = createSelector(
     }
     const { viewIndex, entityIndex } = currentEntity;
     const { activeAnnotationSet } = views[viewIndex];
-    const { annotations } = annotationSets[activeAnnotationSet];
-    return annotations[entityIndex];
+    const annSet = annotationSets[activeAnnotationSet];
+    if (!annSet) {
+      return undefined;
+    }
+    return annSet.annotations[entityIndex];
   }
 );
 export const selectCurrentAnnotationSetName = createSelector(
@@ -154,7 +158,7 @@ export const selectCurrentAnnotationSetName = createSelector(
 
     const { annotation_sets } = doc;
     const annSet = annotation_sets[activeAnnotationSet];
-    return annSet.name;
+    return annSet ? annSet.name : null;
   }
 );
 export const selectDocumentClusters = createSelector(
@@ -178,6 +182,10 @@ export const selectDocumentClusters = createSelector(
     const { text, annotation_sets, features } = doc;
     console.log('🔍 activeAnnotationSet:', activeAnnotationSet);
     console.log('🔍 annotation_sets:', annotation_sets);
+
+    if (!features?.clusters) {
+      return null;
+    }
     console.log('🔍 features.clusters:', features.clusters);
 
     let annSet = annotation_sets[activeAnnotationSet];
@@ -191,7 +199,7 @@ export const selectDocumentClusters = createSelector(
         annSet = foundSet;
       }
     }
-    if (!features.clusters) {
+    if (!annSet) {
       return null;
     }
 

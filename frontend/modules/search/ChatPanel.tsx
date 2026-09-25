@@ -22,7 +22,7 @@ import { ButtonSend } from './ButtonSend';
 import { AnimatePresence, motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useAtom } from 'jotai';
-import { facetsDocumentsAtom, selectedFiltersAtom } from '@/utils/atoms';
+import { filteredDocumentIdsAtom } from '@/utils/atoms';
 import {
   useConversationRated,
   useChatDispatch,
@@ -115,9 +115,8 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
       },
     ],
   });
-  const [facetedDocuemnts, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
+  const [filteredDocumentIds] = useAtom(filteredDocumentIdsAtom);
   const [activeCollection] = useAtom(activeCollectionAtom);
-  const [selectedFilters] = useAtom(selectedFiltersAtom);
   const [llmSettings] = useAtom(llmSettingsAtom);
 
   // Local state for input fields
@@ -187,22 +186,10 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     const currentUrl = window.location.href;
     let filterIds: string[] = [];
     if (currentUrl.includes('search') && formValues.useCurrentDocumentContext) {
-      // Filter documents that have annotations matching the selected filters
-      if (selectedFilters.length > 0) {
-        const selectedIds = selectedFilters.map((f: any) => f.id_ER);
-        filterIds = facetedDocuemnts
-          .filter(
-            (doc) =>
-              Array.isArray(doc.annotations) &&
-              doc.annotations.some((ann: any) =>
-                selectedIds.includes(ann.id_ER)
-              )
-          )
-          .map((doc) => doc.id.toString());
-      } else {
-        // If no filters are selected, use all faceted documents
-        filterIds = facetedDocuemnts.map((doc) => doc.id.toString());
-      }
+      // Scope to whatever the /search page currently shows, already reduced
+      // to the applied facet filters (or every loaded document when none
+      // are applied) - kept in sync via filteredDocumentIdsAtom.
+      filterIds = filteredDocumentIds;
     } else if (
       currentUrl.includes('documents') &&
       formValues.useCurrentDocumentContext

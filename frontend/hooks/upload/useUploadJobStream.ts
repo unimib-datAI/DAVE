@@ -6,9 +6,10 @@
  */
 
 import { useEffect, useRef } from 'react';
-import { useSetAtom } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
 import { useSession } from 'next-auth/react';
 import {
+  notifiedUploadJobIdsAtom,
   uploadJobsMapAtom,
   uploadNotificationsAtom,
 } from '@/atoms/uploadJobs';
@@ -24,8 +25,15 @@ export function useUploadJobStream(jobId: string | null | undefined) {
   const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
   const setJobsMap = useSetAtom(uploadJobsMapAtom);
   const setNotifications = useSetAtom(uploadNotificationsAtom);
+  const notifiedUploadJobIds = useAtomValue(notifiedUploadJobIdsAtom);
+  const setNotifiedUploadJobIds = useSetAtom(notifiedUploadJobIdsAtom);
   const trpcContext = useTrpcContext();
   const notifiedTerminalRef = useRef(false);
+  // Kept in a ref so `applyJob` always sees the current persisted set without
+  // needing it in the effect's dependency list (which would tear down and
+  // rebuild the stream every time a notification is recorded).
+  const notifiedUploadJobIdsRef = useRef(notifiedUploadJobIds);
+  notifiedUploadJobIdsRef.current = notifiedUploadJobIds;
 
   const jobQuery = useQuery(
     ['document.getUploadJob', { jobId: jobId as string, token }],
@@ -48,6 +56,16 @@ export function useUploadJobStream(jobId: string | null | undefined) {
 
       if (isTerminalStatus(job.status) && !notifiedTerminalRef.current) {
         notifiedTerminalRef.current = true;
+
+        // Only surface the "upload complete/failed" toast the first time this
+        // job reaches a terminal state. A later navigation or page reload
+        // re-subscribes to the (still-tracked) finished job and would
+        // otherwise pop the exact same notification every time.
+        if (notifiedUploadJobIdsRef.current.includes(job.jobId)) return;
+        setNotifiedUploadJobIds((prev) =>
+          prev.includes(job.jobId) ? prev : [job.jobId, ...prev].slice(0, 50)
+        );
+
         const failed = job.statistics.failed;
         const completed = job.statistics.completed;
         setNotifications((prev) => [
@@ -81,16 +99,33 @@ export function useUploadJobStream(jobId: string | null | undefined) {
         source.close();
         source = null;
       }
+      // Codes that will never resolve by retrying (wrong owner, deleted job,
+      // expired session) - polling on these forever just spams the server
+      // with the identical rejected request every FALLBACK_POLL_MS.
+      const isPermanentError = (error: any) => {
+        const code = error?.data?.code ?? error?.shape?.data?.code;
+        return (
+          code === 'FORBIDDEN' ||
+          code === 'UNAUTHORIZED' ||
+          code === 'NOT_FOUND'
+        );
+      };
+
       const tick = async () => {
         if (cancelled) return;
         try {
           const job = await jobQuery.refetch();
-          if (job.data) applyJob(job.data as UploadJob);
-          if (job.data && isTerminalStatus((job.data as UploadJob).status)) {
+          if (job.data) {
+            applyJob(job.data as UploadJob);
+            if (isTerminalStatus((job.data as UploadJob).status)) {
+              return;
+            }
+          } else if (job.error && isPermanentError(job.error)) {
             return;
           }
         } catch (error) {
-          // best-effort; keep polling
+          if (isPermanentError(error)) return;
+          // best-effort; keep polling on transient/network errors
         }
         if (!cancelled) pollTimer = setTimeout(tick, FALLBACK_POLL_MS);
       };

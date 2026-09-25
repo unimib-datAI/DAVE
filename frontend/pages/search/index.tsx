@@ -20,8 +20,9 @@ import {
   facetsDocumentsAtom,
   selectedFiltersAtom,
   globalAnonymizationAtom,
+  filteredDocumentIdsAtom,
 } from '@/utils/atoms';
-import { deanonymizedFacetNamesAtom } from '@/utils/atoms';
+import { useDeanonymizedFacetNames } from '@/modules/search/useDeanonymizedFacetNames';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { GetServerSideProps } from 'next';
@@ -65,7 +66,13 @@ const Search = () => {
   const t = useText('search');
   const [facetedDocuments, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const [selectedFilters, setSelectedFiltersRaw] = useAtom(selectedFiltersAtom);
-  const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
+  const [, setFilteredDocumentIds] = useAtom(filteredDocumentIdsAtom);
+  // Selected filters store the raw (possibly anonymized) display name; the
+  // real name is resolved at render time only, so switching back to the
+  // anonymized view never leaves real names behind in chips/highlights.
+  const resolveFacetName = useDeanonymizedFacetNames(
+    useMemo(() => (selectedFilters || []).map((f) => f?.display_name), [selectedFilters])
+  );
   const [seelctedFiltersDetails, setSelectedFiltersDetails] = useState([]);
   const [activeCollection] = useAtom(activeCollectionAtom);
   const [isAnonymized] = useAtom(globalAnonymizationAtom);
@@ -131,9 +138,16 @@ const Search = () => {
     ],
     {
       enabled: !!(activeCollection && activeCollection.id),
-      staleTime: Infinity, // never re-fetch automatically
+      // staleTime: Infinity means this never goes stale (and thus never
+      // refetches) on its own - the only way it updates is an explicit
+      // trpcContext.invalidateQueries(['collection.facetsCachePaginated'])
+      // call (see ToolbarContent.tsx's save handler). refetchOnMount is
+      // intentionally left at its default (true) so that once invalidated,
+      // navigating back to this page actually picks up the fresh data -
+      // refetchOnMount: false would otherwise keep serving the stale cache
+      // even after invalidation.
+      staleTime: Infinity,
       refetchOnWindowFocus: false,
-      refetchOnMount: false,
     }
   );
 
@@ -143,8 +157,19 @@ const Search = () => {
       ? { annotations: facetsCache.facets, metadata: [] }
       : undefined;
 
+  // The results column is now its own scroll container (see resultsScrollEl
+  // below) rather than the whole page scrolling as one document - the
+  // infinite-scroll sentinel must be observed relative to THAT container
+  // (`root`), not the browser viewport (the default), otherwise it never
+  // intersects since the results column's own scrolling no longer moves the
+  // viewport at all. `resultsScrollEl` is set via a callback ref so this
+  // updates (and useInView re-subscribes) once the DOM node actually mounts.
+  const [resultsScrollEl, setResultsScrollEl] = useState<HTMLDivElement | null>(
+    null
+  );
   const { ref, inView } = useInView({
     threshold: 0,
+    root: resultsScrollEl,
   });
 
   useEffect(() => {
@@ -187,47 +212,134 @@ const Search = () => {
   // Build id_ER to display_name map from facets (prefer cache when available)
   const filterIdToDisplayName = useMemo(() => {
     const map: Record<string, string> = {};
-    const source = facetsCache || (data && data.pages?.[0]?.facets);
-    if (!source) return map;
 
-    // If backend returned an array (cached format)
-    if (Array.isArray(source)) {
-      source.forEach((group: any) => {
+    const addFromGroups = (groups: any[]) => {
+      (groups || []).forEach((group: any) => {
         (group.children || []).forEach((child: any) => {
           (child.ids_ER || []).forEach((id: string) => {
-            map[id] =
-              child.display_name || child.displayName || child.key || '';
+            if (!map[id]) {
+              map[id] =
+                child.display_name || child.displayName || child.key || '';
+            }
           });
         });
       });
-      return map;
+    };
+
+    // Live search-result facets are the source of the ids a user actually
+    // clicks in FacetFilter, so they take priority.
+    if (data?.pages?.[0]?.facets?.annotations) {
+      addFromGroups(data.pages[0].facets.annotations);
     }
 
-    if (source.annotations) {
-      source.annotations.forEach((facet: any) => {
-        (facet.children || []).forEach((child: any) => {
-          (child.ids_ER || []).forEach((id: string) => {
-            map[id] = child.display_name;
-          });
-        });
-      });
+    // Fall back to the collection-level facets cache. Its paginated endpoint
+    // returns `{ facets: [...] }`, not `{ annotations: [...] }`.
+    if (facetsCache?.facets) {
+      addFromGroups(facetsCache.facets);
+    } else if (Array.isArray(facetsCache)) {
+      addFromGroups(facetsCache);
     }
+
     return map;
   }, [facetsCache, data]);
 
+  // Map every facet `id_ER` (and its grouped aliases) to the set of document
+  // ids that carry that facet. The faceted-search backend indexes documents
+  // into Elasticsearch with an empty top-level `annotations` array (entity data
+  // lives in `features.clusters`, which the indexer drops), so a result hit
+  // has nothing to match a clicked facet against. The facets-cache response,
+  // however, already carries `doc_ids` per facet child - use that as the
+  // source of truth for "which document matched which filter".
+  const filterIdToDocIds = useMemo(() => {
+    const map: Record<string, Set<string>> = {};
+
+    const addFromGroups = (groups: any[]) => {
+      (groups || []).forEach((group: any) => {
+        (group.children || []).forEach((child: any) => {
+          const docIds = (child.doc_ids || []).map((d: any) => String(d));
+          if (docIds.length === 0) return;
+          const ids =
+            child.ids_ER && child.ids_ER.length > 0
+              ? child.ids_ER
+              : [child.key];
+          ids.forEach((rawId: string) => {
+            if (!rawId) return;
+            const id = rawId.toLowerCase().trim();
+            if (!map[id]) map[id] = new Set<string>();
+            docIds.forEach((d: string) => map[id].add(d));
+          });
+        });
+      });
+    };
+
+    if (data?.pages?.[0]?.facets?.annotations) {
+      addFromGroups(data.pages[0].facets.annotations);
+    }
+    if (facetsCache?.facets) {
+      addFromGroups(facetsCache.facets);
+    } else if (Array.isArray(facetsCache)) {
+      addFromGroups(facetsCache);
+    }
+
+    return map;
+  }, [facetsCache, data]);
+
+  // Returns the display names of every selected filter that matches a given
+  // hit - via the facets-cache `doc_ids` mapping first, then falling back to
+  // any real `annotations` on the ES hit (older documents / other pipelines).
+  const matchedFilterNamesForHit = useMemo(() => {
+    const validFilters = (selectedFilters || []).filter(
+      (f) => f && f.id_ER && f.id_ER.trim() !== ''
+    );
+    const normalized = validFilters.map((f) => ({
+      id: f.id_ER.toLowerCase().trim(),
+      name: (f.display_name || '').toLowerCase().trim(),
+      display:
+        resolveFacetName(f.display_name || filterIdToDisplayName[f.id_ER]) || f.id_ER,
+    }));
+
+    return (hit: any): string[] => {
+      if (validFilters.length === 0) return [];
+      const hitId = String(hit.id);
+      const names = new Set<string>();
+
+      validFilters.forEach((_f, i) => {
+        if (filterIdToDocIds[normalized[i].id]?.has(hitId)) {
+          names.add(normalized[i].display);
+        }
+      });
+
+      if (Array.isArray(hit.annotations)) {
+        hit.annotations.forEach((ann: any) => {
+          const annId = (ann.id_ER || '').toLowerCase().trim();
+          const annName = (ann.display_name || '').toLowerCase().trim();
+          const match = normalized.find(
+            (n) =>
+              (n.id && n.id === annId) || (n.name && n.name === annName)
+          );
+          if (match) names.add(resolveFacetName(ann.display_name) || match.display);
+        });
+      }
+
+      return Array.from(names);
+    };
+  }, [selectedFilters, filterIdToDocIds, filterIdToDisplayName, resolveFacetName]);
+
   // Wrapper to ensure we never set empty filters. Accepts an array of `id_ER` strings
-  // and stores objects of shape `{ id_ER, display_name }` in the atom.
-  const setSelectedFilters = (filters: string[]) => {
+  // and stores objects of shape `{ id_ER, display_name }` in the atom, where
+  // `display_name` is the RAW stored name (a vault key for anonymized
+  // entities) - see resolveFacetName. `names` (from FacetFilter) covers ids
+  // this page's facet data doesn't include, e.g. loaded via "show more".
+  const setSelectedFilters = (filters: string[], names?: Record<string, string>) => {
     const validFilters = filters.filter((f) => f && f.trim() !== '');
     const unique = Array.from(new Set(validFilters));
+    const previousNames = new Map(
+      (selectedFilters || []).map((f) => [f.id_ER, f.display_name])
+    );
     const mapped = unique.map((id) => ({
       id_ER: id,
       display_name:
-        // prefer deanonymized name when available
-        (filterIdToDisplayName[id] &&
-          deanonymizedNames[filterIdToDisplayName[id]]) ||
-        filterIdToDisplayName[id] ||
-        '',
+        names?.[id] || previousNames.get(id) || filterIdToDisplayName[id] || '',
     }));
     setSelectedFiltersRaw(mapped);
   };
@@ -285,48 +397,33 @@ const Search = () => {
     );
     if (validFilters.length === 0) return allHits;
 
-    // Normalize valid filters for consistent comparison (use `id_ER`)
-    const normalizedValidFilters = validFilters.map((f) =>
-      f.id_ER.toLowerCase().trim()
-    );
-
     const matches = allHits.filter(
-      (hit) =>
-        Array.isArray(hit.annotations) &&
-        hit.annotations.some(
-          (ann: any) =>
-            (ann.id_ER &&
-              ann.id_ER.trim() !== '' &&
-              normalizedValidFilters.includes(
-                ann.id_ER.toLowerCase().trim()
-              )) ||
-            (ann.display_name &&
-              ann.display_name.trim() !== '' &&
-              normalizedValidFilters.includes(
-                ann.display_name.toLowerCase().trim()
-              ))
-        )
+      (hit) => matchedFilterNamesForHit(hit).length > 0
     );
     const nonMatches = allHits.filter(
-      (hit) =>
-        !Array.isArray(hit.annotations) ||
-        !hit.annotations.some(
-          (ann: any) =>
-            (ann.id_ER &&
-              ann.id_ER.trim() !== '' &&
-              normalizedValidFilters.includes(
-                ann.id_ER.toLowerCase().trim()
-              )) ||
-            (ann.display_name &&
-              ann.display_name.trim() !== '' &&
-              normalizedValidFilters.includes(
-                ann.display_name.toLowerCase().trim()
-              ))
-        )
+      (hit) => matchedFilterNamesForHit(hit).length === 0
     );
     console.log('processed documents', [...matches, ...nonMatches]);
     return [...matches, ...nonMatches];
-  }, [data, selectedFilters, facetedDocuments]);
+  }, [data, selectedFilters, facetedDocuments, matchedFilterNamesForHit]);
+
+  // Keep filteredDocumentIdsAtom in sync so other consumers (e.g. the chat's
+  // "use current search results" toggle) can scope RAG retrieval to exactly
+  // the documents currently matching the applied facet filters, without
+  // duplicating the facet -> document-id matching logic themselves. When no
+  // filter is applied, expose every currently loaded document instead.
+  useEffect(() => {
+    const validFilters = selectedFilters.filter(
+      (filter) => filter && filter.id_ER && filter.id_ER.trim() !== ''
+    );
+    const ids =
+      validFilters.length === 0
+        ? reorderedDocuments.map((hit: any) => String(hit.id))
+        : reorderedDocuments
+            .filter((hit: any) => matchedFilterNamesForHit(hit).length > 0)
+            .map((hit: any) => String(hit.id));
+    setFilteredDocumentIds(ids);
+  }, [reorderedDocuments, selectedFilters, matchedFilterNamesForHit]);
 
   const handleSubmit = ({ text }: { text: string }) => {
     setSelectedFilters([]);
@@ -339,7 +436,12 @@ const Search = () => {
 
   return data ? (
     <ToolbarLayout>
-      <div className="flex flex-col h-screen">
+      {/* overflow-hidden here: the page itself must never scroll as one
+          document - the facets sidebar and the results column below each
+          get their own independent overflow-y-auto region instead. Without
+          this, there is no bounded scroll container for either column, so
+          "scrolling the sidebar" actually just scrolls the whole page. */}
+      <div className="flex flex-col h-screen overflow-hidden">
         <div className="flex flex-col py-6 mt-16 px-24">
           <form
             id="search-form"
@@ -359,7 +461,7 @@ const Search = () => {
         <motion.div
           id="search-main"
           style={{ ...(isFetching && { pointerEvents: 'none' }) }}
-          className="flex relative px-24"
+          className="flex relative px-24 flex-1 overflow-hidden"
           variants={variants}
           animate={isFetching ? 'isFetching' : 'isNotFetching'}
           transition={{ duration: 0.5 }}
@@ -379,21 +481,26 @@ const Search = () => {
                         .map((h: any) => String(h.id))
                     : []
                 }
-                setSelectedFilters={(filters) => {
+                setSelectedFilters={(filters, names) => {
                   // Filter out empty strings or whitespace-only strings
                   const validFilters = filters.filter(
                     (f) => f && f.trim() !== ''
                   );
-                  setSelectedFilters(validFilters);
+                  setSelectedFilters(validFilters, names);
                 }}
               />
             </div>
           )}
           <div
-            className="flex-grow flex flex-col gap-4 p-6"
+            ref={setResultsScrollEl}
+            className="flex-grow flex flex-col gap-4 p-6 overflow-y-auto overscroll-contain h-full"
             style={{ zIndex: 5 }}
           >
-            <div className="flex flex-col sticky top-16 bg-white py-6 z-10">
+            {/* top-0, not top-16: this header sticks relative to the
+                results column's own scroll container (see overflow-y-auto
+                above), which no longer has a fixed navbar overlapping its
+                internal top edge the way the old window-level scroll did. */}
+            <div className="flex flex-col sticky top-0 bg-white py-6 z-10">
               <h4 id="results-count" className="text-lg font-semibold">
                 {`${data.pages[0].pagination.total_hits} ${t('results')}`}
                 {text &&
@@ -413,22 +520,22 @@ const Search = () => {
                   }
                   {Object.entries(
                     (selectedFilters || []).reduce((acc: any, f: any) => {
-                      const name = (f && f.display_name) || '';
+                      // Group by the resolved name: one de-anonymized person
+                      // spans many vault keys (one per mention).
+                      const name = resolveFacetName(f && f.display_name) || '';
                       if (!acc[name]) acc[name] = [];
                       acc[name].push(f.id_ER);
                       return acc;
                     }, {})
                   ).map(([displayName, ids]) => (
                     <FilterChip
-                      key={String(displayName) + ids.join('-')}
+                      key={String(displayName) + (ids as string[]).join('-')}
                       value={displayName}
                       handleClear={() =>
-                        // remove all filters that have this display name
+                        // remove all filters in this chip
                         setSelectedFilters(
                           (selectedFilters || [])
-                            .filter(
-                              (filter) => filter.display_name !== displayName
-                            )
+                            .filter((filter) => !(ids as string[]).includes(filter.id_ER))
                             .map((f) => f.id_ER)
                         )
                       }
@@ -449,36 +556,21 @@ const Search = () => {
                 gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))',
               }}
             >
-              {reorderedDocuments.map((hit) => (
-                <DocumentHit
-                  key={hit._id}
-                  hit={hit}
-                  highlight={
-                    Array.isArray(hit.annotations) &&
-                    hit.annotations.some((ann: any) => {
-                      const normalizedSelectedFilters = (
-                        selectedFilters || []
-                      ).map((f) =>
-                        f && f.id_ER ? f.id_ER.toLowerCase().trim() : ''
-                      );
-                      return (
-                        (ann.id_ER &&
-                          ann.id_ER.trim() !== '' &&
-                          normalizedSelectedFilters.includes(
-                            ann.id_ER.toLowerCase().trim()
-                          )) ||
-                        (ann.display_name &&
-                          ann.display_name.trim() !== '' &&
-                          normalizedSelectedFilters.includes(
-                            ann.display_name.toLowerCase().trim()
-                          ))
-                      );
-                    })
-                  }
-                  selectedFilters={(selectedFilters || []).map((f) => f.id_ER)}
-                  filterIdToDisplayName={filterIdToDisplayName}
-                />
-              ))}
+              {reorderedDocuments.map((hit) => {
+                const matchedDisplayNames = matchedFilterNamesForHit(hit);
+                return (
+                  <DocumentHit
+                    key={hit._id}
+                    hit={hit}
+                    highlight={matchedDisplayNames.length > 0}
+                    matchedDisplayNames={matchedDisplayNames}
+                    selectedFilters={(selectedFilters || []).map(
+                      (f) => f.id_ER
+                    )}
+                    filterIdToDisplayName={filterIdToDisplayName}
+                  />
+                );
+              })}
             </div>
             {hasNextPage && (
               <div ref={ref} id="load-more-container" className="w-full">

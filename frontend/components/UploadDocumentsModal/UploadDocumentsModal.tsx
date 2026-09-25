@@ -174,7 +174,8 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
   const t = useText('uploadModal');
   const [isOpen, setIsOpen] = useAtom(uploadModalOpenAtom);
   const { data: session, status } = useSession();
-  const { jobs, submitUploadJob, dismissJob, isSubmitting } = useUploadJobs();
+  const { jobs, submitUploadJob, dismissJob, cancelJob, isSubmitting } =
+    useUploadJobs();
   const [activeCollection] = useAtom(activeCollectionAtom);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -193,9 +194,11 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
   const txtFileInputRef = useRef<HTMLInputElement>(null);
   const trpcContext = useContext();
   const token = session?.accessToken as string | undefined;
+  const refreshToken = session?.refreshToken as string | undefined;
   const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
   // When auth is disabled, pass an empty string token to satisfy backend schema validation.
   const tokenForApi = token ?? '';
+  const refreshTokenForApi = refreshToken ?? '';
 
   // Fetch configurations
   const { data: configurations = [], isLoading: configurationsLoading } =
@@ -320,6 +323,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
         uploadType: 'json',
         files,
         token: tokenForApi,
+        refreshToken: refreshTokenForApi,
         toAnonymize,
         anonymizeTypes: anonymizeTypes.length > 0 ? anonymizeTypes : undefined,
       });
@@ -354,6 +358,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
         uploadType: 'txt',
         files,
         token: tokenForApi,
+        refreshToken: refreshTokenForApi,
         configurationId: selectedConfigId || undefined,
         toAnonymize,
         anonymizeTypes: anonymizeTypes.length > 0 ? anonymizeTypes : undefined,
@@ -401,6 +406,16 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
 
   const handleDismissJob = (jobId: string) => {
     dismissJob(jobId, tokenForApi);
+  };
+
+  const handleCancelJob = async (jobId: string) => {
+    try {
+      await cancelJob(jobId, tokenForApi);
+    } catch (error) {
+      message.error(
+        error instanceof Error ? error.message : 'Failed to cancel upload'
+      );
+    }
   };
 
   return (
@@ -710,6 +725,8 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                                     ? `Uploading… ${job.statistics.completed}/${job.statistics.total} done`
                                     : job.status === 'failed'
                                     ? `Failed: ${job.error || 'unknown error'}`
+                                    : job.status === 'cancelled'
+                                    ? `Cancelled — ${job.statistics.completed}/${job.statistics.total} done`
                                     : `${job.statistics.completed} succeeded${
                                         job.statistics.failed > 0
                                           ? `, ${job.statistics.failed} failed`
@@ -717,10 +734,19 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                                       }`}
                                 </JobSubtitle>
                               </div>
-                              {!isActive && (
+                              {isActive ? (
+                                <DismissButton
+                                  onClick={() => handleCancelJob(job.jobId)}
+                                  aria-label="Cancel upload"
+                                  title="Cancel upload"
+                                >
+                                  <FiX />
+                                </DismissButton>
+                              ) : (
                                 <DismissButton
                                   onClick={() => handleDismissJob(job.jobId)}
                                   aria-label="Dismiss"
+                                  title="Dismiss"
                                 >
                                   <FiX />
                                 </DismissButton>
@@ -732,6 +758,8 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
                               status={
                                 job.status === 'failed'
                                   ? 'exception'
+                                  : job.status === 'cancelled'
+                                  ? 'normal'
                                   : job.statistics.failed > 0 && !isActive
                                   ? 'exception'
                                   : isActive
