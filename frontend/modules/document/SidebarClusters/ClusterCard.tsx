@@ -1,13 +1,7 @@
 import { useText } from '@/components';
-import { getAllNodeData, getNodesPath } from '@/components/Tree';
-import { Cluster, EntityAnnotation } from '@/server/routers/document';
+import { EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
-import { darken } from 'polished';
-import { useEffect, useMemo } from 'react';
-import {
-  useSelector,
-  selectDocumentTaxonomy,
-} from '../DocumentProvider/selectors';
+import { useEffect } from 'react';
 import { ProcessedCluster } from '../DocumentProvider/types';
 import ClusterMentionsList from './ClusterMentionsList';
 
@@ -50,17 +44,6 @@ const ClusterContainer = styled.button<{ selected: boolean }>(
     }),
   })
 );
-
-const Tag = styled.span<{ color: string }>(({ color }) => ({
-  position: 'relative',
-  padding: '2px',
-  borderRadius: '6px',
-  fontSize: '10px',
-  fontWeight: 600,
-  background: color,
-  color: darken(0.7, color),
-  border: `1px solid ${darken(0.05, color)}`,
-}));
 
 const ClusterCard = ({
   id,
