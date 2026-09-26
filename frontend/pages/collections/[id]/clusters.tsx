@@ -17,16 +17,37 @@ import {
   EntityTypesList,
   Mention,
   MentionsList,
+  ModeSelectionTabs,
 } from '@/modules/clusters/ClusterBrowser';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { getMentionContext } from '@/utils/mentionContext';
+
+const PageContainer = styled.div`
+  height: calc(100vh - var(--toolbar-height));
+  overflow: hidden;
+`;
+
+const Mode = {
+  document: 'document',
+  collection: 'collection',
+} as const;
 
 const ClustersPage: NextPage = () => {
   const [activeCollection] = useAtom(activeCollectionAtom);
   const collectionId = activeCollection?.id;
   const { data: session } = useSession();
 
-  // Component state
+  // Mode selection
+  const modes = [
+    {
+      key: Mode.document,
+      label: 'By Document',
+    },
+    { key: Mode.collection, label: 'Collection' },
+  ];
+  const [selectedMode, setSelectedMode] = useState<string>(modes[0].key);
+
+  // Browser state
   const [selectedDocId, setSelectedDocId] = useState<string | undefined>();
   const [selectedType, setSelectedType] = useState<string | undefined>();
   const [selectedEntity, setSelectedEntity] = useState<Cluster | undefined>();
@@ -133,43 +154,49 @@ const ClustersPage: NextPage = () => {
   };
 
   return (
-    <ToolbarLayout>
+    <ToolbarLayout
+      toolbarContent={
+        <ModeSelectionTabs
+          modes={modes}
+          selectedMode={selectedMode}
+          setSelectedMode={setSelectedMode}
+        />
+      }
+    >
       <PageContainer>
-        <MultiPane>
-          <DocumentList
-            selectedDocId={selectedDocId}
-            onDocumentSelection={handleDocumentSelection}
-            docsInfo={collectionData}
-          />
-          <EntityTypesList
-            selectedDocId={selectedDocId}
-            selectedType={selectedType}
-            clustersByType={clusterGroups}
-            onTypeSelection={handleTypeSelection}
-            taxonomy={taxonomy}
-          />
-          <EntityList
-            selectedType={selectedType}
-            entities={entitiesForSelectedType}
-            selectedEntity={selectedEntity}
-            onEntitySelection={handleEntitySelection}
-          />
-          <MentionsList
-            selectedEntity={selectedEntity}
-            mentions={mentionsForSelectedEntity}
-          />
-        </MultiPane>
+        {selectedMode === Mode.document && (
+          <MultiPane>
+            <DocumentList
+              selectedDocId={selectedDocId}
+              onDocumentSelection={handleDocumentSelection}
+              docsInfo={collectionData}
+            />
+            <EntityTypesList
+              selectedDocId={selectedDocId}
+              selectedType={selectedType}
+              clustersByType={clusterGroups}
+              onTypeSelection={handleTypeSelection}
+              taxonomy={taxonomy}
+            />
+            <EntityList
+              selectedType={selectedType}
+              entities={entitiesForSelectedType}
+              selectedEntity={selectedEntity}
+              onEntitySelection={handleEntitySelection}
+            />
+            <MentionsList
+              selectedEntity={selectedEntity}
+              mentions={mentionsForSelectedEntity}
+            />
+          </MultiPane>
+        )}
+        {selectedMode === Mode.collection && <div>Collection Mode</div>}
       </PageContainer>
     </ToolbarLayout>
   );
 };
 
 export default ClustersPage;
-
-const PageContainer = styled.div`
-  height: calc(100vh - var(--toolbar-height));
-  overflow: hidden;
-`;
 
 // Protect this page - require authentication unless USE_AUTH is false
 export const getServerSideProps: GetServerSideProps = async (context) => {
