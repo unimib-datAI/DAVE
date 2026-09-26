@@ -44,6 +44,8 @@
   --destructive: hsl(0 72% 51%);
   --destructive-foreground: hsl(0 0% 100%);
 
+  --highlight : #f9f9bf;
+
   --ring: hsl(212 100% 47%);
 
   /* Fonts */

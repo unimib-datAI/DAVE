@@ -78,13 +78,15 @@ const ClustersPage: NextPage = () => {
 
   // Get document context for each mention of the current entity
   const MENTION_PADDING = 60;
+  const ELLIPSES = '...';
   const mentionsForSelectedEntity =
     selectedEntity && documentData
       ? selectedEntity.mentions.map((m) => {
           // For each mention for selected entity, find corresponding
           // mention in the document
           const ann = annotations?.find((ann) => ann.id === m.id);
-          if (!ann) return { ...m, context: 'none' };
+          if (!ann)
+            return { ...m, start: 0, end: m.mention.length, context: 'none' };
 
           // Extract the sentence context from the document
           const start = Math.max(0, ann.start - MENTION_PADDING);
@@ -92,13 +94,37 @@ const ClustersPage: NextPage = () => {
             documentData?.text.length,
             ann.end + MENTION_PADDING
           );
+
           const context =
-            (start == 0 ? '' : '...') +
+            (start === 0 ? '' : ELLIPSES) +
             documentData?.text.slice(start, end) +
-            (end === documentData?.text.length ? '' : '...');
-          return { ...m, context };
+            (end === documentData?.text.length ? '' : ELLIPSES);
+
+          const prefixLength = start === 0 ? 0 : ELLIPSES.length;
+          const annStartInContext = prefixLength + ann.start - start;
+          const annEndInContext = annStartInContext + m.mention.length;
+
+          return {
+            ...m,
+            start: annStartInContext,
+            end: annEndInContext,
+            context,
+          };
         })
       : [];
+
+  const renderMention = (start: number, end: number, context: string) => {
+    const before = context.substring(0, start);
+    const mention = context.substring(start, end);
+    const after = context.substring(end, context.length);
+    return (
+      <p>
+        {before}
+        <Highlight>{mention}</Highlight>
+        {after}
+      </p>
+    );
+  };
 
   // Event handlers
   const handleDocumentSelection = (id: number) => {
@@ -238,7 +264,7 @@ const ClustersPage: NextPage = () => {
                   mentionsForSelectedEntity.map((m) => {
                     return (
                       <Mention key={m.id}>
-                        <p>{m.context}</p>
+                        <p>{renderMention(m.start, m.end, m.context)}</p>
                       </Mention>
                     );
                   })}
@@ -368,17 +394,6 @@ const ListItem = styled.div`
   }
 `;
 
-const Mention = styled.div`
-  padding: 16px 16px;
-  cursor: pointer;
-  font-size: 16px;
-  border-bottom: 2px solid var(--muted);
-
-  &:hover {
-    background-color: var(--muted);
-  }
-`;
-
 const ItemLabel = styled.span`
   flex: 1;
   min-width: 0;
@@ -394,4 +409,20 @@ const NumberLabel = styled.div`
   align-items: center;
   color: var(--muted-foreground);
   font-size: 14px;
+`;
+
+const Mention = styled.div`
+  padding: 16px 16px;
+  cursor: pointer;
+  font-size: 16px;
+  border-bottom: 2px solid var(--muted);
+
+  &:hover {
+    background-color: var(--muted);
+  }
+`;
+
+const Highlight = styled.span`
+  background-color: var(--highlight);
+  padding: 4px 4px;
 `;
