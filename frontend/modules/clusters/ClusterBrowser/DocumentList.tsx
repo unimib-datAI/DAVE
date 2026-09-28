@@ -18,6 +18,7 @@ export function DocumentList({
   docsInfo,
 }: DocumentListProps) {
   const t = useText('clusters');
+
   return (
     <ListPane
       title={t('documents')}

@@ -10,6 +10,7 @@ export type Mention = {
   context: string;
   id: number;
   mention: string;
+  documentTitle?: string;
 };
 
 type MentionsListType = {
@@ -44,6 +45,7 @@ export function MentionsList({ selectedEntity, mentions }: MentionsListType) {
         mentions.map((m) => {
           return (
             <MentionContainer key={m.id}>
+              <DocumentName>{m.documentTitle}</DocumentName>
               {renderMention(m.start, m.end, m.context)}
             </MentionContainer>
           );
@@ -53,6 +55,9 @@ export function MentionsList({ selectedEntity, mentions }: MentionsListType) {
 }
 
 const MentionContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   padding: 16px 16px;
   cursor: pointer;
   font-size: 16px;
@@ -61,6 +66,10 @@ const MentionContainer = styled.div`
   &:hover {
     background-color: var(--muted);
   }
+`;
+
+const DocumentName = styled.span`
+  font-weight: var(--font-semibold);
 `;
 
 const Highlight = styled.span`

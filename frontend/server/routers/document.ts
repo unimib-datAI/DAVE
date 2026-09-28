@@ -8,16 +8,25 @@ import path from 'path';
 import base from '@/components/TranslationProvider/translations/base';
 import { indexDocument } from '@/lib/documentIndexer';
 import { ServiceModel, serviceDTO } from '@/lib/db/models/Service';
-import { ConfigurationModel, configurationDTO } from '@/lib/db/models/Configuration';
+import {
+  ConfigurationModel,
+  configurationDTO,
+} from '@/lib/db/models/Configuration';
 import { DocumentController } from '@/lib/documentsBackend/documentController';
 import { dbConnect } from '@/lib/db/connection';
 import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
-import { requirePermission, PermissionDeniedError } from '@/lib/documentsBackend/permission';
+import {
+  requirePermission,
+  PermissionDeniedError,
+} from '@/lib/documentsBackend/permission';
 import { DocumentModel } from '@/lib/db/models/Document';
 import { AnnotationSetModel } from '@/lib/db/models/AnnotationSet';
 import { AnnotationModel } from '@/lib/db/models/Annotation';
 import { CollectionController } from '@/lib/documentsBackend/collectionController';
-import { deleteElasticDocument, addAnnotationsToDocumentEs } from '@/lib/elasticAdmin';
+import {
+  deleteElasticDocument,
+  addAnnotationsToDocumentEs,
+} from '@/lib/elasticAdmin';
 import {
   encode,
   makeDecryptionRequest,
@@ -210,9 +219,16 @@ async function insertDocumentAndUpdateFacetsCache(
   }
 
   try {
-    await CollectionController.updateCache({ toAdd: cachePayload }, collectionId);
+    await CollectionController.updateCache(
+      { toAdd: cachePayload },
+      collectionId
+    );
   } catch (e) {
-    console.error('Error updating facets cache for collection', collectionId, e);
+    console.error(
+      'Error updating facets cache for collection',
+      collectionId,
+      e
+    );
   }
 
   return doc;
@@ -298,8 +314,12 @@ export async function runAnnotateAndUpload(input: {
     await dbConnect();
 
     if (configurationId) {
-      const allConfigs = await ConfigurationModel.find({ userId: user.sub }).lean();
-      configToUse = allConfigs.find((c: any) => String(c._id) === configurationId);
+      const allConfigs = await ConfigurationModel.find({
+        userId: user.sub,
+      }).lean();
+      configToUse = allConfigs.find(
+        (c: any) => String(c._id) === configurationId
+      );
     } else {
       configToUse = await ConfigurationModel.findOne({
         userId: user.sub,
@@ -309,10 +329,7 @@ export async function runAnnotateAndUpload(input: {
 
     if (configToUse) {
       // New format: steps array takes priority over legacy services map
-      if (
-        Array.isArray(configToUse.steps) &&
-        configToUse.steps.length > 0
-      ) {
+      if (Array.isArray(configToUse.steps) && configToUse.steps.length > 0) {
         selectedServices = configToUse.steps;
       } else if (configToUse.services) {
         // Legacy: convert MongoDB Map to plain object
@@ -587,24 +604,34 @@ const moveEntitiesToCluster = async (
   const user = await getRequestUser(token);
   await requirePermission(user, 'document', 'update');
 
-  const document: any = await DocumentController.getFullDocById(id, false, false, false, true);
+  const document: any = await DocumentController.getFullDocById(
+    id,
+    false,
+    false,
+    false,
+    true
+  );
 
   // find and remove source and destination clusters
   const source = document.features.clusters[annotationSet].find(
     (cluster: any) => cluster.id === sourceCluster
   );
-  document.features.clusters[annotationSet] = document.features.clusters[annotationSet].filter(
-    (cluster: any) => cluster.id !== sourceCluster
-  );
+  document.features.clusters[annotationSet] = document.features.clusters[
+    annotationSet
+  ].filter((cluster: any) => cluster.id !== sourceCluster);
   const dest = document.features.clusters[annotationSet].find(
     (cluster: any) => cluster.id === destinationCluster
   );
-  document.features.clusters[annotationSet] = document.features.clusters[annotationSet].filter(
-    (cluster: any) => cluster.id !== destinationCluster
-  );
+  document.features.clusters[annotationSet] = document.features.clusters[
+    annotationSet
+  ].filter((cluster: any) => cluster.id !== destinationCluster);
   // move entities
-  const entObjects = source.mentions.filter((mention: any) => entities.includes(mention.id));
-  source.mentions = source.mentions.filter((mention: any) => !entities.includes(mention.id));
+  const entObjects = source.mentions.filter((mention: any) =>
+    entities.includes(mention.id)
+  );
+  source.mentions = source.mentions.filter(
+    (mention: any) => !entities.includes(mention.id)
+  );
   dest.mentions = dest.mentions.concat(entObjects);
   const clusters = [...document.features.clusters[annotationSet], source, dest];
 
@@ -618,7 +645,9 @@ const anonymizeMentionForEs = (mention: string) => {
   if (!mention) return '';
   return mention
     .split(' ')
-    .map((word) => (word.length > 0 ? word[0] + '*'.repeat(word.length - 1) : ''))
+    .map((word) =>
+      word.length > 0 ? word[0] + '*'.repeat(word.length - 1) : ''
+    )
     .join(' ');
 };
 
@@ -658,11 +687,18 @@ async function runSave({
   }
 
   // Update annotation sets in MongoDB
-  const resUpdate = await DocumentController.updateEntitiesAnnotationSet(docId, annotationSets);
+  const resUpdate = await DocumentController.updateEntitiesAnnotationSet(
+    docId,
+    annotationSets
+  );
 
   // Update facets cache entries for the collection based on saved annotations
   try {
-    const fullDoc: any = await DocumentController.findOne(docId, null, collectionId);
+    const fullDoc: any = await DocumentController.findOne(
+      docId,
+      null,
+      collectionId
+    );
     if (collectionId) {
       const toAdd: Record<string, any[]> = {};
       const toDelete: Record<string, any[]> = {};
@@ -695,7 +731,9 @@ async function runSave({
             const entry = buildEntry(ann, existingDoc.id);
             const facetType = entry.type || 'unknown';
             oldMaps[facetType] = oldMaps[facetType] || new Map();
-            const key = `${entry.id_ER}||${String(entry.display_name || '').toLowerCase()}`;
+            const key = `${entry.id_ER}||${String(
+              entry.display_name || ''
+            ).toLowerCase()}`;
             oldMaps[facetType].set(key, entry);
           }
         }
@@ -708,7 +746,9 @@ async function runSave({
           const entry = buildEntry(ann, fullDoc.id);
           const facetType = entry.type || 'unknown';
           newMaps[facetType] = newMaps[facetType] || new Map();
-          const key = `${entry.id_ER}||${String(entry.display_name || '').toLowerCase()}`;
+          const key = `${entry.id_ER}||${String(
+            entry.display_name || ''
+          ).toLowerCase()}`;
           if (!newMaps[facetType].has(key)) {
             newMaps[facetType].set(key, entry);
             toAdd[facetType] = toAdd[facetType] || [];
@@ -746,7 +786,11 @@ async function runSave({
         try {
           await CollectionController.updateCache(cachePayload, collectionId);
         } catch (e) {
-          console.error('Failed to update facets cache for collection', collectionId, e);
+          console.error(
+            'Failed to update facets cache for collection',
+            collectionId,
+            e
+          );
         }
       }
     }
@@ -757,7 +801,10 @@ async function runSave({
   // Update features if provided
   let featuresUpdateResult: any = null;
   if (features !== undefined) {
-    featuresUpdateResult = await DocumentController.updateDocumentFeatures(docId, features);
+    featuresUpdateResult = await DocumentController.updateDocumentFeatures(
+      docId,
+      features
+    );
   }
 
   // Update Elasticsearch index if elasticIndex is provided
@@ -768,7 +815,11 @@ async function runSave({
       let clustersToUse = features?.clusters;
 
       if (!clustersToUse) {
-        const doc: any = await DocumentController.findOne(docId, null, collectionId);
+        const doc: any = await DocumentController.findOne(
+          docId,
+          null,
+          collectionId
+        );
         clustersToUse = doc.features?.clusters;
       } else {
         console.log('Using clusters from provided features');
@@ -780,11 +831,15 @@ async function runSave({
           (name) => name === 'entities_'
         );
 
-        if (entitiesAnnotationSetName && (clustersToUse as any)[entitiesAnnotationSetName]) {
+        if (
+          entitiesAnnotationSetName &&
+          (clustersToUse as any)[entitiesAnnotationSetName]
+        ) {
           const clusters = (clustersToUse as any)[entitiesAnnotationSetName];
 
           // Get the annotations from the annotation set
-          const annotations = annotationSets[entitiesAnnotationSetName]?.annotations || [];
+          const annotations =
+            annotationSets[entitiesAnnotationSetName]?.annotations || [];
 
           // Transform individual annotations to Elasticsearch format. `id_ER`
           // must use the same scheme as the facets cache (buildEntry() above
@@ -804,7 +859,11 @@ async function runSave({
               const cluster = clusters.find((c: any) => c.id === clusterId);
               const type = annotation.type || 'unknown';
               const mention = annotation.features?.mention || '';
-              const shouldAnonymize = ['persona', 'parte', 'controparte'].includes(type);
+              const shouldAnonymize = [
+                'persona',
+                'parte',
+                'controparte',
+              ].includes(type);
               const isLinked = cluster ? Boolean(cluster.url) : false;
               const id_ER = isLinked ? cluster.url : `${docId}_${mention}`;
               return {
@@ -820,16 +879,23 @@ async function runSave({
                     ? anonymizeMentionForEs(cluster.title)
                     : cluster.title
                   : shouldAnonymize
-                    ? anonymizeMentionForEs(mention)
-                    : mention,
+                  ? anonymizeMentionForEs(mention)
+                  : mention,
               };
             })
             .filter((m: any) => m !== null);
 
           // Update Elasticsearch directly (in-process, no HTTP hop needed)
-          await addAnnotationsToDocumentEs(elasticIndex, String(docId), mentions, collectionId);
+          await addAnnotationsToDocumentEs(
+            elasticIndex,
+            String(docId),
+            mentions,
+            collectionId
+          );
         } else {
-          console.log('No entities annotation set found or no clusters in that set');
+          console.log(
+            'No entities annotation set found or no clusters in that set'
+          );
         }
       } else {
         console.log('No clusters found in features');
@@ -852,7 +918,10 @@ async function runSave({
  * each doc via getFullDocById and flattens its annotation sets into a single
  * annotations array, enriching each with display_name/is_linked/id_ER.
  */
-async function fetchDocumentsByIdsEnriched(ids: string[], deAnonimize: boolean) {
+async function fetchDocumentsByIdsEnriched(
+  ids: string[],
+  deAnonimize: boolean
+) {
   const results = await Promise.allSettled(
     ids.map(async (id) => {
       const doc: any = await DocumentController.getFullDocById(
@@ -871,7 +940,10 @@ async function fetchDocumentsByIdsEnriched(ids: string[], deAnonimize: boolean) 
             set.annotations.forEach((entity: any) => {
               const ann = { ...entity };
               try {
-                const mention = (doc.text || '').substring(entity.start, entity.end);
+                const mention = (doc.text || '').substring(
+                  entity.start,
+                  entity.end
+                );
                 const linking = entity.features?.linking;
                 if (linking && linking.is_nil === false) {
                   ann.display_name = entity.features?.title || mention;
@@ -921,6 +993,21 @@ export const documents = createRouter()
     resolve: ({ input }) => {
       const { id, deAnonimize, collectionId } = input;
       return getDocumentById(id, deAnonimize, collectionId);
+    },
+  })
+  .query('getDocuments', {
+    input: z.object({
+      ids: z.array(z.any()),
+      deAnonimize: z.boolean().default(false),
+      collectionId: z.string().optional(),
+    }),
+    resolve: async ({ input }) => {
+      const { ids, deAnonimize, collectionId } = input;
+      const docs: Document[] = await Promise.all(
+        ids.map((id) => getDocumentById(id, deAnonimize, collectionId))
+      );
+
+      return docs;
     },
   })
   .query('inifniteDocuments', {
@@ -1007,9 +1094,14 @@ export const documents = createRouter()
         const user = await getRequestUser(token);
         await requirePermission(user, 'settings', 'pipeline');
         await dbConnect();
-        const updated = await ServiceModel.findByIdAndUpdate(id, update, { new: true });
+        const updated = await ServiceModel.findByIdAndUpdate(id, update, {
+          new: true,
+        });
         if (!updated) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Service not found' });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Service not found',
+          });
         }
         return updated;
       } catch (error: any) {
@@ -1038,7 +1130,10 @@ export const documents = createRouter()
         await dbConnect();
         const deleted = await ServiceModel.findByIdAndDelete(id);
         if (!deleted) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Service not found' });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Service not found',
+          });
         }
         return { message: 'deleted' };
       } catch (error: any) {
@@ -1168,9 +1263,15 @@ export const documents = createRouter()
         await dbConnect();
 
         // Verify the configuration belongs to the user
-        const existingConfig = await ConfigurationModel.findOne({ _id: id, userId: user.sub });
+        const existingConfig = await ConfigurationModel.findOne({
+          _id: id,
+          userId: user.sub,
+        });
         if (!existingConfig) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Configuration not found' });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Configuration not found',
+          });
         }
 
         // If setting this as active, deactivate all other configurations
@@ -1181,7 +1282,9 @@ export const documents = createRouter()
           );
         }
 
-        return await ConfigurationModel.findByIdAndUpdate(id, update, { new: true });
+        return await ConfigurationModel.findByIdAndUpdate(id, update, {
+          new: true,
+        });
       } catch (error: any) {
         if (error instanceof TRPCError) throw error;
         if (error instanceof PermissionDeniedError) {
@@ -1207,9 +1310,15 @@ export const documents = createRouter()
         await requirePermission(user, 'settings', 'pipeline');
         await dbConnect();
 
-        const deleted = await ConfigurationModel.findOneAndDelete({ _id: id, userId: user.sub });
+        const deleted = await ConfigurationModel.findOneAndDelete({
+          _id: id,
+          userId: user.sub,
+        });
         if (!deleted) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Configuration not found' });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Configuration not found',
+          });
         }
         return { message: 'deleted' };
       } catch (error: any) {
@@ -1238,9 +1347,15 @@ export const documents = createRouter()
         await dbConnect();
 
         // Verify the configuration belongs to the user
-        const existingConfig = await ConfigurationModel.findOne({ _id: id, userId: user.sub });
+        const existingConfig = await ConfigurationModel.findOne({
+          _id: id,
+          userId: user.sub,
+        });
         if (!existingConfig) {
-          throw new TRPCError({ code: 'NOT_FOUND', message: 'Configuration not found' });
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Configuration not found',
+          });
         }
 
         // Deactivate all other configurations for this user
@@ -1317,7 +1432,9 @@ export const documents = createRouter()
         await dbConnect();
         const elasticIndex = process.env.ELASTIC_INDEX;
 
-        const deletedDoc: any = await DocumentModel.findOneAndDelete({ id: docId });
+        const deletedDoc: any = await DocumentModel.findOneAndDelete({
+          id: docId,
+        });
         const annotationSets = await AnnotationSetModel.find({ docId });
         await Promise.all(
           annotationSets.map(async (annSet) => {
@@ -1326,13 +1443,18 @@ export const documents = createRouter()
         );
         await AnnotationSetModel.deleteMany({ docId });
         if (deletedDoc?.collectionId && deletedDoc?.id) {
-          await CollectionController.deleteCacheForDoc(deletedDoc.id, deletedDoc.collectionId);
+          await CollectionController.deleteCacheForDoc(
+            deletedDoc.id,
+            deletedDoc.collectionId
+          );
         }
         if (elasticIndex) {
           try {
             await deleteElasticDocument(elasticIndex, docId);
           } catch (error: any) {
-            console.error(`Error deleting document from Elasticsearch: ${error.message}`);
+            console.error(
+              `Error deleting document from Elasticsearch: ${error.message}`
+            );
           }
         }
         return deletedDoc;
@@ -1354,7 +1476,9 @@ export const documents = createRouter()
     resolve: async ({ input }) => {
       const { annotationSetId } = input;
       await dbConnect();
-      const result = await AnnotationSetModel.deleteOne({ _id: annotationSetId } as any);
+      const result = await AnnotationSetModel.deleteOne({
+        _id: annotationSetId,
+      } as any);
       await AnnotationModel.deleteMany({ annotationSetId } as any);
       return result;
     },
@@ -1577,7 +1701,10 @@ export const documents = createRouter()
         return [];
       }
       try {
-        const result = await fetchDocumentsByIdsEnriched(ids, deAnonimize ?? false);
+        const result = await fetchDocumentsByIdsEnriched(
+          ids,
+          deAnonimize ?? false
+        );
         console.log(
           '[trpc.document.fetchFacetDocuments] fetched',
           Array.isArray(result) ? result.length : 'non-array'
@@ -1844,4 +1971,3 @@ export const documents = createRouter()
       }
     },
   });
-

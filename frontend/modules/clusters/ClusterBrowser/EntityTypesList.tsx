@@ -8,7 +8,8 @@ import { ListItem } from './ListItem';
 import { ListPane } from './ListPane';
 
 type EntityTypesListProps = {
-  selectedDocId: string | undefined;
+  isEmpty : boolean;
+  emptyMessage : string;
   selectedType: string | undefined;
   clustersByType: Record<string, Cluster[]>;
   onTypeSelection: (type: string) => void;
@@ -16,17 +17,15 @@ type EntityTypesListProps = {
 };
 
 export function EntityTypesList({
-  selectedDocId,
+  isEmpty,
+  emptyMessage,
   selectedType,
   clustersByType,
   onTypeSelection,
   taxonomy,
 }: EntityTypesListProps) {
   const t = useText('clusters');
-  const isEmpty = !selectedDocId || Object.keys(clustersByType).length === 0;
-  const emptyMessage = !selectedDocId
-    ? t('selectDocument')
-    : t('noEntitiesFound');
+
 
   return (
     <ListPane
@@ -35,7 +34,7 @@ export function EntityTypesList({
       isEmpty={isEmpty}
       emptyMessage={emptyMessage}
     >
-      {selectedDocId &&
+      {!isEmpty &&
         Object.keys(clustersByType).map((type) => {
           return (
             <ListItem

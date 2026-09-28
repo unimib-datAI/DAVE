@@ -27,10 +27,10 @@ export function EntityList({
       emptyMessage={t('selectType')}
     >
       {selectedType &&
-        entities.map((e) => {
+        entities.map((e, i) => {
           return (
             <ListItem
-              key={e.id}
+              key={i}
               selected={selectedEntity?.id === e.id}
               onClick={() => onEntitySelection(e)}
             >
