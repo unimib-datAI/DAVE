@@ -90,7 +90,7 @@ export function ByDocumentPage({ docsInfo }: ByDocumentPageProps) {
           // mention in the document
           const ann = annotations?.find((ann) => ann.id === m.id);
           if (!ann)
-            return { ...m, start: 0, end: m.mention.length, context: 'none' };
+            return { ...m, start: 0, end: m.mention.length, context: '', documentId : documentData.id };
 
           const { context, mentionStart, mentionEnd } = getMentionContext(
             documentData.text,
@@ -103,6 +103,7 @@ export function ByDocumentPage({ docsInfo }: ByDocumentPageProps) {
             start: mentionStart,
             end: mentionEnd,
             context,
+            documentId: documentData.id
           };
         })
       : [];

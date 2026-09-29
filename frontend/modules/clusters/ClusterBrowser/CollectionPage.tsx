@@ -90,6 +90,7 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
             end: m.mention.length,
             context: '',
             documentTitle: '',
+            documentId: undefined,
           };
         }
 
@@ -105,6 +106,7 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
           end: mentionEnd,
           context,
           documentTitle: documents[docIndex].name,
+          documentId: documents[docIndex].id,
         };
       })
     : [];

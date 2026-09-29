@@ -3,6 +3,8 @@ import { FiFileText } from '@react-icons/all-files/fi/FiFileText';
 import styled from '@emotion/styled';
 import { Cluster } from '@/server/routers/document';
 import { ListPane } from './ListPane';
+import { useRouter } from 'next/router';
+import { FiFile } from '@react-icons/all-files/fi/FiFile';
 
 export type Mention = {
   start: number;
@@ -10,6 +12,7 @@ export type Mention = {
   context: string;
   id: number;
   mention: string;
+  documentId?: number;
   documentTitle?: string;
 };
 
@@ -19,6 +22,7 @@ type MentionsListType = {
 };
 
 export function MentionsList({ selectedEntity, mentions }: MentionsListType) {
+  const router = useRouter();
   const t = useText('clusters');
 
   const renderMention = (start: number, end: number, context: string) => {
@@ -34,6 +38,11 @@ export function MentionsList({ selectedEntity, mentions }: MentionsListType) {
     );
   };
 
+  const handleMentionSelection = (m: Mention) => {
+    if (!m.documentId) return;
+    router.push(`/documents/${m.documentId}#${m.id}`);
+  };
+
   return (
     <ListPane
       title={t('mentions')}
@@ -44,8 +53,15 @@ export function MentionsList({ selectedEntity, mentions }: MentionsListType) {
       {selectedEntity &&
         mentions.map((m) => {
           return (
-            <MentionContainer key={m.id}>
-              <DocumentName>{m.documentTitle}</DocumentName>
+            <MentionContainer
+              key={m.id}
+              onClick={() => handleMentionSelection(m)}
+            >
+              {m.documentTitle && (
+                <DocumentName>
+                  <FiFile /> <span>{m.documentTitle}</span>
+                </DocumentName>
+              )}
               {renderMention(m.start, m.end, m.context)}
             </MentionContainer>
           );
@@ -68,8 +84,17 @@ const MentionContainer = styled.div`
   }
 `;
 
-const DocumentName = styled.span`
+const DocumentName = styled.div`
   font-weight: var(--font-semibold);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-foreground);
+
+  svg {
+    color: var(--muted-foreground);
+  }
 `;
 
 const Highlight = styled.span`

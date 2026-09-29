@@ -115,7 +115,7 @@ const GoToClustersPageButton = () => {
     <ClustersButton
       variant="bordered"
       onPress={() =>
-        router.push('collections/' + activeCollection?.id + '/clusters')
+        router.push('/collections/' + activeCollection?.id + '/clusters')
       }
     >
       <div className="flex flex-row items-center gap-[8px]">
