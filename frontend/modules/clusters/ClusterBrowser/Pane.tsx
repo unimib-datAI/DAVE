@@ -3,17 +3,19 @@ import { IconType } from '@react-icons/all-files/lib';
 import { ReactNode } from 'react';
 
 type PaneProps = {
-  icon: IconType
+  icon: IconType;
   title: string;
   children: ReactNode;
+  actions?: ReactNode;
 };
 
-export function Pane({ icon : Icon, title, children }: PaneProps) {
+export function Pane({ icon: Icon, title, children, actions }: PaneProps) {
   return (
     <PaneContainer>
       <PaneTitle>
-        <Icon/>
+        <Icon />
         <h2>{title}</h2>
+        {actions && <ActionsContainer>{actions}</ActionsContainer>}
       </PaneTitle>
       <PaneContent>{children}</PaneContent>
     </PaneContainer>
@@ -36,14 +38,23 @@ const PaneContent = styled.div`
 `;
 
 const PaneTitle = styled.div`
+  min-height: 52px;
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  padding: 12px 16px;
+  padding: 8px 16px;
   font-size: 14px;
   font-weight: var(--font-semibold);
   background-color: var(--background);
   color: var(--muted-foreground);
   border-bottom: 2px solid var(--muted);
+`;
+
+const ActionsContainer = styled.div`
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: end;
 `;

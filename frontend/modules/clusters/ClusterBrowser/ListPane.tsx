@@ -7,6 +7,7 @@ type ListPaneProps = {
   title: string;
   icon: IconType;
   children: ReactNode;
+  actions? : ReactNode;
   isEmpty: boolean;
   emptyMessage: string;
 };
@@ -15,11 +16,12 @@ export function ListPane({
   title,
   icon,
   children,
+  actions,
   isEmpty,
   emptyMessage,
 }: ListPaneProps) {
   return (
-    <Pane title={title} icon={icon}>
+    <Pane title={title} icon={icon} actions={actions}>
       {isEmpty ? <Message>{emptyMessage}</Message> : <List>{children}</List>}
     </Pane>
   );

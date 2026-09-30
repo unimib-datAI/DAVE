@@ -37,18 +37,18 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
   ]);
 
   // Get all the annotations for each document
-  const newAnnotations: Record<number, AnnotationSet<EntityAnnotation>> = {};
+  const docAnnotations: Record<number, AnnotationSet<EntityAnnotation>> = {};
   documents?.forEach((doc) => {
     const set = Object.values(doc.annotation_sets).find(
       (set) => set.name === 'entities_'
     );
-    if (set) newAnnotations[doc.id] = set;
+    if (set) docAnnotations[doc.id] = set;
   });
 
   // Need this to color entity types
   const taxonomy = createTaxonomy(
     baseTaxonomy,
-    Object.values(newAnnotations) ?? []
+    Object.values(docAnnotations) ?? []
   );
 
   // docsCluster[i] -> clusters of document[i]
@@ -102,8 +102,8 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
 
         if (!foundDoc) return notFoundMention(m.id, m.mention);
 
-        const annotation = newAnnotations[
-          selectedEntity.docId!
+        const annotation = docAnnotations[
+          selectedEntity.docId
         ].annotations.find((ann) => ann.id === m.id);
 
         if (!annotation) return notFoundMention(m.id, m.mention, foundDoc);
@@ -137,7 +137,7 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
   };
 
   const handleEntitySelection = (e: ClusterWithDocId) => {
-    if (e.id === selectedEntity?.id) {
+    if (e.id === selectedEntity?.id && e.docId === selectedEntity.docId) {
       setSelectedEntity(undefined);
     } else {
       setSelectedEntity(e);
