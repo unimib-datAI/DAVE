@@ -5,16 +5,7 @@ import { Cluster } from '@/server/routers/document';
 import { ListPane } from './ListPane';
 import { useRouter } from 'next/router';
 import { FiFile } from '@react-icons/all-files/fi/FiFile';
-
-export type Mention = {
-  start: number;
-  end: number;
-  context: string;
-  id: number;
-  mention: string;
-  documentId?: number;
-  documentTitle?: string;
-};
+import { Mention } from './types';
 
 type MentionsListType = {
   selectedEntity: Cluster | undefined;

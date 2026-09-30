@@ -4,11 +4,13 @@ import styled from '@emotion/styled';
 import { Cluster } from '@/server/routers/document';
 import { ListItem } from './ListItem';
 import { ListPane } from './ListPane';
+import { ClusterWithDocId } from './types';
+
 
 type EntityListProps = {
   selectedType: string | undefined;
-  entities: Cluster[];
-  selectedEntity: Cluster | undefined;
+  entities: ClusterWithDocId[];
+  selectedEntity: ClusterWithDocId | undefined;
   onEntitySelection: (e: Cluster) => void;
 };
 

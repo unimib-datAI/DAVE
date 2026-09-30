@@ -3,6 +3,7 @@ import { collectionDocInfo } from '@/server/routers/collection';
 import {
   AnnotationSet,
   Cluster,
+  Document,
   EntityAnnotation,
 } from '@/server/routers/document';
 import { groupBy } from '@/utils/shared';
@@ -13,10 +14,9 @@ import { createTaxonomy } from '@/modules/document/DocumentProvider/utils';
 import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
 import { useText } from '@/components';
 import { EntityList } from './EntityList';
-import { useAtom } from 'jotai';
-import { activeCollectionAtom } from '@/atoms/collection';
 import { getMentionContext } from '@/utils/mentionContext';
-import { Mention, MentionsList } from './MentionsList';
+import { MentionsList } from './MentionsList';
+import { ClusterWithDocId, Mention } from './types';
 
 type CollectionPageProps = {
   docsInfo: collectionDocInfo[];
@@ -25,7 +25,9 @@ type CollectionPageProps = {
 export function CollectionPage({ docsInfo }: CollectionPageProps) {
   const t = useText('clusters');
   const [selectedType, setSelectedType] = useState<string | undefined>();
-  const [selectedEntity, setSelectedEntity] = useState<Cluster | undefined>();
+  const [selectedEntity, setSelectedEntity] = useState<
+    ClusterWithDocId | undefined
+  >();
 
   const { data: documents } = useQuery([
     'document.getDocuments',
@@ -34,27 +36,39 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
     },
   ]);
 
-  // docsClusters[i] -> clusters of doc[i]
+  // Get all the annotations for each document
+  const newAnnotations: Record<number, AnnotationSet<EntityAnnotation>> = {};
+  documents?.forEach((doc) => {
+    const set = Object.values(doc.annotation_sets).find(
+      (set) => set.name === 'entities_'
+    );
+    if (set) newAnnotations[doc.id] = set;
+  });
+
+  // Need this to color entity types
+  const taxonomy = createTaxonomy(
+    baseTaxonomy,
+    Object.values(newAnnotations) ?? []
+  );
+
+  // docsCluster[i] -> clusters of document[i]
   const docsClusters: Cluster[][] = [];
   documents?.map((doc) => {
     docsClusters.push(doc.features.clusters['entities_']);
-    //   console.log(doc.features);
   });
 
-  // Get all the annotations for each document
-  const annotationsByDoc = documents
-    ?.map((doc) =>
-      Object.values(doc.annotation_sets).filter(
-        (set) => set.name === 'entities_'
-      )
-    )
-    .flat();
-  console.log(annotationsByDoc);
-  const taxonomy = createTaxonomy(baseTaxonomy, annotationsByDoc ?? []);
+  const newClusters: ClusterWithDocId[] = docsClusters.flatMap((doc, i) => {
+    return doc.map((cluster) => {
+      return {
+        ...cluster,
+        docId: documents![i].id,
+      };
+    });
+  });
 
   // Group by types
-  const clustersByType: Record<string, Cluster[]> = groupBy(
-    docsClusters.flat(),
+  const clustersByType: Record<string, ClusterWithDocId[]> = groupBy(
+    newClusters,
     (e) => e.type
   );
 
@@ -65,37 +79,37 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
       )
     : [];
 
+  const notFoundMention = (
+    id: number,
+    mention: string,
+    doc?: Document
+  ): Mention => ({
+    id,
+    mention,
+    context: '',
+    start: 0,
+    end: mention.length,
+    documentId: doc?.id,
+    documentTitle: doc?.name,
+  });
+
   // Get document context for each mention of the current entity
-  const mentionsForEntity = selectedEntity
+  const mentionsForEntity: Mention[] = selectedEntity
     ? selectedEntity?.mentions.map((m) => {
-        let annotation: EntityAnnotation | undefined;
-        let docIndex = -1;
+        if (!selectedEntity.docId) return notFoundMention(m.id, m.mention);
 
-        for (let i = 0; i < (annotationsByDoc?.length ?? 0); i++) {
-          const foundAnn = annotationsByDoc![i].annotations.find(
-            (a) => a.id === m.id
-          );
+        const foundDoc = documents?.find((d) => d.id === selectedEntity.docId);
 
-          if (foundAnn) {
-            docIndex = i;
-            annotation = foundAnn;
-            break;
-          }
-        }
+        if (!foundDoc) return notFoundMention(m.id, m.mention);
 
-        if (!annotation || !documents) {
-          return {
-            ...m,
-            start: 0,
-            end: m.mention.length,
-            context: '',
-            documentTitle: '',
-            documentId: undefined,
-          };
-        }
+        const annotation = newAnnotations[
+          selectedEntity.docId!
+        ].annotations.find((ann) => ann.id === m.id);
+
+        if (!annotation) return notFoundMention(m.id, m.mention, foundDoc);
 
         const { context, mentionStart, mentionEnd } = getMentionContext(
-          documents[docIndex].text,
+          foundDoc.text,
           annotation?.start,
           annotation.end
         );
@@ -105,8 +119,8 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
           start: mentionStart,
           end: mentionEnd,
           context,
-          documentTitle: documents[docIndex].name,
-          documentId: documents[docIndex].id,
+          documentTitle: foundDoc.name,
+          documentId: foundDoc.id,
         };
       })
     : [];
@@ -122,7 +136,7 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
     setSelectedEntity(undefined);
   };
 
-  const handleEntitySelection = (e: Cluster) => {
+  const handleEntitySelection = (e: ClusterWithDocId) => {
     if (e.id === selectedEntity?.id) {
       setSelectedEntity(undefined);
     } else {

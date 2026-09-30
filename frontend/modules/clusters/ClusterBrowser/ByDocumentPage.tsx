@@ -1,14 +1,9 @@
-import { ToolbarLayout, useText } from '@/components';
+import { useText } from '@/components';
 import { MultiPane } from '@/components/MultiPane';
-import { GetServerSideProps, NextPage } from 'next';
 import { useQuery } from '@/utils/trpc';
-import { useSession, getSession } from 'next-auth/react';
-import styled from '@emotion/styled';
 import { useState } from 'react';
 import { groupBy } from '@/utils/shared';
 import { Cluster } from '@/server/routers/document';
-import { activeCollectionAtom } from '@/atoms/collection';
-import { useAtom } from 'jotai';
 import { createTaxonomy } from '@/modules/document/DocumentProvider/utils';
 import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
 import {
@@ -17,7 +12,6 @@ import {
   EntityTypesList,
   Mention,
   MentionsList,
-  ModeSelectionTabs,
 } from '@/modules/clusters/ClusterBrowser';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { getMentionContext } from '@/utils/mentionContext';
