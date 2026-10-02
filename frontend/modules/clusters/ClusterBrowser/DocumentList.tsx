@@ -9,7 +9,7 @@ import { ListPane } from './ListPane';
 type DocumentListProps = {
   selectedDocId: string | undefined;
   docsInfo: collectionDocInfo[];
-  onDocumentSelection: (id: string) => void;
+  onDocumentSelection: (doc: collectionDocInfo) => void;
 };
 
 export function DocumentList({
@@ -31,7 +31,7 @@ export function DocumentList({
           <ListItem
             key={doc.id}
             selected={doc.id === selectedDocId}
-            onClick={() => onDocumentSelection(doc.id)}
+            onClick={() => onDocumentSelection(doc)}
           >
             <FiFile />
             <ItemLabel>{doc.name}</ItemLabel>

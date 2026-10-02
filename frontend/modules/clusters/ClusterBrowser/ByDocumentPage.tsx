@@ -10,20 +10,29 @@ import {
   DocumentList,
   EntityList,
   EntityTypesList,
-  Mention,
   MentionsList,
 } from '@/modules/clusters/ClusterBrowser';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { getMentionContext } from '@/utils/mentionContext';
+import { MergeClustersDrawer } from '@/modules/clusters/ClusterBrowser';
+import { Mention } from './types';
 
 type ByDocumentPageProps = {
   docsInfo: collectionDocInfo[];
+  isDrawerOpen: boolean;
+  onDrawerChange: () => void;
 };
 
-export function ByDocumentPage({ docsInfo }: ByDocumentPageProps) {
+export function ByDocumentPage({
+  docsInfo,
+  isDrawerOpen,
+  onDrawerChange,
+}: ByDocumentPageProps) {
   const t = useText('clusters');
   // Browser state
-  const [selectedDocId, setSelectedDocId] = useState<string | undefined>();
+  const [selectedDoc, setSelectedDoc] = useState<
+    collectionDocInfo | undefined
+  >();
   const [selectedType, setSelectedType] = useState<string | undefined>();
   const [selectedEntity, setSelectedEntity] = useState<Cluster | undefined>();
 
@@ -38,8 +47,8 @@ export function ByDocumentPage({ docsInfo }: ByDocumentPageProps) {
 
   // Get the selected document's entities
   const { data: documentData } = useQuery(
-    ['document.getDocument', { id: selectedDocId ?? '' }],
-    { enabled: !!selectedDocId }
+    ['document.getDocument', { id: selectedDoc?.id ?? '' }],
+    { enabled: !!selectedDoc?.id }
   );
 
   const entityAnnotationSet = Object.values(
@@ -84,7 +93,13 @@ export function ByDocumentPage({ docsInfo }: ByDocumentPageProps) {
           // mention in the document
           const ann = annotations?.find((ann) => ann.id === m.id);
           if (!ann)
-            return { ...m, start: 0, end: m.mention.length, context: '', documentId : documentData.id };
+            return {
+              ...m,
+              start: 0,
+              end: m.mention.length,
+              context: '',
+              documentId: documentData.id,
+            };
 
           const { context, mentionStart, mentionEnd } = getMentionContext(
             documentData.text,
@@ -97,17 +112,17 @@ export function ByDocumentPage({ docsInfo }: ByDocumentPageProps) {
             start: mentionStart,
             end: mentionEnd,
             context,
-            documentId: documentData.id
+            documentId: documentData.id,
           };
         })
       : [];
 
   // Event handlers
-  const handleDocumentSelection = (id: string) => {
-    if (id === selectedDocId) {
-      setSelectedDocId(undefined);
+  const handleDocumentSelection = (doc: collectionDocInfo) => {
+    if (doc.id === selectedDoc?.id) {
+      setSelectedDoc(undefined);
     } else {
-      setSelectedDocId(id);
+      setSelectedDoc(doc);
     }
 
     setSelectedType(undefined);
@@ -133,32 +148,41 @@ export function ByDocumentPage({ docsInfo }: ByDocumentPageProps) {
   };
 
   return (
-    <MultiPane>
-      <DocumentList
-        selectedDocId={selectedDocId}
-        onDocumentSelection={handleDocumentSelection}
-        docsInfo={docsInfo}
+    <>
+      <MultiPane>
+        <DocumentList
+          selectedDocId={selectedDoc?.id}
+          onDocumentSelection={handleDocumentSelection}
+          docsInfo={docsInfo}
+        />
+        <EntityTypesList
+          isEmpty={!selectedDoc?.id || Object.keys(clusterGroups).length === 0}
+          emptyMessage={
+            !selectedDoc?.id ? t('selectDocument') : t('noEntitiesFound')
+          }
+          selectedType={selectedType}
+          clustersByType={clusterGroups}
+          onTypeSelection={handleTypeSelection}
+          taxonomy={taxonomy}
+        />
+        <EntityList
+          selectedType={selectedType}
+          entities={entitiesForSelectedType}
+          selectedEntity={selectedEntity}
+          onEntitySelection={handleEntitySelection}
+        />
+        <MentionsList
+          selectedEntity={selectedEntity}
+          mentions={mentionsForSelectedEntity}
+        />
+      </MultiPane>
+      <MergeClustersDrawer
+        docs={docsInfo ?? []}
+        selectedDocument={selectedDoc}
+        clusters={[]}
+        isOpen={isDrawerOpen}
+        onOpenChange={onDrawerChange}
       />
-      <EntityTypesList
-        isEmpty={!selectedDocId || Object.keys(clusterGroups).length === 0}
-        emptyMessage={
-          !selectedDocId ? t('selectDocument') : t('noEntitiesFound')
-        }
-        selectedType={selectedType}
-        clustersByType={clusterGroups}
-        onTypeSelection={handleTypeSelection}
-        taxonomy={taxonomy}
-      />
-      <EntityList
-        selectedType={selectedType}
-        entities={entitiesForSelectedType}
-        selectedEntity={selectedEntity}
-        onEntitySelection={handleEntitySelection}
-      />
-      <MentionsList
-        selectedEntity={selectedEntity}
-        mentions={mentionsForSelectedEntity}
-      />
-    </MultiPane>
+    </>
   );
 }

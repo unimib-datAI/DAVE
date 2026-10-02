@@ -28,12 +28,12 @@ export const ModeSelectionTabs = ({
 };
 
 const StyledTabs = styled(Tabs)`
-  [role='tablist']{
+  [role='tablist'] {
     border-radius: 8px;
     padding: 4px 6px;
   }
 
-  [data-slot='cursor']{
+  [data-slot='cursor'] {
     border-radius: 4px;
   }
 

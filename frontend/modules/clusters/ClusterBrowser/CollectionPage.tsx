@@ -20,9 +20,11 @@ import { ClusterWithDocId, Mention } from './types';
 
 type CollectionPageProps = {
   docsInfo: collectionDocInfo[];
+  isDrawerOpen: boolean;
+  onDrawerChange : () => void;
 };
 
-export function CollectionPage({ docsInfo }: CollectionPageProps) {
+export function CollectionPage({ docsInfo, isDrawerOpen, onDrawerChange}: CollectionPageProps) {
   const t = useText('clusters');
   const [selectedType, setSelectedType] = useState<string | undefined>();
   const [selectedEntity, setSelectedEntity] = useState<

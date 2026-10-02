@@ -42,14 +42,15 @@ const ActionsContainer = styled.div({
   gap: '8px',
 });
 
+
 const Logo = styled.div({
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   fontSize: '22px',
   fontWeight: 700,
-  width: '70px',
-  padding: '6px 12px',
+  padding: '0px 12px 0px 0px',
+  margin: '0px 12px',
   borderRight: '1px solid #F3F3F5',
 });
 
@@ -64,13 +65,14 @@ const Toolbar = ({
   const [activeCollection] = useAtom(activeCollectionAtom);
   return (
     <Container id="toolbar">
-      <Link href="/" passHref>
-        <Logo>
-          <FiHome />
-        </Logo>
-      </Link>
       <ToolbarContent>
         <ActionsContainer>
+          <Link href="/" passHref>
+            <Logo>
+              <FiHome />
+            </Logo>
+          </Link>
+
           {hideCollectionActions ? (
             <span>{activeCollection?.name}</span>
           ) : (
@@ -80,6 +82,7 @@ const Toolbar = ({
         </ActionsContainer>
 
         {children}
+
         <ActionsContainer>
           <GlobalAnonymizationToggle />
           <LoginAvatar />
