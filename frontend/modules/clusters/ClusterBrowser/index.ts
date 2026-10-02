@@ -6,3 +6,4 @@ export { ModeSelectionTabs } from './ModeSelectionTabs';
 export { ByDocumentPage } from './ByDocumentPage';
 export { CollectionPage } from './CollectionPage';
 export { MergeClustersDrawer } from './MergeClustersDrawer';
+export {useDocumentClusters} from "./useDocumentClusters"

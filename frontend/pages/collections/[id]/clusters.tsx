@@ -75,7 +75,9 @@ const ClustersPage: NextPage = () => {
       toolbarContent={
         <ToolbarCenteredContent>
           <ToolbarContent>
-            <MergeClustersButton onClick={onOpen} />
+            {selectedMode === Mode.document && (
+              <MergeClustersButton onClick={onOpen} />
+            )}
             <ModeSelectionTabs
               modes={modes}
               selectedMode={selectedMode}
@@ -94,11 +96,7 @@ const ClustersPage: NextPage = () => {
           />
         )}
         {selectedMode === Mode.collection && (
-          <CollectionPage
-            docsInfo={docsInfo}
-            isDrawerOpen={false}
-            onDrawerChange={onOpenChange}
-          />
+          <CollectionPage docsInfo={docsInfo} />
         )}
       </PageContainer>
     </ToolbarLayout>

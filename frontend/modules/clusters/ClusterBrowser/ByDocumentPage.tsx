@@ -11,6 +11,7 @@ import {
   EntityList,
   EntityTypesList,
   MentionsList,
+  useDocumentClusters,
 } from '@/modules/clusters/ClusterBrowser';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { getMentionContext } from '@/utils/mentionContext';
@@ -45,35 +46,13 @@ export function ByDocumentPage({
     for that specific entity
   */
 
-  // Get the selected document's entities
-  const { data: documentData } = useQuery(
-    ['document.getDocument', { id: selectedDoc?.id ?? '' }],
-    { enabled: !!selectedDoc?.id }
+  const { documentData, taxonomy, annotations, clusters } = useDocumentClusters(
+    selectedDoc?.id
   );
-
-  const entityAnnotationSet = Object.values(
-    documentData?.annotation_sets ?? []
-  ).filter((set) => set.name === 'entities_');
-
-  // Need this to get the correct colors for the types
-  const taxonomy = createTaxonomy(baseTaxonomy, entityAnnotationSet);
-  const annotations = entityAnnotationSet[0]?.annotations;
-
-  // Some mentions do not have a corresponding
-  // annotation in the document. These need to be filtered out.
-  const clusters = documentData?.features.clusters['entities_'] ?? [];
-  const filteredClusters: Cluster[] = clusters
-    .map((c) => ({
-      ...c,
-      mentions: c.mentions.filter((m) =>
-        annotations?.some((ann) => ann.id === m.id)
-      ),
-    }))
-    .filter((c) => c.mentions.length > 0);
 
   // Group entities by type
   const clusterGroups: Record<string, Cluster[]> = groupBy(
-    filteredClusters,
+    clusters,
     (c) => c.type
   );
 
@@ -177,9 +156,8 @@ export function ByDocumentPage({
         />
       </MultiPane>
       <MergeClustersDrawer
-        docs={docsInfo ?? []}
-        selectedDocument={selectedDoc}
-        clusters={[]}
+        docsInCollection={docsInfo ?? []}
+        selectedDocumentInBrowser={selectedDoc}
         isOpen={isDrawerOpen}
         onOpenChange={onDrawerChange}
       />
