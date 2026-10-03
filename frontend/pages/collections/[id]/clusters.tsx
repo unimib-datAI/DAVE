@@ -93,6 +93,7 @@ const ClustersPage: NextPage = () => {
             docsInfo={docsInfo}
             isDrawerOpen={isOpen}
             onDrawerChange={onOpenChange}
+            openDrawer={onOpen}
           />
         )}
         {selectedMode === Mode.collection && (

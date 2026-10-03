@@ -4,12 +4,25 @@ import { ReactNode } from 'react';
 type ListItemProps = {
   selected: boolean;
   onClick: () => void;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
   children: ReactNode;
 };
 
-export function ListItem({ selected, onClick, children }: ListItemProps) {
+export function ListItem({
+  selected,
+  onClick,
+  children,
+  onMouseEnter,
+  onMouseLeave,
+}: ListItemProps) {
   return (
-    <ListItemContainer data-selected={selected} onClick={onClick}>
+    <ListItemContainer
+      data-selected={selected}
+      onClick={onClick}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
       {children}
     </ListItemContainer>
   );

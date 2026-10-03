@@ -1,7 +1,7 @@
 import { useText } from '@/components';
 import { MultiPane } from '@/components/MultiPane';
 import { useQuery } from '@/utils/trpc';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { groupBy } from '@/utils/shared';
 import { Cluster } from '@/server/routers/document';
 import { createTaxonomy } from '@/modules/document/DocumentProvider/utils';
@@ -16,28 +16,49 @@ import {
 import { collectionDocInfo } from '@/server/routers/collection';
 import { getMentionContext } from '@/utils/mentionContext';
 import { MergeClustersDrawer } from '@/modules/clusters/ClusterBrowser';
-import { Mention } from './types';
+import { ClusterWithDocId, Mention } from './types';
 
 type ByDocumentPageProps = {
   docsInfo: collectionDocInfo[];
   isDrawerOpen: boolean;
   onDrawerChange: () => void;
+  openDrawer: () => void;
 };
 
 export function ByDocumentPage({
   docsInfo,
   isDrawerOpen,
   onDrawerChange,
+  openDrawer,
 }: ByDocumentPageProps) {
   const t = useText('clusters');
-  // Browser state
+
+  // Cluster Browser state
   const [selectedDoc, setSelectedDoc] = useState<
     collectionDocInfo | undefined
   >();
   const [selectedType, setSelectedType] = useState<string | undefined>();
   const [selectedEntity, setSelectedEntity] = useState<Cluster | undefined>();
 
+  // Need this to set the source cluster for the merge functionality
+  // when clicking the merge button in the EntityList
+  const [sourceCluster, setSourceCluster] = useState<
+    ClusterWithDocId | undefined
+  >();
+
+  useEffect(() => {
+    // Source cluster needs to be consumed once the drawer is opened
+    // to prevent the next opening of the drawer through the button
+    // in the toolbar to still have the old sourceCluster selected,
+    // even tho no cluster was actually selected through the button
+    // on its row
+    if (!isDrawerOpen) {
+      setSourceCluster(undefined);
+    }
+  }, [isDrawerOpen]);
+
   /*
+    WORKFLOW:
     1. Given a document, get the info about it (documentData)
     2. Group entities in the document based on their type (clusterGroups)
     3. Given a selected type, filter the document's entities to match that type
@@ -126,6 +147,13 @@ export function ByDocumentPage({
     }
   };
 
+  // This is only for the button that is rendered 
+  // on the row of a cluster in the list
+  const onMergeButtonClick = (c: ClusterWithDocId) => {
+    openDrawer();
+    setSourceCluster(c);
+  };
+
   return (
     <>
       <MultiPane>
@@ -149,6 +177,8 @@ export function ByDocumentPage({
           entities={entitiesForSelectedType}
           selectedEntity={selectedEntity}
           onEntitySelection={handleEntitySelection}
+          showMergeButton={true}
+          onMergeButtonClick={onMergeButtonClick}
         />
         <MentionsList
           selectedEntity={selectedEntity}
@@ -160,6 +190,7 @@ export function ByDocumentPage({
         selectedDocumentInBrowser={selectedDoc}
         isOpen={isDrawerOpen}
         onOpenChange={onDrawerChange}
+        sourceCluster={sourceCluster}
       />
     </>
   );

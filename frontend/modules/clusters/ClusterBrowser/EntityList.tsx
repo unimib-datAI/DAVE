@@ -5,12 +5,15 @@ import { Cluster } from '@/server/routers/document';
 import { ListItem } from './ListItem';
 import { ListPane } from './ListPane';
 import { ClusterWithDocId } from './types';
+import { FiGitMerge } from '@react-icons/all-files/fi/FiGitMerge';
 
 type EntityListProps = {
   selectedType: string | undefined;
   entities: ClusterWithDocId[];
   selectedEntity: ClusterWithDocId | undefined;
   onEntitySelection: (e: Cluster) => void;
+  showMergeButton?: boolean;
+  onMergeButtonClick?: (c: ClusterWithDocId) => void;
 };
 
 export function EntityList({
@@ -18,8 +21,19 @@ export function EntityList({
   entities,
   selectedEntity,
   onEntitySelection,
+  showMergeButton = false,
+  onMergeButtonClick,
 }: EntityListProps) {
   const t = useText('clusters');
+
+  const handleMergeButtonClick = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    c: ClusterWithDocId
+  ) => {
+    e.stopPropagation();
+    if (onMergeButtonClick) onMergeButtonClick(c);
+  };
+
   return (
     <>
       <ListPane
@@ -29,21 +43,26 @@ export function EntityList({
         emptyMessage={t('selectType')}
       >
         {selectedType &&
-          entities.map((e, i) => {
+          entities.map((c, i) => {
             return (
               <ListItem
                 key={i}
                 selected={
-                  selectedEntity?.id === e.id &&
-                  selectedEntity.docId === e.docId
+                  selectedEntity?.id === c.id &&
+                  selectedEntity.docId === c.docId
                 }
-                onClick={() => onEntitySelection(e)}
+                onClick={() => onEntitySelection(c)}
               >
                 <FiTag />
-                <ItemLabel>{e.title}</ItemLabel>
+                <ItemLabel>{c.title}</ItemLabel>
                 <NumberLabel>
-                  ({e.mentions.length} {t('mentions').toLowerCase()})
+                  ({c.mentions.length} {t('mentions').toLowerCase()})
                 </NumberLabel>
+                {showMergeButton && (
+                  <MergeButton onClick={(e) => handleMergeButtonClick(e, c)}>
+                    <FiGitMerge />
+                  </MergeButton>
+                )}
               </ListItem>
             );
           })}
@@ -51,7 +70,6 @@ export function EntityList({
     </>
   );
 }
-
 
 const ItemLabel = styled.span`
   flex: 1;
@@ -70,4 +88,12 @@ const NumberLabel = styled.div`
   font-size: 14px;
 `;
 
+const MergeButton = styled.button`
+  width: fit-content;
 
+  :hover {
+    svg {
+      color: var(--foreground);
+    }
+  }
+`;

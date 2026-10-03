@@ -12,12 +12,20 @@ import { ClusterWithDocId } from './types';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { useEffect, useState } from 'react';
 import { useDocumentClusters } from './useDocumentClusters';
+import { FlatTreeNode, getAllNodeData } from '@/components/Tree';
+import { EntityTypeTag } from '@/components/EntityTypeTag';
 
 type MergeClustersDrawerProps = {
   isOpen: boolean;
   onOpenChange: () => void;
   docsInCollection: collectionDocInfo[];
   selectedDocumentInBrowser?: collectionDocInfo;
+  sourceCluster?: ClusterWithDocId;
+};
+
+const getAutocompleteKey = (c: ClusterWithDocId | null) => {
+  if (!c) return null;
+  return `${c.docId}-${c.id}`;
 };
 
 export function MergeClustersDrawer({
@@ -25,22 +33,29 @@ export function MergeClustersDrawer({
   onOpenChange,
   docsInCollection,
   selectedDocumentInBrowser,
+  sourceCluster,
 }: MergeClustersDrawerProps) {
   // State
   const [selectedDocument, setSelectedDocument] = useState<
     collectionDocInfo | undefined
   >(selectedDocumentInBrowser);
 
-  useEffect(() => {
-    setSelectedDocument(selectedDocumentInBrowser);
-  }, [selectedDocumentInBrowser]);
-
-  const [firstClusterKey, setfirstClusterKey] = useState<string | null>(null);
+  const [firstClusterKey, setFirstClusterKey] = useState<string | null>(null);
   const [secondClusterKey, setSecondClusterKey] = useState<string | null>(null);
 
+  useEffect(() => {
+    // If the drawer has just been opened
+    if (isOpen) {
+      setSelectedDocument(selectedDocumentInBrowser);
+
+      // Reset selected keys
+      setFirstClusterKey(getAutocompleteKey(sourceCluster ?? null));
+      setSecondClusterKey(null);
+    }
+  }, [isOpen, sourceCluster, selectedDocument]);
+
   // Fetch clusters every time the selected document changes
-  console.log(selectedDocument?.id);
-  const { clusters } = useDocumentClusters(selectedDocument?.id);
+  const { clusters, taxonomy } = useDocumentClusters(selectedDocument?.id);
 
   // Event handlers
   const handleDocumentSelection = (key: string | null) => {
@@ -49,7 +64,7 @@ export function MergeClustersDrawer({
     const newDoc = docsInCollection.find((d) => d.id === key);
     if (!newDoc) return;
 
-    setfirstClusterKey(null);
+    setFirstClusterKey(null);
     setSecondClusterKey(null);
 
     setSelectedDocument(newDoc);
@@ -76,13 +91,15 @@ export function MergeClustersDrawer({
             clusters={clusters}
             label="Select a cluster"
             selectedKey={firstClusterKey}
-            setSelectedKey={setfirstClusterKey}
+            setSelectedKey={setFirstClusterKey}
+            taxonomy={taxonomy}
           />
           <ClusterAutocomplete
             clusters={clusters}
             label="Select a cluster"
             selectedKey={secondClusterKey}
             setSelectedKey={setSecondClusterKey}
+            taxonomy={taxonomy}
           />
           <Button isDisabled={!firstClusterKey || !secondClusterKey}>
             Merge
@@ -98,6 +115,7 @@ type ClusterAutocompleteProps = {
   label: string;
   selectedKey: string | null;
   setSelectedKey: (key: string | null) => void;
+  taxonomy: { [x: string]: FlatTreeNode };
 };
 
 function ClusterAutocomplete({
@@ -105,6 +123,7 @@ function ClusterAutocomplete({
   label,
   selectedKey,
   setSelectedKey,
+  taxonomy,
 }: ClusterAutocompleteProps) {
   return (
     <Autocomplete
@@ -113,7 +132,16 @@ function ClusterAutocomplete({
       onSelectionChange={(key) => setSelectedKey(key as string | null)}
     >
       {clusters.map((c) => (
-        <AutocompleteItem key={`${c.docId}-${c.id}`}>
+        <AutocompleteItem
+          key={getAutocompleteKey(c)}
+          startContent={
+            <EntityTypeTag
+              label={c.type}
+              color={getAllNodeData(taxonomy, c.type).color}
+              fontSize="12px"
+            />
+          }
+        >
           {c.title}
         </AutocompleteItem>
       ))}
