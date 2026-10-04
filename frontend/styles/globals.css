@@ -49,6 +49,7 @@
   --ring: hsl(212 100% 47%);
 
   /* Fonts */
+  --font-regular: 400;
   --font-semibold: 500;
   --font-bold: 700;
 
