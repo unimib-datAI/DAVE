@@ -1,4 +1,4 @@
-import { Cluster } from "@/server/routers/document";
+import { Cluster } from '@/server/routers/document';
 
 export type ClusterWithDocId = Cluster & { docId?: number };
 
@@ -10,4 +10,10 @@ export type Mention = {
   mention: string;
   documentId?: number;
   documentTitle?: string;
+};
+
+export type Suggestion = {
+  first: ClusterWithDocId;
+  second: ClusterWithDocId;
+  score: number;
 };

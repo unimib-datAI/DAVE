@@ -5,14 +5,16 @@ import {
   DrawerBody,
   DrawerContent,
   DrawerHeader,
+  Spinner,
 } from '@heroui/react';
-import { ClusterWithDocId } from '../types';
+import { ClusterWithDocId, Suggestion } from '../types';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { useEffect, useState } from 'react';
 import { useDocumentClusters } from '../useDocumentClusters';
 import { StyledAutocomplete } from '../../../../components/StyledAutocomplete/StyledAutocomplete';
 import { getAutocompleteKey } from './utils';
 import { MergeClustersEntry } from './MergeClustersEntry';
+import { token_set_ratio } from 'fuzzball';
 
 type MergeClustersDrawerProps = {
   isOpen: boolean;
@@ -33,6 +35,10 @@ export function MergeClustersDrawer({
     collectionDocInfo | undefined
   >(selectedDocumentInBrowser);
 
+  const [suggestions, setSuggestions] = useState<Suggestion[]>();
+  const [isComputingSuggestions, setIsComputingSuggestions] =
+    useState<boolean>(false);
+
   const [firstClusterKey, setFirstClusterKey] = useState<string | null>(null);
   const [secondClusterKey, setSecondClusterKey] = useState<string | null>(null);
 
@@ -48,7 +54,30 @@ export function MergeClustersDrawer({
 
   // Fetch clusters every time the selected document changes
   const { clusters, taxonomy } = useDocumentClusters(selectedDocument?.id);
-  console.log(selectedDocument?.id);
+
+  const SIMILARITY_THRESHOLD = 0.95;
+  useEffect(() => {
+    if (!isOpen || !selectedDocument || clusters.length === 0) {
+      setIsComputingSuggestions(false);
+      return;
+    }
+
+    setSuggestions([]);
+    setIsComputingSuggestions(true);
+
+    const worker = new Worker(
+      new URL('./stringSimilarityWorker.ts', import.meta.url)
+    );
+
+    worker.onmessage = (e) => {
+      setSuggestions(e.data);
+      setIsComputingSuggestions(false);
+    };
+
+    worker.postMessage({ clusters, threshold: SIMILARITY_THRESHOLD });
+
+    return () => worker.terminate();
+  }, [isOpen, clusters]);
 
   // Event handlers
   const handleDocumentSelection = (key: string | null) => {
@@ -80,6 +109,7 @@ export function MergeClustersDrawer({
             <p>Document</p>
             <StyledAutocomplete
               placeholder="Select a document"
+              aria-label="Select a document"
               defaultInputValue={selectedDocumentInBrowser?.name}
               defaultSelectedKey={selectedDocumentInBrowser?.id}
               onSelectionChange={(key) =>
@@ -110,6 +140,23 @@ export function MergeClustersDrawer({
           <Separator />
           <div>
             <SectionTitle>Suggested</SectionTitle>
+            {isComputingSuggestions ? (
+              <Spinner />
+            ) : (
+              suggestions?.map((s, i) => (
+                <MergeClustersEntry
+                  key={i}
+                  clusters={clusters}
+                  firstPlaceholder="Keep"
+                  secondPlaceholder="Merge Away"
+                  taxonomy={taxonomy}
+                  firstClusterKey={getAutocompleteKey(s.first)}
+                  secondClusterKey={getAutocompleteKey(s.second)}
+                  onMerge={() => {}}
+                  isSelectionEnabled={false}
+                />
+              ))
+            )}
           </div>
         </StyledDrawerBody>
       </DrawerContent>

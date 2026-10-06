@@ -45,6 +45,7 @@
     "eventsource-parser": "^1.0.0",
     "framer-motion": "^11.5.4",
     "fuse.js": "^6.6.2",
+    "fuzzball": "^2.2.6",
     "immer": "^9.0.14",
     "install": "^0.13.0",
     "jotai": "^2.4.2",

@@ -11,9 +11,10 @@ type MergeClustersEntryProps = {
   secondPlaceholder: string;
   taxonomy: { [x: string]: FlatTreeNode };
   firstClusterKey: string | null;
-  setFirstClusterKey: (key: string | null) => void;
+  setFirstClusterKey?: (key: string | null) => void;
   secondClusterKey: string | null;
-  setSecondClusterKey: (key: string | null) => void;
+  setSecondClusterKey?: (key: string | null) => void;
+  isSelectionEnabled?: boolean;
   onMerge: () => void;
 };
 
@@ -26,6 +27,7 @@ export function MergeClustersEntry({
   setFirstClusterKey,
   secondClusterKey,
   setSecondClusterKey,
+  isSelectionEnabled = true,
   onMerge,
 }: MergeClustersEntryProps) {
   return (
@@ -34,16 +36,18 @@ export function MergeClustersEntry({
         clusters={clusters}
         label={firstPlaceholder}
         selectedKey={firstClusterKey}
-        setSelectedKey={setFirstClusterKey}
+        setSelectedKey={(key) => setFirstClusterKey?.(key)}
         taxonomy={taxonomy}
+        isEnabled={isSelectionEnabled}
       />
       <FiArrowLeft size={52} />
       <ClusterAutocomplete
         clusters={clusters}
         label={secondPlaceholder}
         selectedKey={secondClusterKey}
-        setSelectedKey={setSecondClusterKey}
+        setSelectedKey={(key) => setSecondClusterKey?.(key)}
         taxonomy={taxonomy}
+        isEnabled={isSelectionEnabled}
       />
       <MergeButton
         isDisabled={!firstClusterKey || !secondClusterKey}

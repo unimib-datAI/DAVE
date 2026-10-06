@@ -11,6 +11,7 @@ type ClusterAutocompleteProps = {
   selectedKey: string | null;
   setSelectedKey: (key: string | null) => void;
   taxonomy: { [x: string]: FlatTreeNode };
+  isEnabled: boolean;
 };
 
 export function ClusterAutocomplete({
@@ -19,6 +20,7 @@ export function ClusterAutocomplete({
   selectedKey,
   setSelectedKey,
   taxonomy,
+  isEnabled,
 }: ClusterAutocompleteProps) {
   return (
     <StyledAutocomplete
@@ -26,6 +28,8 @@ export function ClusterAutocomplete({
       selectedKey={selectedKey}
       onSelectionChange={(key) => setSelectedKey(key as string | null)}
       variant="bordered"
+      aria-label={label}
+      isDisabled={!isEnabled}
     >
       {clusters.map((c) => (
         <AutocompleteItem
