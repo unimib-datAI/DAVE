@@ -1,21 +1,28 @@
 import { token_set_ratio } from 'fuzzball';
-import { ClusterWithDocId, Suggestion } from '../types';
 
-type StringSimilarityWorkerType = {
-  clusters: ClusterWithDocId[];
+type StringSimilarityWorkerInput = {
+  strings: string[];
   threshold: number;
 };
 
-self.onmessage = function (e: MessageEvent<StringSimilarityWorkerType>) {
-  console.log('computing suggestions inside worker...');
-  const clusters = e.data.clusters;
-  const result: Suggestion[] = [];
-  for (let i = 0; i < clusters.length; i++) {
-    for (let j = i + 1; j < clusters.length; j++) {
-      const score = token_set_ratio(clusters[i].title, clusters[j].title);
+export type StringSimilarityWorkerOutput = {
+  firstIndex: number;
+  secondIndex: number;
+  score: number;
+};
+
+self.onmessage = function (e: MessageEvent<StringSimilarityWorkerInput>) {
+  const strings = e.data.strings;
+  const result: StringSimilarityWorkerOutput[] = [];
+  for (let i = 0; i < strings.length; i++) {
+    for (let j = i + 1; j < strings.length; j++) {
+      const score = token_set_ratio(strings[i], strings[j]);
       if (score / 100 >= e.data.threshold)
-        result.push({ first: clusters[i], second: clusters[j], score });
+        result.push({ firstIndex: i, secondIndex: j, score });
     }
   }
+
+  // Sort by descending score
+  result.sort((a, b) => b.score - a.score);
   postMessage(result);
 };

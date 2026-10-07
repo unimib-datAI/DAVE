@@ -7,7 +7,6 @@ import { getAutocompleteKey } from './utils';
 
 type ClusterAutocompleteProps = {
   clusters: ClusterWithDocId[];
-  label: string;
   selectedKey: string | null;
   setSelectedKey: (key: string | null) => void;
   taxonomy: { [x: string]: FlatTreeNode };
@@ -16,7 +15,6 @@ type ClusterAutocompleteProps = {
 
 export function ClusterAutocomplete({
   clusters,
-  label,
   selectedKey,
   setSelectedKey,
   taxonomy,
@@ -24,12 +22,12 @@ export function ClusterAutocomplete({
 }: ClusterAutocompleteProps) {
   return (
     <StyledAutocomplete
-      placeholder={label}
+      placeholder="Select an entity"
       selectedKey={selectedKey}
       onSelectionChange={(key) => setSelectedKey(key as string | null)}
       variant="bordered"
-      aria-label={label}
       isDisabled={!isEnabled}
+      aria-label="Select an entity"
     >
       {clusters.map((c) => (
         <AutocompleteItem

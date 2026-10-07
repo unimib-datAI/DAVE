@@ -5,10 +5,9 @@ import { useQuery } from '@/utils/trpc';
 import { useMemo } from 'react';
 
 export function useDocumentClusters(docId: string | undefined) {
-  // Return the list of new clusters
   const { data: documentData } = useQuery(
     ['document.getDocument', { id: docId ?? '' }],
-    { enabled: !!docId }
+    { enabled: !!docId, keepPreviousData: true }
   );
 
   return useMemo(() => {
