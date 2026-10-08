@@ -1,6 +1,6 @@
 import { Cluster } from '@/server/routers/document';
 
-export type ClusterWithDocId = Cluster & { docId?: number };
+export type ClusterWithDocId = Cluster & { docId?: string };
 
 export type Mention = {
   start: number;

@@ -54,7 +54,7 @@ export function EntityList({
                 onClick={() => onEntitySelection(c)}
               >
                 <FiTag />
-                <ItemLabel>{c.title}</ItemLabel>
+                <ItemLabel title={c.title}>{c.title}</ItemLabel>
                 <NumberLabel>
                   ({c.mentions.length} {t('mentions').toLowerCase()})
                 </NumberLabel>

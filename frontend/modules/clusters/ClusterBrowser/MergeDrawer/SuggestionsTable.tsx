@@ -1,5 +1,5 @@
 import styled from '@emotion/styled';
-import { Suggestion } from '../types';
+import { ClusterWithDocId, Suggestion } from '../types';
 import { FlatTreeNode, getAllNodeData } from '@/components/Tree';
 import { EntityTypeTag } from '@/components/EntityTypeTag';
 import { getClusterKey } from './utils';
@@ -11,7 +11,7 @@ import { FiEdit2 } from '@react-icons/all-files/fi/FiEdit2';
 type SuggestionsTableProps = {
   suggestions: Suggestion[];
   taxonomy: { [x: string]: FlatTreeNode };
-  onEdit: () => void;
+  onEdit: (keep: ClusterWithDocId, mergeAway: ClusterWithDocId) => void;
   onMerge: () => void;
 };
 
@@ -54,7 +54,7 @@ export default function SuggestionsTable({
 type SuggestionRowProps = {
   suggestion: Suggestion;
   taxonomy: { [x: string]: FlatTreeNode };
-  onEdit: () => void;
+  onEdit: (keep: ClusterWithDocId, mergeAway: ClusterWithDocId) => void;
   onMerge: () => void;
 };
 function SuggestionRow({
@@ -94,7 +94,7 @@ function SuggestionRow({
       </Cell>
       <Cell row={1} col={5}>
         <ActionButtonContainer>
-          <ActionButton onPress={onEdit} isIconOnly>
+          <ActionButton onPress={() => onEdit(first, second)} isIconOnly>
             <FiEdit2 />
           </ActionButton>
         </ActionButtonContainer>

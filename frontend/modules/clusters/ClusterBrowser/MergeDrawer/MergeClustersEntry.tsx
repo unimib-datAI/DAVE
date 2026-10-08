@@ -4,6 +4,7 @@ import { ClusterAutocomplete } from './ClusterAutocomplete';
 import { FiArrowLeft } from '@react-icons/all-files/fi/FiArrowLeft';
 import { ClusterWithDocId } from '../types';
 import { FlatTreeNode } from '@/components/Tree';
+import { IoMdSwap } from '@react-icons/all-files/io/IoMdSwap';
 
 type MergeClustersEntryProps = {
   clusters: ClusterWithDocId[];
@@ -24,6 +25,13 @@ export function MergeClustersEntry({
   setSecondCluster,
   onMerge,
 }: MergeClustersEntryProps) {
+  console.log(clusters);
+  const swapButtonHandler = () => {
+    const first = firstCluster;
+    setFirstCluster(secondCluster);
+    setSecondCluster(first);
+  };
+
   return (
     <MergeClustersRow>
       <Cell row={1} col={1}>
@@ -31,6 +39,12 @@ export function MergeClustersEntry({
       </Cell>
       <Cell row={1} col={3}>
         <Label>Merge Away</Label>
+      </Cell>
+
+      <Cell row={1} col={2}>
+        <div className="flex items-center w-full h-full justify-center">
+          <FiArrowLeft size={12} />
+        </div>
       </Cell>
 
       <Cell row={2} col={1}>
@@ -44,7 +58,9 @@ export function MergeClustersEntry({
 
       <Cell row={2} col={2}>
         <ArrowContainer>
-          <FiArrowLeft size={24} />
+          <Button variant="light" isIconOnly onPress={swapButtonHandler}>
+            <IoMdSwap size={24} />
+          </Button>
         </ArrowContainer>
       </Cell>
 

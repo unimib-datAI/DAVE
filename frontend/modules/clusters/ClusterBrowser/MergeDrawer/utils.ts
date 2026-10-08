@@ -9,7 +9,7 @@ export const getInfoFromClusterKey = (key: string | null) => {
   if (!key) return null;
   const split = key.split('-');
   return {
-    docId: Number(split[0]),
+    docId: split[0],
     clusterId: Number(split[1]),
   };
 };

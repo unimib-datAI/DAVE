@@ -10,7 +10,7 @@ import {
 } from '@heroui/react';
 import { ClusterWithDocId, Suggestion } from '../types';
 import { collectionDocInfo } from '@/server/routers/collection';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useDocumentClusters } from '../useDocumentClusters';
 import { StyledAutocomplete } from '../../../../components/StyledAutocomplete/StyledAutocomplete';
 import { MergeClustersEntry } from './MergeClustersEntry';
@@ -35,6 +35,8 @@ export function MergeClustersDrawer({
   // Constants
   const PAGE_SIZE = 10;
   const SIMILARITY_THRESHOLD = 0.98;
+
+  const manualMergeSectionRef = useRef<HTMLDivElement>(null);
 
   const [selectedDocument, setSelectedDocument] = useState<
     collectionDocInfo | undefined
@@ -98,6 +100,8 @@ export function MergeClustersDrawer({
       return;
     }
 
+    // Change worker to change how the entities are compared
+    // and possible merges are suggested
     const worker = new Worker(
       new URL('./stringSimilarityWorker.ts', import.meta.url)
     );
@@ -143,6 +147,15 @@ export function MergeClustersDrawer({
     setSelectedDocument(newDoc);
   };
 
+  const onEditSuggestion = (
+    keep: ClusterWithDocId,
+    mergeAway: ClusterWithDocId
+  ) => {
+    manualMergeSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setFirstCluster(keep);
+    setSecondCluster(mergeAway);
+  };
+
   // Define suggestion list here for readability
   const SuggestionList = () => {
     if (isComputingSuggestions) {
@@ -168,7 +181,7 @@ export function MergeClustersDrawer({
         <SuggestionsTable
           suggestions={visibleSuggestions ?? []}
           taxonomy={taxonomy}
-          onEdit={() => {}}
+          onEdit={onEditSuggestion}
           onMerge={() => {}}
         />
 
@@ -246,7 +259,7 @@ export function MergeClustersDrawer({
             </StyledAutocomplete>
           </DocumentSelectionContainer>
           <Separator />
-          <Section>
+          <Section ref={manualMergeSectionRef}>
             <SectionTitle>Merge Manually</SectionTitle>
             <SectionContent>
               <MergeClustersEntry

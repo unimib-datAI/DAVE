@@ -1,11 +1,8 @@
 import { useText } from '@/components';
 import { MultiPane } from '@/components/MultiPane';
-import { useQuery } from '@/utils/trpc';
 import { useEffect, useState } from 'react';
 import { groupBy } from '@/utils/shared';
 import { Cluster } from '@/server/routers/document';
-import { createTaxonomy } from '@/modules/document/DocumentProvider/utils';
-import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
 import {
   DocumentList,
   EntityList,
