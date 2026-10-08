@@ -20,7 +20,7 @@ import {
   signOut,
   getSession,
 } from 'next-auth/react';
-import { useQuery } from '@/utils/trpc';
+import { isPermanentTrpcError, useQuery } from '@/utils/trpc';
 import { useRouter } from 'next/router';
 import { useAtom } from 'jotai';
 import { loadLLMSettingsAtom } from '@/atoms/llmSettings';
@@ -147,12 +147,7 @@ function MyApp({
     // Log user ID whenever session changes
     useEffect(() => {
       if (currentSession?.user) {
-        console.log(
-          'User ID:',
-          (currentSession.user as any).userId || 'No ID available'
-        );
       } else {
-        console.log('User ID: Not logged in');
       }
     }, [currentSession]);
 
@@ -230,9 +225,6 @@ function MyApp({
 
             // If already expired, refresh immediately
             if (timeUntilExpiry <= 0) {
-              console.log(
-                'AuthWatcher: token already expired, refreshing immediately'
-              );
               update().catch((err) => {
                 console.error('AuthWatcher: immediate refresh failed', err);
                 signOut({
@@ -246,19 +238,10 @@ function MyApp({
             const refreshBuffer = Math.min(60 * 1000, timeUntilExpiry / 2);
             const refreshIn = timeUntilExpiry - refreshBuffer;
 
-            console.log(
-              `AuthWatcher: scheduling refresh in ${Math.round(
-                refreshIn / 1000
-              )}s (token expires in ${Math.round(timeUntilExpiry / 1000)}s)`
-            );
 
             timeoutId = setTimeout(async () => {
               try {
-                console.log(
-                  'AuthWatcher: performing scheduled session refresh'
-                );
                 await update();
-                console.log('AuthWatcher: scheduled refresh finished');
               } catch (err) {
                 console.error('AuthWatcher: scheduled refresh failed', err);
                 signOut({
@@ -273,11 +256,7 @@ function MyApp({
             );
             intervalId = setInterval(async () => {
               try {
-                console.log(
-                  'AuthWatcher: performing fallback periodic refresh'
-                );
                 await update();
-                console.log('AuthWatcher: fallback refresh finished');
               } catch (err) {
                 console.error('AuthWatcher: fallback refresh failed', err);
                 signOut({
@@ -402,6 +381,16 @@ export default withTRPC<AppRouter>({
       /**
        * @link https://react-query.tanstack.com/reference/QueryClient
        */
+      queryClientConfig: {
+        defaultOptions: {
+          queries: {
+            // Retrying a forbidden/not-found/invalid request can't succeed -
+            // it only multiplies the error (and its toast) by four.
+            retry: (failureCount: number, error: unknown) =>
+              !isPermanentTrpcError(error) && failureCount < 3,
+          },
+        },
+      },
     };
   },
   /**

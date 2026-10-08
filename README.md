@@ -157,7 +157,7 @@ That's it! All other variables have sensible defaults for local development.
 | | `MODEL_NAME` | No | `default-model` | Text generation model name |
 | **QA Vectorizer** | `QAVECTORIZER_ADDR` | No | `7863` | QA vectorizer service port |
 | | `API_INDEXER` | No | `http://qavectorizer:7863` | Indexer API endpoint |
-| | `SENTENCE_TRANSFORMER_EMBEDDING_MODEL` | No | `Alibaba-NLP/gte-multilingual-base` | Hugging Face embedding model |
+| | `SENTENCE_TRANSFORMER_EMBEDDING_MODEL` | No | `ibm-granite/granite-embedding-311m-multilingual-r2` | Hugging Face embedding model |
 | | `SENTENCE_TRANSFORMER_DEVICE` | No | `cuda` | Device for inference (`cuda` or `cpu`) |
 | | `OGG2NAME_INDEX` | No | `dave_ogg2name` | Object-to-name mapping index |
 | **Docker** | `RESTART_POLICY` | No | `unless-stopped` | Container restart policy |
@@ -355,7 +355,7 @@ DAVE supports Keycloak for enterprise SSO. If not using Keycloak, you can use ba
   - Default: `8000`
 
 - **`SENTENCE_TRANSFORMER_EMBEDDING_MODEL`** - Hugging Face model for embeddings
-  - Default: `Alibaba-NLP/gte-multilingual-base`
+  - Default: `ibm-granite/granite-embedding-311m-multilingual-r2`
   - Other options: `sentence-transformers/all-MiniLM-L6-v2`, `intfloat/multilingual-e5-large`
 
 - **`SENTENCE_TRANSFORMER_DEVICE`** - Device for inference

@@ -31,9 +31,15 @@ type FormState = {
   };
 };
 
+// The form sits between ModalContent and ModalBody; without flex/min-height
+// here the body never gets a bounded height, so it cannot scroll and its
+// content spills out of the modal.
 const Form = styled.form({
   display: 'flex',
   flexDirection: 'column',
+  flex: '1 1 auto',
+  minHeight: 0,
+  minWidth: 0,
 });
 
 function matchTitleContains(items: Candidate[], value: string) {
@@ -99,7 +105,9 @@ const EditAnnotationForm = ({
 
   return (
     <Form onSubmit={onSubmit(handleSubmit)}>
-      <ModalBody style={{ padding: '0px 24px' }}>
+      <ModalBody
+        style={{ padding: '0px 24px', overflowY: 'auto', minHeight: 0 }}
+      >
         <Flex direction="column" gap="10px">
           <Flex direction="column">
             <Text size={20}>{t('modals.editAnnotation.context')}</Text>

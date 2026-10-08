@@ -230,7 +230,6 @@ const Collections: NextPage = () => {
 
   const createMutation = useMutation(['collection.create'], {
     onMutate: (variables) => {
-      console.debug('[collection.create] onMutate', variables);
     },
     onSuccess: () => {
       refetchCollections();
@@ -244,7 +243,6 @@ const Collections: NextPage = () => {
 
   const updateMutation = useMutation(['collection.update'], {
     onMutate: (variables) => {
-      console.debug('[collection.update] onMutate', variables);
     },
     onSuccess: () => {
       refetchCollections();
@@ -258,7 +256,6 @@ const Collections: NextPage = () => {
 
   const deleteMutation = useMutation(['collection.delete'], {
     onMutate: (variables) => {
-      console.debug('[collection.delete] onMutate', variables);
     },
     onSuccess: (result) => {
       refetchCollections();
@@ -536,7 +533,6 @@ const Collections: NextPage = () => {
               id={`collection-${collection.id}`}
               key={collection.id}
               onClick={() => {
-                console.log('clicked collection', collection.id);
                 router.push(`/collections/${collection.id}`);
               }}
             >

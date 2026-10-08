@@ -137,6 +137,9 @@ export type Translation = {
     typesSaved: string;
     errorSavingTypes: string;
     typesOrder: string;
+    typeColors: string;
+    typeColorsHint: string;
+    resetColor: string;
   };
   chat: {
     initialMessage: string;

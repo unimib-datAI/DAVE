@@ -143,6 +143,10 @@ const t: Translation = {
     typesSaved: 'Tipi salvati',
     errorSavingTypes: 'Errore nel salvataggio dei tipi',
     typesOrder: 'Ordine dei filtri facet',
+    typeColors: 'Colori dei tipi di entità',
+    typeColorsHint:
+      'I colori vengono assegnati automaticamente ai nuovi tipi e restano fissi. Clicca su un campione per cambiarlo.',
+    resetColor: 'Ripristina',
   },
   chat: {
     initialMessage: 'Ciao, come posso aiutarti?',
@@ -401,17 +405,6 @@ const t: Translation = {
       metadataContent: {
         title: 'Metadati del documento',
         description: 'Visualizza i metadati del documento',
-        fields: {
-          name: 'Nome',
-          nomegiudice: 'Nome Giudice',
-          cf_giudice: 'Codice Fiscale Giudice',
-          parte: 'Parte',
-          controparte: 'Controparte',
-          gradogiudizio: 'Grado Giudizio',
-          start_time: 'Ora di Inizio',
-          participants: 'Partecipanti',
-          number_of_messages: 'Numero di Messaggi',
-        },
       },
       addContent: {
         title: 'Aggiungi annotazione',

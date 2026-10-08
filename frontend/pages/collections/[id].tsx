@@ -4,7 +4,7 @@ import { Button, Pagination, Spinner } from '@heroui/react';
 import { NextPage } from 'next';
 import { useSession, getSession } from 'next-auth/react';
 import { useRouter } from 'next/router';
-import { useEffect, useState, ReactNode } from 'react';
+import { useEffect, useMemo, useState, ReactNode } from 'react';
 import { FiArrowLeft } from '@react-icons/all-files/fi/FiArrowLeft';
 import styled from '@emotion/styled';
 import { collectionDocInfo } from '@/server/routers/collection';
@@ -39,6 +39,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
+import { flattenTree, getAllNodeData } from '@/components/Tree';
 import { GripVertical } from 'lucide-react';
 const PageContainer = styled.div`
   max-width: 1200px;
@@ -169,7 +171,14 @@ const Collection: NextPage = () => {
   const [typesModalOpen, setTypesModalOpen] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
   const [typesOrder, setTypesOrder] = useState<string[]>([]);
+  // user-edited / persisted colors per entity type (config.typeColors)
+  const [typeColors, setTypeColors] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
+  const flatBaseTaxonomy = useMemo(() => flattenTree(baseTaxonomy), []);
+  // what the document view shows for a type: the collection's color if set,
+  // otherwise the taxonomy color / stable generated one
+  const effectiveTypeColor = (type: string) =>
+    typeColors[type] ?? getAllNodeData(flatBaseTaxonomy, type).color;
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -251,6 +260,7 @@ const Collection: NextPage = () => {
       const savedOrder: string[] = Array.isArray(current?.config?.typesOrder)
         ? (current.config.typesOrder as string[])
         : [];
+      setTypeColors({ ...((current?.config as any)?.typeColors || {}) });
       if (savedOrder.length > 0) {
         setTypesOrder([
           ...savedOrder.filter((t) => allTypes.includes(t)),
@@ -405,6 +415,7 @@ const Collection: NextPage = () => {
                         ...(c.config || {}),
                         typesToHide: selectedTypes,
                         typesOrder: typesOrder,
+                        typeColors,
                       },
                     }
                   : c
@@ -418,6 +429,7 @@ const Collection: NextPage = () => {
                         ...(activeCollection.config || {}),
                         typesToHide: selectedTypes,
                         typesOrder: typesOrder,
+                        typeColors,
                       },
                     }
                   : activeCollection;
@@ -428,6 +440,7 @@ const Collection: NextPage = () => {
                   config: {
                     typesToHide: selectedTypes,
                     typesOrder: typesOrder,
+                    typeColors,
                   },
                   token: authDisabled ? undefined : token,
                 });
@@ -496,11 +509,51 @@ const Collection: NextPage = () => {
               >
                 {typesOrder.map((type) => (
                   <SortableTypeItem key={type} id={type}>
-                    <span style={{ fontSize: 13 }}>{type}</span>
+                    <span style={{ fontSize: 13, flex: 1 }}>{type}</span>
+                    <input
+                      type="color"
+                      aria-label={`${type} color`}
+                      value={effectiveTypeColor(type)}
+                      onChange={(e) =>
+                        setTypeColors((old) => ({
+                          ...old,
+                          [type]: e.target.value,
+                        }))
+                      }
+                      style={{
+                        width: 28,
+                        height: 22,
+                        padding: 0,
+                        border: '1px solid #ddd',
+                        borderRadius: 4,
+                        cursor: 'pointer',
+                        background: 'none',
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setTypeColors((old) => {
+                          const { [type]: _removed, ...rest } = old;
+                          return rest;
+                        })
+                      }
+                      disabled={!typeColors[type]}
+                      style={{
+                        fontSize: 11,
+                        color: typeColors[type] ? '#555' : '#ccc',
+                        cursor: typeColors[type] ? 'pointer' : 'default',
+                      }}
+                    >
+                      {t('resetColor')}
+                    </button>
                   </SortableTypeItem>
                 ))}
               </SortableContext>
             </DndContext>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+              {t('typeColorsHint')}
+            </div>
           </div>
         </Modal>
         <UploadDocumentsModal doneUploading={refetch} collectionId={id} />

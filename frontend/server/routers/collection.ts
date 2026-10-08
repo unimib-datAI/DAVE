@@ -482,6 +482,9 @@ export const collections = createRouter()
         .object({
           typesToHide: z.array(z.string()).optional(),
           typesOrder: z.array(z.string()).optional(),
+          typeColors: z
+            .record(z.string(), z.string().regex(/^#[0-9a-fA-F]{6}$/))
+            .optional(),
         })
         .optional(),
       token: z.string().optional(),

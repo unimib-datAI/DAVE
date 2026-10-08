@@ -108,7 +108,7 @@ Ensure Elasticsearch is running and accessible. Configure the connection in your
 
 ## Embedding Model
 
-The service uses sentence transformer models for generating embeddings. The default model is `Alibaba-NLP/gte-multilingual-base` (768 dimensions).
+The service uses sentence transformer models for generating embeddings. The default model is `ibm-granite/granite-embedding-311m-multilingual-r2` (768 dimensions).
 
 You can configure a different model via the `SENTENCE_TRANSFORMER_EMBEDDING_MODEL` environment variable.
 

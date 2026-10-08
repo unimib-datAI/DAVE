@@ -142,6 +142,10 @@ const t: Translation = {
     typesSaved: 'Types saved',
     errorSavingTypes: 'Error saving types',
     typesOrder: 'Facet filters order',
+    typeColors: 'Entity type colors',
+    typeColorsHint:
+      'Colors are assigned automatically to new types and stay fixed. Click a swatch to change one.',
+    resetColor: 'Reset',
   },
   chat: {
     initialMessage: 'Hi, how can i help you?',
@@ -400,17 +404,6 @@ const t: Translation = {
       metadataContent: {
         title: "Document's metadata",
         description: 'Below are shown the document metadata',
-        fields: {
-          name: 'Name',
-          nomegiudice: 'Judge Name',
-          cf_giudice: 'Judge Fiscal Code',
-          parte: 'Party',
-          controparte: 'Counterparty',
-          gradogiudizio: 'Judgment Grade',
-          start_time: 'Start Time',
-          participants: 'Participants',
-          number_of_messages: 'Number of Messages',
-        },
       },
       addContent: {
         title: 'Add annotation',

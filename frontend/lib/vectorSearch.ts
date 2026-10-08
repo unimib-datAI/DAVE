@@ -1,14 +1,14 @@
 // Hybrid dense + full-text search with Reciprocal Rank Fusion (RRF).
 // Ported from qavectorizer's vector_search.py (VectorSearch class) so the
 // RAG retrieval routes no longer live in the Python service - only
-// embedding generation does (see embedClient.ts).
+// embedding generation and reranking do (see embedClient.ts).
 //
 // Each returned chunk carries a `text_emb` field - the all-MiniLM-L6-v2
 // embedding of its text, computed in a single batched call for efficiency.
 
 import { createHash } from 'crypto';
 import { getElasticClient } from './elasticClient';
-import { embedMain, embedChunks } from './embedClient';
+import { embedMain, embedChunks, rerank } from './embedClient';
 import { retrieveDocument } from './documentRetrievers';
 import { countTokens } from './tokenCounter';
 import { decryptFieldIfEncrypted } from './crypto/fieldEncryption';
@@ -21,6 +21,35 @@ const CHUNK_INNER_HIT_FIELDS = [
 const FULL_DOC_KEYWORDS = ['estrai', 'riassumi'];
 const TOKEN_LIMIT = 18_000;
 
+function envNumber(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') return fallback;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : fallback;
+}
+
+// Ranking knobs, exposed for tuning against the RAG benchmark.
+const RRF_K = envNumber('RAG_RRF_K', 60);
+const RRF_DENSE_WEIGHT = envNumber('RAG_RRF_DENSE_WEIGHT', 1);
+const RRF_FULLTEXT_WEIGHT = envNumber('RAG_RRF_FULLTEXT_WEIGHT', 1);
+// Chunks returned when the caller doesn't pass `topK`, and how many of them
+// may come from the same document.
+const DEFAULT_TOP_K = envNumber('RAG_TOP_K', 10);
+const MAX_TOP_K = 50;
+const MAX_CHUNKS_PER_DOC = envNumber('RAG_MAX_CHUNKS_PER_DOC', 5);
+// Fused chunks handed to the cross-encoder reranker; 0 disables reranking.
+const RERANK_POOL = envNumber('RAG_RERANK_POOL', 50);
+// Boost of a query match on the document title in the full-text search.
+const NAME_BOOST = envNumber('RAG_NAME_BOOST', 2);
+
+const KNN_K = 64;
+const KNN_NUM_CANDIDATES = 500;
+// Documents (and best chunks of each) fetched per search to rank from.
+const DOCS_PER_SEARCH = 30;
+const INNER_HITS_MULTI_DOC = 20;
+const INNER_HITS_SINGLE_DOC = 50;
+const SINGLE_DOC_CHUNKS = 20;
+
 export type RetrievalMethod = 'full' | 'dense' | 'full-text' | 'hibrid_no_ner';
 
 export type VectorSearchParams = {
@@ -30,9 +59,13 @@ export type VectorSearchParams = {
   filterIds?: string[] | null;
   collectionId?: string | null;
   forceRag?: boolean;
+  // Max chunks to return across all documents (default RAG_TOP_K).
+  topK?: number | null;
 };
 
 type ChunkId = [docId: string, text: string, textAnonymized: string];
+
+type ScoredChunk = { id: string; score: number };
 
 type Chunk = {
   id: string;
@@ -58,28 +91,30 @@ export async function search(params: VectorSearchParams): Promise<VectorSearchRe
     filterIds,
     collectionId,
     forceRag = false,
+    topK,
   } = params;
 
   const singleDocMode = !!(filterIds && filterIds.length === 1);
+  const chunkLimit = singleDocMode
+    ? SINGLE_DOC_CHUNKS
+    : Math.min(Math.max(Math.floor(topK || DEFAULT_TOP_K), 1), MAX_TOP_K);
+  const maxChunksPerDoc = singleDocMode
+    ? chunkLimit
+    : Math.max(Math.min(MAX_CHUNKS_PER_DOC, chunkLimit), 1);
 
   // 1. Encode query
   const [queryEmbedding] = await embedMain([query]);
 
   // 2. Build & run ES queries
-  const knnK = 64;
-  const chunksToGather = singleDocMode ? 20 : 100;
-  const innerHitsSize = 50;
-
   const client = getElasticClient();
 
   const { knnQuery, fullTextQuery } = buildQueries({
     query,
     embeddings: queryEmbedding,
-    retrievalMethod,
     filterIds,
     collectionId,
-    knnK,
-    innerHitsSize,
+    size: filterIds?.length ? Math.min(filterIds.length, DOCS_PER_SEARCH) : DOCS_PER_SEARCH,
+    innerHitsSize: singleDocMode ? INNER_HITS_SINGLE_DOC : INNER_HITS_MULTI_DOC,
     chunkTextField: await resolveChunkTextField(client, collectionName),
   });
 
@@ -104,41 +139,43 @@ export async function search(params: VectorSearchParams): Promise<VectorSearchRe
   ]);
 
   // 3. RRF fusion
-  const vectorRanks = denseResults ? collectChunkRanks(denseResults) : new Map();
+  const vectorRanks = denseResults
+    ? toRanks(collectDenseChunks(denseResults))
+    : new Map<string, number>();
   const fullTextRanks = fulltextResults
-    ? collectChunkRanksFullText(fulltextResults)
-    : new Map();
-  const finalRanking = rrfRank(vectorRanks, fullTextRanks, singleDocMode);
+    ? toRanks(collectFullTextChunks(fulltextResults))
+    : new Map<string, number>();
+  const fused = rrfRank(vectorRanks, fullTextRanks)
+    .slice(0, Math.max(RERANK_POOL, chunkLimit))
+    .map(([encodedId]) => encodedId);
 
-  // 4. Collect top chunks (no embeddings yet)
-  const docChunksIdMap = singleDocMode
-    ? gatherChunksSingleDoc(finalRanking, chunksToGather)
-    : gatherChunksMultiDoc(finalRanking);
+  // 4. Fetch the candidate chunks' documents from ES
+  const fullDocsFlag =
+    !forceRag && FULL_DOC_KEYWORDS.some((kw) => query.toLowerCase().includes(kw));
+  const docsById = await fetchDocs({
+    collectionName,
+    docIds: uniqueDocIds(fused),
+    collectionId,
+    includeText: fullDocsFlag,
+  });
 
-  // 5. Batch-encode all chunk texts in one shot
+  // 5. Rerank the candidates and keep the best chunks (no embeddings yet)
+  const ranked = await rerankChunks(query, fused, docsById);
+  const docChunksIdMap = gatherChunks(ranked, chunkLimit, maxChunksPerDoc);
+
+  // 6. Batch-encode all chunk texts in one shot
   await embedChunksInPlace(docChunksIdMap);
 
-  // 6. Fetch full documents from ES
-  const fullDocs = await fetchFullDocs(collectionName, Array.from(docChunksIdMap.keys()));
-
   // 7. Assemble and return results
-  return prepareResults({
-    fullDocs,
-    docChunksIdMap,
-    query,
-    singleDocMode,
-    forceRag,
-  });
+  return prepareResults({ docsById, docChunksIdMap, fullDocsFlag });
 }
 
 // ── RRF ──────────────────────────────────────────────────────────────────
 
 function rrfRank(
   vectorRanks: Map<string, number>,
-  fullTextRanks: Map<string, number>,
-  singleDocMode: boolean
+  fullTextRanks: Map<string, number>
 ): [string, number][] {
-  const rrfK = singleDocMode ? 50 : 30;
   const allIds = new Set(
     Array.from(vectorRanks.keys()).concat(Array.from(fullTextRanks.keys()))
   );
@@ -146,16 +183,29 @@ function rrfRank(
   for (const cid of Array.from(allIds)) {
     const vRank = vectorRanks.has(cid) ? vectorRanks.get(cid)! : Infinity;
     const ftRank = fullTextRanks.has(cid) ? fullTextRanks.get(cid)! : Infinity;
-    scores.set(cid, 1 / (rrfK + vRank) + 5.0 * (1 / (rrfK + ftRank)));
+    scores.set(
+      cid,
+      RRF_DENSE_WEIGHT / (RRF_K + vRank) + RRF_FULLTEXT_WEIGHT / (RRF_K + ftRank)
+    );
   }
   return Array.from(scores.entries()).sort((a, b) => b[1] - a[1]);
 }
 
-// ── chunk-rank extraction (from ES kNN / full-text responses) ─────────────
-
-function collectChunkRanks(response: any): Map<string, number> {
+// Ranks chunks by score across every document: ES returns them grouped by
+// document, so a document's 20th chunk must not outrank the next
+// document's best one.
+function toRanks(chunks: ScoredChunk[]): Map<string, number> {
   const ranks = new Map<string, number>();
-  let tempRank = 1;
+  for (const { id } of [...chunks].sort((a, b) => b.score - a.score)) {
+    if (!ranks.has(id)) ranks.set(id, ranks.size + 1);
+  }
+  return ranks;
+}
+
+// ── chunk extraction (from ES kNN / full-text responses) ──────────────────
+
+function collectDenseChunks(response: any): ScoredChunk[] {
+  const chunks: ScoredChunk[] = [];
   for (const hit of response.hits.hits) {
     const docId = hit._source.id;
     const innerHits = hit.inner_hits?.['chunks.vectors']?.hits?.hits;
@@ -165,28 +215,35 @@ function collectChunkRanks(response: any): Map<string, number> {
       // Some indexed chunks hold AES-encrypted text (see resolveChunkTextField)
       const chunkText = decryptFieldIfEncrypted(fields.text[0]);
       const chunkTextAnonymized = (fields.text_anonymized || [chunkText])[0];
-      ranks.set(encodeChunkId([docId, chunkText, chunkTextAnonymized]), tempRank);
-      tempRank += 1;
+      chunks.push({
+        id: encodeChunkId([docId, chunkText, chunkTextAnonymized]),
+        score: chunkHit._score ?? 0,
+      });
     }
   }
-  return ranks;
+  return chunks;
 }
 
-function collectChunkRanksFullText(response: any): Map<string, number> {
-  const ranks = new Map<string, number>();
-  let tempRank = 1;
+function collectFullTextChunks(response: any): ScoredChunk[] {
+  const chunks: ScoredChunk[] = [];
   for (const hit of response.hits.hits) {
     const docId = hit._source.id;
     const innerHits = hit.inner_hits?.['chunks.vectors']?.hits?.hits;
-    if (!innerHits) continue;
+    if (!innerHits?.length) continue;
+    // The document score is its best chunk's score (score_mode: max) plus
+    // the title match, if any - carry that title bonus to each chunk.
+    const bestChunkScore = Math.max(...innerHits.map((h: any) => h._score ?? 0));
+    const titleBonus = Math.max((hit._score ?? 0) - bestChunkScore, 0);
     for (const chunkHit of innerHits) {
       const chunkText = decryptFieldIfEncrypted(chunkHit._source.text);
       const chunkTextAnonymized = chunkHit._source.text_anonymized ?? chunkText;
-      ranks.set(encodeChunkId([docId, chunkText, chunkTextAnonymized]), tempRank);
-      tempRank += 1;
+      chunks.push({
+        id: encodeChunkId([docId, chunkText, chunkTextAnonymized]),
+        score: (chunkHit._score ?? 0) + titleBonus,
+      });
     }
   }
-  return ranks;
+  return chunks;
 }
 
 // Chunk ids are (doc_id, text, text_anonymized) tuples in Python (hashable).
@@ -197,6 +254,38 @@ function encodeChunkId(id: ChunkId): string {
 
 function decodeChunkId(id: string): ChunkId {
   return JSON.parse(id);
+}
+
+function uniqueDocIds(encodedIds: string[]): string[] {
+  return Array.from(new Set(encodedIds.map((id) => String(decodeChunkId(id)[0]))));
+}
+
+// ── reranking ────────────────────────────────────────────────────────────
+
+// Reorders the fused candidates with the cross-encoder, which reads the
+// query and each chunk together (prefixed with its document's title, since
+// chunks rarely name the document they come from). Keeps the fused order
+// when the reranker is disabled or unavailable.
+async function rerankChunks(
+  query: string,
+  encodedIds: string[],
+  docsById: Map<string, any>
+): Promise<string[]> {
+  if (RERANK_POOL <= 0 || encodedIds.length < 2) return encodedIds;
+
+  const texts = encodedIds.map((encodedId) => {
+    const [docId, text] = decodeChunkId(encodedId);
+    const doc = docsById.get(String(docId));
+    const title = doc?.name_text || doc?.name;
+    return title ? `${title}\n${text}` : text;
+  });
+  const scores = await rerank(query, texts);
+  if (!scores) return encodedIds;
+
+  return encodedIds
+    .map((encodedId, i) => [encodedId, scores[i]] as [string, number])
+    .sort((a, b) => b[1] - a[1])
+    .map(([encodedId]) => encodedId);
 }
 
 // ── chunk gathering ─────────────────────────────────────────────────────
@@ -220,131 +309,108 @@ async function embedChunksInPlace(docChunksIdMap: DocChunksMap): Promise<void> {
   });
 }
 
-function gatherChunksSingleDoc(
-  finalRanking: [string, number][],
-  chunksToGather: number
+// Takes the best `limit` chunks overall (at most `maxPerDoc` from the same
+// document), grouped by document. Documents come out ordered by their best
+// chunk; nothing is added to fill a quota, so weak matches stay out.
+function gatherChunks(
+  rankedIds: string[],
+  limit: number,
+  maxPerDoc: number
 ): DocChunksMap {
   const docChunks: DocChunksMap = new Map();
-  for (const [encodedId] of finalRanking.slice(0, chunksToGather)) {
-    const [docId, text, textAnon] = decodeChunkId(encodedId);
+  let gathered = 0;
+  for (const encodedId of rankedIds) {
+    if (gathered >= limit) break;
+    const [rawDocId, text, textAnon] = decodeChunkId(encodedId);
+    const docId = String(rawDocId);
     const chunks = docChunks.get(docId) || [];
+    if (chunks.length >= maxPerDoc) continue;
     chunks.push(makeChunk(docId, text, textAnon));
     docChunks.set(docId, chunks);
-  }
-  return docChunks;
-}
-
-function gatherChunksMultiDoc(
-  finalRanking: [string, number][],
-  maxDocs = 5,
-  maxChunksPerDoc = 5
-): DocChunksMap {
-  const docChunkScores = new Map<string, [number, string][]>();
-  for (const [encodedId, score] of finalRanking) {
-    const [docId] = decodeChunkId(encodedId);
-    const list = docChunkScores.get(docId) || [];
-    list.push([score, encodedId]);
-    docChunkScores.set(docId, list);
-  }
-
-  const sortedDocs = Array.from(docChunkScores.entries()).sort(
-    (a, b) => Math.max(...b[1].map((x) => x[0])) - Math.max(...a[1].map((x) => x[0]))
-  );
-
-  const docChunks: DocChunksMap = new Map();
-  for (const [docId, scoredChunks] of sortedDocs.slice(0, maxDocs)) {
-    const top = [...scoredChunks]
-      .sort((a, b) => b[0] - a[0])
-      .slice(0, maxChunksPerDoc);
-    for (const [, encodedId] of top) {
-      const [docId_, text, textAnon] = decodeChunkId(encodedId);
-      const chunks = docChunks.get(docId) || [];
-      chunks.push(makeChunk(docId_, text, textAnon));
-      docChunks.set(docId, chunks);
-    }
+    gathered += 1;
   }
   return docChunks;
 }
 
 // ── document retrieval ───────────────────────────────────────────────────
 
-async function fetchFullDocs(collectionName: string, docIds: string[]): Promise<any[]> {
-  if (docIds.length === 0) return [];
+// Returns the documents keyed by id. The full `text` is only loaded when
+// the caller is going to return whole documents - it can be hundreds of KB
+// per document.
+async function fetchDocs(params: {
+  collectionName: string;
+  docIds: string[];
+  collectionId?: string | null;
+  includeText: boolean;
+}): Promise<Map<string, any>> {
+  const { collectionName, docIds, collectionId, includeText } = params;
+  const idToDoc = new Map<string, any>();
+  if (docIds.length === 0) return idToDoc;
   try {
     const client = getElasticClient();
+    const filter: any[] = [{ terms: { id: docIds } }];
+    if (collectionId) {
+      filter.push({ term: { 'collectionId.keyword': collectionId } });
+    }
     const resp: any = await client.search({
       index: collectionName,
-      query: { terms: { id: docIds } },
-      _source: ['id', 'name', 'text', 'text_anonymized', 'preview'],
-      size: docIds.length,
+      query: { bool: { filter } },
+      _source: [
+        'id',
+        'name',
+        'name_text',
+        'preview',
+        ...(includeText ? ['text', 'text_anonymized'] : []),
+      ],
+      // A document id is a content hash, shared by the copies of the same
+      // file in other collections: without a collection filter, leave room
+      // for those copies so they can't crowd out another document.
+      size: collectionId ? docIds.length : docIds.length * 5,
     } as any);
 
-    const idToDoc = new Map<string, any>();
     for (const hit of resp.hits?.hits ?? []) {
       const src = hit._source ?? {};
       const docId = src.id ?? hit._id;
-      if (docId != null) idToDoc.set(String(docId), src);
+      if (docId != null && !idToDoc.has(String(docId))) {
+        idToDoc.set(String(docId), src);
+      }
     }
-    return docIds.filter((id) => idToDoc.has(String(id))).map((id) => idToDoc.get(String(id)));
   } catch (error) {
     console.error('ES fetch failed — falling back to configured retriever', error);
-    const docs: any[] = [];
     for (const docId of docIds) {
       const doc = await retrieveDocument(collectionName, docId);
-      if (doc && !doc.error) docs.push(doc);
+      if (doc && !doc.error) idToDoc.set(String(docId), doc);
     }
-    return docs;
   }
+  return idToDoc;
 }
 
 // ── result preparation ───────────────────────────────────────────────────
 
 async function prepareResults(params: {
-  fullDocs: any[];
+  docsById: Map<string, any>;
   docChunksIdMap: DocChunksMap;
-  query: string;
-  singleDocMode: boolean;
-  forceRag: boolean;
+  fullDocsFlag: boolean;
 }): Promise<VectorSearchResult[]> {
-  const { fullDocs, docChunksIdMap, query, singleDocMode, forceRag } = params;
-  const fullDocsFlag = FULL_DOC_KEYWORDS.some((kw) => query.toLowerCase().includes(kw));
-
-  if (forceRag) {
-    console.log('FORCE RAG ENABLED');
-    return fullDocs.map((doc) => ({
-      doc,
-      chunks: docChunksIdMap.get(doc.id) || [],
-      full_docs: false,
-    }));
-  }
-
-  if (singleDocMode && fullDocs.length > 0) {
-    const tokenCount = await countTokens(fullDocs[0].text);
-    console.log(`Number of tokens: ${tokenCount}`);
-    if (tokenCount < TOKEN_LIMIT) {
-      return [
-        {
-          full_docs: false,
-          doc: fullDocs[0],
-          chunks: docChunksIdMap.get(fullDocs[0].id) || [],
-        },
-      ];
-    }
+  const { docsById, docChunksIdMap, fullDocsFlag } = params;
+  const results: VectorSearchResult[] = [];
+  for (const [docId, chunks] of Array.from(docChunksIdMap.entries())) {
+    const doc = docsById.get(docId);
+    if (doc) results.push({ doc, chunks, full_docs: false });
   }
 
   if (fullDocsFlag) {
-    const tokenCounts = await Promise.all(fullDocs.map((doc) => countTokens(doc.text)));
+    const fullDocs = results.map((r) => r.doc);
+    const tokenCounts = await Promise.all(
+      fullDocs.map((doc) => countTokens(doc.text ?? ''))
+    );
     const totalTokens = tokenCounts.reduce((a, b) => a + b, 0);
     if (totalTokens <= TOKEN_LIMIT) {
       return fullDocResults(fullDocs);
     }
   }
 
-  return fullDocs.map((doc) => ({
-    doc,
-    chunks: docChunksIdMap.get(doc.id) || [],
-    full_docs: false,
-  }));
+  return results;
 }
 
 async function fullDocResults(fullDocs: any[]): Promise<VectorSearchResult[]> {
@@ -415,167 +481,104 @@ async function resolveChunkTextField(client: any, index: string): Promise<string
 function buildQueries(params: {
   query: string;
   embeddings: number[];
-  retrievalMethod: string;
   filterIds?: string[] | null;
   collectionId?: string | null;
-  knnK: number;
+  size: number;
   innerHitsSize: number;
   chunkTextField: string;
 }) {
-  const {
-    query,
-    embeddings,
-    retrievalMethod,
-    filterIds,
-    collectionId,
-    knnK,
-    innerHitsSize,
-    chunkTextField,
-  } = params;
+  const { query, embeddings, filterIds, collectionId, size, innerHitsSize, chunkTextField } =
+    params;
 
-  const shouldClauses =
-    retrievalMethod === 'hibrid_no_ner'
-      ? [{ match: { [chunkTextField]: { query, boost: 5.0 } } }]
-      : [
-          { match: { [chunkTextField]: { query, boost: 5.0 } } },
-          { match: { 'chunks.vectors.entities': { query, boost: 3.0 } } },
-        ];
-
+  const filters: any[] = [];
   if (filterIds && filterIds.length > 0) {
-    return {
-      knnQuery: buildFilteredKnnQuery({
-        embeddings,
-        filterIds,
-        collectionId,
-        knnK,
-        innerHitsSize,
-      }),
-      fullTextQuery: buildFilteredFullTextQuery({
-        shouldClauses,
-        filterIds,
-        collectionId,
-        innerHitsSize,
-      }),
-    };
+    filters.push({ terms: { id: filterIds } });
+  }
+  if (collectionId) {
+    filters.push({ term: { 'collectionId.keyword': collectionId } });
   }
 
   return {
-    knnQuery: buildGlobalKnnQuery({ embeddings, collectionId, knnK, innerHitsSize }),
-    fullTextQuery: buildGlobalFullTextQuery({ shouldClauses, collectionId, innerHitsSize }),
+    knnQuery: buildKnnQuery({
+      embeddings,
+      filters,
+      // a document filter leaves few candidates: search them exhaustively
+      numCandidates: filterIds?.length ? 2000 : KNN_NUM_CANDIDATES,
+      size,
+      innerHitsSize,
+    }),
+    fullTextQuery: buildFullTextQuery({
+      query,
+      filters,
+      size,
+      innerHitsSize,
+      chunkTextField,
+    }),
   };
 }
 
-function buildFilteredKnnQuery(params: {
+function buildKnnQuery(params: {
   embeddings: number[];
-  filterIds: string[];
-  collectionId?: string | null;
-  knnK: number;
+  filters: any[];
+  numCandidates: number;
+  size: number;
   innerHitsSize: number;
 }) {
-  const { embeddings, filterIds, collectionId, knnK, innerHitsSize } = params;
-  const knnFilter = collectionId
-    ? {
-        bool: {
-          must: [
-            { terms: { id: filterIds } },
-            { term: { 'collectionId.keyword': collectionId } },
-          ],
-        },
-      }
-    : { terms: { id: filterIds } };
-
-  return {
-    knn: {
-      field: 'chunks.vectors.predicted_value',
-      query_vector: embeddings,
-      k: knnK,
-      num_candidates: 2000,
-      filter: knnFilter,
-      inner_hits: {
-        _source: false,
-        fields: CHUNK_INNER_HIT_FIELDS,
-        size: innerHitsSize,
-      },
-    },
-  };
-}
-
-function buildGlobalKnnQuery(params: {
-  embeddings: number[];
-  collectionId?: string | null;
-  knnK: number;
-  innerHitsSize: number;
-}) {
-  const { embeddings, collectionId, knnK, innerHitsSize } = params;
+  const { embeddings, filters, numCandidates, size, innerHitsSize } = params;
   const knn: any = {
     field: 'chunks.vectors.predicted_value',
     query_vector: embeddings,
-    k: knnK,
+    k: KNN_K,
+    num_candidates: numCandidates,
     inner_hits: {
       _source: false,
       fields: CHUNK_INNER_HIT_FIELDS,
       size: innerHitsSize,
     },
   };
-  if (collectionId) {
-    knn.filter = { term: { 'collectionId.keyword': collectionId } };
+  if (filters.length === 1) {
+    knn.filter = filters[0];
+  } else if (filters.length > 1) {
+    knn.filter = { bool: { filter: filters } };
   }
-  return { _source: ['id'], knn };
+  return { _source: ['id'], size, knn };
 }
 
-function buildFilteredFullTextQuery(params: {
-  shouldClauses: any[];
-  filterIds: string[];
-  collectionId?: string | null;
+function buildFullTextQuery(params: {
+  query: string;
+  filters: any[];
+  size: number;
   innerHitsSize: number;
+  chunkTextField: string;
 }) {
-  const { shouldClauses, filterIds, collectionId, innerHitsSize } = params;
-  const filterList: any[] = [{ terms: { id: filterIds } }];
-  if (collectionId) {
-    filterList.push({ term: { 'collectionId.keyword': collectionId } });
-  }
+  const { query, filters, size, innerHitsSize, chunkTextField } = params;
+  // The stemmed sub-fields (see elasticIndexSettings.ts) only exist on
+  // chunks indexed after they were added; elsewhere they match nothing and
+  // the query behaves as a plain match on the chunk text.
+  const fields =
+    chunkTextField === 'chunks.vectors.text'
+      ? [chunkTextField, `${chunkTextField}.it`, `${chunkTextField}.en`]
+      : [chunkTextField];
+
   return {
     _source: ['id'],
+    size,
     query: {
       bool: {
-        filter: filterList,
+        filter: filters,
         must: {
           nested: {
             path: 'chunks.vectors',
-            query: {
-              bool: { should: shouldClauses, minimum_should_match: 1 },
-            },
+            // `max` so the document score is its best chunk's score, which
+            // collectFullTextChunks relies on to isolate the title bonus
+            score_mode: 'max',
+            query: { multi_match: { query, type: 'most_fields', fields } },
             inner_hits: { _source: true, size: innerHitsSize },
           },
         },
+        // optional: a query naming the document lifts that document's chunks
+        should: [{ match: { name_text: { query, boost: NAME_BOOST } } }],
       },
     },
   };
-}
-
-function buildGlobalFullTextQuery(params: {
-  shouldClauses: any[];
-  collectionId?: string | null;
-  innerHitsSize: number;
-}) {
-  const { shouldClauses, collectionId, innerHitsSize } = params;
-  const nestedQuery = {
-    nested: {
-      path: 'chunks.vectors',
-      query: { bool: { should: shouldClauses, minimum_should_match: 1 } },
-      inner_hits: { _source: true, size: innerHitsSize },
-    },
-  };
-  if (collectionId) {
-    return {
-      _source: ['id'],
-      query: {
-        bool: {
-          filter: [{ term: { 'collectionId.keyword': collectionId } }],
-          must: nestedQuery,
-        },
-      },
-    };
-  }
-  return { _source: ['id'], query: nestedQuery };
 }

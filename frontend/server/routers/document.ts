@@ -105,6 +105,93 @@ export type AdditionalAnnotationProps = {
 export type EntityAnnotation = Annotation<AdditionalAnnotationProps>;
 export type SectionAnnotation = Annotation;
 
+const TRANSIENT_ERROR_MARKERS = [
+  'fetch failed',
+  'aborted',
+  'econnreset',
+  'econnrefused',
+  'etimedout',
+  'socket hang up',
+  'connectionerror',
+  'timeouterror',
+  'bad gateway',
+  'service unavailable',
+  'gateway timeout',
+];
+const TRANSIENT_MAX_ATTEMPTS = 3;
+const TRANSIENT_BACKOFF_MS = 2000;
+
+/**
+ * Node's fetch reports every network failure as a bare "fetch failed"; the
+ * actual reason (ECONNREFUSED, socket closed, ...) is on `error.cause`.
+ */
+function describeError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const cause = (error as any)?.cause;
+  const causeText = cause ? cause.code || cause.message || String(cause) : '';
+  return causeText && causeText !== message
+    ? `${message} (${causeText})`
+    : message;
+}
+
+function isTransientError(error: unknown): boolean {
+  const text = `${(error as any)?.name ?? ''} ${describeError(error)}`.toLowerCase();
+  return TRANSIENT_ERROR_MARKERS.some((marker) => text.includes(marker));
+}
+
+/**
+ * Runs one step of the upload pipeline, retrying it with backoff when it
+ * fails for a transient reason (a downstream service dropping the
+ * connection or timing out under load). The error finally thrown names the
+ * step, so a failed upload-job file shows which call failed.
+ */
+async function withTransientRetry<T>(
+  step: string,
+  fn: (attempt: number) => Promise<T>
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (error) {
+      if (error instanceof PermissionDeniedError) throw error;
+      if (attempt >= TRANSIENT_MAX_ATTEMPTS || !isTransientError(error)) {
+        throw new Error(`${step}: ${describeError(error)}`);
+      }
+      console.warn(
+        `${step} failed (attempt ${attempt}/${TRANSIENT_MAX_ATTEMPTS}), retrying:`,
+        describeError(error)
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, TRANSIENT_BACKOFF_MS * 2 ** (attempt - 1))
+      );
+    }
+  }
+}
+
+/**
+ * Indexes a freshly-inserted document, retrying transient failures. A failed
+ * attempt may still have written to Elasticsearch (e.g. the response timed
+ * out), so a retry first removes this collection's copy.
+ */
+async function indexCreatedDocumentWithRetry(doc: any, token: string) {
+  const elasticIndex = process.env.ELASTIC_INDEX;
+  await withTransientRetry(
+    `indexing (embeddings at ${process.env.API_INDEXER}, Elasticsearch)`,
+    async (attempt) => {
+      if (attempt > 1 && elasticIndex && doc?.id) {
+        // Best-effort: if this cleanup fails too, let the indexing attempt
+        // below report the actual problem.
+        await deleteElasticDocument(
+          elasticIndex,
+          String(doc.id),
+          doc.collectionId
+        ).catch(() => undefined);
+      }
+      await indexCreatedDocument(doc, token);
+    }
+  );
+}
+
 /**
  * Indexes a just-created document into Elasticsearch (chunking + embedding +
  * write - see lib/documentIndexer.ts). This used to be a side effect of the
@@ -197,6 +284,24 @@ async function insertDocumentAndUpdateFacetsCache(
     doc.collectionId
   );
 
+  // Give any entity type new to this collection a persistent color.
+  try {
+    const types: string[] = [];
+    for (const [name, annSet] of Object.entries<any>(
+      fullDocument.annotation_sets || {}
+    )) {
+      if (!name.startsWith('entities')) continue;
+      for (const ann of annSet.annotations || []) {
+        if (typeof ann.type === 'string') types.push(ann.type);
+      }
+    }
+    if (collectionId && types.length > 0) {
+      await CollectionController.ensureTypeColors(collectionId, types);
+    }
+  } catch (e) {
+    console.error('Failed to assign type colors for collection', collectionId, e);
+  }
+
   // Always update facets cache for the collection when a document is
   // created. This ensures batch uploads update the cache for every document.
   const cachePayload: Record<string, any[]> = {};
@@ -271,7 +376,7 @@ export async function runCreateDocument(input: {
       tokenForApi
     );
 
-    await indexCreatedDocument(result, tokenForApi);
+    await indexCreatedDocumentWithRetry(result, tokenForApi);
 
     return result;
   } catch (error) {
@@ -353,7 +458,6 @@ export async function runAnnotateAndUpload(input: {
       }
     }
   } catch (error: any) {
-    console.log('No active configuration found, using defaults');
     selectedServices = undefined;
   }
 
@@ -419,10 +523,6 @@ export async function runAnnotateAndUpload(input: {
   }
 
   // If no steps configured, fall through to upload without annotation
-  console.log(
-    `Pipeline has ${pipelineSteps.length} steps:`,
-    pipelineSteps.map((s) => `${s.name} -> ${s.uri}`)
-  );
 
   try {
     // Create initial gatenlp Document
@@ -436,17 +536,17 @@ export async function runAnnotateAndUpload(input: {
     // Execute each pipeline step sequentially
     for (let i = 0; i < pipelineSteps.length; i++) {
       const step = pipelineSteps[i];
-      console.log(
-        `Pipeline step ${i + 1}/${pipelineSteps.length}: ${step.name} -> ${
-          step.uri
-        }`
+      const stepInput = gdoc;
+      gdoc = await withTransientRetry(
+        `pipeline step "${step.name}" (${step.uri})`,
+        () =>
+          fetchJson<any, any>(step.uri, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: stepInput,
+            timeout: 300000, // 5 minutes per step
+          })
       );
-      gdoc = await fetchJson<any, any>(step.uri, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: gdoc,
-        timeout: 300000, // 5 minutes per step
-      });
     }
 
     // Clean up encoding features from linking (artifact of some pipeline steps)
@@ -459,7 +559,6 @@ export async function runAnnotateAndUpload(input: {
       }
     }
 
-    console.log('Uploading annotated document...');
     // Upload the annotated document
     const documentToUpload = {
       ...gdoc,
@@ -473,9 +572,8 @@ export async function runAnnotateAndUpload(input: {
       tokenForApi
     );
 
-    await indexCreatedDocument(result, tokenForApi);
+    await indexCreatedDocumentWithRetry(result, tokenForApi);
 
-    console.log('Document uploaded successfully');
     return result;
   } catch (error) {
     console.error('Error in annotateAndUpload:', error);
@@ -501,6 +599,41 @@ export async function runAnnotateAndUpload(input: {
  * mid-flight abort.
  */
 const cancelledUploadJobIds = new Set<string>();
+
+/**
+ * Upload jobs run on this Next.js server process, a bounded number at a
+ * time. Each job walks its files sequentially, so this is also the number
+ * of documents being annotated/embedded/indexed at once - running every
+ * submitted job at the same time swamps the annotation and embedding
+ * services. Jobs beyond the limit stay 'pending' until a slot frees up.
+ */
+const UPLOAD_JOB_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.UPLOAD_JOB_CONCURRENCY) || 2
+);
+const queuedUploadJobs: Array<() => Promise<void>> = [];
+let runningUploadJobs = 0;
+
+function drainUploadJobQueue() {
+  while (
+    runningUploadJobs < UPLOAD_JOB_CONCURRENCY &&
+    queuedUploadJobs.length > 0
+  ) {
+    const run = queuedUploadJobs.shift()!;
+    runningUploadJobs += 1;
+    run()
+      .catch((error) => console.error('Upload job crashed:', error))
+      .finally(() => {
+        runningUploadJobs -= 1;
+        drainUploadJobQueue();
+      });
+  }
+}
+
+function enqueueUploadJob(run: () => Promise<void>) {
+  queuedUploadJobs.push(run);
+  drainUploadJobQueue();
+}
 
 /**
  * Best-effort progress updates sent to the durable UploadJob record in the
@@ -556,9 +689,9 @@ const getDocumentById = async (
       true, // lightFeatures: only return fields needed by the frontend
       collectionId
     );
-    console.log('*** current document text ***', document.text);
     return document;
   } catch (err) {
+    console.error('Failed to load document', id, err);
     throw new TRPCError({
       code: 'NOT_FOUND',
       message: `Document with id '${id}' not found.`,
@@ -800,7 +933,6 @@ async function runSave({
         const doc: any = await DocumentController.findOne(docId, null, collectionId);
         clustersToUse = doc.features?.clusters;
       } else {
-        console.log('Using clusters from provided features');
       }
 
       if (clustersToUse) {
@@ -858,10 +990,8 @@ async function runSave({
           // Update Elasticsearch directly (in-process, no HTTP hop needed)
           await addAnnotationsToDocumentEs(elasticIndex, String(docId), mentions, collectionId);
         } else {
-          console.log('No entities annotation set found or no clusters in that set');
         }
       } else {
-        console.log('No clusters found in features');
       }
     } catch (error: any) {
       console.error('Error updating Elasticsearch annotations:', error.message);
@@ -1324,7 +1454,6 @@ export const documents = createRouter()
           destinationCluster,
           token
         );
-        console.log('moveRes', moveRes);
         return moveRes;
       } catch (error: any) {
         if (error instanceof PermissionDeniedError) {
@@ -1411,8 +1540,6 @@ export const documents = createRouter()
       const { docId, annotationSets, features, token, collectionId } = input;
       const elasticIndex = process.env.ELASTIC_INDEX;
       try {
-        console.log('Saving annotations for document:', docId);
-        console.log('Features being saved:', features);
 
         const result = await runSave({
           docId,
@@ -1423,7 +1550,6 @@ export const documents = createRouter()
           token,
         });
 
-        console.log('Successfully saved annotations for document:', docId);
 
         // runSave() returns { annotationSets, features, success } - the real
         // array of DB-persisted annotation sets (with server-assigned _ids
@@ -1614,10 +1740,6 @@ export const documents = createRouter()
       }
       try {
         const result = await fetchDocumentsByIdsEnriched(ids, deAnonimize ?? false);
-        console.log(
-          '[trpc.document.fetchFacetDocuments] fetched',
-          Array.isArray(result) ? result.length : 'non-array'
-        );
         return result || [];
       } catch (error: any) {
         // Log detailed error for debugging (including possible FetchError.data)
@@ -1742,13 +1864,14 @@ export const documents = createRouter()
         (job.files || []).map((f: any) => [f.fileName, f.fileId])
       );
 
-      // Fire-and-forget: this loop keeps running on the Next.js server after
-      // this resolver returns. The server process (`next start`) is
+      // Fire-and-forget: this loop runs on the Next.js server (queued behind
+      // other upload jobs, see `enqueueUploadJob`) after this resolver
+      // returns. The server process (`next start`) is
       // persistent, so it is fully decoupled from the client connection —
       // closing the browser tab does not stop it. Every state change is
       // persisted to MongoDB via the upload-jobs API so any tab (or a fresh
       // one after a refresh) can pick up the current progress at any time.
-      (async () => {
+      enqueueUploadJob(async () => {
         try {
           // Cancelled before processing even started (e.g. the user clicked
           // cancel while the job was still "pending") - leave the
@@ -1830,7 +1953,7 @@ export const documents = createRouter()
         } finally {
           cancelledUploadJobIds.delete(jobId);
         }
-      })();
+      });
 
       return { jobId };
     },

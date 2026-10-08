@@ -74,7 +74,6 @@ const ClusterCard = ({
   const t = useText('document');
 
   useEffect(() => {
-    console.log('Changed mentions', mentions.length);
   }, [mentions]);
   return (
     <>

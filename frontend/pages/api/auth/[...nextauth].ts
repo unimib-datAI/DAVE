@@ -5,7 +5,6 @@ import KeycloakProvider from 'next-auth/providers/keycloak';
 const KEYCLOAK_ID = process.env.KEYCLOAK_ID || '';
 const KEYCLOAK_SECRET = process.env.KEYCLOAK_SECRET || '';
 const KEYCLOAK_ISSUER = process.env.KEYCLOAK_ISSUER || '';
-console.log('keycloak issuer', KEYCLOAK_ISSUER);
 async function refreshAccessToken(token: any) {
   try {
     // Minimal masking helper for logs
@@ -14,10 +13,6 @@ async function refreshAccessToken(token: any) {
         ? `${t.slice(0, 6)}...${t.slice(-4)}`
         : '<missing>';
 
-    console.log(
-      'refreshAccessToken: attempting refresh for refreshToken=',
-      mask(token?.refreshToken),
-    );
 
     // Keycloak token endpoint
     const url = `${KEYCLOAK_ISSUER}/protocol/openid-connect/token`;
@@ -35,10 +30,6 @@ async function refreshAccessToken(token: any) {
       body: params.toString(),
     });
 
-    console.log(
-      'refreshAccessToken: refresh endpoint responded with',
-      res.status,
-    );
 
     if (!res.ok) {
       console.error(
@@ -50,15 +41,6 @@ async function refreshAccessToken(token: any) {
 
     const refreshed = await res.json();
 
-    console.log('refreshAccessToken: refreshed payload received', {
-      accessToken: refreshed?.access_token
-        ? mask(refreshed.access_token)
-        : null,
-      refreshToken: refreshed?.refresh_token
-        ? mask(refreshed.refresh_token)
-        : null,
-      expiresIn: refreshed?.expires_in,
-    });
 
     return {
       ...token,
@@ -155,21 +137,9 @@ export const authOptions: NextAuthOptions = {
   ],
   callbacks: {
     async jwt({ token, user, account }) {
-      console.log(
-        'NextAuth.jwt: invoked; userPresent=',
-        !!user,
-        'accountPresent=',
-        !!account,
-        'token.accessTokenExpires=',
-        token?.accessTokenExpires,
-      );
 
       // First sign in with Keycloak
       if (account && user) {
-        console.log(
-          'NextAuth.jwt: initial sign-in with provider=',
-          account.provider,
-        );
 
         return {
           ...token,
@@ -190,18 +160,10 @@ export const authOptions: NextAuthOptions = {
 
       // Return previous token if not expired
       if (Date.now() < (token.accessTokenExpires as number)) {
-        console.log(
-          'NextAuth.jwt: existing access token still valid for user=',
-          token?.user?.email ?? token?.user?.userId,
-        );
         return token;
       }
 
       // Access token has expired, try to refresh it
-      console.log(
-        'NextAuth.jwt: access token expired; attempting refresh for user=',
-        token?.user?.email ?? token?.user?.userId,
-      );
       const refreshed = await refreshAccessToken(token);
       if (refreshed?.error) {
         console.warn(
@@ -209,21 +171,11 @@ export const authOptions: NextAuthOptions = {
           refreshed.error,
         );
       } else {
-        console.log(
-          'NextAuth.jwt: refresh succeeded; new accessExpires=',
-          refreshed.accessTokenExpires,
-        );
       }
       return refreshed;
     },
 
     async session({ session, token }) {
-      console.log(
-        'NextAuth.session: building session for user=',
-        token?.user?.email ?? token?.user?.userId,
-        'accessTokenExpires=',
-        token?.accessTokenExpires,
-      );
       // Make tokens and user available on the client
       session.user = token.user as any;
       session.accessToken = token.accessToken as string;
@@ -243,7 +195,6 @@ export const authOptions: NextAuthOptions = {
             id_token_hint: token.idToken as string,
           });
           await fetch(`${logoutUrl}?${params.toString()}`);
-          console.log('NextAuth.signOut: Keycloak logout successful');
         } catch (error) {
           console.error('NextAuth.signOut: Keycloak logout failed', error);
         }

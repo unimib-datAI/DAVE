@@ -17,7 +17,7 @@ import { State } from './types';
 import { baseTaxonomy, initialUIState } from './state';
 import { SkeletonLayout } from '../SkeletonLayout';
 import { orderAnnotations } from '@/lib/ner/core';
-import { createTaxonomy } from './utils';
+import { applyTypeColors, createTaxonomy } from './utils';
 import { mapEntityType } from '../../../components/Tree/utils';
 import { DocumentContext } from './DocumentContext';
 import {
@@ -52,10 +52,15 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
     setIsAnonymized(!value);
   };
 
-  const { data, isFetching } = useQuery(
+  const { data, isFetching, error } = useQuery(
     ['document.getDocument', { id: id, deAnonimize, collectionId: urlCollectionId }],
     {
+      // Never refetch behind the editor's back (focus/reconnect would reset
+      // unsaved edits), but always fetch fresh when the document is opened:
+      // the cached copy may predate a save made earlier in this session or
+      // from another tab.
       staleTime: Infinity,
+      refetchOnMount: 'always',
     }
   );
 
@@ -69,10 +74,26 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   const { data: session } = useSession();
   const token = (session as any)?.accessToken as string | undefined;
   const [activeCollection, setActiveCollection] = useAtom(activeCollectionAtom);
-  const { data: docCollection } = useQuery(
-    ['collection.getById', { id: (data as any)?.collectionId, token }],
-    { enabled: !!(data as any)?.collectionId }
-  );
+  // Resolved from the list of collections the user can access (same query
+  // key as AuthWatcher in _app.tsx, so it is served from cache) rather than
+  // `collection.getById`, which rejects with FORBIDDEN when the document
+  // belongs to a collection the user is not a member of. In that case the
+  // collection is simply absent from the list and no sync happens.
+  const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
+  const { data: collections } = useQuery(['collection.getAll', { token }], {
+    enabled: authDisabled || !!token,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const docCollectionId = (data as any)?.collectionId;
+  const docCollection = docCollectionId
+    ? (collections as any[] | undefined)?.find(
+        (c) => c.id === docCollectionId
+      )
+    : undefined;
+  const typeColors = (docCollection as any)?.config?.typeColors as
+    | Record<string, string>
+    | undefined;
   useEffect(() => {
     if (docCollection && docCollection.id !== activeCollection?.id) {
       setActiveCollection(docCollection as any);
@@ -103,6 +124,15 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
     setOverrideData(newData);
   };
 
+  if (!isFetching && !effectiveData && error) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-2 text-center">
+        <span className="text-lg font-semibold">Document not found</span>
+        <span className="text-sm text-gray-500">{error.message}</span>
+      </div>
+    );
+  }
+
   if (isFetching || !effectiveData) {
     return <SkeletonLayout />;
   }
@@ -115,6 +145,7 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
         data={effectiveData}
         isAnonymized={isAnonymized}
         setIsAnonymized={setIsAnonymized}
+        typeColors={typeColors}
       >
         {children}
       </DocumentStateProvider>
@@ -126,17 +157,23 @@ type DocumentStateProviderProps = {
   data: Document;
   isAnonymized: boolean;
   setIsAnonymized: (val: boolean) => void;
+  // per-type colors configured on the document's collection
+  typeColors?: Record<string, string>;
 };
 
 const DocumentStateProvider = ({
   data,
   isAnonymized,
   setIsAnonymized,
+  typeColors,
   children,
 }: PropsWithChildren<DocumentStateProviderProps>) => {
+  const typeColorsRef = useRef(typeColors);
+  typeColorsRef.current = typeColors;
+
   const store = useMemo(() => {
     const s = createStore();
-    s.set(documentStateAtom, initializeState(data));
+    s.set(documentStateAtom, initializeState(data, typeColors));
     // Seed the isolated store so the toggle renders with the correct initial state
     s.set(globalAnonymizationAtom, isAnonymized);
     return s;
@@ -145,8 +182,26 @@ const DocumentStateProvider = ({
 
   // Re-initialize when data changes (e.g. after refetch)
   useEffect(() => {
-    store.set(documentStateAtom, initializeState(data));
+    store.set(
+      documentStateAtom,
+      initializeState(data, typeColorsRef.current)
+    );
   }, [data, store]);
+
+  // The collection (and so its colors) can arrive after the document, or be
+  // edited elsewhere: restyle the taxonomy without touching the document
+  // state. Keyed by content so that a refetch with equal colors is a no-op.
+  const typeColorsKey = JSON.stringify(typeColors ?? {});
+  useEffect(() => {
+    store.set(documentStateAtom, (prev) =>
+      prev
+        ? documentReducer(prev, {
+            type: 'setTypeColors',
+            payload: { typeColors: typeColorsRef.current },
+          })
+        : prev
+    );
+  }, [typeColorsKey, store]);
 
   // Sync default-store value → isolated store (e.g. toggle pressed elsewhere)
   useEffect(() => {
@@ -170,7 +225,10 @@ const DocumentStateProvider = ({
 /**
  * Lazy initializer for the reducer
  */
-const initializeState = (data: Document): State => {
+const initializeState = (
+  data: Document,
+  typeColors?: Record<string, string>
+): State => {
   const entityAnnotationSets = Object.values(data.annotation_sets).filter(
     (annSet) => annSet.name.startsWith('entities_')
   );
@@ -192,7 +250,10 @@ const initializeState = (data: Document): State => {
     activeAnnotationSet = firstEntityAnnSet.name;
   }
   // create taxonomy from the base one and by adding additional sub types of unknown
-  const taxonomy = createTaxonomy(baseTaxonomy, entityAnnotationSets);
+  const taxonomy = applyTypeColors(
+    createTaxonomy(baseTaxonomy, entityAnnotationSets),
+    typeColors
+  );
   // order the annotations once for each annotation set
   Object.values(data.annotation_sets).forEach((annSet) => {
     annSet.annotations = orderAnnotations(annSet.annotations);
@@ -202,10 +263,6 @@ const initializeState = (data: Document): State => {
   if (data.features?.clusters) {
     Object.keys(data.features.clusters).forEach((annotationSetName) => {
       if (data.features.clusters[annotationSetName]) {
-        console.log(
-          '🔧 Normalizing cluster types for annotation set:',
-          annotationSetName
-        );
 
         data.features.clusters[annotationSetName] = data.features.clusters[
           annotationSetName
@@ -214,9 +271,6 @@ const initializeState = (data: Document): State => {
           const mappedType = mapEntityType(cluster.type);
 
           if (originalType !== mappedType) {
-            console.log(
-              `🔧 Mapped cluster type: "${originalType}" -> "${mappedType}"`
-            );
           }
 
           return {

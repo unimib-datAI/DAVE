@@ -300,6 +300,7 @@ const BaseSelect = ({
               {multiple && (
                 <Option label="All" value="all" onClick={handleAllClick}>
                   <Checkbox
+                    className="pointer-events-none"
                     aria-label="Select all items"
                     {...getAllCheckProps()}
                   />

@@ -40,7 +40,6 @@ const SidebarClusters = () => {
     setClusterGroupsState(clusterGroups);
   }, [clusterGroups]);
 
-  console.log('groups', clusterGroups, typeof clusterGroups);
   return clusterGroups ? (
     <Container>
       <ContentTitle>
@@ -62,7 +61,6 @@ const SidebarClusters = () => {
           <EditClusters
             // @ts-ignore
             onEdit={(newGroups) => {
-              console.log('newGroups', newGroups);
               setClusterGroupsState(newGroups);
             }}
             clusterGroups={clusterGroupsState}

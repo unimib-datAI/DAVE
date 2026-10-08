@@ -180,7 +180,6 @@ const Search = () => {
   useEffect(() => {
     if (data) {
       const newFacetedDocuments = data.pages.flatMap((page) => page.hits);
-      console.log('newFacetedDocuments', newFacetedDocuments);
       // Merge new hits with previously loaded facet-fetched documents, preserving already-loaded items
       setFacetedDocuments((prev = []) => {
         const seen = new Set<string>(prev.map((d: any) => String(d.id)));
@@ -203,10 +202,6 @@ const Search = () => {
   }, [text, activeCollection?.id]);
   // Log facetedDocuments whenever it changes (helps debug merges from facet fetches)
   useEffect(() => {
-    console.log(
-      '[page] facetedDocuments atom changed, count:',
-      (facetedDocuments || []).length
-    );
   }, [facetedDocuments]);
 
   // Build id_ER to display_name map from facets (prefer cache when available)
@@ -346,7 +341,6 @@ const Search = () => {
 
   // Reorder documents based on selectedFilters
   const reorderedDocuments = useMemo(() => {
-    console.log('filters', selectedFilters);
     // Merge backend hits with any documents fetched via facets (facetedDocuments)
     const backendHits = data ? data.pages.flatMap((page) => page.hits) : [];
     const facetFetchedHits = facetedDocuments || [];
@@ -355,18 +349,6 @@ const Search = () => {
     try {
       const backendIds = backendHits.map((h: any) => String(h.id));
       const facetIds = facetFetchedHits.map((h: any) => String(h.id));
-      console.log(
-        '[reorder] backendIds count',
-        backendIds.length,
-        'sample:',
-        backendIds.slice(0, 10)
-      );
-      console.log(
-        '[reorder] facetIds count',
-        facetIds.length,
-        'sample:',
-        facetIds.slice(0, 10)
-      );
     } catch (e) {}
 
     // Merge and deduplicate by _id (prefer backendHits ordering)
@@ -403,7 +385,6 @@ const Search = () => {
     const nonMatches = allHits.filter(
       (hit) => matchedFilterNamesForHit(hit).length === 0
     );
-    console.log('processed documents', [...matches, ...nonMatches]);
     return [...matches, ...nonMatches];
   }, [data, selectedFilters, facetedDocuments, matchedFilterNamesForHit]);
 

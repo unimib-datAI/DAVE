@@ -161,17 +161,44 @@ export const selectCurrentAnnotationSetName = createSelector(
     return annSet ? annSet.name : null;
   }
 );
+/**
+ * Find where an orphaned cluster mention (one whose annotation id doesn't
+ * exist) occurs in the text. Prefers occurrences inside an existing annotation
+ * and skips offsets already taken. Returns null if the text isn't found.
+ */
+const findOrphanMentionOffset = (
+  text: string,
+  mentionText: string,
+  annotations: { start: number; end: number }[],
+  used: Set<number>
+): number | null => {
+  if (!mentionText) {
+    return null;
+  }
+  let firstFree: number | null = null;
+  let idx = text.indexOf(mentionText);
+  while (idx !== -1) {
+    if (!used.has(idx)) {
+      if (firstFree === null) {
+        firstFree = idx;
+      }
+      const inside = annotations.some(
+        (a) => a.start <= idx && idx + mentionText.length <= a.end
+      );
+      if (inside) {
+        return idx;
+      }
+    }
+    idx = text.indexOf(mentionText, idx + 1);
+  }
+  return firstFree;
+};
+
 export const selectDocumentClusters = createSelector(
   selectDocumentData,
   selectViews,
   // current annotation set
   (doc, views) => {
-    console.log(
-      '🔍 selectDocumentClusters called with doc:',
-      doc,
-      'views:',
-      views
-    );
 
     if (views.length > 1) {
       return null;
@@ -180,13 +207,10 @@ export const selectDocumentClusters = createSelector(
     const { activeAnnotationSet } = views[0];
 
     const { text, annotation_sets, features } = doc;
-    console.log('🔍 activeAnnotationSet:', activeAnnotationSet);
-    console.log('🔍 annotation_sets:', annotation_sets);
 
     if (!features?.clusters) {
       return null;
     }
-    console.log('🔍 features.clusters:', features.clusters);
 
     let annSet = annotation_sets[activeAnnotationSet];
     if (!annSet) {
@@ -208,47 +232,62 @@ export const selectDocumentClusters = createSelector(
       return null;
     }
 
-    console.log('🔍 annSetClusters before processing:', annSetClusters);
-    console.log('🔍 annSet.annotations:', annSet.annotations);
 
     const clusters = annSetClusters
       .map((cluster) => {
-        console.log(
-          '🔍 Processing cluster:',
-          cluster.title,
-          'with mentions:',
-          cluster.mentions
-        );
 
-        const mentions = cluster.mentions
-          .map((mention, index) => {
-            console.log(`🔍 Processing mention ${index}:`, mention);
-            const ann = annSet.annotations.find((ann) => ann.id === mention.id);
+        // Offsets already used by orphaned mentions of this cluster, so that
+        // repeated mentions with the same text get distinct snippets
+        const usedOrphanOffsets = new Set<number>();
+        let orphanCount = 0;
 
-            if (!ann) {
-              // If annotation is not found, return null to filter it out later
-              console.log('🔍 Annotation not found for mention:', mention);
-              return null;
+        const mentions = cluster.mentions.map((mention) => {
+          const ann = annSet.annotations.find((ann) => ann.id === mention.id);
+
+          let start: number | null = null;
+          let end: number | null = null;
+
+          if (ann) {
+            start = ann.start;
+            end = ann.end;
+          } else {
+            // The mention points to an annotation that doesn't exist (e.g.
+            // replaced by a larger span). Keep the mention and locate it in
+            // the text, preferring an occurrence inside an existing annotation.
+            orphanCount += 1;
+            const found = findOrphanMentionOffset(
+              text,
+              mention.mention,
+              annSet.annotations,
+              usedOrphanOffsets
+            );
+            if (found !== null) {
+              usedOrphanOffsets.add(found);
+              start = found;
+              end = found + mention.mention.length;
             }
+          }
 
-            console.log(`🔍 Found annotation for mention ${index}:`, ann);
+          const mentionText =
+            start === null || end === null
+              ? mention.mention
+              : `...${text.slice(
+                  Math.max(start - 10, 0),
+                  Math.min(end + 10, text.length)
+                )}...`;
 
-            const startOffset = ann.start - 10 < 0 ? 0 : ann.start - 10;
-            const endOffset =
-              ann.end + 10 > text.length ? text.length : ann.end + 10;
+          return {
+            id: mention.id, // Keep original mention ID
+            mention: mention.mention, // Keep original mention text
+            mentionText,
+          };
+        });
 
-            const processedMention = {
-              id: mention.id, // Keep original mention ID
-              mention: mention.mention, // Keep original mention text
-              mentionText: `...${text.slice(startOffset, endOffset)}...`,
-            };
-
-            console.log(`🔍 Processed mention ${index}:`, processedMention);
-            return processedMention;
-          })
-          .filter((mention) => mention !== null); // Filter out null mentions
-
-        console.log('🔍 Final mentions for cluster:', cluster.title, mentions);
+        if (orphanCount > 0) {
+          console.warn(
+            `Cluster "${cluster.title}": ${orphanCount} mention(s) without a matching annotation`
+          );
+        }
 
         // Normalize cluster type using robust case-insensitive mapping
         // Ensure the normalized type is consistently cased
@@ -263,11 +302,9 @@ export const selectDocumentClusters = createSelector(
       })
       .filter((cluster) => cluster.mentions.length > 0); // Filter out empty clusters
 
-    console.log('🔍 clusters after processing:', clusters);
 
     const clusterGroups = groupBy(clusters, (cluster) => cluster.type);
 
-    console.log('🔍 final clusterGroups:', clusterGroups);
     return clusterGroups;
   }
 );
@@ -339,22 +376,8 @@ export const selectFilteredEntityAnnotationsWithSearch = createSelector(
   (state: State, viewIndex: number, searchTerm?: string) =>
     searchTerm?.toLowerCase() || '',
   (annotations, documentId, searchTerm) => {
-    // Debug logging for specific document
-    const targetDocId =
-      '841ff7342f6ebf228b6e9eb1c5616441b7e36dc971cd78a480c5a461be3b937a';
-
     if (!searchTerm) {
       return annotations;
-    }
-
-    // Log only when actively filtering with search term on our target document
-    if (searchTerm && documentId.toString() === targetDocId) {
-      console.log(
-        'DEBUG - APPLYING SEARCH FILTER for document:',
-        documentId,
-        'with search term:',
-        searchTerm
-      );
     }
 
     // Apply the filter
@@ -387,30 +410,6 @@ export const selectFilteredEntityAnnotationsWithSearch = createSelector(
 
       return false;
     });
-
-    // Log filtered results for our target document
-    if (searchTerm && documentId.toString() === targetDocId) {
-      const debugFilteredResults = filteredResults.map((ann) => ({
-        id: ann.id,
-        type: ann.type,
-        start: ann.start,
-        end: ann.end,
-        features: {
-          mention: ann.features.mention,
-          title: ann.features.title,
-          type: ann.type,
-        },
-      }));
-
-      console.log(
-        'DEBUG - FILTERED RESULTS for document:',
-        documentId,
-        'filtered count:',
-        filteredResults.length,
-        'filtered annotations:',
-        debugFilteredResults
-      );
-    }
 
     return filteredResults;
   }

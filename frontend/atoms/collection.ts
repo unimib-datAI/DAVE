@@ -11,6 +11,7 @@ export interface Collection {
   config: {
     typesToHide: string[];
     typesOrder?: string[];
+    typeColors?: Record<string, string>;
   };
 }
 

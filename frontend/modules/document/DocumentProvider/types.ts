@@ -62,6 +62,7 @@ export type Action =
       payload: { viewIndex: number; annotationSet: string };
     }
   | { type: 'setView'; payload: { viewIndex: number; view: Partial<View> } }
+  | { type: 'setTypeColors'; payload: { typeColors?: Record<string, string> } }
   | { type: 'addView' }
   | { type: 'removeView' }
   | { type: 'setUI'; payload: Partial<State['ui']> };
@@ -142,40 +143,5 @@ export type State = UIState & {
    */
   dirty: boolean;
 };
-export type DocumentMetadataFeatures = {
-  annoruolo: Number;
-  annosentenza: Number;
-  attestazione: String;
-  cf_giudice: String;
-  neo4j_id: String;
-  start_time: String;
-  participants: String[];
-  number_of_messages: Number;
-  parte: String;
-  codicegl: String;
-  codiceoggetto: Number;
-  codiceruolo: Number;
-  codicesezione: String;
-  codicestato: String;
-  codiceufficio: Number;
-  controparte: String;
-  doc_meta_autore: String;
-  do_meta_data_creazione: String;
-  doc_meta_tipo: String;
-  fascicoloprecedente_annoruolo: Number;
-  fascicoloprecedente_annosentenza: Number;
-  fascicoloprecedente_codiceufficio: Number;
-  fascicoloprecedente_idfasc: Number;
-  fascicoloprecedente_numeroruolo: Number;
-  fascicoloprecedente_numerosentenza: Number;
-  fascicoloprecedente_registro: Number;
-  gradogiudizio: Number;
-  id: String;
-  idatto: Number;
-  idfasc: Number;
-  name: String;
-  nomegiudice: String;
-  numeroruolo: Number;
-  numerosentenza: Number;
-  title: String;
-};
+/** Free-form document metadata: whatever keys the document carries. */
+export type DocumentMetadataFeatures = Record<string, unknown>;

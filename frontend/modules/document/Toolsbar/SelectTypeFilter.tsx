@@ -56,6 +56,7 @@ const SelectTypeFilter = () => {
       {items.map((item) => (
         <Option key={item.key} value={item.key} label={item.label}>
           <Checkbox
+            className="pointer-events-none"
             aria-label="Select item"
             isSelected={typeFilters.indexOf(item.key) !== -1}
           />

@@ -7,6 +7,7 @@ import { FacetsCacheModel } from '../db/models/FacetsCache';
 import { FacetEntryModel } from '../db/models/FacetEntry';
 import { DocumentController } from './documentController';
 import { dbConnect } from '../db/connection';
+import { isStorableTypeKey, pickTypeColor } from '../typeColors';
 
 export const CollectionController = {
   async deleteCacheForDoc(docId: string, collectionId: string) {
@@ -130,9 +131,6 @@ export const CollectionController = {
             ],
           } as any);
           if (delRes && delRes.deletedCount) {
-            console.log(
-              `[updateCache] cleaned up ${delRes.deletedCount} empty facet entries for collection ${collectionId}`
-            );
           }
         } catch (e) {
           console.error('[updateCache] error cleaning up empty facet entries', e);
@@ -255,11 +253,38 @@ export const CollectionController = {
       collection.allowedUserIds = allowedUserIds;
     }
     if (config !== undefined) {
-      collection.config = config;
+      // Merge so that callers editing one setting (e.g. types to hide) don't
+      // wipe the others (e.g. typeColors)
+      collection.config = { ...(collection.config || {}), ...config };
     }
 
     await collection.save();
     return collection;
+  },
+
+  /**
+   * Gives every type in `types` that has no color yet in this collection a
+   * persistent one (`config.typeColors`). Existing colors - including ones the
+   * user edited - are never touched. Each key is written with its own
+   * conditional update so concurrent uploads can't assign two colors to the
+   * same type.
+   */
+  async ensureTypeColors(collectionId: string, types: string[]) {
+    await dbConnect();
+    const collection: any = await CollectionModel.findOne({ id: collectionId }).lean();
+    if (!collection) return;
+    const colors: Record<string, string> = {
+      ...((collection.config && collection.config.typeColors) || {}),
+    };
+    for (const type of Array.from(new Set(types))) {
+      if (!isStorableTypeKey(type) || colors[type]) continue;
+      const color = pickTypeColor(type, Object.values(colors));
+      const res = await CollectionModel.updateOne(
+        { id: collectionId, [`config.typeColors.${type}`]: { $exists: false } },
+        { $set: { [`config.typeColors.${type}`]: color } }
+      );
+      if (res.modifiedCount) colors[type] = color;
+    }
   },
 
   /** Delete a collection */

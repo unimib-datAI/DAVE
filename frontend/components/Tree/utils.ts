@@ -1,4 +1,5 @@
 import { isTopLevelItem } from './Node';
+import { stableTypeColor } from '@/lib/typeColors';
 import { TreeItem, ChildTreeItem } from './Tree';
 
 // Cache for random colors assigned to entity types
@@ -158,10 +159,8 @@ const generateRandomColor = (): string => {
  * Gets or generates a random color for an entity type
  */
 const getRandomColorForEntityType = (entityType: string): string => {
-  if (!entityColorCache.has(entityType)) {
-    entityColorCache.set(entityType, generateRandomColor());
-  }
-  return entityColorCache.get(entityType)!;
+  // Deterministic (not random): a type must keep its color across sessions
+  return stableTypeColor(entityType);
 };
 
 /**
@@ -445,10 +444,12 @@ export const getAllNodeData = (
   const parentNode = ascend(obj, key) as ParentNode;
   const { parent, ...nodeProps } = node;
 
-  // If the parent is UNKNOWN and the original key is different from UNKNOWN,
-  // assign a random color instead of the gray UNKNOWN color
-  let color = parentNode.color;
-  if (parentNode.key === 'UNKNOWN' && key !== 'UNKNOWN') {
+  // A node can carry its own color (a per-collection override); otherwise it
+  // inherits its root's. Unknown types get a stable generated color instead of
+  // the gray UNKNOWN one.
+  const ownColor = (node as { color?: string }).color;
+  let color = ownColor ?? parentNode.color;
+  if (!ownColor && parentNode.key === 'UNKNOWN' && key !== 'UNKNOWN') {
     color = getRandomColorForEntityType(key);
   }
 

@@ -270,7 +270,7 @@ ask ELASTIC_INDEX "  Elasticsearch index name" "$ELASTIC_INDEX"
 step "Embedding model"
 info "Default is multilingual. Use an English-only model if you don't need"
 info "other languages and want lower memory use."
-SENTENCE_TRANSFORMER_EMBEDDING_MODEL="${SENTENCE_TRANSFORMER_EMBEDDING_MODEL:-sentence-transformers/paraphrase-multilingual-mpnet-base-v2}"
+SENTENCE_TRANSFORMER_EMBEDDING_MODEL="${SENTENCE_TRANSFORMER_EMBEDDING_MODEL:-ibm-granite/granite-embedding-311m-multilingual-r2}"
 ask SENTENCE_TRANSFORMER_EMBEDDING_MODEL "  Sentence-transformer model" "$SENTENCE_TRANSFORMER_EMBEDDING_MODEL"
 
 # ----------------------------------------------------------------------------

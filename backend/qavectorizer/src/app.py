@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import CrossEncoder, SentenceTransformer
 from settings import AppSettings
 
 from elasticsearch import Elasticsearch
@@ -52,6 +52,7 @@ app = FastAPI(
     ## Features
 
     * **Embeddings**: Generate dense vector embeddings for arbitrary text (main or chunk-attribution model)
+    * **Reranking**: Score texts against a query with a cross-encoder
     * **Document Management**: Index, update, and delete documents with annotations
     * **Elasticsearch Integration**: Full Elasticsearch index management
     * **Annotation Support**: Handle document annotations and entity mentions
@@ -369,6 +370,61 @@ def embed(req: EmbedRequest):
     return {"embeddings": [embedding.tolist() for embedding in embeddings]}
 
 
+class RerankRequest(BaseModel):
+    """Request model for scoring texts against a query with the cross-encoder"""
+
+    query: str
+    texts: List[str]
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "query": "Chi ha presentato ricorso?",
+                "texts": [
+                    "La parte ricorrente ha presentato ricorso...",
+                    "Il Tribunale di Milano ha stabilito che...",
+                ],
+            }
+        }
+
+
+class RerankResponse(BaseModel):
+    """Response model for reranking scores"""
+
+    scores: List[float]
+
+    class Config:
+        json_schema_extra = {"example": {"scores": [0.97, 0.12]}}
+
+
+@app.post(
+    "/rerank",
+    response_model=RerankResponse,
+    tags=["Embeddings"],
+    summary="Score texts against a query",
+    description="""
+    Score each text's relevance to the query with a cross-encoder (configurable
+    via RERANKER_MODEL). Used by the Next.js RAG pipeline to reorder the chunks
+    found by the hybrid search before picking the ones sent to the LLM.
+
+    Returns 503 when the reranker is disabled (RERANKER_MODEL set to an empty
+    value) or its model could not be loaded - callers then keep their own order.
+    """,
+    response_description="One relevance score per input text, in the same order (higher = more relevant)",
+)
+def rerank(req: RerankRequest):
+    if reranker is None:
+        raise HTTPException(status_code=503, detail="Reranker is disabled")
+    if not req.texts:
+        return {"scores": []}
+    scores = reranker.predict(
+        [(req.query, text) for text in req.texts],
+        batch_size=RERANKER_BATCH_SIZE,
+        show_progress_bar=False,
+    )
+    return {"scores": [float(score) for score in scores]}
+
+
 @app.post(
     "/{elastic_index}/_doc",
     tags=["Elasticsearch Documents"],
@@ -524,12 +580,17 @@ logger = logging.getLogger(__name__)
 # Automatically detect the best device (CUDA or CPU)
 device = get_device()
 print(f"Available device {device}")
+# Many checkpoints ship as bfloat16; CPUs without bf16 support fall back to a slow
+# path (and warn on every matmul), so load in float32 there.
+model_kwargs = {"torch_dtype": torch.float32} if device == "cpu" else {}
 model = SentenceTransformer(
     environ.get(
-        "SENTENCE_TRANSFORMER_EMBEDDING_MODEL", "Alibaba-NLP/gte-multilingual-base"
+        "SENTENCE_TRANSFORMER_EMBEDDING_MODEL",
+        "ibm-granite/granite-embedding-311m-multilingual-r2",
     ),
     device=device,
     trust_remote_code=True,
+    model_kwargs=model_kwargs,
 )
 # Override with environment variable if specified, otherwise use auto-detected device
 target_device = environ.get("SENTENCE_TRANSFORMER_DEVICE", device)
@@ -538,8 +599,27 @@ model = model.eval()
 
 # Lightweight model used by the Next.js RAG pipeline for per-chunk
 # attribution embeddings (requested via POST /embed with model="chunk").
-chunk_model = SentenceTransformer("all-MiniLM-L6-v2", device=device)
+chunk_model = SentenceTransformer(
+    "all-MiniLM-L6-v2", device=device, model_kwargs=model_kwargs
+)
 chunk_model = chunk_model.eval()
+
+# Cross-encoder used by the Next.js RAG pipeline to rerank retrieved chunks
+# (POST /rerank). Set RERANKER_MODEL to an empty value to disable it.
+RERANKER_BATCH_SIZE = int(environ.get("RERANKER_BATCH_SIZE", "16"))
+reranker = None
+_reranker_name = environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3").strip()
+if _reranker_name:
+    try:
+        reranker = CrossEncoder(
+            _reranker_name, device=device, max_length=512, model_kwargs=model_kwargs
+        )
+        print(f"Reranker {_reranker_name} loaded on device: {device}")
+    except Exception as e:
+        # Retrieval still works without it (the frontend keeps the fused order)
+        logging.error(f"Could not load reranker {_reranker_name}: {e}")
+else:
+    print("Reranker disabled (RERANKER_MODEL is empty)")
 
 # Print each collection
 # for collection in collections:

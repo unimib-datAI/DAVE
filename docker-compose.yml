@@ -159,6 +159,18 @@ services:
       ELASTIC_INDEX: $ELASTIC_INDEX
       ELASTIC_HOST: ${ELASTIC_HOST:-es}
       ELASTIC_PORT: ${ELASTIC_PORT:-9200}
+      # Upload jobs processed at the same time (each one walks its files in order)
+      UPLOAD_JOB_CONCURRENCY: ${UPLOAD_JOB_CONCURRENCY:-2}
+      # RAG retrieval tuning (lib/vectorSearch.ts) and chunking (lib/documentIndexer.ts)
+      RAG_TOP_K: ${RAG_TOP_K:-10}
+      RAG_MAX_CHUNKS_PER_DOC: ${RAG_MAX_CHUNKS_PER_DOC:-5}
+      RAG_RRF_K: ${RAG_RRF_K:-60}
+      RAG_RRF_DENSE_WEIGHT: ${RAG_RRF_DENSE_WEIGHT:-1}
+      RAG_RRF_FULLTEXT_WEIGHT: ${RAG_RRF_FULLTEXT_WEIGHT:-1}
+      RAG_RERANK_POOL: ${RAG_RERANK_POOL:-50}
+      RAG_NAME_BOOST: ${RAG_NAME_BOOST:-2}
+      RAG_CHUNK_SIZE: ${RAG_CHUNK_SIZE:-500}
+      RAG_CHUNK_OVERLAP: ${RAG_CHUNK_OVERLAP:-100}
       # RAG fallback document retrievers (moved here from qavectorizer) - unset
       # in every current deployment, so the same hardcoded defaults apply.
       PIPELINE_ADDRESS: $PIPELINE_ADDRESS
@@ -241,6 +253,8 @@ services:
       - ELASTIC_PORT=${ELASTIC_PORT:-9200}
       - SENTENCE_TRANSFORMER_EMBEDDING_MODEL=${SENTENCE_TRANSFORMER_EMBEDDING_MODEL}
       - SENTENCE_TRANSFORMER_DEVICE=${SENTENCE_TRANSFORMER_DEVICE}
+      # Cross-encoder behind POST /rerank; set RERANKER_MODEL= (empty) to disable it
+      - RERANKER_MODEL=${RERANKER_MODEL-BAAI/bge-reranker-v2-m3}
       - OGG2NAME_INDEX=${OGG2NAME_INDEX}
       # NVIDIA_VISIBLE_DEVICES removed - auto-detection will handle GPU availability
     ports:

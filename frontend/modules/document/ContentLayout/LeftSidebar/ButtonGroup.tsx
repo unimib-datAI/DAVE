@@ -109,9 +109,6 @@ const ButtonGroup = () => {
     group: number,
     item: number
   ) => {
-    console.log('ButtonGroup - handleButtonClick called');
-    console.log('Action to dispatch:', groups[group][item].action);
-    console.log('Current action:', action.value);
 
     dispatch({
       type: 'changeAction',

@@ -53,23 +53,18 @@ export const AuthController = {
     await dbConnect();
     const user = await UserModel.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
-      console.log(`AuthController.verifyCredentials: no user for ${email}`);
       return null;
     }
     const ok = await user.validatePassword(password);
     if (!ok) {
-      console.log(`AuthController.verifyCredentials: invalid password for ${email}`);
       return null;
     }
-    console.log(`AuthController.verifyCredentials: verified ${user.userId}`);
     return user;
   },
 
   async login(email: string, password: string) {
-    console.log(`AuthController.login: attempt for email=${email}`);
     const user = await this.verifyCredentials(email, password);
     if (!user) {
-      console.log(`AuthController.login: invalid credentials for ${email}`);
       throw new Error('Invalid credentials');
     }
 
@@ -85,11 +80,6 @@ export const AuthController = {
 
     const userObj = typeof (user as any).toObject === 'function' ? (user as any).toObject() : user;
 
-    console.log(
-      `AuthController.login: success userId=${user.userId} refreshToken=${maskToken(
-        refreshToken
-      )} accessExpiresIn=${ACCESS_EXPIRES}s`
-    );
     return {
       user: userObj,
       accessToken,
@@ -99,29 +89,23 @@ export const AuthController = {
   },
 
   async refresh(refreshToken: string) {
-    console.log(`AuthController.refresh: attempt refresh=${maskToken(refreshToken)}`);
     await dbConnect();
     if (!refreshToken) {
-      console.log('AuthController.refresh: missing refresh token');
       throw new HTTPError({ code: 401, message: 'Missing refresh token' });
     }
     const dbToken = await RefreshTokenModel.findOne({ token: refreshToken });
     if (!dbToken) {
-      console.log('AuthController.refresh: refresh token not found in DB');
       throw new HTTPError({ code: 403, message: 'Invalid refresh token' });
     }
     if (dbToken.revoked) {
-      console.log('AuthController.refresh: refresh token revoked');
       throw new HTTPError({ code: 403, message: 'Invalid refresh token' });
     }
     if (dbToken.expiresAt < new Date()) {
-      console.log('AuthController.refresh: refresh token expired', dbToken.expiresAt);
       throw new HTTPError({ code: 403, message: 'Invalid refresh token' });
     }
 
     const user = await UserModel.findOne({ userId: dbToken.userId }).lean();
     if (!user) {
-      console.log(`AuthController.refresh: user not found for userId=${dbToken.userId}`);
       throw new HTTPError({ code: 404, message: 'User not found' });
     }
 
@@ -161,7 +145,6 @@ export const AuthController = {
       const user = await UserModel.findOne({ userId: payload.sub }).lean();
       return user;
     } catch (err: any) {
-      console.log('AuthController.meFromJwt: invalid token', err?.message ?? err);
       throw new Error('Invalid token');
     }
   },

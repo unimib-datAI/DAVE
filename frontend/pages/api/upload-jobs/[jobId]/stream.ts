@@ -72,12 +72,12 @@ export default async function handler(
         | (UploadJob & { userId?: string })
         | null;
       if (!job) {
-        send('error', { message: 'Job not found' });
+        send('error', { code: 'NOT_FOUND', message: 'Job not found' });
         stop();
         return;
       }
       if (job.userId !== userId) {
-        send('error', { message: 'Access denied' });
+        send('error', { code: 'FORBIDDEN', message: 'Access denied' });
         stop();
         return;
       }

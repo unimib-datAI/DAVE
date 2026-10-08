@@ -24,6 +24,9 @@ import { useDocumentContext } from '../../modules/document/DocumentProvider/sele
 
 type EntityNodeProps = EntityNodeType<AdditionalAnnotationProps>;
 
+// Prefix of values encrypted by the Vault transit engine (vault:v<key version>:)
+const VAULT_PREFIX = /^vault:v\d+:/;
+
 const pulse = keyframes`
 0% {
   transform: scale(1);
@@ -220,13 +223,18 @@ const EntityNodeInner = React.forwardRef<HTMLSpanElement, EntityNodeProps>(
         color,
         children,
         annotation,
+        isEncrypted,
       }: {
         color: string;
         children: ReactNode;
         annotation: Annotation<AdditionalAnnotationProps>;
+        isEncrypted: boolean;
       }) => {
+        // Only vault ciphertext is shortened: entities that were not
+        // anonymized are readable text and must be shown in full.
         if (
           !deAnonimize &&
+          isEncrypted &&
           typeof children === 'string' &&
           children.length > 15
         ) {
@@ -335,7 +343,8 @@ const EntityNodeInner = React.forwardRef<HTMLSpanElement, EntityNodeProps>(
           ? getTag({
               color,
               annotation,
-              children: text.replace('vault:v1:', ''),
+              children: text.replace(VAULT_PREFIX, ''),
+              isEncrypted: VAULT_PREFIX.test(text),
             })
           : null}
       </>
@@ -352,7 +361,9 @@ const EntityNode = React.memo(EntityNodeInner, (prevProps, nextProps) => {
     prevProps.annotation.id === nextProps.annotation.id &&
     prevProps.annotation.type === nextProps.annotation.type &&
     JSON.stringify(prevProps.annotation.features?.types) ===
-      JSON.stringify(nextProps.annotation.features?.types)
+      JSON.stringify(nextProps.annotation.features?.types) &&
+    prevProps.annotation.features?.url === nextProps.annotation.features?.url &&
+    prevProps.annotation.features?.title === nextProps.annotation.features?.title
   );
 });
 

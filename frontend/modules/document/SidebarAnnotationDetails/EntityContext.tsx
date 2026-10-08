@@ -51,7 +51,7 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
   const context = useMemo(() => {
     const { start, end } = annotation;
     const startOffset = start - 50 < 0 ? 0 : start - 50;
-    const endOffset = end + 50 > text.length ? text.length - end : end + 50;
+    const endOffset = Math.min(end + 50, text.length);
     return {
       contextLeft: text.slice(startOffset, start),
       contextRight: text.slice(end, endOffset),
@@ -94,6 +94,7 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
         fontSize: '14px',
         fontStyle: 'italic',
         color: 'rgba(0,0,0,0.7)',
+        overflowWrap: 'anywhere',
       }}
     >
       <span>
