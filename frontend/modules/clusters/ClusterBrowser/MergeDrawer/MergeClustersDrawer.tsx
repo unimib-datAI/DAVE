@@ -10,12 +10,12 @@ import {
 } from '@heroui/react';
 import { ClusterWithDocId, Suggestion } from '../types';
 import { collectionDocInfo } from '@/server/routers/collection';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDocumentClusters } from '../useDocumentClusters';
 import { StyledAutocomplete } from '../../../../components/StyledAutocomplete/StyledAutocomplete';
-import { getAutocompleteKey } from './utils';
 import { MergeClustersEntry } from './MergeClustersEntry';
 import { StringSimilarityWorkerOutput } from './stringSimilarityWorker';
+import SuggestionsTable from './SuggestionsTable';
 
 type MergeClustersDrawerProps = {
   isOpen: boolean;
@@ -46,8 +46,12 @@ export function MergeClustersDrawer({
     useState<boolean>(false);
 
   // Values for manual selection of clusters to merge
-  const [firstClusterKey, setFirstClusterKey] = useState<string | null>(null);
-  const [secondClusterKey, setSecondClusterKey] = useState<string | null>(null);
+  const [firstCluster, setFirstCluster] = useState<ClusterWithDocId | null>(
+    null
+  );
+  const [secondCluster, setSecondCluster] = useState<ClusterWithDocId | null>(
+    null
+  );
 
   // Used for slicing the actual suggestions list
   const [visibleSuggestionsCount, setVisibleSuggestionsCount] =
@@ -70,9 +74,9 @@ export function MergeClustersDrawer({
       setIsComputingSuggestions(true);
       setSuggestions(undefined);
 
-      // Reset selected keys
-      setFirstClusterKey(getAutocompleteKey(sourceCluster ?? null));
-      setSecondClusterKey(null);
+      // Reset selected clusters
+      setFirstCluster(sourceCluster ?? null);
+      setSecondCluster(null);
     } else {
       // Clean up the state of the drawer
       setSuggestions(undefined);
@@ -126,8 +130,8 @@ export function MergeClustersDrawer({
   const handleDocumentSelection = (key: string | null) => {
     if (key === selectedDocument?.id) return;
 
-    setFirstClusterKey(null);
-    setSecondClusterKey(null);
+    setFirstCluster(null);
+    setSecondCluster(null);
 
     if (key === null) {
       setSuggestions([]);
@@ -160,27 +164,24 @@ export function MergeClustersDrawer({
     const remaining = suggestions.length - visibleSuggestionsCount;
 
     return (
-      <>
-        {visibleSuggestions?.map((s) => (
-          <MergeClustersEntry
-            key={`${s.first.id}-${s.second.id}`}
-            clusters={clusters}
-            taxonomy={taxonomy}
-            firstClusterKey={getAutocompleteKey(s.first)}
-            secondClusterKey={getAutocompleteKey(s.second)}
-            onMerge={() => {}}
-          />
-        ))}
+      <SuggestionsContainer>
+        <SuggestionsTable
+          suggestions={visibleSuggestions ?? []}
+          taxonomy={taxonomy}
+          onEdit={() => {}}
+          onMerge={() => {}}
+        />
+
         {remaining > 0 && (
           <LoadMoreButton
             onPress={() =>
               setVisibleSuggestionsCount((prev) => prev + PAGE_SIZE)
             }
           >
-            Load {Math.min(PAGE_SIZE, remaining)} more
+            Load more
           </LoadMoreButton>
         )}
-      </>
+      </SuggestionsContainer>
     );
   };
 
@@ -244,17 +245,20 @@ export function MergeClustersDrawer({
               ))}
             </StyledAutocomplete>
           </DocumentSelectionContainer>
+          <Separator />
           <Section>
             <SectionTitle>Merge Manually</SectionTitle>
-            <MergeClustersEntry
-              clusters={clusters}
-              taxonomy={taxonomy}
-              firstClusterKey={firstClusterKey}
-              setFirstClusterKey={setFirstClusterKey}
-              secondClusterKey={secondClusterKey}
-              setSecondClusterKey={setSecondClusterKey}
-              onMerge={() => {}}
-            />
+            <SectionContent>
+              <MergeClustersEntry
+                clusters={clusters}
+                taxonomy={taxonomy}
+                firstCluster={firstCluster}
+                setFirstCluster={setFirstCluster}
+                secondCluster={secondCluster}
+                setSecondCluster={setSecondCluster}
+                onMerge={() => {}}
+              />
+            </SectionContent>
           </Section>
           <Separator />
           <Section>
@@ -262,8 +266,9 @@ export function MergeClustersDrawer({
             <Subtitle>
               Possible duplicates in the selected document, based on name
               similarity.
+              {suggestions && ' Found ' + suggestions?.length + ' suggestions'}
             </Subtitle>
-            {SuggestionList()}
+            <SectionContent>{SuggestionList()}</SectionContent>
           </Section>
         </StyledDrawerBody>
       </DrawerContent>
@@ -317,10 +322,21 @@ const SectionTitle = styled.h2`
   font-weight: var(--font-bold);
 `;
 
+const SectionContent = styled.div`
+  padding: 24px 0px;
+`;
+
 const Separator = styled.div`
   height: 2px;
   flex-shrink: 0;
   background-color: var(--muted);
+`;
+
+const SuggestionsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
 `;
 
 const SuggestionsFeedback = styled.div`

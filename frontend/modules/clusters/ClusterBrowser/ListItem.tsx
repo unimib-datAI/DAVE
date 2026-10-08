@@ -29,6 +29,7 @@ export function ListItem({
 }
 
 const ListItemContainer = styled.div`
+  position: relative;
   display: flex;
   flex-direction: row;
   align-items: center;

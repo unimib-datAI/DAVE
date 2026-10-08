@@ -8,22 +8,20 @@ import { FlatTreeNode } from '@/components/Tree';
 type MergeClustersEntryProps = {
   clusters: ClusterWithDocId[];
   taxonomy: { [x: string]: FlatTreeNode };
-  firstClusterKey: string | null;
-  setFirstClusterKey?: (key: string | null) => void;
-  secondClusterKey: string | null;
-  setSecondClusterKey?: (key: string | null) => void;
-  isSelectionEnabled?: boolean;
+  firstCluster: ClusterWithDocId | null;
+  setFirstCluster: (c: ClusterWithDocId | null) => void;
+  secondCluster: ClusterWithDocId | null;
+  setSecondCluster: (c: ClusterWithDocId | null) => void;
   onMerge: () => void;
 };
 
 export function MergeClustersEntry({
   clusters,
   taxonomy,
-  firstClusterKey,
-  setFirstClusterKey,
-  secondClusterKey,
-  setSecondClusterKey,
-  isSelectionEnabled = true,
+  firstCluster,
+  setFirstCluster,
+  secondCluster,
+  setSecondCluster,
   onMerge,
 }: MergeClustersEntryProps) {
   return (
@@ -38,10 +36,9 @@ export function MergeClustersEntry({
       <Cell row={2} col={1}>
         <ClusterAutocomplete
           clusters={clusters}
-          selectedKey={firstClusterKey}
-          setSelectedKey={(key) => setFirstClusterKey?.(key)}
+          selectedCluster={firstCluster}
+          setSelectedCluster={setFirstCluster}
           taxonomy={taxonomy}
-          isEnabled={isSelectionEnabled}
         />
       </Cell>
 
@@ -54,17 +51,16 @@ export function MergeClustersEntry({
       <Cell row={2} col={3}>
         <ClusterAutocomplete
           clusters={clusters}
-          selectedKey={secondClusterKey}
-          setSelectedKey={(key) => setSecondClusterKey?.(key)}
+          selectedCluster={secondCluster}
+          setSelectedCluster={setSecondCluster}
           taxonomy={taxonomy}
-          isEnabled={isSelectionEnabled}
         />
       </Cell>
 
       <Cell row={2} col={4}>
         <ActionsContainer>
           <MergeButton
-            isDisabled={!firstClusterKey || !secondClusterKey}
+            isDisabled={!firstCluster || !secondCluster}
             onPress={onMerge}
           >
             Merge
@@ -84,7 +80,6 @@ const MergeClustersRow = styled.div`
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
   column-gap: 12px;
   row-gap: 4px;
-  margin: 24px 0px;
   align-items: start;
 `;
 

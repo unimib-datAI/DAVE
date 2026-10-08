@@ -22,7 +22,6 @@ const Tag = styled.div<{ color: string; fontSize: string }>`
   padding: 0px 4px;
   border-radius: 6px;
   border: 1px solid ${(props) => darken(0.05, props.color ?? '#FFFFFF')};
-  margin-right: auto;
 
   span {
     color: ${(props) => darken(0.7, props.color ?? '#FFFFFF')} !important;

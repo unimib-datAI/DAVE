@@ -66,4 +66,5 @@ const NumberLabel = styled.div`
   align-items: center;
   color: var(--muted-foreground);
   font-size: 14px;
+  margin-left: auto;
 `;

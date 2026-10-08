@@ -3,35 +3,38 @@ import { ClusterWithDocId } from '../types';
 import { AutocompleteItem } from '@heroui/react';
 import { EntityTypeTag } from '@/components/EntityTypeTag';
 import { StyledAutocomplete } from '@/components/StyledAutocomplete/StyledAutocomplete';
-import { getAutocompleteKey } from './utils';
+import { getClusterKey, getInfoFromClusterKey } from './utils';
 
 type ClusterAutocompleteProps = {
   clusters: ClusterWithDocId[];
-  selectedKey: string | null;
-  setSelectedKey: (key: string | null) => void;
+  selectedCluster: ClusterWithDocId | null;
+  setSelectedCluster: (c: ClusterWithDocId | null) => void;
   taxonomy: { [x: string]: FlatTreeNode };
-  isEnabled: boolean;
 };
 
 export function ClusterAutocomplete({
   clusters,
-  selectedKey,
-  setSelectedKey,
+  selectedCluster,
+  setSelectedCluster,
   taxonomy,
-  isEnabled,
 }: ClusterAutocompleteProps) {
   return (
     <StyledAutocomplete
       placeholder="Select an entity"
-      selectedKey={selectedKey}
-      onSelectionChange={(key) => setSelectedKey(key as string | null)}
+      selectedKey={getClusterKey(selectedCluster)}
+      onSelectionChange={(key) => {
+        const info = getInfoFromClusterKey(key as string | null);
+        const found = clusters.find(
+          (c) => c.id === info?.clusterId && c.docId === info.docId
+        );
+        setSelectedCluster(found ?? null);
+      }}
       variant="bordered"
-      isDisabled={!isEnabled}
       aria-label="Select an entity"
     >
       {clusters.map((c) => (
         <AutocompleteItem
-          key={getAutocompleteKey(c)}
+          key={getClusterKey(c)}
           startContent={
             <EntityTypeTag
               label={c.type}
