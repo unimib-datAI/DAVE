@@ -85,17 +85,19 @@ function SuggestionRow({
           </Cell>
         </Fragment>
       ))}
-      <Cell row={2} col={5}>
-        <ActionButtonContainer>
-          <ActionButton onPress={onMerge} color="primary" isIconOnly>
-            <FiCheck />
-          </ActionButton>
-        </ActionButtonContainer>
-      </Cell>
+
       <Cell row={1} col={5}>
         <ActionButtonContainer>
           <ActionButton onPress={() => onEdit(first, second)} isIconOnly>
             <FiEdit2 />
+          </ActionButton>
+        </ActionButtonContainer>
+      </Cell>
+
+      <Cell row={2} col={5}>
+        <ActionButtonContainer>
+          <ActionButton onPress={onMerge} color="primary" isIconOnly>
+            <FiCheck />
           </ActionButton>
         </ActionButtonContainer>
       </Cell>

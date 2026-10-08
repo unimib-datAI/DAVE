@@ -20,6 +20,7 @@
     "@dnd-kit/sortable": "^8.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@elastic/elasticsearch": "^8",
+    "@emotion/css": "^11.13.5",
     "@emotion/react": "^11.9.0",
     "@emotion/styled": "^11.8.1",
     "@heroui/react": "^2.7.8",

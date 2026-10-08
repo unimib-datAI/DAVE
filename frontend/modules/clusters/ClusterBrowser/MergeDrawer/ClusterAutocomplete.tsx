@@ -1,9 +1,12 @@
 import { FlatTreeNode, getAllNodeData } from '@/components/Tree';
 import { ClusterWithDocId } from '../types';
-import { AutocompleteItem } from '@heroui/react';
+import { AutocompleteItem, AutocompleteSection } from '@heroui/react';
 import { EntityTypeTag } from '@/components/EntityTypeTag';
 import { StyledAutocomplete } from '@/components/StyledAutocomplete/StyledAutocomplete';
 import { getClusterKey, getInfoFromClusterKey } from './utils';
+import { groupBy } from '@/utils/shared';
+import { css } from '@emotion/css';
+import { darken } from 'polished';
 
 type ClusterAutocompleteProps = {
   clusters: ClusterWithDocId[];
@@ -18,6 +21,24 @@ export function ClusterAutocomplete({
   setSelectedCluster,
   taxonomy,
 }: ClusterAutocompleteProps) {
+  const grouped = Object.entries(groupBy(clusters, (c) => c.type));
+
+  const headingClass = (color: string) =>
+    css`
+      && {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        display: flex;
+        width: 100%;
+        padding: 6px 8px;
+        border-radius: 8px;
+        background: ${color};
+        border: 1px solid ${darken(0.05, color)};
+        color: ${darken(0.7, color)};
+      }
+    `;
+
   return (
     <StyledAutocomplete
       placeholder="Select an entity"
@@ -31,20 +52,27 @@ export function ClusterAutocomplete({
       }}
       variant="bordered"
       aria-label="Select an entity"
+      scrollShadowProps={{
+        isEnabled: false,
+      }}
+      isVirtualized={false}
     >
-      {clusters.map((c) => (
-        <AutocompleteItem
-          key={getClusterKey(c)}
-          startContent={
-            <EntityTypeTag
-              label={c.type}
-              color={getAllNodeData(taxonomy, c.type).color}
-              fontSize="12px"
-            />
-          }
+      {grouped.map(([type, entities]) => (
+        <AutocompleteSection
+          key={type}
+          title={type}
+          classNames={{
+            heading: headingClass(getAllNodeData(taxonomy, type).color),
+          }}
         >
-          {c.title}
-        </AutocompleteItem>
+          {entities
+            .sort((a, b) => a.title.localeCompare(b.title))
+            .map((e) => (
+              <AutocompleteItem key={getClusterKey(e)}>
+                {e.title}
+              </AutocompleteItem>
+            ))}
+        </AutocompleteSection>
       ))}
     </StyledAutocomplete>
   );
