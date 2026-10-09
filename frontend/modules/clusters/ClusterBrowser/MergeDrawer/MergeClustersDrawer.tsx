@@ -7,8 +7,9 @@ import {
   DrawerContent,
   DrawerHeader,
   Spinner,
+  useDisclosure,
 } from '@heroui/react';
-import { ClusterWithDocId, Suggestion } from '../types';
+import { ClusterWithDocId, MergePair, Suggestion } from '../types';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { useEffect, useRef, useState } from 'react';
 import { useDocumentClusters } from '../useDocumentClusters';
@@ -16,6 +17,7 @@ import { StyledAutocomplete } from '../../../../components/StyledAutocomplete/St
 import { MergeClustersEntry } from './MergeClustersEntry';
 import { StringSimilarityWorkerOutput } from './stringSimilarityWorker';
 import SuggestionsTable from './SuggestionsTable';
+import ConfirmMergeModal from './ConfirmMergeModal';
 
 type MergeClustersDrawerProps = {
   isOpen: boolean;
@@ -32,6 +34,13 @@ export function MergeClustersDrawer({
   selectedDocumentInBrowser,
   sourceCluster,
 }: MergeClustersDrawerProps) {
+  // Confirm modal
+  const {
+    isOpen: isModalOpen,
+    onOpen: onModalOpen,
+    onOpenChange: onModalOpenChange,
+  } = useDisclosure();
+
   // Constants
   const PAGE_SIZE = 10;
   const SIMILARITY_THRESHOLD = 0.98;
@@ -64,6 +73,11 @@ export function MergeClustersDrawer({
   // lag due to the rendering of the suggestions
   const [isOpeningAnimationComplete, setIsOpeningAnimationComplete] =
     useState<boolean>(false);
+
+  // Pair that is set to be merged
+  const [pendingMergePair, setPendingMergePair] = useState<MergePair | null>(
+    null
+  );
 
   // Fetch clusters every time the selected document changes
   const { clusters, taxonomy } = useDocumentClusters(selectedDocument?.id);
@@ -108,8 +122,8 @@ export function MergeClustersDrawer({
 
     worker.onmessage = (e: MessageEvent<StringSimilarityWorkerOutput[]>) => {
       const suggestions: Suggestion[] = e.data.map((s) => ({
-        first: clusters[s.firstIndex],
-        second: clusters[s.secondIndex],
+        keep: clusters[s.firstIndex],
+        mergeAway: clusters[s.secondIndex],
         score: s.score,
       }));
 
@@ -156,6 +170,19 @@ export function MergeClustersDrawer({
     setSecondCluster(mergeAway);
   };
 
+  const onMergePress = (
+    keep: ClusterWithDocId,
+    mergeAway: ClusterWithDocId
+  ) => {
+    setPendingMergePair({ keep, mergeAway });
+    onModalOpen();
+  };
+
+  const onMergeConfirm = () => {
+    console.log('Confirm Merge clusters');
+    // TODO: callback to DB
+  };
+
   // Define suggestion list here for readability
   const SuggestionList = () => {
     if (isComputingSuggestions) {
@@ -182,7 +209,7 @@ export function MergeClustersDrawer({
           suggestions={visibleSuggestions ?? []}
           taxonomy={taxonomy}
           onEdit={onEditSuggestion}
-          onMerge={() => {}}
+          onMergePress={onMergePress}
         />
 
         {remaining > 0 && (
@@ -216,76 +243,89 @@ export function MergeClustersDrawer({
   };
 
   return (
-    <StyledDrawer
-      isOpen={isOpen}
-      size="full"
-      onOpenChange={onOpenChange}
-      backdrop="opaque"
-      motionProps={{
-        variants: drawerAnimationProps,
-        onAnimationComplete: () => {
-          // If it has just opened, set the flag to true.
-          // Needed for triggering the computation of suggestions.
-          if (isOpen) {
-            setIsOpeningAnimationComplete(true);
-          }
-        },
-      }}
-    >
-      <DrawerContent>
-        <StyledDrawerHeader>
-          <h1>Merge Entities</h1>
-          <Subtitle>
-            Pick two entities: the second one will merge into the first.
-          </Subtitle>
-        </StyledDrawerHeader>
-        <StyledDrawerBody>
-          <DocumentSelectionContainer>
-            <p>Document</p>
-            <StyledAutocomplete
-              placeholder="Select a document"
-              aria-label="Select a document"
-              defaultInputValue={selectedDocumentInBrowser?.name}
-              defaultSelectedKey={selectedDocumentInBrowser?.id}
-              onSelectionChange={(key) =>
-                handleDocumentSelection(key as string | null)
-              }
-              variant="bordered"
-              className="w-56"
-            >
-              {docsInCollection.map((d) => (
-                <AutocompleteItem key={d.id}>{d.name}</AutocompleteItem>
-              ))}
-            </StyledAutocomplete>
-          </DocumentSelectionContainer>
-          <Separator />
-          <Section ref={manualMergeSectionRef}>
-            <SectionTitle>Merge Manually</SectionTitle>
-            <SectionContent>
-              <MergeClustersEntry
-                clusters={clusters}
-                taxonomy={taxonomy}
-                firstCluster={firstCluster}
-                setFirstCluster={setFirstCluster}
-                secondCluster={secondCluster}
-                setSecondCluster={setSecondCluster}
-                onMerge={() => {}}
-              />
-            </SectionContent>
-          </Section>
-          <Separator />
-          <Section>
-            <SectionTitle>Suggested</SectionTitle>
+    <>
+      <StyledDrawer
+        isOpen={isOpen}
+        size="full"
+        onOpenChange={onOpenChange}
+        backdrop="opaque"
+        motionProps={{
+          variants: drawerAnimationProps,
+          onAnimationComplete: () => {
+            // If it has just opened, set the flag to true.
+            // Needed for triggering the computation of suggestions.
+            if (isOpen) {
+              setIsOpeningAnimationComplete(true);
+            }
+          },
+        }}
+      >
+        <DrawerContent>
+          <StyledDrawerHeader>
+            <h1>Merge Entities</h1>
             <Subtitle>
-              Possible duplicates in the selected document, based on name
-              similarity.
-              {suggestions && ' Found ' + suggestions?.length + ' suggestions'}
+              Pick two entities: the second one will merge into the first.
             </Subtitle>
-            <SectionContent>{SuggestionList()}</SectionContent>
-          </Section>
-        </StyledDrawerBody>
-      </DrawerContent>
-    </StyledDrawer>
+          </StyledDrawerHeader>
+          <StyledDrawerBody>
+            <DocumentSelectionContainer>
+              <p>Document</p>
+              <StyledAutocomplete
+                placeholder="Select a document"
+                aria-label="Select a document"
+                defaultInputValue={selectedDocumentInBrowser?.name}
+                defaultSelectedKey={selectedDocumentInBrowser?.id}
+                onSelectionChange={(key) =>
+                  handleDocumentSelection(key as string | null)
+                }
+                variant="bordered"
+                className="w-56"
+              >
+                {docsInCollection.map((d) => (
+                  <AutocompleteItem key={d.id}>{d.name}</AutocompleteItem>
+                ))}
+              </StyledAutocomplete>
+            </DocumentSelectionContainer>
+            <Separator />
+            <Section ref={manualMergeSectionRef}>
+              <SectionTitle>Merge Manually</SectionTitle>
+              <SectionContent>
+                <MergeClustersEntry
+                  clusters={clusters}
+                  taxonomy={taxonomy}
+                  firstCluster={firstCluster}
+                  setFirstCluster={setFirstCluster}
+                  secondCluster={secondCluster}
+                  setSecondCluster={setSecondCluster}
+                  onMerge={() => {
+                    if (firstCluster && secondCluster)
+                      onMergePress(firstCluster, secondCluster);
+                  }}
+                />
+              </SectionContent>
+            </Section>
+            <Separator />
+            <Section>
+              <SectionTitle>Suggested</SectionTitle>
+              <Subtitle>
+                Possible duplicates in the selected document, based on name
+                similarity.
+                {suggestions &&
+                  ' Found ' + suggestions?.length + ' suggestions'}
+              </Subtitle>
+              <SectionContent>{SuggestionList()}</SectionContent>
+            </Section>
+          </StyledDrawerBody>
+        </DrawerContent>
+      </StyledDrawer>
+      <ConfirmMergeModal
+        isOpen={isModalOpen}
+        onOpenChange={onModalOpenChange}
+        onMergeConfirm={onMergeConfirm}
+        keep={pendingMergePair?.keep ?? null}
+        mergeAway={pendingMergePair?.mergeAway ?? null}
+      />
+    </>
   );
 }
 

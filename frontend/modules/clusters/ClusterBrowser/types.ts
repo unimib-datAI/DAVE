@@ -12,8 +12,8 @@ export type Mention = {
   documentTitle?: string;
 };
 
-export type Suggestion = {
-  first: ClusterWithDocId;
-  second: ClusterWithDocId;
+export type MergePair = { keep: ClusterWithDocId; mergeAway: ClusterWithDocId };
+
+export type Suggestion = MergePair & {
   score: number;
 };

@@ -8,8 +8,8 @@ export const StyledAutocomplete = styled(Autocomplete)`
   }
 
   [data-slot='input-wrapper'] {
-    background-color: #fbfbfa;
-    border: 1px solid #e3e1dc;
+    background-color: var(--background-secondary);
+    border: 1px solid var(--border);
     border-radius: 12px;
     padding: 6px 12px;
     height: fit-content;

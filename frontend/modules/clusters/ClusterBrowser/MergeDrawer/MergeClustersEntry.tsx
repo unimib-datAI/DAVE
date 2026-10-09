@@ -25,7 +25,6 @@ export function MergeClustersEntry({
   setSecondCluster,
   onMerge,
 }: MergeClustersEntryProps) {
-  console.log(clusters);
   const swapButtonHandler = () => {
     const first = firstCluster;
     setFirstCluster(secondCluster);

@@ -12,14 +12,14 @@ type SuggestionsTableProps = {
   suggestions: Suggestion[];
   taxonomy: { [x: string]: FlatTreeNode };
   onEdit: (keep: ClusterWithDocId, mergeAway: ClusterWithDocId) => void;
-  onMerge: () => void;
+  onMergePress: (keep: ClusterWithDocId, mergeAway: ClusterWithDocId) => void;
 };
 
 export default function SuggestionsTable({
   suggestions,
   taxonomy,
   onEdit,
-  onMerge,
+  onMergePress,
 }: SuggestionsTableProps) {
   return (
     <Table>
@@ -39,11 +39,11 @@ export default function SuggestionsTable({
       <TableContent>
         {suggestions.map((s) => (
           <SuggestionRow
-            key={getClusterKey(s.first) + '-' + getClusterKey(s.second)}
+            key={getClusterKey(s.keep) + '-' + getClusterKey(s.mergeAway)}
             suggestion={s}
             taxonomy={taxonomy}
             onEdit={onEdit}
-            onMerge={onMerge}
+            onMergePress={onMergePress}
           />
         ))}
       </TableContent>
@@ -55,20 +55,20 @@ type SuggestionRowProps = {
   suggestion: Suggestion;
   taxonomy: { [x: string]: FlatTreeNode };
   onEdit: (keep: ClusterWithDocId, mergeAway: ClusterWithDocId) => void;
-  onMerge: () => void;
+  onMergePress: (keep: ClusterWithDocId, mergeAway: ClusterWithDocId) => void;
 };
 function SuggestionRow({
   suggestion,
   taxonomy,
   onEdit,
-  onMerge,
+  onMergePress,
 }: SuggestionRowProps) {
-  const { first, second } = suggestion;
+  const { keep, mergeAway } = suggestion;
   return (
     <TableRow>
       <ConnectorTop aria-hidden />
       <ConnectorBottom aria-hidden />
-      {[second, first].map((e, i) => (
+      {[mergeAway, keep].map((e, i) => (
         <Fragment key={getClusterKey(e)}>
           <Cell row={i + 1} col={2}>
             <EntityName title={e.title}>{e.title}</EntityName>
@@ -88,7 +88,7 @@ function SuggestionRow({
 
       <Cell row={1} col={5}>
         <ActionButtonContainer>
-          <ActionButton onPress={() => onEdit(first, second)} isIconOnly>
+          <ActionButton onPress={() => onEdit(keep, mergeAway)} isIconOnly>
             <FiEdit2 />
           </ActionButton>
         </ActionButtonContainer>
@@ -96,7 +96,11 @@ function SuggestionRow({
 
       <Cell row={2} col={5}>
         <ActionButtonContainer>
-          <ActionButton onPress={onMerge} color="primary" isIconOnly>
+          <ActionButton
+            onPress={() => onMergePress(keep, mergeAway)}
+            color="primary"
+            isIconOnly
+          >
             <FiCheck />
           </ActionButton>
         </ActionButtonContainer>
@@ -115,9 +119,9 @@ const Table = styled.div`
 const TableHeader = styled.div`
   display: grid;
   grid-template-columns: ${COLUMNS};
-  background-color: #fbfbfa;
+  background-color: var(--background-secondary);
   padding: 12px 0px;
-  border-bottom: 1px solid #e3e1dc;
+  border-bottom: 1px solid var(--border);
 `;
 
 const HeaderLabel = styled.span`
@@ -141,7 +145,7 @@ const TableRow = styled.div`
   grid-template-columns: ${COLUMNS};
   grid-template-rows: auto auto;
   padding: 12px 0px;
-  border-bottom: 1px solid #e3e1dc;
+  border-bottom: 1px solid var(--border);
 `;
 
 const EntityName = styled.span`
