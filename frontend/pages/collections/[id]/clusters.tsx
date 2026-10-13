@@ -1,4 +1,4 @@
-import { ToolbarLayout } from '@/components';
+import { ToolbarLayout, useText } from '@/components';
 import { GetServerSideProps, NextPage } from 'next';
 import { useQuery } from '@/utils/trpc';
 import { useSession, getSession } from 'next-auth/react';
@@ -48,19 +48,22 @@ const Mode = {
 } as const;
 
 const ClustersPage: NextPage = () => {
+  const t = useText('clusters');
+
   const [activeCollection] = useAtom(activeCollectionAtom);
   const collectionId = activeCollection?.id;
   const { data: session } = useSession();
 
+  // Use this to open the merge drawer
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
 
   // Mode selection
   const modes = [
     {
       key: Mode.document,
-      label: 'By Document',
+      label: t('modes.byDocument'),
     },
-    { key: Mode.collection, label: 'Collection' },
+    { key: Mode.collection, label: t('modes.wholeCollection') },
   ];
   const [selectedMode, setSelectedMode] = useState<string>(modes[0].key);
 
@@ -111,10 +114,11 @@ type MergeClustersButtonProps = {
 };
 
 function MergeClustersButton({ onClick }: MergeClustersButtonProps) {
+  const t = useText('clusters');
   return (
     <MergeClusters onPress={onClick}>
       <FiGitMerge />
-      <span>Merge</span>
+      <span>{t('mergeButtonLabel')}</span>
     </MergeClusters>
   );
 }

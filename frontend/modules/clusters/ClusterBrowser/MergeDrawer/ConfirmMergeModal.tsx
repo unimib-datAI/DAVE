@@ -10,6 +10,7 @@ import {
 import { ClusterWithDocId } from '../types';
 import { FiArrowLeft } from '@react-icons/all-files/fi/FiArrowLeft';
 import styled from '@emotion/styled';
+import { useText } from '@/components';
 
 type ConfirmMergeModalProps = {
   isOpen: boolean;
@@ -26,6 +27,7 @@ export default function ConfirmMergeModal({
   keep,
   mergeAway,
 }: ConfirmMergeModalProps) {
+  const t = useText('clusters');
   return (
     <Modal
       isOpen={isOpen}
@@ -35,15 +37,15 @@ export default function ConfirmMergeModal({
       <ModalContent>
         {(onClose) => (
           <>
-            <ModalHeader>Confirm Merge</ModalHeader>
+            <ModalHeader>{t('merge.modal.title')}</ModalHeader>
             <ModalBody>
               {keep && mergeAway && (
                 <>
                   <Description>
-                    Do you confirm that you want to merge the following
-                    clusters? This action is <strong>permanent</strong>. All
-                    mentions of <em>{mergeAway.title}</em> will be transferred
-                    to <em>{keep.title}</em>.
+                    {t.tRich('merge.modal.message', {
+                      source: <em>{mergeAway.title}</em>,
+                      destination: <em>{keep.title}</em>,
+                    })}
                   </Description>
                   <MergeRow>
                     <EntityName toBeDeleted={false} title={keep.title}>
@@ -57,10 +59,10 @@ export default function ConfirmMergeModal({
                 </>
               )}
             </ModalBody>
-            <Divider/>
+            <Divider />
             <ModalFooter>
               <Button variant="light" onPress={onClose}>
-                Cancel
+                {t('merge.modal.cancel')}
               </Button>
               <Button
                 color="danger"
@@ -69,7 +71,7 @@ export default function ConfirmMergeModal({
                   onClose();
                 }}
               >
-                Merge
+                {t('merge.modal.confirm')}
               </Button>
             </ModalFooter>
           </>

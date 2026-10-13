@@ -811,6 +811,44 @@ const t: Translation = {
     selectDocument: 'Select a document',
     selectType: 'Select an entity type',
     selectEntity: 'Select an entity',
+    mergeButtonLabel: 'Merge',
+    modes: {
+      byDocument: 'By Document',
+      wholeCollection: 'Collection',
+    },
+    merge: {
+      title: 'Merge Entities',
+      description:
+        'Pick two entities: the second one will merge into the first.',
+      document: 'Document',
+
+      manualMergeTitle: 'Merge Manually',
+      keepCluster: 'Keep',
+      mergeAwayCluster: 'Merge Away',
+      suggestionsTitle: 'Suggestions',
+      suggestionsSubtitle:
+        'Possible duplicates in the selected document, based on name similarity.',
+      documentSelectionPlaceholder: 'Select a document',
+      noDocumentFound: 'No document found.',
+      entitySelectionPlaceholder: 'Select an entity',
+      noEntityFound: 'No entity found.',
+      confirmMerge: 'Merge',
+      suggestions: {
+        entity: 'Entity',
+        type: 'Type',
+        mentions: 'Mentions',
+        loadMore: 'Load more',
+        foundSuggestions: 'Found {total} suggestions.',
+        noSuggestionsFound: 'No suggestions found.',
+      },
+      modal: {
+        title: 'Confirm Merge',
+        message:
+          'Do you confirm that you want to merge the following clusters? This action is <strong>permanent</strong>. All mentions of {source} will be transferred to {destination}.',
+        cancel: 'Cancel',
+        confirm: 'Merge',
+      },
+    },
   },
 };
 

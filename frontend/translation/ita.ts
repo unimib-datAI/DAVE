@@ -817,6 +817,42 @@ const t: Translation = {
     selectDocument: 'Seleziona un documento',
     selectType: 'Seleziona un tipo di entità',
     selectEntity: "Seleziona un'entità",
+    mergeButtonLabel: 'Unisci',
+    modes: {
+      byDocument: 'Documenti',
+      wholeCollection: 'Collezione',
+    },
+    merge: {
+      title: 'Unisci Entità',
+      description: 'Scegli due entità: la seconda verrà unita alla prima.',
+      document: 'Documento',
+      manualMergeTitle: 'Unione Manuale',
+      keepCluster: 'Mantieni',
+      mergeAwayCluster: 'Unisci',
+      suggestionsTitle: 'Suggerimenti',
+      suggestionsSubtitle:
+        'Possibili duplicati nel documento selezionato, in base alla somiglianza dei nomi.',
+      entitySelectionPlaceholder: "Scegli un'entità",
+      noEntityFound: 'Nessuna entità trovata.',
+      documentSelectionPlaceholder: 'Scegli un documento',
+      noDocumentFound: 'Nessun documento trovato.',
+      confirmMerge: 'Unisci',
+      suggestions: {
+        entity: 'Entità',
+        type: 'Tipo',
+        mentions: 'Menzioni',
+        loadMore: 'Mostra di più',
+        foundSuggestions: 'Trovato {total} suggerimenti.',
+        noSuggestionsFound: 'Non sono stati trovati suggerimenti.',
+      },
+      modal: {
+        title: 'Conferma Unione',
+        message:
+          'Confermi di voler unire le due entità seguenti? Questa azione è <strong>definitiva</strong>. Tutte le menzioni di {source} verranno trasferite a {destination}.',
+        cancel: 'Annulla',
+        confirm: 'Unisci',
+      },
+    },
   },
 };
 

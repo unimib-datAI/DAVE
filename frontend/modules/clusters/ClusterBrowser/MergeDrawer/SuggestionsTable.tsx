@@ -7,6 +7,7 @@ import { Button } from '@heroui/react';
 import { Fragment } from 'react/jsx-runtime';
 import { FiCheck } from '@react-icons/all-files/fi/FiCheck';
 import { FiEdit2 } from '@react-icons/all-files/fi/FiEdit2';
+import { useText } from '@/components';
 
 type SuggestionsTableProps = {
   suggestions: Suggestion[];
@@ -21,19 +22,20 @@ export default function SuggestionsTable({
   onEdit,
   onMergePress,
 }: SuggestionsTableProps) {
+  const t = useText("clusters");
   return (
     <Table>
       <TableHeader>
         <Cell col={2} row={1}>
-          <HeaderLabel>Entity</HeaderLabel>
+          <HeaderLabel>{t('merge.suggestions.entity')}</HeaderLabel>
         </Cell>
 
         <Cell col={3} row={1}>
-          <HeaderLabel>Type</HeaderLabel>
+          <HeaderLabel>{t('merge.suggestions.type')}</HeaderLabel>
         </Cell>
 
         <Cell col={4} row={1}>
-          <HeaderLabel>Mentions</HeaderLabel>
+          <HeaderLabel>{t('merge.suggestions.mentions')}</HeaderLabel>
         </Cell>
       </TableHeader>
       <TableContent>

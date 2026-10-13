@@ -18,6 +18,7 @@ import { MergeClustersEntry } from './MergeClustersEntry';
 import { StringSimilarityWorkerOutput } from './stringSimilarityWorker';
 import SuggestionsTable from './SuggestionsTable';
 import ConfirmMergeModal from './ConfirmMergeModal';
+import { useText } from '@/components';
 
 type MergeClustersDrawerProps = {
   isOpen: boolean;
@@ -34,6 +35,8 @@ export function MergeClustersDrawer({
   selectedDocumentInBrowser,
   sourceCluster,
 }: MergeClustersDrawerProps) {
+  const t = useText('clusters');
+
   // Confirm modal
   const {
     isOpen: isModalOpen,
@@ -196,7 +199,7 @@ export function MergeClustersDrawer({
     if (!suggestions || suggestions.length === 0) {
       return (
         <SuggestionsFeedback>
-          <Message>No suggestions found.</Message>
+          <Message>{t('merge.suggestions.noSuggestionsFound')}</Message>
         </SuggestionsFeedback>
       );
     }
@@ -218,7 +221,7 @@ export function MergeClustersDrawer({
               setVisibleSuggestionsCount((prev) => prev + PAGE_SIZE)
             }
           >
-            Load more
+            {t('merge.suggestions.loadMore')}
           </LoadMoreButton>
         )}
       </SuggestionsContainer>
@@ -262,17 +265,15 @@ export function MergeClustersDrawer({
       >
         <DrawerContent>
           <StyledDrawerHeader>
-            <h1>Merge Entities</h1>
-            <Subtitle>
-              Pick two entities: the second one will merge into the first.
-            </Subtitle>
+            <h1>{t('merge.title')}</h1>
+            <Subtitle>{t('merge.description')}</Subtitle>
           </StyledDrawerHeader>
           <StyledDrawerBody>
             <DocumentSelectionContainer>
-              <p>Document</p>
+              <p>{t('merge.document')}</p>
               <StyledAutocomplete
-                placeholder="Select a document"
-                aria-label="Select a document"
+                placeholder={t('merge.documentSelectionPlaceholder')}
+                aria-label={t('merge.documentSelectionPlaceholder')}
                 defaultInputValue={selectedDocumentInBrowser?.name}
                 defaultSelectedKey={selectedDocumentInBrowser?.id}
                 onSelectionChange={(key) =>
@@ -280,6 +281,9 @@ export function MergeClustersDrawer({
                 }
                 variant="bordered"
                 className="w-56"
+                listboxProps={{
+                  emptyContent: t('merge.noDocumentFound'),
+                }}
               >
                 {docsInCollection.map((d) => (
                   <AutocompleteItem key={d.id}>{d.name}</AutocompleteItem>
@@ -308,10 +312,11 @@ export function MergeClustersDrawer({
             <Section>
               <SectionTitle>Suggested</SectionTitle>
               <Subtitle>
-                Possible duplicates in the selected document, based on name
-                similarity.
+                {t('merge.suggestionsSubtitle')}{' '}
                 {suggestions &&
-                  ' Found ' + suggestions?.length + ' suggestions'}
+                  t('merge.suggestions.foundSuggestions', {
+                    total: suggestions.length,
+                  })}
               </Subtitle>
               <SectionContent>{SuggestionList()}</SectionContent>
             </Section>

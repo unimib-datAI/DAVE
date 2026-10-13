@@ -525,7 +525,7 @@ export type Translation = {
       browseDocs: string;
       logout: string;
       login: string;
-      browseEntities : string;
+      browseEntities: string;
       manageTaxonomy: string;
       manageCollections: string;
       annotationConfig: string;
@@ -619,5 +619,39 @@ export type Translation = {
     selectDocument: string;
     selectType: string;
     selectEntity: string;
+    mergeButtonLabel : string;
+    modes :{
+      byDocument : string;
+      wholeCollection : string;
+    }
+    merge: {
+      title: string;
+      description: string;
+      document : string;
+      manualMergeTitle: string;
+      mergeAwayCluster: string;
+      keepCluster: string;
+      suggestionsTitle: string;
+      suggestionsSubtitle: string;
+      documentSelectionPlaceholder: string;
+      entitySelectionPlaceholder: string;
+      confirmMerge : string;
+      noEntityFound: string;
+      noDocumentFound : string;
+      suggestions: {
+        entity: string;
+        type: string;
+        mentions: string;
+        loadMore: string;
+        foundSuggestions : string;
+        noSuggestionsFound : string;
+      };
+      modal : {
+        title: string;
+        message : string;
+        cancel : string;
+        confirm : string;
+      }
+    };
   };
 };

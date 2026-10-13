@@ -5,6 +5,7 @@ import { FiArrowLeft } from '@react-icons/all-files/fi/FiArrowLeft';
 import { ClusterWithDocId } from '../types';
 import { FlatTreeNode } from '@/components/Tree';
 import { IoMdSwap } from '@react-icons/all-files/io/IoMdSwap';
+import { useText } from '@/components';
 
 type MergeClustersEntryProps = {
   clusters: ClusterWithDocId[];
@@ -25,6 +26,7 @@ export function MergeClustersEntry({
   setSecondCluster,
   onMerge,
 }: MergeClustersEntryProps) {
+  const t = useText("clusters");
   const swapButtonHandler = () => {
     const first = firstCluster;
     setFirstCluster(secondCluster);
@@ -34,10 +36,10 @@ export function MergeClustersEntry({
   return (
     <MergeClustersRow>
       <Cell row={1} col={1}>
-        <Label>Keep</Label>
+        <Label>{t("merge.keepCluster")}</Label>
       </Cell>
       <Cell row={1} col={3}>
-        <Label>Merge Away</Label>
+        <Label>{t("merge.mergeAwayCluster")}</Label>
       </Cell>
 
       <Cell row={1} col={2}>
@@ -78,7 +80,7 @@ export function MergeClustersEntry({
             isDisabled={!firstCluster || !secondCluster}
             onPress={onMerge}
           >
-            Merge
+            {t("merge.confirmMerge")}
           </MergeButton>
         </ActionsContainer>
       </Cell>

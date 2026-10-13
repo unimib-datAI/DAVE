@@ -1,12 +1,12 @@
 import { FlatTreeNode, getAllNodeData } from '@/components/Tree';
 import { ClusterWithDocId } from '../types';
 import { AutocompleteItem, AutocompleteSection } from '@heroui/react';
-import { EntityTypeTag } from '@/components/EntityTypeTag';
 import { StyledAutocomplete } from '@/components/StyledAutocomplete/StyledAutocomplete';
 import { getClusterKey, getInfoFromClusterKey } from './utils';
 import { groupBy } from '@/utils/shared';
 import { css } from '@emotion/css';
 import { darken } from 'polished';
+import { useText } from '@/components';
 
 type ClusterAutocompleteProps = {
   clusters: ClusterWithDocId[];
@@ -21,6 +21,7 @@ export function ClusterAutocomplete({
   setSelectedCluster,
   taxonomy,
 }: ClusterAutocompleteProps) {
+  const t = useText('clusters');
   const grouped = Object.entries(groupBy(clusters, (c) => c.type));
 
   const headingClass = (color: string) =>
@@ -41,7 +42,7 @@ export function ClusterAutocomplete({
 
   return (
     <StyledAutocomplete
-      placeholder="Select an entity"
+      placeholder={t('merge.entitySelectionPlaceholder')}
       selectedKey={getClusterKey(selectedCluster)}
       onSelectionChange={(key) => {
         const info = getInfoFromClusterKey(key as string | null);
@@ -51,11 +52,14 @@ export function ClusterAutocomplete({
         setSelectedCluster(found ?? null);
       }}
       variant="bordered"
-      aria-label="Select an entity"
+      aria-label={t('merge.entitySelectionPlaceholder')}
       scrollShadowProps={{
         isEnabled: false,
       }}
       isVirtualized={false}
+      listboxProps={{
+        emptyContent: t('merge.noEntityFound'),
+      }}
     >
       {grouped.map(([type, entities]) => (
         <AutocompleteSection
