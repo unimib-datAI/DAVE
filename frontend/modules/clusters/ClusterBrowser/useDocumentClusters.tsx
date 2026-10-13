@@ -6,9 +6,9 @@ import { useMemo } from 'react';
 import { ClusterWithDocId } from './types';
 
 export function useDocumentClusters(docId: string | undefined) {
-  const { data: documentData } = useQuery(
+  const { data: documentData, isLoading } = useQuery(
     ['document.getDocument', { id: docId ?? '' }],
-    { enabled: !!docId, keepPreviousData: true }
+    { enabled: !!docId}
   );
 
   return useMemo(() => {
@@ -39,6 +39,7 @@ export function useDocumentClusters(docId: string | undefined) {
       taxonomy,
       annotations,
       clusters: filteredClusters,
+      isLoading
     };
-  }, [documentData]);
+  }, [documentData, isLoading]);
 }

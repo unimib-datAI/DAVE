@@ -48,13 +48,15 @@ export function MergeClustersDrawer({
   const PAGE_SIZE = 10;
   const SIMILARITY_THRESHOLD = 0.98;
 
+  // Need this to scroll to this section when user
+  // wants to edit suggestion
   const manualMergeSectionRef = useRef<HTMLDivElement>(null);
 
   const [selectedDocument, setSelectedDocument] = useState<
     collectionDocInfo | undefined
   >(selectedDocumentInBrowser);
 
-  // Suggestions for selected document
+  // Merge suggestions for selected document
   const [suggestions, setSuggestions] = useState<Suggestion[]>();
   const [isComputingSuggestions, setIsComputingSuggestions] =
     useState<boolean>(false);
@@ -77,13 +79,20 @@ export function MergeClustersDrawer({
   const [isOpeningAnimationComplete, setIsOpeningAnimationComplete] =
     useState<boolean>(false);
 
-  // Pair that is set to be merged
+  // Pair that is set to be merged. Need a separate state because
+  // suggestions can be merged without being inserted in the autocompletes.
+  // Using the other cluster states would also change the values selected in
+  // the autocompletes.
   const [pendingMergePair, setPendingMergePair] = useState<MergePair | null>(
     null
   );
 
   // Fetch clusters every time the selected document changes
-  const { clusters, taxonomy } = useDocumentClusters(selectedDocument?.id);
+  const {
+    clusters,
+    taxonomy,
+    isLoading: isLoadingClusters,
+  } = useDocumentClusters(selectedDocument?.id);
 
   useEffect(() => {
     if (isOpen) {
@@ -105,10 +114,15 @@ export function MergeClustersDrawer({
   }, [isOpen, sourceCluster, selectedDocumentInBrowser]);
 
   useEffect(() => {
+    // Don't compute the suggestions while the drawer is opening
+    // to avoid making the animation choppy due to the 
+    // suggestions rendering during it
     if (!isOpen || !isOpeningAnimationComplete) return;
 
     setIsComputingSuggestions(true);
     setSuggestions(undefined);
+
+    if (isLoadingClusters) return;
 
     if (!selectedDocument || clusters.length === 0) {
       setIsComputingSuggestions(false);
@@ -143,7 +157,7 @@ export function MergeClustersDrawer({
     return () => {
       worker.terminate();
     };
-  }, [isOpen, isOpeningAnimationComplete, clusters]);
+  }, [isOpen, isOpeningAnimationComplete, clusters, isLoadingClusters]);
 
   const visibleSuggestions = suggestions?.slice(0, visibleSuggestionsCount);
 
@@ -155,12 +169,12 @@ export function MergeClustersDrawer({
     setSecondCluster(null);
 
     if (key === null) {
+      setSelectedDocument(undefined);
       setSuggestions([]);
       return;
     }
 
     const newDoc = docsInCollection.find((d) => d.id === key);
-    if (!newDoc) return;
     setSelectedDocument(newDoc);
   };
 
@@ -188,7 +202,7 @@ export function MergeClustersDrawer({
 
   // Define suggestion list here for readability
   const SuggestionList = () => {
-    if (isComputingSuggestions) {
+    if (isComputingSuggestions || isLoadingClusters) {
       return (
         <SuggestionsFeedback>
           <Spinner variant="gradient" />
