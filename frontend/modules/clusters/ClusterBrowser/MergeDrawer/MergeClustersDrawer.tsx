@@ -19,6 +19,10 @@ import { StringSimilarityWorkerOutput } from './stringSimilarityWorker';
 import SuggestionsTable from './SuggestionsTable';
 import ConfirmMergeModal from './ConfirmMergeModal';
 import { useText } from '@/components';
+import { useContext as useTrpcContext, useMutation } from '@/utils/trpc';
+import { useAtom } from 'jotai';
+import { activeCollectionAtom } from '@/atoms/collection';
+import { useSession } from 'next-auth/react';
 
 type MergeClustersDrawerProps = {
   isOpen: boolean;
@@ -36,6 +40,13 @@ export function MergeClustersDrawer({
   sourceCluster,
 }: MergeClustersDrawerProps) {
   const t = useText('clusters');
+  const merge = useMutation('document.mergeClusters');
+  const trpcContext = useTrpcContext();
+
+  const [activeCollection] = useAtom(activeCollectionAtom);
+  const collectionId = activeCollection?.id;
+  const { data: session } = useSession();
+  const token = session?.accessToken;
 
   // Confirm modal
   const {
@@ -80,7 +91,7 @@ export function MergeClustersDrawer({
     useState<boolean>(false);
 
   // Pair that is set to be merged. Need a separate state because
-  // suggestions can be merged without being inserted in the autocompletes.
+  // suggestions can be merged without being inserted in the autocompletes
   // Using the other cluster states would also change the values selected in
   // the autocompletes.
   const [pendingMergePair, setPendingMergePair] = useState<MergePair | null>(
@@ -115,7 +126,7 @@ export function MergeClustersDrawer({
 
   useEffect(() => {
     // Don't compute the suggestions while the drawer is opening
-    // to avoid making the animation choppy due to the 
+    // to avoid making the animation choppy due to the
     // suggestions rendering during it
     if (!isOpen || !isOpeningAnimationComplete) return;
 
@@ -196,8 +207,37 @@ export function MergeClustersDrawer({
   };
 
   const onMergeConfirm = () => {
-    console.log('Confirm Merge clusters');
-    // TODO: callback to DB
+    if (!collectionId || !selectedDocument || !pendingMergePair || !token) {
+      // FIX: IL TOKEN È UNDEFINED QUI PER QUALCHE MOTIVO
+      return;
+    }
+
+    merge.mutate(
+      {
+        collectionId,
+        docId: selectedDocument?.id,
+        keepClusterId: pendingMergePair?.keep.id,
+        mergeAwayClusterId: pendingMergePair?.mergeAway.id,
+        token,
+      },
+      {
+        onSuccess: () => {
+          console.log('Merge completed');
+          // Refetch the document
+          trpcContext.invalidateQueries(['document.getDocument']);
+
+          // Reset state of autocompletes
+          setFirstCluster(null);
+          setSecondCluster(null);
+          setPendingMergePair(null);
+
+          // TODO: activate a toast for success?
+        },
+        onError: () => {
+          console.log('ERROR');
+        },
+      }
+    );
   };
 
   // Define suggestion list here for readability

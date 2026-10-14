@@ -640,6 +640,78 @@ const moveEntitiesToCluster = async (
   return DocumentController.getFullDocById(id, false, false, false, true);
 };
 
+const mergeClusters = async (
+  docId: string,
+  collectionId: string,
+  keepClusterId: number,
+  mergeAwayClusterId: number,
+  token: string
+) => {
+  const user = await getRequestUser(token);
+  await requirePermission(user, 'document', 'update');
+
+  if (keepClusterId === mergeAwayClusterId) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Cannot merge a cluster with itself.',
+    });
+  }
+
+  const doc = (await DocumentController.getFullDocById(
+    docId,
+    false,
+    true,
+    false,
+    false,
+    collectionId
+  )) as Document;
+
+  const clusters = doc.features.clusters['entities_'];
+  const annotations = doc.annotation_sets['entities_'].annotations;
+
+  if (!clusters || !annotations) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Clusters not found.' });
+  }
+
+  // Find the clusters to be merged in the document
+  const keepCluster = clusters.find((c) => c.id === keepClusterId);
+  const mergeAwayClusterIndex = clusters.findIndex(
+    (c) => c.id === mergeAwayClusterId
+  );
+  const mergeAwayCluster = clusters[mergeAwayClusterIndex];
+
+  if (!keepCluster || !mergeAwayCluster) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Cluster not found.' });
+  }
+
+  // Add mentions of the cluster to be deleted to the cluster
+  // that is kept
+  keepCluster.mentions.push(...mergeAwayCluster.mentions);
+
+  // Update the cluster id of the annotations that referenced the
+  // cluster that is being merged away. Also update the names
+  annotations.forEach((annotation) => {
+    if (annotation.features.cluster === mergeAwayClusterId) {
+      annotation.features.cluster = keepClusterId;
+      annotation.features.title = keepCluster.title;
+    }
+  });
+
+  // Remove the merged away cluster from the document
+  clusters.splice(mergeAwayClusterIndex, 1);
+
+  await runSave({
+    docId,
+    annotationSets: doc.annotation_sets,
+    features: doc.features,
+    collectionId,
+    token,
+    elasticIndex: process.env.ELASTIC_INDEX,
+  });
+
+  return { success: true };
+};
+
 // Ported from save.js's anonymizeMention() helper
 const anonymizeMentionForEs = (mention: string) => {
   if (!mention) return '';
@@ -1421,6 +1493,31 @@ export const documents = createRouter()
           code: 'NOT_FOUND',
           message: `Document with id '${id}' not found.`,
         });
+      }
+    },
+  })
+  .mutation('mergeClusters', {
+    input: z.object({
+      collectionId: z.string(),
+      docId: z.string(),
+      keepClusterId: z.number(),
+      mergeAwayClusterId: z.number(),
+      token: z.string(),
+    }),
+    resolve: async ({ input }) => {
+      const { collectionId, docId, keepClusterId, mergeAwayClusterId, token } =
+        input;
+
+      try {
+        return await mergeClusters(
+          docId,
+          collectionId,
+          keepClusterId,
+          mergeAwayClusterId,
+          token
+        );
+      } catch (error: any) {
+        console.error(error);
       }
     },
   })

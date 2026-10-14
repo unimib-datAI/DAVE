@@ -8,7 +8,7 @@ import { ClusterWithDocId } from './types';
 export function useDocumentClusters(docId: string | undefined) {
   const { data: documentData, isLoading } = useQuery(
     ['document.getDocument', { id: docId ?? '' }],
-    { enabled: !!docId}
+    { enabled: !!docId }
   );
 
   return useMemo(() => {
@@ -34,12 +34,14 @@ export function useDocumentClusters(docId: string | undefined) {
       }))
       .filter((c) => c.mentions.length > 0);
 
+    console.log(documentData?.features);
+
     return {
       documentData,
       taxonomy,
       annotations,
       clusters: filteredClusters,
-      isLoading
+      isLoading,
     };
   }, [documentData, isLoading]);
 }
