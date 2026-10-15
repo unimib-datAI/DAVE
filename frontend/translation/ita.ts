@@ -852,6 +852,15 @@ const t: Translation = {
         cancel: 'Annulla',
         confirm: 'Unisci',
       },
+      toast: {
+        successTitle: 'Unione completata con successo!',
+        successMessage:
+          '<em>{source}</em> è stato unito correttamente a <em>{destination}</em>',
+        failTitle: 'Si è verificato un errore',
+        failMessage: "Impossibile completare l'unione.",
+        failMessageWithClusters:
+          'Impossibile unire <em>{source}</em> a <em>{destination}</em>',
+      },
     },
   },
 };

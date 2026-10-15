@@ -1517,7 +1517,16 @@ export const documents = createRouter()
           token
         );
       } catch (error: any) {
-        console.error(error);
+        // Pass the error to the client if coming from the merge utility
+        if (error instanceof TRPCError) throw error;
+        if (error instanceof PermissionDeniedError) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: error.message });
+        }
+        console.error('Failed to merge clusters');
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Could not complete the merge',
+        });
       }
     },
   })

@@ -1,5 +1,6 @@
 import styled from '@emotion/styled';
 import {
+  addToast,
   AutocompleteItem,
   Button,
   Drawer,
@@ -207,7 +208,17 @@ export function MergeClustersDrawer({
   };
 
   const onMergeConfirm = () => {
-    if (!collectionId || !selectedDocument || !pendingMergePair) return;
+    if (!collectionId || !selectedDocument || !pendingMergePair) {
+      addToast({
+        title: t('merge.toast.failTitle'),
+        description: t('merge.toast.failMessage'),
+        color: 'danger',
+        variant: 'solid',
+        radius: 'sm',
+        timeout: 5000,
+      });
+      return;
+    }
 
     merge.mutate(
       {
@@ -219,7 +230,18 @@ export function MergeClustersDrawer({
       },
       {
         onSuccess: () => {
-          console.log('Merge completed');
+          addToast({
+            title: t('merge.toast.successTitle'),
+            description: t.tRich('merge.toast.successMessage', {
+              source: pendingMergePair.mergeAway.title,
+              destination: pendingMergePair.keep.title,
+            }),
+            color: 'success',
+            variant: 'solid',
+            radius: 'sm',
+            timeout: 5000,
+          });
+
           // Refetch the document
           trpcContext.invalidateQueries(['document.getDocument']);
 
@@ -227,11 +249,19 @@ export function MergeClustersDrawer({
           setFirstCluster(null);
           setSecondCluster(null);
           setPendingMergePair(null);
-
-          // TODO: activate a toast for success?
         },
         onError: () => {
-          console.log('ERROR');
+          addToast({
+            title: t('merge.toast.failTitle'),
+            description: t.tRich('merge.toast.failMessageWithClusters', {
+              source: pendingMergePair.mergeAway.title,
+              destination: pendingMergePair.keep.title,
+            }),
+            color: 'danger',
+            variant: 'solid',
+            radius: 'sm',
+            timeout: 5000,
+          });
         },
       }
     );

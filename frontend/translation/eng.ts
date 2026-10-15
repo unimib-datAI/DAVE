@@ -848,6 +848,15 @@ const t: Translation = {
         cancel: 'Cancel',
         confirm: 'Merge',
       },
+      toast: {
+        successTitle: 'Merge successful!',
+        successMessage:
+          '<em>{source}</em> was successfully merged into <em>{destination}</em>',
+        failTitle: 'Something went wrong',
+        failMessage: 'Could not complete the merge.',
+        failMessageWithClusters:
+          'Could not merge <em>{source}</em> into <em>{destination}</em>',
+      },
     },
   },
 };

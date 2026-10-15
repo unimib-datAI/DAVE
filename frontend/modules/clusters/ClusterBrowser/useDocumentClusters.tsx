@@ -34,8 +34,6 @@ export function useDocumentClusters(docId: string | undefined) {
       }))
       .filter((c) => c.mentions.length > 0);
 
-    console.log(documentData?.features);
-
     return {
       documentData,
       taxonomy,

@@ -53,7 +53,6 @@ const ClustersPage: NextPage = () => {
   const [activeCollection] = useAtom(activeCollectionAtom);
   const collectionId = activeCollection?.id;
   const { data: session } = useSession();
-  console.log(session?.accessToken);
 
   // Use this to open the merge drawer
   const { isOpen, onOpen, onOpenChange } = useDisclosure();

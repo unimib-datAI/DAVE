@@ -651,6 +651,13 @@ export type Translation = {
         message : string;
         cancel : string;
         confirm : string;
+      },
+      toast : {
+        successTitle: string;
+        successMessage : string;
+        failTitle : string;
+        failMessage : string;
+        failMessageWithClusters : string;
       }
     };
   };
