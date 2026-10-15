@@ -11,7 +11,7 @@ from typing import List, Optional
 import requests
 import torch
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -20,6 +20,8 @@ from sentence_transformers import SentenceTransformer
 from settings import AppSettings
 
 from elasticsearch import Elasticsearch
+
+from similarity import compute_string_similarity
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -410,9 +412,9 @@ def index_document_with_processing(
         file_object = {
             "id": req.id,
             "text": req.text,
-            "text_deanonymized": req.text_deanonymized
-            if req.text_deanonymized
-            else req.text,
+            "text_deanonymized": (
+                req.text_deanonymized if req.text_deanonymized else req.text
+            ),
             "annotation_sets": req.annotation_sets,
             "preview": req.preview,
             "name": req.name,
@@ -514,6 +516,54 @@ def index_document_with_processing(
         raise HTTPException(
             status_code=500, detail=f"Error processing document: {str(e)}"
         )
+
+
+class SimilarityItem(BaseModel):
+    string: str
+
+
+class SimilarityRequest(BaseModel):
+    items: List[SimilarityItem]
+    threshold: float
+
+
+similarity_jobs: dict = {}
+
+
+@app.post(
+    "/similarity/jobs",
+    tags=["String Similarity"],
+    summary="Start a similarity job that computes the similarity score of pairs of strings in a collection",
+    response_description="ID of the job computing the string similarity",
+)
+def start_string_similarity_job(
+    req: SimilarityRequest, background_tasks: BackgroundTasks
+):
+    job_id = uuid.uuid4().hex
+    similarity_jobs[job_id] = {"status": "pending"}
+    background_tasks.add_task(run_similarity_job, job_id, req.items, req.threshold)
+    return {"jobId": job_id}
+
+
+@app.get(
+    "/similarity/jobs/{job_id}",
+    tags=["String Similarity"],
+    summary="Poll the status of the job with the specified ID",
+    response_description="",
+)
+def get_string_similarity_job(job_id: str):
+    job = similarity_jobs[job_id]
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+    else:
+        return job
+
+
+def run_similarity_job(jobId: str, items: List[SimilarityItem], threshold: float):
+    similarity_jobs[jobId]["status"] = "processing"
+    result = compute_string_similarity([item.string for item in items], threshold)
+    similarity_jobs[jobId]["result"] = result
+    similarity_jobs[jobId]["status"] = "completed"
 
 
 settings = get_settings()
