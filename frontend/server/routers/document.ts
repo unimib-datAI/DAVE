@@ -645,7 +645,7 @@ const mergeClusters = async (
   collectionId: string,
   keepClusterId: number,
   mergeAwayClusterId: number,
-  token: string
+  token?: string
 ) => {
   const user = await getRequestUser(token);
   await requirePermission(user, 'document', 'update');
@@ -742,7 +742,7 @@ async function runSave({
   features?: { clusters?: Record<string, any[]> };
   collectionId: string;
   elasticIndex?: string;
-  token: string;
+  token?: string;
 }) {
   const user = await getRequestUser(token);
   await requirePermission(user, 'document', 'update');
@@ -1502,7 +1502,7 @@ export const documents = createRouter()
       docId: z.string(),
       keepClusterId: z.number(),
       mergeAwayClusterId: z.number(),
-      token: z.string(),
+      token: z.string().optional(),
     }),
     resolve: async ({ input }) => {
       const { collectionId, docId, keepClusterId, mergeAwayClusterId, token } =

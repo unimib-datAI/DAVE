@@ -53,6 +53,7 @@ const ClustersPage: NextPage = () => {
   const [activeCollection] = useAtom(activeCollectionAtom);
   const collectionId = activeCollection?.id;
   const { data: session } = useSession();
+  console.log(session?.accessToken);
 
   // Use this to open the merge drawer
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
@@ -70,7 +71,7 @@ const ClustersPage: NextPage = () => {
   // Get document IDs and names in the collection
   const { data: docsInfo } = useQuery([
     'collection.getCollectionInfo',
-    { id: collectionId ?? '', token: (session as any)?.accessToken },
+    { id: collectionId ?? '', token: session?.accessToken },
   ]) as { data: collectionDocInfo[] };
 
   return (

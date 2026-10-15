@@ -207,10 +207,7 @@ export function MergeClustersDrawer({
   };
 
   const onMergeConfirm = () => {
-    if (!collectionId || !selectedDocument || !pendingMergePair || !token) {
-      // FIX: IL TOKEN È UNDEFINED QUI PER QUALCHE MOTIVO
-      return;
-    }
+    if (!collectionId || !selectedDocument || !pendingMergePair) return;
 
     merge.mutate(
       {
