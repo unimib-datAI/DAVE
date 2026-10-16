@@ -25,4 +25,4 @@ export const appRouter = createRouter()
   .merge('search.', search)
   .merge('user.', users)
   .merge('permission.', permissions)
-  .merge('similarity', similarity);
+  .merge('similarity.', similarity);

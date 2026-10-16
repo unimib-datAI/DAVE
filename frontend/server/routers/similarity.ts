@@ -6,7 +6,6 @@ import {
 import { createRouter } from '../context';
 import z from 'zod';
 import { TRPCError } from '@trpc/server';
-import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
 
 export const similarity = createRouter()
   .mutation('startJob', {

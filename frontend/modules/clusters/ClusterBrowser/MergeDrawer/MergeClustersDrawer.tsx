@@ -16,11 +16,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useDocumentClusters } from '../useDocumentClusters';
 import { StyledAutocomplete } from '../../../../components/StyledAutocomplete/StyledAutocomplete';
 import { MergeClustersEntry } from './MergeClustersEntry';
-import { StringSimilarityWorkerOutput } from './stringSimilarityWorker';
 import SuggestionsTable from './SuggestionsTable';
 import ConfirmMergeModal from './ConfirmMergeModal';
 import { useText } from '@/components';
-import { useContext as useTrpcContext, useMutation } from '@/utils/trpc';
+import {
+  useContext as useTrpcContext,
+  useMutation,
+  useQuery,
+} from '@/utils/trpc';
 import { useAtom } from 'jotai';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { useSession } from 'next-auth/react';
@@ -40,14 +43,25 @@ export function MergeClustersDrawer({
   selectedDocumentInBrowser,
   sourceCluster,
 }: MergeClustersDrawerProps) {
+  // Translations
   const t = useText('clusters');
-  const merge = useMutation('document.mergeClusters');
-  const trpcContext = useTrpcContext();
 
+  // Get collection ID for merge functionality
   const [activeCollection] = useAtom(activeCollectionAtom);
   const collectionId = activeCollection?.id;
+
+  // User info for merge functionality
   const { data: session } = useSession();
   const token = session?.accessToken;
+
+  // TRPC hooks for string similarity calcs
+  const trpcContext = useTrpcContext();
+  const merge = useMutation('document.mergeClusters');
+  const computeSuggestions = useMutation('similarity.startJob');
+
+  // This will hold the ID of the similarity job running in the backend
+  // It's needed to fetch the result of the task
+  const [job, setJob] = useState<string>();
 
   // Confirm modal
   const {
@@ -143,33 +157,32 @@ export function MergeClustersDrawer({
       return;
     }
 
-    // Change worker to change how the entities are compared
-    // and possible merges are suggested
-    const worker = new Worker(
-      new URL('./stringSimilarityWorker.ts', import.meta.url)
+    // Instruct backend to compute the suggestions
+    computeSuggestions.mutate(
+      { values: clusters.map((c) => c.title), threshold: SIMILARITY_THRESHOLD },
+      {
+        onSuccess: ({ jobId }) => {
+          setJob(jobId);
+        },
+      }
     );
+  }, [isOpen, isOpeningAnimationComplete, clusters, isLoadingClusters]);
 
-    worker.onmessage = (e: MessageEvent<StringSimilarityWorkerOutput[]>) => {
-      const suggestions: Suggestion[] = e.data.map((s) => ({
+  useQuery(['similarity.getJob', { jobId: job ?? '' }], {
+    enabled: !!job && isComputingSuggestions,
+    refetchInterval: (data) => (data?.status === 'completed' ? false : 1000),
+    onSuccess: ({ status, result }) => {
+      if (status !== 'completed' || !result) return;
+      const suggestions: Suggestion[] = result.map((s) => ({
         keep: clusters[s.firstIndex],
         mergeAway: clusters[s.secondIndex],
         score: s.score,
       }));
-
       setSuggestions(suggestions);
       setIsComputingSuggestions(false);
       setVisibleSuggestionsCount(PAGE_SIZE);
-    };
-
-    worker.postMessage({
-      strings: clusters.map((c) => c.title),
-      threshold: SIMILARITY_THRESHOLD,
-    });
-
-    return () => {
-      worker.terminate();
-    };
-  }, [isOpen, isOpeningAnimationComplete, clusters, isLoadingClusters]);
+    },
+  });
 
   const visibleSuggestions = suggestions?.slice(0, visibleSuggestionsCount);
 
