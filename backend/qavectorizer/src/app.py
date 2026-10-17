@@ -518,13 +518,9 @@ def index_document_with_processing(
         )
 
 
-class SimilarityItem(BaseModel):
-    string: str
-
-
 class SimilarityRequest(BaseModel):
-    items: List[SimilarityItem]
-    threshold: float
+    items: List[str]
+    threshold: float  # [0, 1]
 
 
 similarity_jobs: dict = {}
@@ -549,7 +545,11 @@ def start_string_similarity_job(
     "/similarity/jobs/{job_id}",
     tags=["String Similarity"],
     summary="Poll the status of the job with the specified ID",
-    response_description="",
+    response_description="""
+    A status message that describes the progress of the computation,
+    A result object that holds the pairs of indeces of matching strings
+    in the list of items, with the relative similarity score
+    """,
 )
 def get_string_similarity_job(job_id: str):
     job = similarity_jobs[job_id]
@@ -559,11 +559,15 @@ def get_string_similarity_job(job_id: str):
         return job
 
 
-def run_similarity_job(jobId: str, items: List[SimilarityItem], threshold: float):
+def run_similarity_job(jobId: str, items: List[str], threshold: float):
     similarity_jobs[jobId]["status"] = "processing"
-    result = compute_string_similarity([item.string for item in items], threshold)
-    similarity_jobs[jobId]["result"] = result
-    similarity_jobs[jobId]["status"] = "completed"
+    try:
+        result = compute_string_similarity(items, threshold)
+        similarity_jobs[jobId]["result"] = result
+        similarity_jobs[jobId]["status"] = "completed"
+    except Exception as e:
+        logger.exception(f"Similarity job {jobId} has failed")
+        similarity_jobs[jobId]["status"] = "failed"
 
 
 settings = get_settings()

@@ -164,14 +164,25 @@ export function MergeClustersDrawer({
         onSuccess: ({ jobId }) => {
           setJob(jobId);
         },
+        onError: () => {
+          setIsComputingSuggestions(false);
+          setSuggestions([]);
+        },
       }
     );
   }, [isOpen, isOpeningAnimationComplete, clusters, isLoadingClusters]);
 
   useQuery(['similarity.getJob', { jobId: job ?? '' }], {
     enabled: !!job && isComputingSuggestions,
-    refetchInterval: (data) => (data?.status === 'completed' ? false : 1000),
+    refetchInterval: (data) =>
+      data?.status === 'completed' || data?.status === 'failed' ? false : 1000,
     onSuccess: ({ status, result }) => {
+      if (status === 'failed') {
+        setIsComputingSuggestions(false);
+        setSuggestions([]);
+        setJob(undefined);
+        return;
+      }
       if (status !== 'completed' || !result) return;
       const suggestions: Suggestion[] = result.map((s) => ({
         keep: clusters[s.firstIndex],
@@ -180,6 +191,7 @@ export function MergeClustersDrawer({
       }));
       setSuggestions(suggestions);
       setIsComputingSuggestions(false);
+      setJob(undefined);
       setVisibleSuggestionsCount(PAGE_SIZE);
     },
   });
@@ -370,8 +382,8 @@ export function MergeClustersDrawer({
                 aria-label={t('merge.documentSelectionPlaceholder')}
                 defaultInputValue={selectedDocumentInBrowser?.name}
                 defaultSelectedKey={selectedDocumentInBrowser?.id}
-                onSelectionChange={(key) =>
-                  handleDocumentSelection(key as string | null)
+                onSelectionChange={(key: string | null) =>
+                  handleDocumentSelection(key)
                 }
                 variant="bordered"
                 className="w-56"

@@ -1,5 +1,26 @@
 import z from 'zod';
 
+export const similarityJobResultSchema = z.object({
+  // Same values as the python backend in the qavectorizer
+  status: z.enum(['pending', 'processing', 'completed', 'failed']),
+  result: z
+    .object({
+      firstIndex: z.number(),
+      secondIndex: z.number(),
+      score: z.number(),
+    })
+    .array()
+    .optional(),
+});
+
+type SimilarityJobResult = z.infer<typeof similarityJobResultSchema>;
+
+// These need to be the same as the SimilarityRequest type on the qavectorizer side
+type SimilarityRequestBody = {
+  items: string[];
+  threshold: number;
+};
+
 export async function startSimilarityJob(
   names: string[],
   threshold: number
@@ -13,10 +34,15 @@ export async function startSimilarityJob(
     throw new Error('API_INDEXER is not configured');
   }
 
+  const body: SimilarityRequestBody = {
+    items: names,
+    threshold,
+  };
+
   const res = await fetch(`${baseUrl}/similarity/jobs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ names, threshold }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -27,21 +53,6 @@ export async function startSimilarityJob(
   const jobId = (await res.json()).jobId as string;
   return jobId;
 }
-
-export const similarityJobResultSchema = z.object({
-  // Same values as the python backend in the qavectorizer
-  status: z.enum(['pending', 'processing', 'completed']),
-  result: z
-    .object({
-      firstIndex: z.number(),
-      secondIndex: z.number(),
-      score: z.number(),
-    })
-    .array()
-    .optional(),
-});
-
-type SimilarityJobResult = z.infer<typeof similarityJobResultSchema>;
 
 export async function getSimilarityJob(jobId: string) {
   const baseUrl = process.env.API_INDEXER;
