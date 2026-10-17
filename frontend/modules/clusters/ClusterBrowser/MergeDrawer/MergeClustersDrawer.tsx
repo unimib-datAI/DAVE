@@ -27,6 +27,7 @@ import {
 import { useAtom } from 'jotai';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { useSession } from 'next-auth/react';
+import { useSimilaritySuggestions } from './useSimilaritySuggestions';
 
 type MergeClustersDrawerProps = {
   isOpen: boolean;
@@ -35,6 +36,10 @@ type MergeClustersDrawerProps = {
   selectedDocumentInBrowser?: collectionDocInfo;
   sourceCluster?: ClusterWithDocId;
 };
+
+// Constants
+const PAGE_SIZE = 10;
+const SIMILARITY_THRESHOLD = 0.98;
 
 export function MergeClustersDrawer({
   isOpen,
@@ -57,11 +62,6 @@ export function MergeClustersDrawer({
   // TRPC hooks for string similarity calcs
   const trpcContext = useTrpcContext();
   const merge = useMutation('document.mergeClusters');
-  const computeSuggestions = useMutation('similarity.startJob');
-
-  // This will hold the ID of the similarity job running in the backend
-  // It's needed to fetch the result of the task
-  const [job, setJob] = useState<string>();
 
   // Confirm modal
   const {
@@ -70,10 +70,6 @@ export function MergeClustersDrawer({
     onOpenChange: onModalOpenChange,
   } = useDisclosure();
 
-  // Constants
-  const PAGE_SIZE = 10;
-  const SIMILARITY_THRESHOLD = 0.98;
-
   // Need this to scroll to this section when user
   // wants to edit suggestion
   const manualMergeSectionRef = useRef<HTMLDivElement>(null);
@@ -81,11 +77,6 @@ export function MergeClustersDrawer({
   const [selectedDocument, setSelectedDocument] = useState<
     collectionDocInfo | undefined
   >(selectedDocumentInBrowser);
-
-  // Merge suggestions for selected document
-  const [suggestions, setSuggestions] = useState<Suggestion[]>();
-  const [isComputingSuggestions, setIsComputingSuggestions] =
-    useState<boolean>(false);
 
   // Values for manual selection of clusters to merge
   const [firstCluster, setFirstCluster] = useState<ClusterWithDocId | null>(
@@ -120,83 +111,36 @@ export function MergeClustersDrawer({
     isLoading: isLoadingClusters,
   } = useDocumentClusters(selectedDocument?.id);
 
+  const {
+    suggestions,
+    isLoading: isLoadingSuggestions,
+    hasJobFailed,
+    retry: retrySuggestions,
+  } = useSimilaritySuggestions(
+    clusters,
+    SIMILARITY_THRESHOLD,
+    isOpen && isOpeningAnimationComplete && !isLoadingClusters
+  );
+
+  const visibleSuggestions = suggestions?.slice(0, visibleSuggestionsCount);
+
   useEffect(() => {
     if (isOpen) {
       setSelectedDocument(selectedDocumentInBrowser);
-
-      // Reset suggestions
-      setIsComputingSuggestions(true);
-      setSuggestions(undefined);
 
       // Reset selected clusters
       setFirstCluster(sourceCluster ?? null);
       setSecondCluster(null);
     } else {
       // Clean up the state of the drawer
-      setSuggestions(undefined);
-      setIsComputingSuggestions(false);
       setIsOpeningAnimationComplete(false);
     }
   }, [isOpen, sourceCluster, selectedDocumentInBrowser]);
 
   useEffect(() => {
-    // Don't compute the suggestions while the drawer is opening
-    // to avoid making the animation choppy due to the
-    // suggestions rendering during it
-    if (!isOpen || !isOpeningAnimationComplete) return;
-
-    setIsComputingSuggestions(true);
-    setSuggestions(undefined);
-
-    if (isLoadingClusters) return;
-
-    if (!selectedDocument || clusters.length === 0) {
-      setIsComputingSuggestions(false);
-      setSuggestions([]);
-      setVisibleSuggestionsCount(PAGE_SIZE);
-      return;
-    }
-
-    // Instruct backend to compute the suggestions
-    computeSuggestions.mutate(
-      { values: clusters.map((c) => c.title), threshold: SIMILARITY_THRESHOLD },
-      {
-        onSuccess: ({ jobId }) => {
-          setJob(jobId);
-        },
-        onError: () => {
-          setIsComputingSuggestions(false);
-          setSuggestions([]);
-        },
-      }
-    );
-  }, [isOpen, isOpeningAnimationComplete, clusters, isLoadingClusters]);
-
-  useQuery(['similarity.getJob', { jobId: job ?? '' }], {
-    enabled: !!job && isComputingSuggestions,
-    refetchInterval: (data) =>
-      data?.status === 'completed' || data?.status === 'failed' ? false : 1000,
-    onSuccess: ({ status, result }) => {
-      if (status === 'failed') {
-        setIsComputingSuggestions(false);
-        setSuggestions([]);
-        setJob(undefined);
-        return;
-      }
-      if (status !== 'completed' || !result) return;
-      const suggestions: Suggestion[] = result.map((s) => ({
-        keep: clusters[s.firstIndex],
-        mergeAway: clusters[s.secondIndex],
-        score: s.score,
-      }));
-      setSuggestions(suggestions);
-      setIsComputingSuggestions(false);
-      setJob(undefined);
-      setVisibleSuggestionsCount(PAGE_SIZE);
-    },
-  });
-
-  const visibleSuggestions = suggestions?.slice(0, visibleSuggestionsCount);
+    // When new suggestions are computed, go back to the first page
+    setVisibleSuggestionsCount(PAGE_SIZE);
+  }, [suggestions]);
 
   // Event handlers
   const handleDocumentSelection = (key: string | null) => {
@@ -207,7 +151,6 @@ export function MergeClustersDrawer({
 
     if (key === null) {
       setSelectedDocument(undefined);
-      setSuggestions([]);
       return;
     }
 
@@ -294,15 +237,30 @@ export function MergeClustersDrawer({
 
   // Define suggestion list here for readability
   const SuggestionList = () => {
-    if (isComputingSuggestions || isLoadingClusters) {
+    if (hasJobFailed) {
       return (
         <SuggestionsFeedback>
-          <Spinner variant="gradient" />
+          <Message>{t('merge.suggestions.errorMessage')}</Message>
+          <RetryButton onClick={retrySuggestions}>
+            {t('merge.suggestions.retryButton')}
+          </RetryButton>
         </SuggestionsFeedback>
       );
     }
 
-    if (!suggestions || suggestions.length === 0) {
+    if (
+      suggestions === undefined ||
+      isLoadingSuggestions ||
+      isLoadingClusters
+    ) {
+      return (
+        <SuggestionsFeedback>
+          <Spinner variant="spinner" />
+        </SuggestionsFeedback>
+      );
+    }
+
+    if (hasJobFailed || suggestions.length === 0) {
       return (
         <SuggestionsFeedback>
           <Message>{t('merge.suggestions.noSuggestionsFound')}</Message>
@@ -507,6 +465,8 @@ const SuggestionsFeedback = styled.div`
   width: 100%;
   padding: 36px 0px;
   display: flex;
+  flex-direction: row;
+  gap: 4px;
   align-items: center;
   justify-content: center;
 `;
@@ -518,4 +478,10 @@ const LoadMoreButton = styled(Button)`
 
 const Message = styled.p`
   color: var(--muted-foreground);
+`;
+
+const RetryButton = styled.button`
+  background-color: transparent;
+  color: var(--muted-foreground);
+  text-decoration: underline;
 `;

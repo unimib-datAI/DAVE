@@ -645,6 +645,8 @@ export type Translation = {
         loadMore: string;
         foundSuggestions : string;
         noSuggestionsFound : string;
+        errorMessage: string;
+        retryButton : string;
       };
       modal : {
         title: string;

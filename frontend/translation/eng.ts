@@ -840,6 +840,8 @@ const t: Translation = {
         loadMore: 'Load more',
         foundSuggestions: 'Found {total} suggestions.',
         noSuggestionsFound: 'No suggestions found.',
+        errorMessage: 'Could not compute suggestions.',
+        retryButton: 'Try again.',
       },
       modal: {
         title: 'Confirm Merge',

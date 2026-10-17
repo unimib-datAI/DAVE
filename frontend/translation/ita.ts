@@ -844,6 +844,8 @@ const t: Translation = {
         loadMore: 'Mostra di più',
         foundSuggestions: 'Trovato {total} suggerimenti.',
         noSuggestionsFound: 'Non sono stati trovati suggerimenti.',
+        errorMessage: 'Impossibile calcolare suggerimenti.',
+        retryButton: 'Riprova.',
       },
       modal: {
         title: 'Conferma Unione',
