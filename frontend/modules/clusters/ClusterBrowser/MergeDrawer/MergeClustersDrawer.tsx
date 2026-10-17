@@ -1,6 +1,5 @@
 import styled from '@emotion/styled';
 import {
-  addToast,
   AutocompleteItem,
   Drawer,
   DrawerBody,
@@ -12,15 +11,12 @@ import { ClusterWithDocId, MergePair } from '../types';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { useEffect, useRef, useState } from 'react';
 import { useDocumentClusters } from '../useDocumentClusters';
-import { StyledAutocomplete } from '../../../../components/StyledAutocomplete/StyledAutocomplete';
+import { StyledAutocomplete } from '@/components/StyledAutocomplete/StyledAutocomplete';
 import { MergeClustersEntry } from './MergeClustersEntry';
 import ConfirmMergeModal from './ConfirmMergeModal';
 import { useText } from '@/components';
-import { useContext as useTrpcContext, useMutation } from '@/utils/trpc';
-import { useAtom } from 'jotai';
-import { activeCollectionAtom } from '@/atoms/collection';
-import { useSession } from 'next-auth/react';
 import SuggestionsList from './SuggestionsList';
+import { useMergeClusters } from './useMergeClusters';
 
 type MergeClustersDrawerProps = {
   isOpen: boolean;
@@ -39,18 +35,6 @@ export function MergeClustersDrawer({
 }: MergeClustersDrawerProps) {
   // Translations
   const t = useText('clusters');
-
-  // Get collection ID for merge functionality
-  const [activeCollection] = useAtom(activeCollectionAtom);
-  const collectionId = activeCollection?.id;
-
-  // User info for merge functionality
-  const { data: session } = useSession();
-  const token = session?.accessToken;
-
-  // TRPC hooks for string similarity calcs
-  const trpcContext = useTrpcContext();
-  const merge = useMutation('document.mergeClusters');
 
   // Confirm modal
   const {
@@ -83,8 +67,7 @@ export function MergeClustersDrawer({
 
   // Pair that is set to be merged. Need a separate state because
   // suggestions can be merged without being inserted in the autocompletes
-  // Using the other cluster states would also change the values selected in
-  // the autocompletes.
+  // Need this additional state to avoid affecting the UI
   const [pendingMergePair, setPendingMergePair] = useState<MergePair | null>(
     null
   );
@@ -95,6 +78,9 @@ export function MergeClustersDrawer({
     taxonomy,
     isLoading: isLoadingClusters,
   } = useDocumentClusters(selectedDocument?.id);
+
+  // Utility hook to handle the merging of cluster when requested
+  const { merge } = useMergeClusters(selectedDocument?.id);
 
   useEffect(() => {
     if (isOpen) {
@@ -143,63 +129,16 @@ export function MergeClustersDrawer({
   };
 
   const onMergeConfirm = () => {
-    if (!collectionId || !selectedDocument || !pendingMergePair) {
-      addToast({
-        title: t('merge.toast.failTitle'),
-        description: t('merge.toast.failMessage'),
-        color: 'danger',
-        variant: 'solid',
-        radius: 'sm',
-        timeout: 5000,
-      });
-      return;
-    }
+    if (!pendingMergePair) return;
 
-    merge.mutate(
-      {
-        collectionId,
-        docId: selectedDocument?.id,
-        keepClusterId: pendingMergePair?.keep.id,
-        mergeAwayClusterId: pendingMergePair?.mergeAway.id,
-        token,
+    merge(pendingMergePair, {
+      onSuccess: () => {
+        // Reset state of autocompletes
+        setFirstCluster(null);
+        setSecondCluster(null);
+        setPendingMergePair(null);
       },
-      {
-        onSuccess: () => {
-          addToast({
-            title: t('merge.toast.successTitle'),
-            description: t.tRich('merge.toast.successMessage', {
-              source: pendingMergePair.mergeAway.title,
-              destination: pendingMergePair.keep.title,
-            }),
-            color: 'success',
-            variant: 'solid',
-            radius: 'sm',
-            timeout: 5000,
-          });
-
-          // Refetch the document
-          trpcContext.invalidateQueries(['document.getDocument']);
-
-          // Reset state of autocompletes
-          setFirstCluster(null);
-          setSecondCluster(null);
-          setPendingMergePair(null);
-        },
-        onError: () => {
-          addToast({
-            title: t('merge.toast.failTitle'),
-            description: t.tRich('merge.toast.failMessageWithClusters', {
-              source: pendingMergePair.mergeAway.title,
-              destination: pendingMergePair.keep.title,
-            }),
-            color: 'danger',
-            variant: 'solid',
-            radius: 'sm',
-            timeout: 5000,
-          });
-        },
-      }
-    );
+    });
   };
 
   const drawerAnimationProps = {
