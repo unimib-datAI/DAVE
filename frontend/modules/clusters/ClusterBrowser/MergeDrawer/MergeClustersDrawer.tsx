@@ -2,32 +2,25 @@ import styled from '@emotion/styled';
 import {
   addToast,
   AutocompleteItem,
-  Button,
   Drawer,
   DrawerBody,
   DrawerContent,
   DrawerHeader,
-  Spinner,
   useDisclosure,
 } from '@heroui/react';
-import { ClusterWithDocId, MergePair, Suggestion } from '../types';
+import { ClusterWithDocId, MergePair } from '../types';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { useEffect, useRef, useState } from 'react';
 import { useDocumentClusters } from '../useDocumentClusters';
 import { StyledAutocomplete } from '../../../../components/StyledAutocomplete/StyledAutocomplete';
 import { MergeClustersEntry } from './MergeClustersEntry';
-import SuggestionsTable from './SuggestionsTable';
 import ConfirmMergeModal from './ConfirmMergeModal';
 import { useText } from '@/components';
-import {
-  useContext as useTrpcContext,
-  useMutation,
-  useQuery,
-} from '@/utils/trpc';
+import { useContext as useTrpcContext, useMutation } from '@/utils/trpc';
 import { useAtom } from 'jotai';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { useSession } from 'next-auth/react';
-import { useSimilaritySuggestions } from './useSimilaritySuggestions';
+import SuggestionsList from './SuggestionsList';
 
 type MergeClustersDrawerProps = {
   isOpen: boolean;
@@ -36,10 +29,6 @@ type MergeClustersDrawerProps = {
   selectedDocumentInBrowser?: collectionDocInfo;
   sourceCluster?: ClusterWithDocId;
 };
-
-// Constants
-const PAGE_SIZE = 10;
-const SIMILARITY_THRESHOLD = 0.98;
 
 export function MergeClustersDrawer({
   isOpen,
@@ -86,10 +75,6 @@ export function MergeClustersDrawer({
     null
   );
 
-  // Used for slicing the actual suggestions list
-  const [visibleSuggestionsCount, setVisibleSuggestionsCount] =
-    useState<number>(PAGE_SIZE);
-
   // Need this to trigger the computation of suggestions only when
   // the opening animation has ended, otherwise the animation will
   // lag due to the rendering of the suggestions
@@ -111,19 +96,6 @@ export function MergeClustersDrawer({
     isLoading: isLoadingClusters,
   } = useDocumentClusters(selectedDocument?.id);
 
-  const {
-    suggestions,
-    isLoading: isLoadingSuggestions,
-    hasJobFailed,
-    retry: retrySuggestions,
-  } = useSimilaritySuggestions(
-    clusters,
-    SIMILARITY_THRESHOLD,
-    isOpen && isOpeningAnimationComplete && !isLoadingClusters
-  );
-
-  const visibleSuggestions = suggestions?.slice(0, visibleSuggestionsCount);
-
   useEffect(() => {
     if (isOpen) {
       setSelectedDocument(selectedDocumentInBrowser);
@@ -136,11 +108,6 @@ export function MergeClustersDrawer({
       setIsOpeningAnimationComplete(false);
     }
   }, [isOpen, sourceCluster, selectedDocumentInBrowser]);
-
-  useEffect(() => {
-    // When new suggestions are computed, go back to the first page
-    setVisibleSuggestionsCount(PAGE_SIZE);
-  }, [suggestions]);
 
   // Event handlers
   const handleDocumentSelection = (key: string | null) => {
@@ -235,63 +202,6 @@ export function MergeClustersDrawer({
     );
   };
 
-  // Define suggestion list here for readability
-  const SuggestionList = () => {
-    if (hasJobFailed) {
-      return (
-        <SuggestionsFeedback>
-          <Message>{t('merge.suggestions.errorMessage')}</Message>
-          <RetryButton onClick={retrySuggestions}>
-            {t('merge.suggestions.retryButton')}
-          </RetryButton>
-        </SuggestionsFeedback>
-      );
-    }
-
-    if (
-      suggestions === undefined ||
-      isLoadingSuggestions ||
-      isLoadingClusters
-    ) {
-      return (
-        <SuggestionsFeedback>
-          <Spinner variant="spinner" />
-        </SuggestionsFeedback>
-      );
-    }
-
-    if (hasJobFailed || suggestions.length === 0) {
-      return (
-        <SuggestionsFeedback>
-          <Message>{t('merge.suggestions.noSuggestionsFound')}</Message>
-        </SuggestionsFeedback>
-      );
-    }
-
-    const remaining = suggestions.length - visibleSuggestionsCount;
-
-    return (
-      <SuggestionsContainer>
-        <SuggestionsTable
-          suggestions={visibleSuggestions ?? []}
-          taxonomy={taxonomy}
-          onEdit={onEditSuggestion}
-          onMergePress={onMergePress}
-        />
-
-        {remaining > 0 && (
-          <LoadMoreButton
-            onPress={() =>
-              setVisibleSuggestionsCount((prev) => prev + PAGE_SIZE)
-            }
-          >
-            {t('merge.suggestions.loadMore')}
-          </LoadMoreButton>
-        )}
-      </SuggestionsContainer>
-    );
-  };
-
   const drawerAnimationProps = {
     enter: {
       x: 0,
@@ -375,14 +285,18 @@ export function MergeClustersDrawer({
             <Separator />
             <Section>
               <SectionTitle>Suggested</SectionTitle>
-              <Subtitle>
-                {t('merge.suggestionsSubtitle')}{' '}
-                {suggestions &&
-                  t('merge.suggestions.foundSuggestions', {
-                    total: suggestions.length,
-                  })}
-              </Subtitle>
-              <SectionContent>{SuggestionList()}</SectionContent>
+              <Subtitle>{t('merge.suggestionsSubtitle')}</Subtitle>
+              <SectionContent>
+                <SuggestionsList
+                  clusters={clusters}
+                  taxonomy={taxonomy}
+                  enabled={
+                    isOpen && isOpeningAnimationComplete && !isLoadingClusters
+                  }
+                  onEditSuggestion={onEditSuggestion}
+                  onMergePress={onMergePress}
+                />
+              </SectionContent>
             </Section>
           </StyledDrawerBody>
         </DrawerContent>
@@ -452,36 +366,4 @@ const Separator = styled.div`
   height: 2px;
   flex-shrink: 0;
   background-color: var(--muted);
-`;
-
-const SuggestionsContainer = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24px;
-`;
-
-const SuggestionsFeedback = styled.div`
-  width: 100%;
-  padding: 36px 0px;
-  display: flex;
-  flex-direction: row;
-  gap: 4px;
-  align-items: center;
-  justify-content: center;
-`;
-
-const LoadMoreButton = styled(Button)`
-  width: fit-content;
-  margin: 12px auto;
-`;
-
-const Message = styled.p`
-  color: var(--muted-foreground);
-`;
-
-const RetryButton = styled.button`
-  background-color: transparent;
-  color: var(--muted-foreground);
-  text-decoration: underline;
 `;
