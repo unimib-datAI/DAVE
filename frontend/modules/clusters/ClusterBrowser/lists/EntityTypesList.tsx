@@ -4,8 +4,8 @@ import styled from '@emotion/styled';
 import { useText } from '@/components';
 import { Cluster } from '@/server/routers/document';
 import { FlatTreeNode, getAllNodeData } from '@/components/Tree';
-import { ListItem } from './ListItem';
-import { ListPane } from './ListPane';
+import { ListItem } from '../ui/ListItem';
+import { ListPane } from '../ui/ListPane';
 
 type EntityTypesListProps = {
   isEmpty : boolean;

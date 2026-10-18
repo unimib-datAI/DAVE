@@ -7,7 +7,7 @@ type ListPaneProps = {
   title: string;
   icon: IconType;
   children: ReactNode;
-  actions? : ReactNode;
+  actions?: ReactNode;
   isEmpty: boolean;
   emptyMessage: string;
 };

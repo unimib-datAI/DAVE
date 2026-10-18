@@ -5,7 +5,7 @@ import { useQuery } from '@/utils/trpc';
 import { useMemo } from 'react';
 import { ClusterWithDocId } from './types';
 
-export function useDocumentClusters(docId: string | undefined) {
+export default function useDocumentClusters(docId: string | undefined) {
   const { data: documentData, isLoading } = useQuery(
     ['document.getDocument', { id: docId ?? '' }],
     { enabled: !!docId }

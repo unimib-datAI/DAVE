@@ -2,9 +2,9 @@ import { useText } from '@/components';
 import { FiTag } from '@react-icons/all-files/fi/FiTag';
 import styled from '@emotion/styled';
 import { Cluster } from '@/server/routers/document';
-import { ListItem } from './ListItem';
-import { ListPane } from './ListPane';
-import { ClusterWithDocId } from './types';
+import { ListItem } from '../ui/ListItem';
+import { ListPane } from '../ui/ListPane';
+import { ClusterWithDocId } from '../types';
 import { FiGitMerge } from '@react-icons/all-files/fi/FiGitMerge';
 
 type EntityListProps = {
@@ -59,7 +59,11 @@ export function EntityList({
                   ({c.mentions.length} {t('mentions').toLowerCase()})
                 </NumberLabel>
                 {showMergeButton && (
-                  <MergeButton onClick={(e) => handleMergeButtonClick(e, c)}>
+                  <MergeButton
+                    onClick={(e: React.MouseEvent<HTMLButtonElement>) =>
+                      handleMergeButtonClick(e, c)
+                    }
+                  >
                     <FiGitMerge />
                   </MergeButton>
                 )}

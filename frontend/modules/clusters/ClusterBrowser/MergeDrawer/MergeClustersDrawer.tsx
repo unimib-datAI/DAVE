@@ -10,13 +10,13 @@ import {
 import { ClusterWithDocId, MergePair } from '../types';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { useEffect, useRef, useState } from 'react';
-import { useDocumentClusters } from '../useDocumentClusters';
 import { StyledAutocomplete } from '@/components/StyledAutocomplete/StyledAutocomplete';
 import { MergeClustersEntry } from './MergeClustersEntry';
 import ConfirmMergeModal from './ConfirmMergeModal';
 import { useText } from '@/components';
 import SuggestionsList from './SuggestionsList';
 import { useMergeClusters } from './useMergeClusters';
+import useDocumentClusters from '../useDocumentClusters';
 
 type MergeClustersDrawerProps = {
   isOpen: boolean;

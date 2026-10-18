@@ -7,8 +7,8 @@ import { useState } from 'react';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { useAtom } from 'jotai';
 import {
-  ByDocumentPage,
-  CollectionPage,
+  DocumentClusterBrowser,
+  CollectionClusterBrowser,
   ModeSelectionTabs,
 } from '@/modules/clusters/ClusterBrowser';
 import { collectionDocInfo } from '@/server/routers/collection';
@@ -92,7 +92,7 @@ const ClustersPage: NextPage = () => {
     >
       <PageContainer>
         {selectedMode === Mode.document && (
-          <ByDocumentPage
+          <DocumentClusterBrowser
             docsInfo={docsInfo}
             isDrawerOpen={isOpen}
             onDrawerChange={onOpenChange}
@@ -100,7 +100,7 @@ const ClustersPage: NextPage = () => {
           />
         )}
         {selectedMode === Mode.collection && (
-          <CollectionPage docsInfo={docsInfo} />
+          <CollectionClusterBrowser docsInfo={docsInfo} />
         )}
       </PageContainer>
     </ToolbarLayout>

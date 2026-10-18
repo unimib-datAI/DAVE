@@ -3,8 +3,8 @@ import { FiFile } from '@react-icons/all-files/fi/FiFile';
 import styled from '@emotion/styled';
 import { useText } from '@/components';
 import { collectionDocInfo } from '@/server/routers/collection';
-import { ListItem } from './ListItem';
-import { ListPane } from './ListPane';
+import { ListItem } from '../ui/ListItem';
+import { ListPane } from '../ui/ListPane';
 
 type DocumentListProps = {
   selectedDocId: string | undefined;

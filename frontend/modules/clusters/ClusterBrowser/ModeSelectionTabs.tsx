@@ -18,7 +18,7 @@ export const ModeSelectionTabs = ({
   return (
     <StyledTabs
       selectedKey={selectedMode}
-      onSelectionChange={(key) => setSelectedMode(key as string)}
+      onSelectionChange={(key : string) => setSelectedMode(key)}
     >
       {modes.map((m) => (
         <Tab key={m.key} title={m.label} />

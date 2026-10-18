@@ -44,8 +44,8 @@ export function ClusterAutocomplete({
     <StyledAutocomplete
       placeholder={t('merge.entitySelectionPlaceholder')}
       selectedKey={getClusterKey(selectedCluster)}
-      onSelectionChange={(key) => {
-        const info = getInfoFromClusterKey(key as string | null);
+      onSelectionChange={(key: string | null) => {
+        const info = getInfoFromClusterKey(key);
         const found = clusters.find(
           (c) => c.id === info?.clusterId && c.docId === info.docId
         );

@@ -1,9 +1,5 @@
-export { ByDocumentPage } from './ByDocumentPage';
-export { CollectionPage } from './CollectionPage';
+export { CollectionClusterBrowser } from './CollectionClusterBrowser';
+export { DocumentClusterBrowser } from './DocumentClusterBrowser';
 export { ModeSelectionTabs } from './ModeSelectionTabs';
-export { useDocumentClusters } from './useDocumentClusters';
-export { DocumentList } from './DocumentList';
-export { EntityTypesList } from './EntityTypesList';
-export { EntityList } from './EntityList';
-export { MentionsList } from './MentionsList';
 export { MergeClustersDrawer } from './MergeDrawer/MergeClustersDrawer';
+export { useDocumentClusters } from './useDocumentClusters';

@@ -2,10 +2,10 @@ import { useText } from '@/components';
 import { FiFileText } from '@react-icons/all-files/fi/FiFileText';
 import styled from '@emotion/styled';
 import { Cluster } from '@/server/routers/document';
-import { ListPane } from './ListPane';
+import { ListPane } from '../ui/ListPane';
 import { useRouter } from 'next/router';
 import { FiFile } from '@react-icons/all-files/fi/FiFile';
-import { Mention } from './types';
+import { Mention } from '../types';
 
 type MentionsListType = {
   selectedEntity: Cluster | undefined;

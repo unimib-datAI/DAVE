@@ -8,21 +8,23 @@ import {
 } from '@/server/routers/document';
 import { groupBy } from '@/utils/shared';
 import { useQuery } from '@/utils/trpc';
-import { EntityTypesList } from './EntityTypesList';
 import { useState } from 'react';
 import { createTaxonomy } from '@/modules/document/DocumentProvider/utils';
 import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
 import { useText } from '@/components';
-import { EntityList } from './EntityList';
 import { getMentionContext } from '@/utils/mentionContext';
-import { MentionsList } from './MentionsList';
 import { ClusterWithDocId, Mention } from './types';
+import { EntityTypesList } from './lists/EntityTypesList';
+import { EntityList } from './lists/EntityList';
+import { MentionsList } from './lists/MentionsList';
 
-type CollectionPageProps = {
+type CollectionClusterBrowserProps = {
   docsInfo: collectionDocInfo[];
 };
 
-export function CollectionPage({ docsInfo }: CollectionPageProps) {
+export function CollectionClusterBrowser({
+  docsInfo,
+}: CollectionClusterBrowserProps) {
   const t = useText('clusters');
   const [selectedType, setSelectedType] = useState<string | undefined>();
   const [selectedEntity, setSelectedEntity] = useState<
@@ -37,7 +39,7 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
   ]);
 
   // Get all the annotations for each document
-  const docAnnotations: Record<number, AnnotationSet<EntityAnnotation>> = {};
+  const docAnnotations: Record<string, AnnotationSet<EntityAnnotation>> = {};
   documents?.forEach((doc) => {
     const set = Object.values(doc.annotation_sets).find(
       (set) => set.name === 'entities_'
@@ -61,7 +63,7 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
     return doc.map((cluster) => {
       return {
         ...cluster,
-        docId: documents![i].id,
+        docId: String(documents![i].id),
       };
     });
   });
@@ -98,7 +100,9 @@ export function CollectionPage({ docsInfo }: CollectionPageProps) {
     ? selectedEntity?.mentions.map((m) => {
         if (!selectedEntity.docId) return notFoundMention(m.id, m.mention);
 
-        const foundDoc = documents?.find((d) => d.id === selectedEntity.docId);
+        const foundDoc = documents?.find(
+          (d) => String(d.id) === selectedEntity.docId
+        );
 
         if (!foundDoc) return notFoundMention(m.id, m.mention);
 

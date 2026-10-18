@@ -3,31 +3,29 @@ import { MultiPane } from '@/components/MultiPane';
 import { useEffect, useState } from 'react';
 import { groupBy } from '@/utils/shared';
 import { Cluster } from '@/server/routers/document';
-import {
-  DocumentList,
-  EntityList,
-  EntityTypesList,
-  MentionsList,
-  useDocumentClusters,
-} from '@/modules/clusters/ClusterBrowser';
 import { collectionDocInfo } from '@/server/routers/collection';
 import { getMentionContext } from '@/utils/mentionContext';
 import { MergeClustersDrawer } from '@/modules/clusters/ClusterBrowser';
 import { ClusterWithDocId, Mention } from './types';
+import { DocumentList } from './lists/DocumentList';
+import { EntityTypesList } from './lists/EntityTypesList';
+import { EntityList } from './lists/EntityList';
+import { MentionsList } from './lists/MentionsList';
+import useDocumentClusters from './useDocumentClusters';
 
-type ByDocumentPageProps = {
+type DocumentClusterBrowserProps = {
   docsInfo: collectionDocInfo[];
   isDrawerOpen: boolean;
   onDrawerChange: () => void;
   openDrawer: () => void;
 };
 
-export function ByDocumentPage({
+export function DocumentClusterBrowser({
   docsInfo,
   isDrawerOpen,
   onDrawerChange,
   openDrawer,
-}: ByDocumentPageProps) {
+}: DocumentClusterBrowserProps) {
   const t = useText('clusters');
 
   // Cluster Browser state
@@ -144,7 +142,7 @@ export function ByDocumentPage({
     }
   };
 
-  // This is only for the button that is rendered 
+  // This is only for the button that is rendered
   // on the row of a cluster in the list
   const onMergeButtonClick = (c: ClusterWithDocId) => {
     openDrawer();
