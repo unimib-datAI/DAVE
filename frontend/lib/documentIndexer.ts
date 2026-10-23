@@ -12,6 +12,7 @@ import { embedMain } from './embedClient';
 import {
   getIndexSettings,
   getAdditiveMappings,
+  getChunkTextTypes,
   humanizeDocumentName,
 } from './elasticIndexSettings';
 
@@ -31,7 +32,22 @@ const mappedIndexes = new Set<string>();
 async function ensureAdditiveMappings(client: any, index: string) {
   if (mappedIndexes.has(index)) return;
   mappedIndexes.add(index);
+  let chunkTextConflict = false;
+  try {
+    chunkTextConflict = (await getChunkTextTypes(client, index)).some(
+      (type) => type !== 'text'
+    );
+  } catch {
+    // Best-effort; the putMapping below is still guarded.
+  }
   for (const mapping of getAdditiveMappings()) {
+    if (chunkTextConflict && 'chunks' in mapping.properties) {
+      console.warn(
+        `"${index}" maps chunks.vectors.text as binary; skipping its stemming ` +
+          'sub-fields. Reindex (npm run reindex:secure) to restore them.'
+      );
+      continue;
+    }
     try {
       await client.indices.putMapping({ index, ...mapping } as any);
     } catch (error) {

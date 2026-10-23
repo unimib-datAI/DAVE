@@ -178,11 +178,21 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         top_p: top_p,
         stream: true,
         ...filteredOtherParams,
-      });
+        // Non-standard field (ignored by servers that don't know it): asks
+        // reasoning models to answer directly. Left on, they can spend the
+        // whole max_tokens budget thinking and send no answer at all.
+        ...(process.env.CHAT_LLM_THINKING === 'true'
+          ? {}
+          : { chat_template_kwargs: { enable_thinking: false } }),
+      } as any);
 
       // Stream the response to the client
-      for await (const chunk of stream) {
+      let answered = false;
+      let finishReason: string | null | undefined;
+      for await (const chunk of stream as any) {
+        finishReason = chunk.choices[0]?.finish_reason ?? finishReason;
         const content = chunk.choices[0]?.delta?.content || '';
+        if (content) answered = true;
 
         if (content) {
           // Write each chunk as it arrives
@@ -193,6 +203,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
             (res as any).flush();
           }
         }
+      }
+
+      if (!answered) {
+        // reasoning_content is not forwarded, so an empty stream would show an
+        // empty message with no clue why.
+        console.warn(`[API] The model returned no answer (finish_reason: ${finishReason})`);
+        res.write(
+          finishReason === 'length'
+            ? 'The model used its whole token limit before answering (it was probably still reasoning). Increase the max tokens in the chat settings or use a model without thinking.'
+            : 'The model returned an empty answer.'
+        );
       }
 
       // End the response when done

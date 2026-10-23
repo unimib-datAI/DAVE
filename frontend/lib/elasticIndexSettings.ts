@@ -58,6 +58,19 @@ export function getAdditiveMappings() {
   ];
 }
 
+// Types `chunks.vectors.text` is mapped as on `index` (one per matching
+// index). Indexes created while that field held encrypted chunks map it as
+// `binary`, and ES never changes an existing field's type.
+export async function getChunkTextTypes(client: any, index: string): Promise<string[]> {
+  const res: any = await client.indices.getFieldMapping({
+    index,
+    fields: 'chunks.vectors.text',
+  });
+  return Object.values(res ?? {})
+    .map((idx: any) => idx?.mappings?.['chunks.vectors.text']?.mapping?.text?.type)
+    .filter(Boolean);
+}
+
 export function getIndexSettings() {
   return {
     settings: { 'index.mapping.nested_objects.limit': 20000 },

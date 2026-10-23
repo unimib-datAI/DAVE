@@ -1860,6 +1860,11 @@ export const documents = createRouter()
       }
 
       const jobId: string = job.jobId;
+      const jobTag = `[upload ${jobId}]`;
+      console.log(
+        `${jobTag} queued: ${files.length} ${uploadType} file(s) for collection ${collectionId}` +
+          ` (anonymize: ${toAnonymize ?? false}, ${queuedUploadJobs.length} job(s) ahead)`
+      );
       const fileIdByName = new Map<string, string>(
         (job.files || []).map((f: any) => [f.fileName, f.fileId])
       );
@@ -1877,8 +1882,14 @@ export const documents = createRouter()
           // cancel while the job was still "pending") - leave the
           // already-set 'cancelled' status alone.
           if (cancelledUploadJobIds.has(jobId)) {
+            console.log(`${jobTag} cancelled before it started`);
             return;
           }
+
+          console.log(`${jobTag} started`);
+          const jobStartedAt = Date.now();
+          let completedCount = 0;
+          let failedCount = 0;
 
           await patchUploadJobStatus(jobId, tokenForApi, {
             status: 'processing',
@@ -1886,11 +1897,16 @@ export const documents = createRouter()
 
           let anyFailed = false;
           let wasCancelled = false;
-          for (const file of files) {
+          for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+            const file = files[fileIndex];
             if (cancelledUploadJobIds.has(jobId)) {
               wasCancelled = true;
               break;
             }
+            const fileTag = `${jobTag} file ${fileIndex + 1}/${files.length} "${
+              file.fileName
+            }"`;
+            const fileStartedAt = Date.now();
 
             const fileId = fileIdByName.get(file.fileName);
             if (!fileId) continue;
@@ -1901,6 +1917,7 @@ export const documents = createRouter()
               status: 'processing',
             });
 
+            console.log(`${fileTag}: processing`);
             try {
               let doc: any;
               if (uploadType === 'json') {
@@ -1928,8 +1945,19 @@ export const documents = createRouter()
                 progress: 100,
                 documentId: String(doc?.id ?? doc?._id ?? ''),
               });
+              completedCount++;
+              console.log(
+                `${fileTag}: done in ${Date.now() - fileStartedAt}ms (document ${String(
+                  doc?.id ?? doc?._id ?? ''
+                )})`
+              );
             } catch (error) {
               anyFailed = true;
+              failedCount++;
+              console.error(
+                `${fileTag}: failed after ${Date.now() - fileStartedAt}ms:`,
+                error instanceof Error ? error.message : String(error)
+              );
               await patchUploadJobFile(jobId, fileId, tokenForApi, {
                 status: 'failed',
                 error: error instanceof Error ? error.message : String(error),
@@ -1944,6 +1972,17 @@ export const documents = createRouter()
               status: anyFailed ? 'completed_with_errors' : 'completed',
             });
           }
+          console.log(
+            `${jobTag} ${
+              wasCancelled
+                ? 'cancelled'
+                : anyFailed
+                ? 'finished with errors'
+                : 'finished'
+            } in ${((Date.now() - jobStartedAt) / 1000).toFixed(1)}s: ${completedCount} done, ${failedCount} failed, ${
+              files.length - completedCount - failedCount
+            } not processed`
+          );
         } catch (error) {
           console.error('Upload job processing failed:', jobId, error);
           await patchUploadJobStatus(jobId, tokenForApi, {

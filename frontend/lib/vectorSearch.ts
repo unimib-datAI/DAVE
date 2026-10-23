@@ -12,6 +12,7 @@ import { embedMain, embedChunks, rerank } from './embedClient';
 import { retrieveDocument } from './documentRetrievers';
 import { countTokens } from './tokenCounter';
 import { decryptFieldIfEncrypted } from './crypto/fieldEncryption';
+import { getChunkTextTypes } from './elasticIndexSettings';
 
 const CHUNK_INNER_HIT_FIELDS = [
   'chunks.vectors.text',
@@ -454,14 +455,8 @@ async function resolveChunkTextField(client: any, index: string): Promise<string
   if (cached) return cached;
   let field = 'chunks.vectors.text';
   try {
-    const res: any = await client.indices.getFieldMapping({
-      index,
-      fields: 'chunks.vectors.text',
-    });
-    const types = Object.values(res ?? {}).map(
-      (idx: any) => idx?.mappings?.['chunks.vectors.text']?.mapping?.text?.type
-    );
-    if (types.some((type) => type && type !== 'text')) {
+    const types = await getChunkTextTypes(client, index);
+    if (types.some((type) => type !== 'text')) {
       console.warn(
         `[vectorSearch] "${index}" maps chunks.vectors.text as ${types.join(
           '/'
