@@ -46,7 +46,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     const {
       messages,
       prompt,
-      max_tokens = 8192,
+      max_tokens: maxTokensParam,
+      max_new_tokens, // sent by the chat UI
+      thinking_effort, // 'off' | 'low' | 'medium' | 'high'
       temperature = 0.7,
       top_p = 0.9,
       model,
@@ -57,6 +59,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       thinking, // 'off' | 'low' | 'medium' | 'high' (chat's thinking select)
       ...otherParams
     } = req.body;
+
+    const max_tokens = max_new_tokens ?? maxTokensParam ?? 8192;
 
     // Determine which settings to use
     let baseURL = process.env.API_LLM || 'http://localhost:8000/v1';
@@ -176,6 +180,19 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           }
         }
       }
+      // Thinking control. `reasoning_effort` is the OpenAI-compatible knob;
+      // `chat_template_kwargs.enable_thinking` is honoured by vLLM/SGLang
+      // chat templates (Qwen3, etc.) to switch thinking off entirely.
+      const thinkingParams: Record<string, any> = {};
+      if (['off', 'low', 'medium', 'high'].includes(thinking_effort)) {
+        if (thinking_effort === 'off') {
+          thinkingParams.reasoning_effort = 'none';
+          thinkingParams.chat_template_kwargs = { enable_thinking: false };
+        } else {
+          thinkingParams.reasoning_effort = thinking_effort;
+          thinkingParams.chat_template_kwargs = { enable_thinking: true };
+        }
+      }
       console.log(
         'calling generation with ',
         JSON.stringify({
@@ -185,6 +202,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           temperature: temperature,
           top_p: top_p,
           stream: true,
+          ...thinkingParams,
           ...filteredOtherParams,
         })
       );
@@ -195,12 +213,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         temperature: temperature,
         top_p: top_p,
         stream: true,
+        ...thinkingParams,
         ...filteredOtherParams,
-        // Non-standard fields (ignored by servers that don't know them). Thinking
-        // off asks reasoning models to answer directly: left on, they can spend
-        // the whole max_tokens budget thinking and send no answer at all.
-        // Without a choice in the request, CHAT_LLM_THINKING decides.
-        ...thinkingParams(thinking),
       } as any);
 
       // Stream the response to the client

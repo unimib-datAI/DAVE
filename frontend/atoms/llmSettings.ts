@@ -1,6 +1,8 @@
 import { atom } from 'jotai';
 import { secureStore, secureRetrieve } from '@/utils/encryption';
 
+export type ThinkingEffort = 'off' | 'low' | 'medium' | 'high';
+
 export type LLMSettings = {
   baseURL: string;
   apiKey: string;
@@ -12,6 +14,7 @@ export type LLMSettings = {
   defaultMaxTokens: number;
   defaultTopP: number;
   defaultTopK: number;
+  defaultThinkingEffort: ThinkingEffort;
   defaultFrequencyPenalty: number;
   defaultSystemPrompt: string;
 };
@@ -54,8 +57,9 @@ export const DEFAULT_LLM_SETTINGS: LLMSettings = {
   // Generation defaults
   defaultTemperature: 0.7,
   defaultMaxTokens: 8192,
-  defaultTopP: 0.65,
+  defaultTopP: 0.95,
   defaultTopK: 40,
+  defaultThinkingEffort: 'medium',
   defaultFrequencyPenalty: 1.15,
   defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
 };
@@ -72,6 +76,7 @@ type GenerationDefaults = Pick<
   | 'defaultMaxTokens'
   | 'defaultTopP'
   | 'defaultTopK'
+  | 'defaultThinkingEffort'
   | 'defaultFrequencyPenalty'
   | 'defaultSystemPrompt'
 >;
@@ -98,6 +103,7 @@ export const persistedLLMSettingsAtom = atom(
       defaultMaxTokens: newSettings.defaultMaxTokens,
       defaultTopP: newSettings.defaultTopP,
       defaultTopK: newSettings.defaultTopK,
+      defaultThinkingEffort: newSettings.defaultThinkingEffort,
       defaultFrequencyPenalty: newSettings.defaultFrequencyPenalty,
       defaultSystemPrompt: newSettings.defaultSystemPrompt,
     };

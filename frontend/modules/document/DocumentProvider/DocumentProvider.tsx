@@ -52,8 +52,11 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
     setIsAnonymized(!value);
   };
 
-  const { data, isFetching, error } = useQuery(
-    ['document.getDocument', { id: id, deAnonimize, collectionId: urlCollectionId }],
+  const { data, isFetching } = useQuery(
+    [
+      'document.getDocument',
+      { id: id, deAnonimize, collectionId: urlCollectionId },
+    ],
     {
       // Never refetch behind the editor's back (focus/reconnect would reset
       // unsaved edits), but always fetch fresh when the document is opened:
@@ -182,10 +185,20 @@ const DocumentStateProvider = ({
 
   // Re-initialize when data changes (e.g. after refetch)
   useEffect(() => {
-    store.set(
-      documentStateAtom,
-      initializeState(data, typeColorsRef.current)
-    );
+    const current = store.get(documentStateAtom);
+    const newState = initializeState(data);
+    // Need to keep the previous highlightAnnotation value if existing,
+    // otherwise the scroll to the specified annotation (through
+    // the URL hash) will not work because highlightAnnotation will
+    // be null before the scroll can actually occur.
+    store.set(documentStateAtom, {
+      ...newState,
+      ui: {
+        ...newState.ui,
+        highlightAnnotation:
+          current?.ui.highlightAnnotation ?? newState.ui.highlightAnnotation,
+      },
+    });
   }, [data, store]);
 
   // The collection (and so its colors) can arrive after the document, or be

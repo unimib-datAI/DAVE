@@ -1,0 +1,94 @@
+import { useText } from '@/components';
+import { FiFileText } from '@react-icons/all-files/fi/FiFileText';
+import styled from '@emotion/styled';
+import { Cluster } from '@/server/routers/document';
+import { ListPane } from '../ui/ListPane';
+import { useRouter } from 'next/router';
+import { FiFile } from '@react-icons/all-files/fi/FiFile';
+import { Mention } from '../types';
+
+type MentionsListType = {
+  selectedEntity: Cluster | undefined;
+  mentions: Mention[];
+};
+
+export function MentionsList({ selectedEntity, mentions }: MentionsListType) {
+  const router = useRouter();
+  const t = useText('clusters');
+
+  const renderMention = (start: number, end: number, context: string) => {
+    const before = context.substring(0, start);
+    const mention = context.substring(start, end);
+    const after = context.substring(end, context.length);
+    return (
+      <p>
+        {before}
+        <Highlight>{mention}</Highlight>
+        {after}
+      </p>
+    );
+  };
+
+  const handleMentionSelection = (m: Mention) => {
+    if (!m.documentId) return;
+    router.push(`/documents/${m.documentId}#${m.id}`);
+  };
+
+  return (
+    <ListPane
+      title={t('mentions')}
+      icon={FiFileText}
+      isEmpty={!selectedEntity}
+      emptyMessage={t('selectEntity')}
+    >
+      {selectedEntity &&
+        mentions.map((m) => {
+          return (
+            <MentionContainer
+              key={m.id}
+              onClick={() => handleMentionSelection(m)}
+            >
+              {m.documentTitle && (
+                <DocumentName>
+                  <FiFile /> <span>{m.documentTitle}</span>
+                </DocumentName>
+              )}
+              {renderMention(m.start, m.end, m.context)}
+            </MentionContainer>
+          );
+        })}
+    </ListPane>
+  );
+}
+
+const MentionContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 16px;
+  cursor: pointer;
+  font-size: 16px;
+  border-bottom: 2px solid var(--muted);
+
+  &:hover {
+    background-color: var(--muted);
+  }
+`;
+
+const DocumentName = styled.div`
+  font-weight: var(--font-semibold);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted-foreground);
+
+  svg {
+    color: var(--muted-foreground);
+  }
+`;
+
+const Highlight = styled.span`
+  background-color: var(--highlight);
+  padding: 4px 4px;
+`;

@@ -11,7 +11,7 @@ import NextNProgress from 'nextjs-progressbar';
 import { withTRPC } from '@trpc/next';
 import { httpLink } from '@trpc/client/links/httpLink';
 import { AppRouter } from '@/server/routers/_app';
-import { HeroUIProvider } from '@heroui/react';
+import { HeroUIProvider, ToastProvider } from '@heroui/react';
 import { NextPage } from 'next';
 import { ReactElement, ReactNode, useEffect, useState, useRef } from 'react';
 import {
@@ -334,6 +334,7 @@ function MyApp({
           <AntdApp>
             <PermissionMessageWirer />
             <HeroUIProvider>
+              <ToastProvider placement="bottom-left" />
               <Layout>
                 <NextNProgress color="rgb(75 85 99)" showOnShallow={false} />
                 {getLayout(<Component {...pageProps} />)}

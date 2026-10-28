@@ -16,6 +16,7 @@ import { ProcessedCluster } from '../DocumentProvider/types';
 import { Col, Input, Row, Select } from 'antd';
 import { useText } from '@/components';
 import { AiFillCloseCircle } from '@react-icons/all-files/ai/AiFillCloseCircle';
+import { EntityTypeTag } from '@/components/EntityTypeTag';
 type ClusterGroup = {
   selected: boolean;
   type: string;
@@ -51,17 +52,6 @@ const GroupHeader = styled.div<{ selected: boolean }>(({ selected }) => ({
   ...(selected && {
     background: '#f8f8f8',
   }),
-}));
-
-const Tag = styled.span<{ color: string }>(({ color }) => ({
-  position: 'relative',
-  padding: '2px',
-  borderRadius: '6px',
-  fontSize: '10px',
-  fontWeight: 600,
-  background: color,
-  color: darken(0.7, color),
-  border: `1px solid ${darken(0.05, color)}`,
 }));
 
 const IconButton = styled.button({
@@ -151,7 +141,7 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
   return (
     <GroupContainer id={`cluster-group-${type}`}>
       <GroupHeader selected={selected} onClick={onClick}>
-        <Tag color={taxonomyNode.color}>{typesPath}</Tag>
+        <EntityTypeTag color={taxonomyNode.color} label={typesPath} fontSize='12px' />
         <IconButton>
           {clusters.length}
           {selected ? <FiChevronUp /> : <FiChevronDown />}

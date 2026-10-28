@@ -5,3 +5,4 @@ tqdm
 elasticsearch==8.9.0
 pydantic-settings
 langchain-text-splitters
+rapidfuzz
