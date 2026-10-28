@@ -194,9 +194,11 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
   const txtFileInputRef = useRef<HTMLInputElement>(null);
   const trpcContext = useContext();
   const token = session?.accessToken as string | undefined;
+  const refreshToken = session?.refreshToken as string | undefined;
   const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
   // When auth is disabled, pass an empty string token to satisfy backend schema validation.
   const tokenForApi = token ?? '';
+  const refreshTokenForApi = refreshToken ?? '';
 
   // Fetch configurations
   const { data: configurations = [], isLoading: configurationsLoading } =
@@ -321,6 +323,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
         uploadType: 'json',
         files,
         token: tokenForApi,
+        refreshToken: refreshTokenForApi,
         toAnonymize,
         anonymizeTypes: anonymizeTypes.length > 0 ? anonymizeTypes : undefined,
       });
@@ -355,6 +358,7 @@ const UploadDocumentsModal = ({ collectionId, doneUploading }: props) => {
         uploadType: 'txt',
         files,
         token: tokenForApi,
+        refreshToken: refreshTokenForApi,
         configurationId: selectedConfigId || undefined,
         toAnonymize,
         anonymizeTypes: anonymizeTypes.length > 0 ? anonymizeTypes : undefined,

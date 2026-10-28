@@ -319,7 +319,7 @@ class MultiAgentSystem {
     });
     this.model = options.model;
     this.temperature = options.temperature ?? 0.7;
-    this.max_tokens = options.max_tokens ?? 1500;
+    this.max_tokens = options.max_tokens ?? 4096;
     this.indexerBaseURL =
       options.indexerBaseURL ?? process.env.API_INDEXER ?? '';
     this.indexName = options.indexName ?? process.env.ELASTIC_INDEX ?? '';
@@ -1017,7 +1017,7 @@ Rules:
           },
         ],
         temperature: 0.1,
-        max_tokens: Math.min(this.max_tokens, 2000),
+        max_tokens: Math.min(this.max_tokens, 4096),
         stream: false,
       })
     );

@@ -29,7 +29,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     const {
       messages,
       prompt,
-      max_tokens = 1000,
+      max_tokens: maxTokensParam,
+      max_new_tokens, // sent by the chat UI
+      thinking_effort, // 'off' | 'low' | 'medium' | 'high'
       temperature = 0.7,
       top_p = 0.9,
       model,
@@ -39,6 +41,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       filterIds, // Document IDs to restrict retrieval to
       ...otherParams
     } = req.body;
+
+    const max_tokens = max_new_tokens ?? maxTokensParam ?? 8192;
 
     // Determine which settings to use
     let baseURL = process.env.API_LLM || 'http://localhost:8000/v1';
@@ -158,6 +162,19 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           }
         }
       }
+      // Thinking control. `reasoning_effort` is the OpenAI-compatible knob;
+      // `chat_template_kwargs.enable_thinking` is honoured by vLLM/SGLang
+      // chat templates (Qwen3, etc.) to switch thinking off entirely.
+      const thinkingParams: Record<string, any> = {};
+      if (['off', 'low', 'medium', 'high'].includes(thinking_effort)) {
+        if (thinking_effort === 'off') {
+          thinkingParams.reasoning_effort = 'none';
+          thinkingParams.chat_template_kwargs = { enable_thinking: false };
+        } else {
+          thinkingParams.reasoning_effort = thinking_effort;
+          thinkingParams.chat_template_kwargs = { enable_thinking: true };
+        }
+      }
       console.log(
         'calling generation with ',
         JSON.stringify({
@@ -167,6 +184,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           temperature: temperature,
           top_p: top_p,
           stream: true,
+          ...thinkingParams,
           ...filteredOtherParams,
         })
       );
@@ -177,8 +195,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         temperature: temperature,
         top_p: top_p,
         stream: true,
+        ...thinkingParams,
         ...filteredOtherParams,
-      });
+      } as any);
 
       // Stream the response to the client
       for await (const chunk of stream) {

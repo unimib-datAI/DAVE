@@ -12,6 +12,31 @@ const getStringHash = (inputString: string) => {
   return crypto.createHash('sha256').update(inputString).digest('hex');
 };
 
+/**
+ * Mongo filter selecting the annotation sets of document `docId` in
+ * `collectionId`. Document ids are content hashes shared across collections,
+ * so filtering by `docId` alone returns (or deletes) every copy's sets.
+ *
+ * Sets created before `collectionId` was stored on them have none. For an id
+ * no other collection uses they're unambiguous and always included. For a
+ * shared id, reads fall back to them only when the collection has no scoped
+ * sets yet (the pre-fix behavior), while writes (`forWrite`) never touch
+ * them - they may belong to another collection's copy. Saving such a
+ * document creates scoped sets, which reads prefer from then on.
+ */
+export async function annotationSetScope(
+  docId: string,
+  collectionId?: string | null,
+  { forWrite = false }: { forWrite?: boolean } = {}
+): Promise<Record<string, any>> {
+  if (!collectionId) return { docId };
+  const copies = await DocumentModel.countDocuments({ id: docId });
+  if (copies <= 1) return { docId, collectionId: { $in: [collectionId, null] } };
+  if (forWrite) return { docId, collectionId };
+  const hasScoped = await AnnotationSetModel.exists({ docId, collectionId });
+  return hasScoped ? { docId, collectionId } : { docId, collectionId: null };
+}
+
 const removeSurrogates = (text: any) => {
   if (typeof text !== 'string') return text;
   // Remove surrogate pairs and unpaired surrogates to match Python's surrogatepass decode ignore
@@ -90,6 +115,7 @@ export const DocumentController = {
         const annRecord = {
           name,
           docId,
+          collectionId,
           next_annid: annset.next_annid || 1,
         };
         const newAnnSet = new AnnotationSetModel(annRecord);
@@ -195,7 +221,12 @@ export const DocumentController = {
       doc.id = id.toString();
     }
 
-    const annotationSets = await AnnotationSetModel.find({ docId: id }).lean();
+    // Scope by the collection of the document actually found (not just the
+    // caller's optional collectionId), so text and annotations always come
+    // from the same copy even when the caller didn't disambiguate.
+    const annotationSets = await AnnotationSetModel.find(
+      await annotationSetScope(id, doc.collectionId)
+    ).lean();
 
     // When a doc projection is provided (light fetch for the frontend), also strip
     // heavy-but-unused subfields from every annotation:
@@ -226,12 +257,21 @@ export const DocumentController = {
     };
   },
 
-  updateEntitiesAnnotationSet: async (docId: string, annotationSets: Record<string, any>) => {
+  updateEntitiesAnnotationSet: async (
+    docId: string,
+    annotationSets: Record<string, any>,
+    collectionId?: string
+  ) => {
     await dbConnect();
     const update = async (annotationSet: any) => {
-      const { annotations: newAnnotations, _id: annotationSetId, ...set } = annotationSet;
+      const {
+        annotations: newAnnotations,
+        _id: annotationSetId,
+        collectionId: _ignored,
+        ...set
+      } = annotationSet;
       // add new annotation set
-      const newAnnotationSet = annotationSetDTO({ ...set, docId });
+      const newAnnotationSet = annotationSetDTO({ ...set, docId, collectionId });
       const annSet = await newAnnotationSet.save();
       // add annotations for this set
       const annotationsDTOs = newAnnotations.map(({ _id, ...ann }: any) =>
@@ -245,12 +285,12 @@ export const DocumentController = {
       };
     };
 
-    const oldAnnotationSets = await AnnotationSetModel.find({ docId });
-    await AnnotationSetModel.deleteMany({ docId });
-    // delete annotations for each annotation set
-    for (const annSet of oldAnnotationSets) {
-      await AnnotationModel.deleteMany({ annotationSetId: annSet._id });
-    }
+    const oldAnnotationSets = await AnnotationSetModel.find(
+      await annotationSetScope(docId, collectionId, { forWrite: true })
+    );
+    const oldIds = oldAnnotationSets.map((annSet) => annSet._id);
+    await AnnotationSetModel.deleteMany({ _id: { $in: oldIds } });
+    await AnnotationModel.deleteMany({ annotationSetId: { $in: oldIds } });
     // update with new annotation sets
     const updaters = Object.values(annotationSets).map((set) => update(set));
     return Promise.all(updaters);
@@ -266,22 +306,34 @@ export const DocumentController = {
     if (!permissionRes) throw new Error('User has no access to the collection');
     // get all doc ids to delete
     const docIds = await DocumentModel.distinct('id', { collectionId });
-    // get annotation sets related to the document
+    // Doc ids are content hashes that other collections may share - only
+    // this collection's annotation sets may go (legacy unscoped sets only
+    // for ids no other collection uses).
+    const sharedIds = await DocumentModel.distinct('id', {
+      id: { $in: docIds },
+      collectionId: { $ne: collectionId },
+    });
+    const unsharedIds = docIds.filter((id: any) => !sharedIds.includes(id));
     const annSetsIds = (
-      await AnnotationSetModel.find({ docId: { $in: docIds } })
+      await AnnotationSetModel.find({
+        $or: [
+          { docId: { $in: docIds }, collectionId },
+          { docId: { $in: unsharedIds }, collectionId: null },
+        ],
+      })
         .select('_id')
         .lean()
     ).map((set: any) => set._id);
     // delete all annotations referenced to the annotation sets of the documents
     await AnnotationModel.deleteMany({ annotationSetId: { $in: annSetsIds } });
     // delete all annotationSets
-    await AnnotationSetModel.deleteMany({ docId: { $in: docIds } });
+    await AnnotationSetModel.deleteMany({ _id: { $in: annSetsIds } });
     // delete all docs
     await DocumentModel.deleteMany({ collectionId });
     // Delete docs from elastic index (in-process now, no HTTP hop needed)
     for (const docId of docIds) {
       try {
-        await deleteElasticDocument(elasticIndex, String(docId));
+        await deleteElasticDocument(elasticIndex, String(docId), collectionId);
       } catch (error: any) {
         console.error(`Error deleting document ${docId} from Elasticsearch:`, error.message);
       }
@@ -414,7 +466,8 @@ export const DocumentController = {
           if (!('mention' in annot.features)) {
             // Validate start and end to prevent substring errors
             const start = Math.max(0, annot.start);
-            const end = Math.min(document.text.length, Math.max(start, annot.end + 1));
+            // `end` is exclusive (as everywhere else, e.g. encode/decode)
+            const end = Math.min(document.text.length, Math.max(start, annot.end));
             annot.features.mention = document.text.substring(start, end);
           }
           // workaround for issue 1 // TODO remove

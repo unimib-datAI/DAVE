@@ -225,10 +225,11 @@ export const authOptions: NextAuthOptions = {
         token?.accessTokenExpires,
       );
       // Make tokens and user available on the client
-      session.user = token.user;
-      session.accessToken = token.accessToken;
-      session.idToken = token.idToken;
-      session.error = token.error;
+      session.user = token.user as any;
+      session.accessToken = token.accessToken as string;
+      session.refreshToken = token.refreshToken as string;
+      session.idToken = token.idToken as string;
+      session.error = token.error as string;
       return session;
     },
   },

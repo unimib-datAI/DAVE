@@ -59,12 +59,28 @@ export async function indexElasticDocumentRaw(
 }
 
 // ── DELETE /elastic/index/{index_name}/doc/{doc_id} ──────────────────────
-export async function deleteElasticDocument(indexName: string, docId: string) {
+// `docId` is a content hash that other collections' copies may share - pass
+// `collectionId` to only delete this collection's copy.
+export async function deleteElasticDocument(
+  indexName: string,
+  docId: string,
+  collectionId?: string
+) {
   const client = getElasticClient();
   try {
     const response: any = await client.deleteByQuery({
       index: indexName,
-      query: { term: { id: docId } },
+      query: collectionId
+        ? {
+            bool: {
+              filter: [
+                { term: { id: docId } },
+                // see addAnnotationsToDocumentEs for why `.keyword`
+                { term: { 'collectionId.keyword': collectionId } },
+              ],
+            },
+          }
+        : { term: { id: docId } },
     } as any);
     return { deleted: response.deleted };
   } catch (error) {

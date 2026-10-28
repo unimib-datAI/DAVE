@@ -222,6 +222,42 @@ function replaceSubstring(str: string, start: number, end: number, replacement: 
 }
 
 /**
+ * After `[oldStart, oldEnd)` of `doc.text` was replaced by a string `delta`
+ * characters longer, remaps every other annotation (across ALL annotation
+ * sets) onto the new text. Offsets after the span shift by `delta`; offsets
+ * that fall INSIDE the replaced span are clamped to its new bounds. The old
+ * version only shifted annotations starting at/after `oldEnd`, so an
+ * overlapping annotation - typically the same entity duplicated in another
+ * set such as `entities_consolidated`, which the replace loop skips - kept
+ * its old end and ended up pointing into the middle of the vault token
+ * (facets like "vault:v").
+ */
+function remapAnnotationsAfterReplace(
+  doc: any,
+  replaced: any,
+  oldStart: number,
+  oldEnd: number,
+  delta: number
+) {
+  const newEnd = oldEnd + delta;
+  const remap = (pos: number, isEnd: boolean) => {
+    if (pos >= oldEnd) return pos + delta;
+    if (pos <= oldStart) return pos;
+    // strictly inside the replaced span
+    return isEnd ? newEnd : oldStart;
+  };
+  for (const annsetName of Object.keys(doc.annotation_sets)) {
+    const anns = doc.annotation_sets[annsetName].annotations ?? [];
+    for (const annotation of anns) {
+      if (annotation === replaced) continue;
+      if (!Number.isInteger(annotation.start) || !Number.isInteger(annotation.end)) continue;
+      annotation.start = remap(annotation.start, false);
+      annotation.end = remap(annotation.end, true);
+    }
+  }
+}
+
+/**
  * Decode (de-anonymize) a document in-place and return it.
  * - Handles exclusive `end` indexes.
  * - Decrypts using API.
@@ -291,19 +327,6 @@ export async function decode(doc: any): Promise<any> {
     }
   }
 
-  // Helper: shift all annotations starting at or after fromPosition by delta.
-  function shiftAllAnnotations(fromPosition: number, delta: number) {
-    for (const annsetName of Object.keys(doc.annotation_sets)) {
-      const anns = doc.annotation_sets[annsetName].annotations ?? [];
-      for (const annotation of anns) {
-        if (Number.isInteger(annotation.start) && annotation.start >= fromPosition) {
-          annotation.start += delta;
-          annotation.end += delta;
-        }
-      }
-    }
-  }
-
   // Build a global list of annotations across all annotation sets and sort by start.
   const globalAnns: { annsetName: string; annotation: any }[] = [];
   for (const annsetName of Object.keys(doc.annotation_sets)) {
@@ -338,10 +361,7 @@ export async function decode(doc: any): Promise<any> {
     // Do not attempt to extract tokens from other fields or from the document text.
     const originalKey = annotation.originalKey;
     if (!originalKey || typeof originalKey !== 'string') {
-      console.error(
-        `[DECODE] missing originalKey for annset=${annsetName} idx=${i} start=${annotation.start} end=${annotation.end}`
-      );
-      // Do not attempt fallback decryption; leave the annotation as-is.
+      // Not anonymized (type not in anonymizeTypes) - nothing to decrypt.
       continue;
     }
 
@@ -379,13 +399,40 @@ export async function decode(doc: any): Promise<any> {
     // Update the current annotation end (exclusive)
     annotation.end = originalStart + newLen;
 
-    // Shift ALL annotations across ALL sets that start at or after originalEnd
-    if (delta !== 0) {
-      shiftAllAnnotations(originalEnd, delta);
-    }
+    // Remap ALL other annotations across ALL sets onto the new text
+    remapAnnotationsAfterReplace(doc, annotation, originalStart, originalEnd, delta);
 
     // Mark last processed end
     lastProcessedEnd = annotation.end;
+  }
+
+  // Annotations skipped above (overlapping duplicates, e.g. the same entity
+  // in `entities_consolidated`) still carry the token encode() stored in
+  // `features.mention` - refresh them from the decoded text, then restore
+  // the cluster mention lists encode() anonymized.
+  for (const annsetName of Object.keys(doc.annotation_sets)) {
+    const anns = doc.annotation_sets[annsetName].annotations ?? [];
+    const mentionById = new Map<any, string>();
+    for (const annotation of anns) {
+      const current = annotation.features?.mention;
+      if (typeof current === 'string' && current.startsWith('vault:')) {
+        annotation.features.mention = doc.text.slice(annotation.start, annotation.end);
+      }
+      if (annotation.features?.mention != null) {
+        mentionById.set(annotation.id, annotation.features.mention);
+      }
+    }
+    for (const cluster of doc.features.clusters[annsetName] ?? []) {
+      for (const mention of cluster.mentions ?? []) {
+        const decoded = mentionById.get(mention.id);
+        if (decoded == null) continue;
+        for (const key of ['mention', 'text']) {
+          if (typeof mention[key] === 'string' && mention[key].startsWith('vault:')) {
+            mention[key] = decoded;
+          }
+        }
+      }
+    }
   }
 
   if (typeof doc.name === 'string') {
@@ -444,20 +491,6 @@ export async function encode(doc: any, anonymizeTypes: string[] | null = null): 
     }
   }
 
-  // Helper function to shift all annotations that start at or after a given position
-  // This is critical to prevent index mismatches across annotation sets
-  function shiftAllAnnotations(fromPosition: number, delta: number) {
-    for (const annsetName of Object.keys(doc.annotation_sets)) {
-      const anns = doc.annotation_sets[annsetName].annotations ?? [];
-      for (const annotation of anns) {
-        if (Number.isInteger(annotation.start) && annotation.start >= fromPosition) {
-          annotation.start += delta;
-          annotation.end += delta;
-        }
-      }
-    }
-  }
-
   // Process annotations in global document order to keep encode/decode symmetric
   // Build a global list of annotations across all annotation sets and sort by start.
   const globalAnns: { annsetName: string; annotation: any }[] = [];
@@ -485,7 +518,7 @@ export async function encode(doc: any, anonymizeTypes: string[] | null = null): 
       !Number.isInteger(annotation.start) ||
       !Number.isInteger(annotation.end) ||
       annotation.start < 0 ||
-      annotation.end < annotation.start
+      annotation.end <= annotation.start
     ) {
       console.warn(`[ENCODE] Skipping malformed annotation annset=${annsetName} idx=${i}`);
       continue;
@@ -548,10 +581,8 @@ export async function encode(doc: any, anonymizeTypes: string[] | null = null): 
     // Update the annotation end (exclusive)
     annotation.end = originalStart + newLen;
 
-    // Shift ALL annotations across ALL sets that start at or after originalEnd
-    if (delta !== 0) {
-      shiftAllAnnotations(originalEnd, delta);
-    }
+    // Remap ALL other annotations across ALL sets onto the new text
+    remapAnnotationsAfterReplace(doc, annotation, originalStart, originalEnd, delta);
 
     // Update last processed end position
     lastProcessedEnd = annotation.end;
@@ -561,6 +592,33 @@ export async function encode(doc: any, anonymizeTypes: string[] | null = null): 
     doc.name += '_ANNOTATED';
   } else {
     doc.name = (doc.name ?? '') + '_ANNOTATED';
+  }
+
+  // Replace the plaintext copies of anonymized mentions the pipeline left in
+  // `features.mention` and in the cluster mention lists with what the
+  // anonymized text now shows at their offsets - otherwise the real names
+  // are still stored (and displayed) right next to their ciphertext.
+  // `decode` restores them from the decrypted `originalKey`s.
+  if (anonymizationEnabled) {
+    const isAnonymizable = (type: string) => !anonymizeTypes || anonymizeTypes.includes(type);
+    for (const annsetName of Object.keys(doc.annotation_sets)) {
+      const anns = doc.annotation_sets[annsetName].annotations ?? [];
+      const textById = new Map<any, string>();
+      for (const annotation of anns) {
+        if (!isAnonymizable(annotation.type)) continue;
+        const shown = doc.text.slice(annotation.start, annotation.end);
+        if (!annotation.features) annotation.features = {};
+        annotation.features.mention = shown;
+        textById.set(annotation.id, shown);
+      }
+      for (const cluster of doc.features.clusters[annsetName] ?? []) {
+        for (const mention of cluster.mentions ?? []) {
+          if (!textById.has(mention.id)) continue;
+          if ('mention' in mention) mention.mention = textById.get(mention.id);
+          if ('text' in mention) mention.text = textById.get(mention.id);
+        }
+      }
+    }
   }
 
   // Only mark the document as anonymized if the anonymization service actually
