@@ -24,15 +24,15 @@ services:
       KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:-keycloak}
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-admin}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:-admin}
-      KC_HOSTNAME_STRICT: false
-      KC_HOSTNAME_STRICT_HTTPS: false
-      KC_HEALTH_ENABLED: true
-      KC_METRICS_ENABLED: true
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HEALTH_ENABLED: "true"
+      KC_METRICS_ENABLED: "true"
       KC_HOSTNAME: ${KEYCLOAK_HOSTNAME:-vm.chronos.disco.unimib.it}
       KC_HOSTNAME_PORT: 8007
       KC_PROXY: edge
-      KC_HTTP_ENABLED: true
-      KC_PROXY_ADDRESS_FORWARDING: true
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_ADDRESS_FORWARDING: "true"
     depends_on:
       - postgres
     ports:
@@ -234,6 +234,8 @@ services:
     build:
       context: ./backend/qavectorizer
       dockerfile: Dockerfile
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
     # depends_on:
     #   - es
     restart: $RESTART_POLICY

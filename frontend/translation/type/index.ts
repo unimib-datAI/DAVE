@@ -145,6 +145,12 @@ export type Translation = {
     initialMessage: string;
     resources: string;
     typeQuestionPlaceholder: string;
+    thinking: string;
+    thinkingTooltip: string;
+    thinkingOff: string;
+    thinkingLow: string;
+    thinkingMedium: string;
+    thinkingHigh: string;
     send: string;
     resetChat: string;
     predefinedQuestions: string;

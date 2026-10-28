@@ -152,6 +152,13 @@ const t: Translation = {
     initialMessage: 'Ciao, come posso aiutarti?',
     resources: 'Risorse',
     typeQuestionPlaceholder: 'Scrivi la tua domanda qui',
+    thinking: 'Ragionamento',
+    thinkingTooltip:
+      'Quanto il modello ragiona prima di rispondere. Più ragionamento è più lento e consuma più token massimi; i modelli senza modalità di ragionamento lo ignorano.',
+    thinkingOff: 'Nessun ragionamento',
+    thinkingLow: 'Sforzo basso',
+    thinkingMedium: 'Sforzo medio',
+    thinkingHigh: 'Sforzo alto',
     send: 'Invia',
     resetChat: 'Resetta chat',
     predefinedQuestions: 'Domande predefinite',
@@ -663,7 +670,7 @@ const t: Translation = {
         "Controlla la casualità. Valori più bassi rendono l'output più focalizzato e deterministico (0.0-2.0). Predefinito: 0.7",
       maxTokens: 'Token Massimi',
       maxTokensHelp:
-        'Lunghezza massima del testo generato (100-4096). Predefinito: 1024',
+        'Lunghezza massima del testo generato (100-32768). Predefinito: 8192',
       topP: 'Top P',
       topPHelp:
         'Soglia di campionamento del nucleo (0.0-1.0). Predefinito: 0.65',

@@ -151,6 +151,13 @@ const t: Translation = {
     initialMessage: 'Hi, how can i help you?',
     resources: 'Resources',
     typeQuestionPlaceholder: 'Type your question here',
+    thinking: 'Thinking',
+    thinkingTooltip:
+      'How much the model reasons before answering. More thinking is slower and uses more of the max tokens; models without a thinking mode ignore it.',
+    thinkingOff: 'No thinking',
+    thinkingLow: 'Low effort',
+    thinkingMedium: 'Medium effort',
+    thinkingHigh: 'High effort',
     send: 'Send',
     resetChat: 'Reset chat',
     predefinedQuestions: 'Predefined Questions',
@@ -660,7 +667,7 @@ const t: Translation = {
         'Controls randomness. Lower values make output more focused and deterministic (0.0-2.0). Default: 0.7',
       maxTokens: 'Max Tokens',
       maxTokensHelp:
-        'Maximum length of generated text (100-4096). Default: 1024',
+        'Maximum length of generated text (100-32768). Default: 8192',
       topP: 'Top P',
       topPHelp: 'Nucleus sampling threshold (0.0-1.0). Default: 0.65',
       topK: 'Top K',

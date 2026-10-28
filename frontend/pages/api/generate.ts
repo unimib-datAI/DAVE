@@ -9,6 +9,23 @@ import { executeMultiAgent } from '@/lib/multiAgent';
  *
  * Supports custom LLM settings passed via request body
  */
+const THINKING_EFFORTS = ['low', 'medium', 'high'];
+
+// The model-side switches for the chat's thinking select. chat_template_kwargs
+// is what llama.cpp and vLLM pass to the chat template (Qwen3, Gemma, gpt-oss
+// read enable_thinking / reasoning_effort there); reasoning_effort is the
+// OpenAI-style field for servers that read it from the request itself.
+function thinkingParams(thinking: unknown): Record<string, unknown> {
+  if (typeof thinking === 'string' && THINKING_EFFORTS.includes(thinking)) {
+    return {
+      reasoning_effort: thinking,
+      chat_template_kwargs: { enable_thinking: true, reasoning_effort: thinking },
+    };
+  }
+  const on = thinking === undefined && process.env.CHAT_LLM_THINKING === 'true';
+  return on ? {} : { chat_template_kwargs: { enable_thinking: false } };
+}
+
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== 'POST') {
     res.status(405).json({ message: 'Method Not Allowed' });
@@ -29,7 +46,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     const {
       messages,
       prompt,
-      max_tokens = 1000,
+      max_tokens = 8192,
       temperature = 0.7,
       top_p = 0.9,
       model,
@@ -37,6 +54,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       customSettings, // Custom LLM settings from frontend
       collectionId, // Collection to restrict retrieval to
       filterIds, // Document IDs to restrict retrieval to
+      thinking, // 'off' | 'low' | 'medium' | 'high' (chat's thinking select)
       ...otherParams
     } = req.body;
 
@@ -178,12 +196,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         top_p: top_p,
         stream: true,
         ...filteredOtherParams,
-        // Non-standard field (ignored by servers that don't know it): asks
-        // reasoning models to answer directly. Left on, they can spend the
-        // whole max_tokens budget thinking and send no answer at all.
-        ...(process.env.CHAT_LLM_THINKING === 'true'
-          ? {}
-          : { chat_template_kwargs: { enable_thinking: false } }),
+        // Non-standard fields (ignored by servers that don't know them). Thinking
+        // off asks reasoning models to answer directly: left on, they can spend
+        // the whole max_tokens budget thinking and send no answer at all.
+        // Without a choice in the request, CHAT_LLM_THINKING decides.
+        ...thinkingParams(thinking),
       } as any);
 
       // Stream the response to the client

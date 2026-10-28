@@ -203,7 +203,7 @@ const LLMSettingsPage = () => {
     useCustomSettings: false,
     enableMessageHistory: true,
     defaultTemperature: 0.7,
-    defaultMaxTokens: 1024,
+    defaultMaxTokens: 8192,
     defaultTopP: 0.65,
     defaultTopK: 40,
     defaultFrequencyPenalty: 1.15,
@@ -250,7 +250,7 @@ const LLMSettingsPage = () => {
         setFormData(mergedData);
         // Sync raw string state with loaded settings
         setRawTemperature(String(data.defaultTemperature ?? 0.7));
-        setRawMaxTokens(String(data.defaultMaxTokens ?? 1024));
+        setRawMaxTokens(String(data.defaultMaxTokens ?? 8192));
         setRawTopP(String(data.defaultTopP ?? 0.65));
         setRawTopK(String(data.defaultTopK ?? 40));
         setRawFrequencyPenalty(String(data.defaultFrequencyPenalty ?? 1.15));
@@ -332,7 +332,7 @@ const LLMSettingsPage = () => {
           useCustomSettings: false,
           enableMessageHistory: true,
           defaultTemperature: 0.7,
-          defaultMaxTokens: 1024,
+          defaultMaxTokens: 8192,
           defaultTopP: 0.65,
           defaultTopK: 40,
           defaultFrequencyPenalty: 1.15,
@@ -342,7 +342,7 @@ const LLMSettingsPage = () => {
         setSaveGenSuccess(false);
         // Sync raw string state with cleared defaults
         setRawTemperature('0.7');
-        setRawMaxTokens('1024');
+        setRawMaxTokens('8192');
         setRawTopP('0.65');
         setRawTopK('40');
         setRawFrequencyPenalty('1.15');
@@ -782,8 +782,8 @@ const LLMSettingsPage = () => {
               type="number"
               step="50"
               min="100"
-              max="4096"
-              placeholder="1024"
+              max="32768"
+              placeholder="8192"
               value={rawMaxTokens}
               onChange={(e) => {
                 setRawMaxTokens(e.target.value);
@@ -795,10 +795,10 @@ const LLMSettingsPage = () => {
               onBlur={() => {
                 const parsed = parseInt(rawMaxTokens);
                 if (isNaN(parsed) || rawMaxTokens.trim() === '') {
-                  const fallback = formData.defaultMaxTokens ?? 1024;
+                  const fallback = formData.defaultMaxTokens ?? 8192;
                   setRawMaxTokens(String(fallback));
                 } else {
-                  const clamped = Math.min(4096, Math.max(100, parsed));
+                  const clamped = Math.min(32768, Math.max(100, parsed));
                   setRawMaxTokens(String(clamped));
                   handleInputChange('defaultMaxTokens', clamped);
                 }
@@ -808,7 +808,7 @@ const LLMSettingsPage = () => {
             />
             <HelpText>
               {t('generationDefaults.maxTokensHelp') ||
-                'Maximum length of generated text (100-4096). Default: 1024'}
+                'Maximum length of generated text (100-32768). Default: 8192'}
             </HelpText>
           </FormGroup>
 
@@ -950,14 +950,14 @@ const LLMSettingsPage = () => {
                 setFormData({
                   ...formData,
                   defaultTemperature: 0.7,
-                  defaultMaxTokens: 1024,
+                  defaultMaxTokens: 8192,
                   defaultTopP: 0.65,
                   defaultTopK: 40,
                   defaultFrequencyPenalty: 1.15,
                   defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
                 });
                 setRawTemperature('0.7');
-                setRawMaxTokens('1024');
+                setRawMaxTokens('8192');
                 setRawTopP('0.65');
                 setRawTopK('40');
                 setRawFrequencyPenalty('1.15');

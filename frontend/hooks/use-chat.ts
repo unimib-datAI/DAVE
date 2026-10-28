@@ -43,6 +43,8 @@ export type GenerateOptions = {
   system?: string;
   context?: DocumentWithChunk[];
   useMultiAgent?: boolean;
+  /** How much the model reasons before answering (sent to /api/generate) */
+  thinking?: 'off' | 'low' | 'medium' | 'high';
   /** Document IDs to restrict retrieval to (used by the multi-agent pipeline) */
   filterIds?: string[];
 };
@@ -130,7 +132,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           temperature:
             options.temperature ?? llmSettings.defaultTemperature ?? 0.7,
           max_new_tokens:
-            options.max_new_tokens ?? llmSettings.defaultMaxTokens ?? 1024,
+            options.max_new_tokens ?? llmSettings.defaultMaxTokens ?? 8192,
           top_p: options.top_p ?? llmSettings.defaultTopP ?? 0.65,
           top_k: options.top_k ?? llmSettings.defaultTopK ?? 40,
           token_repetition_penalty_max:

@@ -124,7 +124,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     (llmSettings.defaultTemperature ?? 0.7).toString()
   );
   const [maxTokensInput, setMaxTokensInput] = useState(
-    (llmSettings.defaultMaxTokens ?? 1024).toString()
+    (llmSettings.defaultMaxTokens ?? 8192).toString()
   );
   const [topPInput, setTopPInput] = useState(
     (llmSettings.defaultTopP ?? 0.65).toString()
@@ -151,7 +151,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
 
   const { register, value, onSubmit, setValue } = useForm<Form>({
     temperature: llmSettings.defaultTemperature ?? 0.7,
-    max_new_tokens: llmSettings.defaultMaxTokens ?? 1024,
+    max_new_tokens: llmSettings.defaultMaxTokens ?? 8192,
     top_p: llmSettings.defaultTopP ?? 0.65,
     token_repetition_penalty_max: llmSettings.defaultFrequencyPenalty ?? 1.15,
     system:
@@ -165,6 +165,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     top_k: llmSettings.defaultTopK ?? 40,
     force_rag: false,
     useMultiAgent: false,
+    thinking: 'off',
   });
 
   const fieldTemperature = register('temperature');
@@ -297,6 +298,31 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                 {...register('message')}
               />
             </div>
+            <Tooltip content={t('thinkingTooltip')} placement="top">
+              <div className="flex-shrink-0">
+                <Select
+                  id="chat-thinking-select"
+                  aria-label={t('thinking')}
+                  size="large"
+                  style={{ width: 150 }}
+                  value={value.thinking ?? 'off'}
+                  disabled={chatState !== 'idle' || value.useMultiAgent}
+                  onChange={(thinking) => setValue({ thinking })}
+                  // The chat window closes on any mousedown outside its DOM node, and
+                  // antd renders the dropdown on document.body by default.
+                  getPopupContainer={(trigger) =>
+                    trigger.parentElement || document.body
+                  }
+                  placement="topLeft"
+                  options={[
+                    { value: 'off', label: t('thinkingOff') },
+                    { value: 'low', label: t('thinkingLow') },
+                    { value: 'medium', label: t('thinkingMedium') },
+                    { value: 'high', label: t('thinkingHigh') },
+                  ]}
+                />
+              </div>
+            </Tooltip>
             {(window.location.href.includes('documents') ||
               window.location.href.includes('search')) && (
               <Tooltip
@@ -468,7 +494,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                           onChange={(e) => {
                             setMaxTokensInput(e.target.value);
                             const val = parseInt(e.target.value);
-                            if (!isNaN(val) && val >= 100 && val <= 4096) {
+                            if (!isNaN(val) && val >= 100 && val <= 32768) {
                               fieldMaxNewTokens.onChange(val);
                             }
                           }}
@@ -482,9 +508,9 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                         fieldMaxNewTokens.onChange(value);
                       }}
                       value={[fieldMaxNewTokens.value]}
-                      max={4096}
+                      max={32768}
                       min={100}
-                      step={50}
+                      step={100}
                     />
                   </div>
                   <div className="flex flex-col gap-3">

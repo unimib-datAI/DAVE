@@ -53,7 +53,7 @@ export const DEFAULT_LLM_SETTINGS: LLMSettings = {
   enableMessageHistory: true,
   // Generation defaults
   defaultTemperature: 0.7,
-  defaultMaxTokens: 1024,
+  defaultMaxTokens: 8192,
   defaultTopP: 0.65,
   defaultTopK: 40,
   defaultFrequencyPenalty: 1.15,
