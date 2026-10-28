@@ -1,25 +1,21 @@
 import hashlib
-import json
 import logging
-import os
-import re
-import uuid
 from functools import lru_cache
 from os import environ
 from typing import List, Optional
 
-import requests
 import torch
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 from settings import AppSettings
 
 from elasticsearch import Elasticsearch
+
+from routers.similarity_router import router as similarity_router
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -92,6 +88,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(similarity_router)
 
 
 class CreateCollectionRequest(BaseModel):
@@ -410,9 +408,9 @@ def index_document_with_processing(
         file_object = {
             "id": req.id,
             "text": req.text,
-            "text_deanonymized": req.text_deanonymized
-            if req.text_deanonymized
-            else req.text,
+            "text_deanonymized": (
+                req.text_deanonymized if req.text_deanonymized else req.text
+            ),
             "annotation_sets": req.annotation_sets,
             "preview": req.preview,
             "name": req.name,

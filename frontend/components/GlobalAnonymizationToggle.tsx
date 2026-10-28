@@ -26,7 +26,7 @@ export function GlobalAnonymizationToggle() {
     <button
       onClick={handleToggle}
       disabled={isDisabled}
-      className={`flex items-center justify-center w-10 h-10 rounded-full border transition-all ${
+      className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all ${
         !isAnonymized
           ? 'bg-blue-50 border-blue-300 text-blue-700'
           : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
@@ -44,9 +44,9 @@ export function GlobalAnonymizationToggle() {
       {isLoading ? (
         <Spinner size="sm" />
       ) : !isAnonymized ? (
-        <Eye size={18} />
+        <Eye size={16} />
       ) : (
-        <EyeOff size={18} />
+        <EyeOff size={16} />
       )}
     </button>
   );

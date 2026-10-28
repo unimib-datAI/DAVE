@@ -532,6 +532,7 @@ export type Translation = {
       browseDocs: string;
       logout: string;
       login: string;
+      browseEntities: string;
       manageTaxonomy: string;
       manageCollections: string;
       annotationConfig: string;
@@ -613,6 +614,60 @@ export type Translation = {
         role: string;
         noRole: string;
       };
+    };
+  };
+  clusters: {
+    documents: string;
+    types: string;
+    entities: string;
+    mentions: string;
+    collectionEmpty: string;
+    noEntitiesFound: string;
+    selectDocument: string;
+    selectType: string;
+    selectEntity: string;
+    mergeButtonLabel : string;
+    modes :{
+      byDocument : string;
+      wholeCollection : string;
+    }
+    merge: {
+      title: string;
+      description: string;
+      document : string;
+      manualMergeTitle: string;
+      mergeAwayCluster: string;
+      keepCluster: string;
+      suggestionsTitle: string;
+      suggestionsSubtitle: string;
+      documentSelectionPlaceholder: string;
+      entitySelectionPlaceholder: string;
+      confirmMerge : string;
+      noEntityFound: string;
+      noDocumentFound : string;
+      suggestions: {
+        entity: string;
+        type: string;
+        mentions: string;
+        loadMore: string;
+        foundSuggestions : string;
+        noSuggestionsFound : string;
+        errorMessage: string;
+        retryButton : string;
+      };
+      modal : {
+        title: string;
+        message : string;
+        cancel : string;
+        confirm : string;
+      },
+      toast : {
+        successTitle: string;
+        successMessage : string;
+        failTitle : string;
+        failMessage : string;
+        failMessageWithClusters : string;
+      }
     };
   };
 };

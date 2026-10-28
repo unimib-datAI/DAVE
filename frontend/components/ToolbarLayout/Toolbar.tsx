@@ -6,19 +6,24 @@ import { CollectionSelector } from '../CollectionSelector';
 import { GlobalAnonymizationToggle } from '../GlobalAnonymizationToggle';
 import { useRouter } from 'next/router';
 import { FiHome } from '@react-icons/all-files/fi/FiHome';
+import { Button } from '@heroui/react';
+import { useAtom } from 'jotai';
+import { activeCollectionAtom } from '@/atoms/collection';
+import { useText } from '../TranslationProvider';
+import { FiTag } from '@react-icons/all-files/fi/FiTag';
 
-const Container = styled.div({
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  height: '48px',
-  display: 'flex',
-  flexDirection: 'row',
-  background: '#FFF',
-  borderBottom: '1px solid #F3F3F5',
-  zIndex: 10,
-});
+const Container = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--toolbar-height);
+  display: flex;
+  flex-direction: row;
+  background: #fff;
+  border-bottom: 1px solid #f3f3f5;
+  z-index: 10;
+`;
 
 const ToolbarContent = styled.div({
   display: 'flex',
@@ -30,12 +35,13 @@ const ToolbarContent = styled.div({
   minWidth: 0,
 });
 
-const RightActions = styled.div({
+const ActionsContainer = styled.div({
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
   gap: '8px',
 });
+
 
 const Logo = styled.div({
   display: 'flex',
@@ -43,29 +49,83 @@ const Logo = styled.div({
   justifyContent: 'center',
   fontSize: '22px',
   fontWeight: 700,
-  width: '70px',
-  padding: '6px 12px',
+  padding: '0px 12px 0px 0px',
+  margin: '0px 12px',
   borderRight: '1px solid #F3F3F5',
 });
 
-const Toolbar = ({ children }: PropsWithChildren<{}>) => {
-  const router = useRouter();
+type ToolbarProps = {
+  hideCollectionActions: boolean;
+};
+
+const Toolbar = ({
+  hideCollectionActions,
+  children,
+}: PropsWithChildren<ToolbarProps>) => {
+  const [activeCollection] = useAtom(activeCollectionAtom);
   return (
     <Container id="toolbar">
-      <Link href="/" passHref>
-        <Logo>
-          <FiHome />
-        </Logo>
-      </Link>
       <ToolbarContent>
-        <CollectionSelector />
+        <ActionsContainer>
+          <Link href="/" passHref>
+            <Logo>
+              <FiHome />
+            </Logo>
+          </Link>
+
+          {hideCollectionActions ? (
+            <span>{activeCollection?.name}</span>
+          ) : (
+            <CollectionSelector />
+          )}
+          {!hideCollectionActions && <GoToClustersPageButton />}
+        </ActionsContainer>
+
         {children}
-        <RightActions>
+
+        <ActionsContainer>
           <GlobalAnonymizationToggle />
           <LoginAvatar />
-        </RightActions>
+        </ActionsContainer>
       </ToolbarContent>
     </Container>
+  );
+};
+
+const ClustersButton = styled(Button)`
+  height: auto;
+  min-height: unset;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 150ms ease;
+
+  &:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+`;
+
+const GoToClustersPageButton = () => {
+  const router = useRouter();
+  const [activeCollection] = useAtom(activeCollectionAtom);
+  const t = useText('common');
+  return (
+    <ClustersButton
+      variant="bordered"
+      onPress={() =>
+        router.push('/collections/' + activeCollection?.id + '/clusters')
+      }
+    >
+      <div className="flex flex-row items-center gap-[8px]">
+        <FiTag />
+        <span>{t('toolbar.browseEntities')}</span>
+      </div>
+    </ClustersButton>
   );
 };
 

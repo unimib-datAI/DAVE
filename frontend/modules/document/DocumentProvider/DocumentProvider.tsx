@@ -53,7 +53,10 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   };
 
   const { data, isFetching } = useQuery(
-    ['document.getDocument', { id: id, deAnonimize, collectionId: urlCollectionId }],
+    [
+      'document.getDocument',
+      { id: id, deAnonimize, collectionId: urlCollectionId },
+    ],
     {
       staleTime: Infinity,
     }
@@ -145,7 +148,20 @@ const DocumentStateProvider = ({
 
   // Re-initialize when data changes (e.g. after refetch)
   useEffect(() => {
-    store.set(documentStateAtom, initializeState(data));
+    const current = store.get(documentStateAtom);
+    const newState = initializeState(data);
+    // Need to keep the previous highlightAnnotation value if existing,
+    // otherwise the scroll to the specified annotation (through
+    // the URL hash) will not work because highlightAnnotation will
+    // be null before the scroll can actually occur.
+    store.set(documentStateAtom, {
+      ...newState,
+      ui: {
+        ...newState.ui,
+        highlightAnnotation:
+          current?.ui.highlightAnnotation ?? newState.ui.highlightAnnotation,
+      },
+    });
   }, [data, store]);
 
   // Sync default-store value → isolated store (e.g. toggle pressed elsewhere)
