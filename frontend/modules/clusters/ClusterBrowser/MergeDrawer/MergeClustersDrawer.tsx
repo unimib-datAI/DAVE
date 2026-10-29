@@ -22,6 +22,7 @@ type MergeClustersDrawerProps = {
   isOpen: boolean;
   onOpenChange: () => void;
   docsInCollection: collectionDocInfo[];
+  collectionId: string | undefined;
   selectedDocumentInBrowser?: collectionDocInfo;
   sourceCluster?: ClusterWithDocId;
 };
@@ -30,6 +31,7 @@ export function MergeClustersDrawer({
   isOpen,
   onOpenChange,
   docsInCollection,
+  collectionId,
   selectedDocumentInBrowser,
   sourceCluster,
 }: MergeClustersDrawerProps) {
@@ -77,7 +79,7 @@ export function MergeClustersDrawer({
     clusters,
     taxonomy,
     isLoading: isLoadingClusters,
-  } = useDocumentClusters(selectedDocument?.id);
+  } = useDocumentClusters(selectedDocument?.id, collectionId);
 
   // Utility hook to handle the merging of cluster when requested
   const { merge } = useMergeClusters(selectedDocument?.id);

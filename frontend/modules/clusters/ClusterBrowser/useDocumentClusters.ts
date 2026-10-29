@@ -4,11 +4,19 @@ import { Cluster } from '@/server/routers/document';
 import { useQuery } from '@/utils/trpc';
 import { useMemo } from 'react';
 import { ClusterWithDocId } from './types';
+import { anonymizedCluster, useAnonymization } from './anonymization';
 
-export default function useDocumentClusters(docId: string | undefined) {
+export default function useDocumentClusters(
+  docId: string | undefined,
+  collectionId: string | undefined
+) {
+  // Same toggle as the document viewer: off requests the de-anonymized document
+  const { isAnonymized, deAnonimize } = useAnonymization();
+
   const { data: documentData, isLoading } = useQuery(
-    ['document.getDocument', { id: docId ?? '' }],
-    { enabled: !!docId }
+    ['document.getDocument', { id: docId ?? '', deAnonimize, collectionId }],
+    // Keep showing the current document while the other (de)anonymized version loads
+    { enabled: !!docId, keepPreviousData: true }
   );
 
   return useMemo(() => {
@@ -32,7 +40,8 @@ export default function useDocumentClusters(docId: string | undefined) {
           annotations?.some((ann) => ann.id === m.id)
         ),
       }))
-      .filter((c) => c.mentions.length > 0);
+      .filter((c) => c.mentions.length > 0)
+      .map((c) => (isAnonymized ? anonymizedCluster(c) : c));
 
     return {
       documentData,
@@ -41,5 +50,5 @@ export default function useDocumentClusters(docId: string | undefined) {
       clusters: filteredClusters,
       isLoading,
     };
-  }, [documentData, isLoading]);
+  }, [documentData, isLoading, isAnonymized]);
 }

@@ -14,16 +14,19 @@ import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
 import { useText } from '@/components';
 import { getMentionContext } from '@/utils/mentionContext';
 import { ClusterWithDocId, Mention } from './types';
+import { anonymizedCluster, useAnonymization } from './anonymization';
 import { EntityTypesList } from './lists/EntityTypesList';
 import { EntityList } from './lists/EntityList';
 import { MentionsList } from './lists/MentionsList';
 
 type CollectionClusterBrowserProps = {
   docsInfo: collectionDocInfo[];
+  collectionId: string | undefined;
 };
 
 export function CollectionClusterBrowser({
   docsInfo,
+  collectionId,
 }: CollectionClusterBrowserProps) {
   const t = useText('clusters');
   const [selectedType, setSelectedType] = useState<string | undefined>();
@@ -31,12 +34,21 @@ export function CollectionClusterBrowser({
     ClusterWithDocId | undefined
   >();
 
-  const { data: documents } = useQuery([
-    'document.getDocuments',
-    {
-      ids: docsInfo.map((info) => info.id),
-    },
-  ]);
+  // Same toggle as the document viewer: off requests the de-anonymized documents
+  const { isAnonymized, deAnonimize } = useAnonymization();
+
+  const { data: documents } = useQuery(
+    [
+      'document.getDocuments',
+      {
+        ids: docsInfo.map((info) => info.id),
+        deAnonimize,
+        collectionId,
+      },
+    ],
+    // Keep showing the current documents while the other (de)anonymized version loads
+    { keepPreviousData: true }
+  );
 
   // Get all the annotations for each document
   const docAnnotations: Record<string, AnnotationSet<EntityAnnotation>> = {};
@@ -61,10 +73,11 @@ export function CollectionClusterBrowser({
 
   const newClusters: ClusterWithDocId[] = docsClusters.flatMap((doc, i) => {
     return doc.map((cluster) => {
-      return {
+      const withDocId = {
         ...cluster,
         docId: String(documents![i].id),
       };
+      return isAnonymized ? anonymizedCluster(withDocId) : withDocId;
     });
   });
 
@@ -76,10 +89,17 @@ export function CollectionClusterBrowser({
 
   // Get all the clusters for the selected type
   const clustersForSelectedType = selectedType
-    ? clustersByType[selectedType].sort((c1, c2) =>
+    ? [...(clustersByType[selectedType] ?? [])].sort((c1, c2) =>
         c1.title.localeCompare(c2.title)
       )
     : [];
+
+  // The selected entity as in the current data: it changes when the documents are
+  // refetched, e.g. its title when switching between anonymized and not
+  const currentEntity =
+    newClusters.find(
+      (c) => c.id === selectedEntity?.id && c.docId === selectedEntity?.docId
+    ) ?? selectedEntity;
 
   const notFoundMention = (
     id: number,
@@ -96,18 +116,18 @@ export function CollectionClusterBrowser({
   });
 
   // Get document context for each mention of the current entity
-  const mentionsForEntity: Mention[] = selectedEntity
-    ? selectedEntity?.mentions.map((m) => {
-        if (!selectedEntity.docId) return notFoundMention(m.id, m.mention);
+  const mentionsForEntity: Mention[] = currentEntity
+    ? currentEntity?.mentions.map((m) => {
+        if (!currentEntity.docId) return notFoundMention(m.id, m.mention);
 
         const foundDoc = documents?.find(
-          (d) => String(d.id) === selectedEntity.docId
+          (d) => String(d.id) === currentEntity.docId
         );
 
         if (!foundDoc) return notFoundMention(m.id, m.mention);
 
         const annotation = docAnnotations[
-          selectedEntity.docId
+          currentEntity.docId
         ].annotations.find((ann) => ann.id === m.id);
 
         if (!annotation) return notFoundMention(m.id, m.mention, foundDoc);
@@ -161,11 +181,11 @@ export function CollectionClusterBrowser({
       <EntityList
         selectedType={selectedType}
         entities={clustersForSelectedType}
-        selectedEntity={selectedEntity}
+        selectedEntity={currentEntity}
         onEntitySelection={handleEntitySelection}
       />
       <MentionsList
-        selectedEntity={selectedEntity}
+        selectedEntity={currentEntity}
         mentions={mentionsForEntity}
       />
     </MultiPane>

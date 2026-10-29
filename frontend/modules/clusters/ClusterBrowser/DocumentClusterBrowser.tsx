@@ -15,6 +15,7 @@ import useDocumentClusters from './useDocumentClusters';
 
 type DocumentClusterBrowserProps = {
   docsInfo: collectionDocInfo[];
+  collectionId: string | undefined;
   isDrawerOpen: boolean;
   onDrawerChange: () => void;
   openDrawer: () => void;
@@ -22,6 +23,7 @@ type DocumentClusterBrowserProps = {
 
 export function DocumentClusterBrowser({
   docsInfo,
+  collectionId,
   isDrawerOpen,
   onDrawerChange,
   openDrawer,
@@ -63,7 +65,8 @@ export function DocumentClusterBrowser({
   */
 
   const { documentData, taxonomy, annotations, clusters } = useDocumentClusters(
-    selectedDoc?.id
+    selectedDoc?.id,
+    collectionId
   );
 
   // Group entities by type
@@ -75,15 +78,20 @@ export function DocumentClusterBrowser({
   // Get entities of the selected type.
   // Order alphabetically based on the name of the entity
   const entitiesForSelectedType: Cluster[] = selectedType
-    ? clusterGroups[selectedType].sort((c1, c2) =>
+    ? [...(clusterGroups[selectedType] ?? [])].sort((c1, c2) =>
         c1.title.localeCompare(c2.title)
       )
     : [];
 
+  // The selected entity as in the current data: it changes when the document is
+  // refetched, e.g. its title when switching between anonymized and not
+  const currentEntity =
+    clusters.find((c) => c.id === selectedEntity?.id) ?? selectedEntity;
+
   // Get document context for each mention of the current entity
   const mentionsForSelectedEntity: Mention[] =
-    selectedEntity && documentData
-      ? selectedEntity.mentions.map((m) => {
+    currentEntity && documentData
+      ? currentEntity.mentions.map((m) => {
           // For each mention for selected entity, find corresponding
           // mention in the document
           const ann = annotations?.find((ann) => ann.id === m.id);
@@ -170,18 +178,19 @@ export function DocumentClusterBrowser({
         <EntityList
           selectedType={selectedType}
           entities={entitiesForSelectedType}
-          selectedEntity={selectedEntity}
+          selectedEntity={currentEntity}
           onEntitySelection={handleEntitySelection}
           showMergeButton={true}
           onMergeButtonClick={onMergeButtonClick}
         />
         <MentionsList
-          selectedEntity={selectedEntity}
+          selectedEntity={currentEntity}
           mentions={mentionsForSelectedEntity}
         />
       </MultiPane>
       <MergeClustersDrawer
         docsInCollection={docsInfo ?? []}
+        collectionId={collectionId}
         selectedDocumentInBrowser={selectedDoc}
         isOpen={isDrawerOpen}
         onOpenChange={onDrawerChange}
