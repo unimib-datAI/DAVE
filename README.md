@@ -160,7 +160,7 @@ That's it! All other variables have sensible defaults for local development.
 | | `SENTENCE_TRANSFORMER_EMBEDDING_MODEL` | No | `ibm-granite/granite-embedding-311m-multilingual-r2` | Hugging Face embedding model |
 | | `SENTENCE_TRANSFORMER_DEVICE` | No | `cuda` | Device for inference (`cuda` or `cpu`) |
 | | `OGG2NAME_INDEX` | No | `dave_ogg2name` | Object-to-name mapping index |
-| | `RERANKER_MODEL` | No | `BAAI/bge-reranker-v2-m3` | Cross-encoder that reranks retrieved chunks (empty disables it) |
+| | `RERANKER_MODEL` | No | - (disabled) | Cross-encoder that reranks retrieved chunks, e.g. `BAAI/bge-reranker-v2-m3` |
 | | `RERANKER_BATCH_SIZE` | No | `16` | Pairs scored per reranker forward pass |
 | | `TORCH_INDEX_URL` | No | `https://download.pytorch.org/whl/cpu` | PyTorch wheel index used when building the image (CUDA index for GPU builds) |
 | **Uploads & Chat** | `UPLOAD_JOB_CONCURRENCY` | No | `2` | Upload jobs processed at the same time |
@@ -380,8 +380,8 @@ DAVE supports Keycloak for enterprise SSO. If not using Keycloak, you can use ba
   - Default: `dave_ogg2name`
 
 - **`RERANKER_MODEL`** - Cross-encoder that reranks retrieved chunks (served at `POST /rerank`)
-  - Default: `BAAI/bge-reranker-v2-m3`
-  - Set it to an empty value to disable reranking (retrieval keeps the fused order)
+  - Default: empty, reranking disabled (retrieval keeps the fused order)
+  - Set it to a cross-encoder to enable it, e.g. `BAAI/bge-reranker-v2-m3` (downloaded on first start)
 
 - **`RERANKER_BATCH_SIZE`** - Query/chunk pairs scored per reranker forward pass
   - Default: `16`

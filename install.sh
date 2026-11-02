@@ -355,7 +355,7 @@ ELASTIC_HOST=es
 ELASTIC_PORT=9200
 API_INDEXER="http://qavectorizer:7863"
 OGG2NAME_INDEX="${ELASTIC_INDEX}_ogg2name"
-RERANKER_MODEL="${RERANKER_MODEL-BAAI/bge-reranker-v2-m3}"   # empty disables reranking
+RERANKER_MODEL="${RERANKER_MODEL:-}"   # empty = reranking disabled
 RERANKER_BATCH_SIZE="${RERANKER_BATCH_SIZE:-16}"
 TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"
 CHAT_LLM_THINKING="${CHAT_LLM_THINKING:-false}"

@@ -234,8 +234,9 @@ services:
       - SENTENCE_TRANSFORMER_EMBEDDING_MODEL=${SENTENCE_TRANSFORMER_EMBEDDING_MODEL}
       # Dev is CPU-only (CPU torch image, no GPU reservation); use docker-compose.yml for GPU
       - SENTENCE_TRANSFORMER_DEVICE=cpu
-      # Cross-encoder behind POST /rerank; set RERANKER_MODEL= (empty) to disable it
-      - RERANKER_MODEL=${RERANKER_MODEL-BAAI/bge-reranker-v2-m3}
+      # Cross-encoder behind POST /rerank; reranking is off unless a model is set
+      # (e.g. RERANKER_MODEL=BAAI/bge-reranker-v2-m3)
+      - RERANKER_MODEL=${RERANKER_MODEL:-}
       - RERANKER_BATCH_SIZE=${RERANKER_BATCH_SIZE:-16}
       - OGG2NAME_INDEX=${OGG2NAME_INDEX}
       # NVIDIA_VISIBLE_DEVICES removed - auto-detection will handle GPU availability

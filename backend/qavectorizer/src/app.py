@@ -603,10 +603,10 @@ chunk_model = SentenceTransformer(
 chunk_model = chunk_model.eval()
 
 # Cross-encoder used by the Next.js RAG pipeline to rerank retrieved chunks
-# (POST /rerank). Set RERANKER_MODEL to an empty value to disable it.
+# (POST /rerank). Disabled unless RERANKER_MODEL is set (e.g. BAAI/bge-reranker-v2-m3).
 RERANKER_BATCH_SIZE = int(environ.get("RERANKER_BATCH_SIZE", "16"))
 reranker = None
-_reranker_name = environ.get("RERANKER_MODEL", "BAAI/bge-reranker-v2-m3").strip()
+_reranker_name = environ.get("RERANKER_MODEL", "").strip()
 if _reranker_name:
     try:
         reranker = CrossEncoder(
