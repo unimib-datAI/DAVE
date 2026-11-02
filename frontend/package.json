@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "LOCALE=eng next dev -p 3000",
-    "dev:debug": "LOCALE=eng NODE_OPTIONS='--inspect' next dev",
+    "dev": "LOCALE=${LOCALE:-eng} next dev -p 3000",
+    "dev:debug": "LOCALE=${LOCALE:-eng} NODE_OPTIONS='--inspect' next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",

@@ -22,6 +22,7 @@ import { FiXCircle } from '@react-icons/all-files/fi/FiXCircle';
 import Link from 'next/link';
 import { useText } from '@/components/TranslationProvider';
 import { useLLMPermissions } from '@/hooks/use-permissions';
+import { loadLocale } from '@/translation';
 
 const Container = styled.div({
   maxWidth: '800px',
@@ -1031,8 +1032,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
   }
 
-  const locale = process.env.LOCALE || 'ita';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(process.env.LOCALE);
 
   return {
     props: {

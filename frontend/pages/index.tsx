@@ -12,6 +12,7 @@ import { GetServerSideProps } from 'next';
 import { getSession } from 'next-auth/react';
 import { useText } from '@/components/TranslationProvider';
 import { Button, Tooltip } from '@heroui/react';
+import { loadLocale } from '@/translation';
 
 const Homepage = () => {
   const router = useRouter();
@@ -107,8 +108,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
   }
 
-  const locale = process.env.LOCALE || 'eng';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(process.env.LOCALE, 'eng');
 
   return {
     props: {

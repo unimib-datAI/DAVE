@@ -15,6 +15,7 @@ import {
 import { collectionDocInfo } from '@/server/routers/collection';
 import { Button, useDisclosure } from '@heroui/react';
 import { FiGitMerge } from '@react-icons/all-files/fi/FiGitMerge';
+import { loadLocale } from '@/translation';
 
 const PageContainer = styled.div`
   height: calc(100vh - var(--toolbar-height));
@@ -171,8 +172,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
   }
 
-  const locale = process.env.LOCALE || 'eng';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(process.env.LOCALE, 'eng');
 
   return {
     props: {

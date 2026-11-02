@@ -14,6 +14,7 @@ import { BaseSelect, Option } from '@/components/BaseSelect';
 import { useText } from '@/components/TranslationProvider';
 import { useIsAdmin } from '@/hooks';
 import { useEffect, useState } from 'react';
+import { loadLocale } from '@/translation';
 
 const Container = styled.div({
   maxWidth: '1200px',
@@ -103,7 +104,7 @@ const SettingsPage = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<string>('');
 
   useEffect(() => {
-    // Prefer a stored locale in localStorage (client-side). Fall back to cookie or 'ita'.
+    // Prefer a stored locale in localStorage (client-side). Fall back to cookie or 'eng'.
     if (typeof window !== 'undefined') {
       const stored = localStorage.getItem('locale');
       if (stored) {
@@ -112,13 +113,13 @@ const SettingsPage = () => {
       }
     }
 
-    // Get current language from cookie or default to 'ita'
+    // Get current language from cookie or default to 'eng'
     const cookies = document.cookie.split(';').reduce((acc, cookie) => {
       const [key, value] = cookie.trim().split('=');
       acc[key] = value;
       return acc;
     }, {} as Record<string, string>);
-    const currentLocale = cookies.locale || 'ita';
+    const currentLocale = cookies.locale || 'eng';
     setSelectedLanguage(currentLocale);
   }, []);
 
@@ -266,8 +267,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
 
   // Check for locale in cookies, fallback to env
-  const locale = context.req.cookies.locale || process.env.LOCALE || 'ita';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(
+    context.req.cookies.locale,
+    process.env.LOCALE
+  );
 
   return {
     props: {

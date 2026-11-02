@@ -12,6 +12,7 @@ import { Card, Button, Input, Spacer } from '@heroui/react';
 import Text from '@/components/HtmlText';
 import { Modal, Popconfirm, message, Select } from 'antd';
 import { GetServerSideProps } from 'next';
+import { loadLocale } from '@/translation';
 
 type ServiceRecord = {
   _id: string;
@@ -1000,8 +1001,7 @@ export default function AnnotationConfigurationPage(): JSX.Element {
 }
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const locale = process.env.LOCALE || 'eng';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(process.env.LOCALE, 'eng');
 
   return {
     props: {

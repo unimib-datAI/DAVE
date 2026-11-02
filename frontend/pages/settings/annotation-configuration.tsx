@@ -2,6 +2,7 @@ import { GetServerSideProps } from 'next';
 import { getSession } from 'next-auth/react';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import AnnotationConfigurationPage from '../annotation-configuration';
+import { loadLocale } from '@/translation';
 
 type Props = {
   locale: any;
@@ -32,8 +33,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   }
 
   // Check for locale in cookies, fallback to env
-  const locale = context.req.cookies.locale || process.env.LOCALE || 'ita';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(
+    context.req.cookies.locale,
+    process.env.LOCALE
+  );
 
   return {
     props: {

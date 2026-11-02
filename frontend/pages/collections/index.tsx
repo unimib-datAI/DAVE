@@ -31,6 +31,7 @@ import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { useQuery, useMutation } from '@/utils/trpc';
 import { useText } from '@/components/TranslationProvider';
 import { useCollectionPermissions } from '@/hooks';
+import { loadLocale } from '@/translation';
 
 const Container = styled.div`
   max-width: 1200px;
@@ -767,9 +768,7 @@ const Collections: NextPage = () => {
 };
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const localeMap: { [key: string]: string } = { en: 'eng', ita: 'ita' };
-  const locale = localeMap[process.env.LOCALE || 'eng'] || 'eng';
-  const localeObj = (await import(`../../translation/${locale}`)).default;
+  const localeObj = await loadLocale(process.env.LOCALE);
 
   return {
     props: {

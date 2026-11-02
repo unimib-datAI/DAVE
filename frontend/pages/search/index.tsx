@@ -28,6 +28,7 @@ import { activeCollectionAtom } from '@/atoms/collection';
 import { GetServerSideProps } from 'next';
 import { useText } from '@/components/TranslationProvider';
 import FilterChip from '@/components/FilterChip';
+import { loadLocale } from '@/translation';
 
 const variants = {
   isFetching: { opacity: 0.5 },
@@ -590,8 +591,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
   }
 
-  const locale = process.env.LOCALE || 'eng';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(process.env.LOCALE, 'eng');
 
   return {
     props: {

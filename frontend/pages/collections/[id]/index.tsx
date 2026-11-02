@@ -42,6 +42,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
 import { flattenTree, getAllNodeData } from '@/components/Tree';
 import { GripVertical } from 'lucide-react';
+import { loadLocale } from '@/translation';
 const PageContainer = styled.div`
   max-width: 1200px;
   margin: 0 auto;
@@ -586,8 +587,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
   }
 
-  const locale = process.env.LOCALE || 'eng';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(process.env.LOCALE, 'eng');
 
   return {
     props: {
