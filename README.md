@@ -160,6 +160,20 @@ That's it! All other variables have sensible defaults for local development.
 | | `SENTENCE_TRANSFORMER_EMBEDDING_MODEL` | No | `ibm-granite/granite-embedding-311m-multilingual-r2` | Hugging Face embedding model |
 | | `SENTENCE_TRANSFORMER_DEVICE` | No | `cuda` | Device for inference (`cuda` or `cpu`) |
 | | `OGG2NAME_INDEX` | No | `dave_ogg2name` | Object-to-name mapping index |
+| | `RERANKER_MODEL` | No | `BAAI/bge-reranker-v2-m3` | Cross-encoder that reranks retrieved chunks (empty disables it) |
+| | `RERANKER_BATCH_SIZE` | No | `16` | Pairs scored per reranker forward pass |
+| | `TORCH_INDEX_URL` | No | `https://download.pytorch.org/whl/cpu` | PyTorch wheel index used when building the image (CUDA index for GPU builds) |
+| **Uploads & Chat** | `UPLOAD_JOB_CONCURRENCY` | No | `2` | Upload jobs processed at the same time |
+| | `CHAT_LLM_THINKING` | No | `false` | Enable thinking/reasoning on chat requests by default |
+| **RAG Tuning** | `RAG_TOP_K` | No | `10` | Chunks returned per query |
+| | `RAG_MAX_CHUNKS_PER_DOC` | No | `5` | Max chunks from the same document |
+| | `RAG_RRF_K` | No | `60` | Reciprocal Rank Fusion constant |
+| | `RAG_RRF_DENSE_WEIGHT` | No | `1` | Weight of the dense ranking in the fusion |
+| | `RAG_RRF_FULLTEXT_WEIGHT` | No | `1` | Weight of the full-text ranking in the fusion |
+| | `RAG_RERANK_POOL` | No | `50` | Fused chunks sent to the reranker (`0` disables reranking) |
+| | `RAG_NAME_BOOST` | No | `2` | Boost of a query match on the document title |
+| | `RAG_CHUNK_SIZE` | No | `500` | Chunk size for newly indexed documents |
+| | `RAG_CHUNK_OVERLAP` | No | `100` | Chunk overlap for newly indexed documents |
 | **Docker** | `RESTART_POLICY` | No | `unless-stopped` | Container restart policy |
 | **Optional Features** | `NO_LOGIN` | No | `false` | Disable authentication (dev only) |
 | | `LOCALE` | No | `ita` | Application language (`ita`, `eng`) |
@@ -364,6 +378,41 @@ DAVE supports Keycloak for enterprise SSO. If not using Keycloak, you can use ba
 
 - **`OGG2NAME_INDEX`** - Elasticsearch index for object-to-name mapping
   - Default: `dave_ogg2name`
+
+- **`RERANKER_MODEL`** - Cross-encoder that reranks retrieved chunks (served at `POST /rerank`)
+  - Default: `BAAI/bge-reranker-v2-m3`
+  - Set it to an empty value to disable reranking (retrieval keeps the fused order)
+
+- **`RERANKER_BATCH_SIZE`** - Query/chunk pairs scored per reranker forward pass
+  - Default: `16`
+  - Lower it if the GPU runs out of memory
+
+- **`TORCH_INDEX_URL`** - PyTorch wheel index used when building the `qavectorizer` image
+  - Default: `https://download.pytorch.org/whl/cpu`
+  - For GPU builds use a CUDA index, e.g. `https://download.pytorch.org/whl/cu130`
+
+#### Uploads and Chat
+
+- **`UPLOAD_JOB_CONCURRENCY`** - Upload jobs processed at the same time (each job walks its files in order)
+  - Default: `2`
+
+- **`CHAT_LLM_THINKING`** - Send chat requests with thinking/reasoning enabled unless the client overrides it
+  - Options: `true`, `false`
+  - Default: `false`
+
+#### RAG Retrieval Tuning (Optional)
+
+Dense and full-text rankings are merged with Reciprocal Rank Fusion, then optionally reranked.
+
+- **`RAG_TOP_K`** - Chunks returned per query (default: `10`)
+- **`RAG_MAX_CHUNKS_PER_DOC`** - Max chunks that may come from the same document (default: `5`)
+- **`RAG_RRF_K`** - Reciprocal Rank Fusion constant (default: `60`)
+- **`RAG_RRF_DENSE_WEIGHT`** / **`RAG_RRF_FULLTEXT_WEIGHT`** - Weight of the dense / full-text ranking in the fusion (default: `1` each)
+- **`RAG_RERANK_POOL`** - Fused chunks sent to the reranker; `0` disables reranking (default: `50`)
+- **`RAG_NAME_BOOST`** - Boost of a query match on the document title (default: `2`)
+- **`RAG_CHUNK_SIZE`** - Chunk size, applied to documents indexed from now on (default: `500`)
+- **`RAG_CHUNK_OVERLAP`** - Chunk overlap, applied to documents indexed from now on (default: `100`)
+  - Changing chunking on an existing install only affects newly indexed documents; re-index to apply it to old ones
 
 #### Annotation Pipeline Services (Optional)
 

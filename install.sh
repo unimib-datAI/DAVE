@@ -159,7 +159,7 @@ info "development : uses docker-compose-dev.yml - hot-reloads the UI, more"
 info "              generous Elasticsearch memory. Best for a first run or a"
 info "              workstation."
 info "production  : uses docker-compose.yml. Leaner, no hot reload. qavectorizer"
-info "              also hard-requires an NVIDIA GPU in this file (a fixed"
+info "              uses an NVIDIA GPU for qavectorizer in this file (a fixed"
 info "              'deploy: reservations: devices' block), unless this"
 info "              installer strips it for you below."
 info ""
@@ -182,9 +182,15 @@ step "Hardware"
 GPU_DEFAULT=n
 command -v nvidia-smi >/dev/null 2>&1 && GPU_DEFAULT=y
 GPU=n
-ask_yn GPU "  Do you have an NVIDIA GPU (with the NVIDIA Container Toolkit installed) for embeddings inference?" "$GPU_DEFAULT"
+if [ "$MODE" = development ]; then
+  info "docker-compose-dev.yml is CPU-only; use production mode for GPU inference."
+else
+  ask_yn GPU "  Do you have an NVIDIA GPU (with the NVIDIA Container Toolkit installed) for embeddings inference?" "$GPU_DEFAULT"
+fi
 if [ "$GPU" = y ]; then
   SENTENCE_TRANSFORMER_DEVICE=cuda
+  # CUDA PyTorch wheels for the qavectorizer image (override with TORCH_INDEX_URL)
+  TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cu130}"
   ok "Will use GPU (cuda)"
 else
   SENTENCE_TRANSFORMER_DEVICE=cpu
@@ -349,6 +355,20 @@ ELASTIC_HOST=es
 ELASTIC_PORT=9200
 API_INDEXER="http://qavectorizer:7863"
 OGG2NAME_INDEX="${ELASTIC_INDEX}_ogg2name"
+RERANKER_MODEL="${RERANKER_MODEL-BAAI/bge-reranker-v2-m3}"   # empty disables reranking
+RERANKER_BATCH_SIZE="${RERANKER_BATCH_SIZE:-16}"
+TORCH_INDEX_URL="${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}"
+CHAT_LLM_THINKING="${CHAT_LLM_THINKING:-false}"
+UPLOAD_JOB_CONCURRENCY="${UPLOAD_JOB_CONCURRENCY:-2}"
+RAG_TOP_K="${RAG_TOP_K:-10}"
+RAG_MAX_CHUNKS_PER_DOC="${RAG_MAX_CHUNKS_PER_DOC:-5}"
+RAG_RRF_K="${RAG_RRF_K:-60}"
+RAG_RRF_DENSE_WEIGHT="${RAG_RRF_DENSE_WEIGHT:-1}"
+RAG_RRF_FULLTEXT_WEIGHT="${RAG_RRF_FULLTEXT_WEIGHT:-1}"
+RAG_RERANK_POOL="${RAG_RERANK_POOL:-50}"
+RAG_NAME_BOOST="${RAG_NAME_BOOST:-2}"
+RAG_CHUNK_SIZE="${RAG_CHUNK_SIZE:-500}"
+RAG_CHUNK_OVERLAP="${RAG_CHUNK_OVERLAP:-100}"
 ANNOTATION_PIPELINE_PORT=8002
 KEYCLOAK_PORT=8080
 MONGO="mongodb://root:${MONGO_ROOT_PASSWORD}@mongo:27017/${ELASTIC_INDEX}?authSource=admin"
@@ -461,6 +481,24 @@ ELASTIC_PORT=$ELASTIC_PORT
 SENTENCE_TRANSFORMER_EMBEDDING_MODEL=$SENTENCE_TRANSFORMER_EMBEDDING_MODEL
 SENTENCE_TRANSFORMER_DEVICE=$SENTENCE_TRANSFORMER_DEVICE
 OGG2NAME_INDEX=$OGG2NAME_INDEX
+RERANKER_MODEL=$RERANKER_MODEL
+RERANKER_BATCH_SIZE=$RERANKER_BATCH_SIZE
+TORCH_INDEX_URL=$TORCH_INDEX_URL
+
+# Chat / uploads
+CHAT_LLM_THINKING=$CHAT_LLM_THINKING
+UPLOAD_JOB_CONCURRENCY=$UPLOAD_JOB_CONCURRENCY
+
+# RAG retrieval tuning and chunking
+RAG_TOP_K=$RAG_TOP_K
+RAG_MAX_CHUNKS_PER_DOC=$RAG_MAX_CHUNKS_PER_DOC
+RAG_RRF_K=$RAG_RRF_K
+RAG_RRF_DENSE_WEIGHT=$RAG_RRF_DENSE_WEIGHT
+RAG_RRF_FULLTEXT_WEIGHT=$RAG_RRF_FULLTEXT_WEIGHT
+RAG_RERANK_POOL=$RAG_RERANK_POOL
+RAG_NAME_BOOST=$RAG_NAME_BOOST
+RAG_CHUNK_SIZE=$RAG_CHUNK_SIZE
+RAG_CHUNK_OVERLAP=$RAG_CHUNK_OVERLAP
 
 # Annotation pipeline
 ANNOTATION_PIPELINE_PORT=$ANNOTATION_PIPELINE_PORT
