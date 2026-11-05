@@ -1421,7 +1421,7 @@ export const documents = createRouter()
       // steps: ordered array of pipeline steps (new format)
       steps: z.array(z.any()).optional(),
       // services: legacy slot-map kept for backward compat
-      services: z.record(z.any()).optional(),
+      services: z.record(z.string(), z.any()).optional(),
       isActive: z.boolean().optional(),
       token: z.string(),
     }),
@@ -1474,7 +1474,7 @@ export const documents = createRouter()
       // steps: ordered array of pipeline steps (new format)
       steps: z.array(z.any()).optional(),
       // services: legacy slot-map kept for backward compat
-      services: z.record(z.any()).optional(),
+      services: z.record(z.string(), z.any()).optional(),
       isActive: z.boolean().optional(),
       token: z.string(),
     }),

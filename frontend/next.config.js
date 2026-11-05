@@ -60,8 +60,6 @@ const nextConfig = {
     return redirectRoutes;
   },
   basePath: getBasePath(),
-  // Prevent @xenova/transformers (browser-only) from being bundled for SSR
-  serverExternalPackages: ['@xenova/transformers'],
 };
 
 module.exports = nextConfig;

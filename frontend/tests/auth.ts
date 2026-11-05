@@ -11,23 +11,49 @@ export interface UserCredentials {
   storageKey: string;
 }
 
-export const USERS = {
-  admin: {
-    username: 'admin@daveadmin.com',
-    password: 'daveAdmin42!',
-    storageKey: 'admin',
-  },
-  viewer: {
-    username: 'viewer@dave.com',
-    password: 'daveViewer42!',
-    storageKey: 'viewer',
-  },
-  editor: {
-    username: 'editor@dave.com',
-    password: 'daveEditor42!',
-    storageKey: 'editor',
-  },
-} satisfies Record<string, UserCredentials>;
+// Accounts of the shared test deployment by default. Set PW_DEV_USERS=1 to use
+// the users that scripts/setupKeycloakDev.ts creates in a local dev Keycloak
+// (dev-admin / dev-editor / dev-viewer, password KEYCLOAK_DEV_PASSWORD or dev123).
+const useDevUsers = process.env.PW_DEV_USERS === '1';
+const devPassword = process.env.KEYCLOAK_DEV_PASSWORD || 'dev123';
+
+export const USERS = (
+  useDevUsers
+    ? {
+        admin: {
+          username: 'dev-admin',
+          password: devPassword,
+          storageKey: 'admin',
+        },
+        viewer: {
+          username: 'dev-viewer',
+          password: devPassword,
+          storageKey: 'viewer',
+        },
+        editor: {
+          username: 'dev-editor',
+          password: devPassword,
+          storageKey: 'editor',
+        },
+      }
+    : {
+        admin: {
+          username: 'admin@daveadmin.com',
+          password: 'daveAdmin42!',
+          storageKey: 'admin',
+        },
+        viewer: {
+          username: 'viewer@dave.com',
+          password: 'daveViewer42!',
+          storageKey: 'viewer',
+        },
+        editor: {
+          username: 'editor@dave.com',
+          password: 'daveEditor42!',
+          storageKey: 'editor',
+        },
+      }
+) satisfies Record<string, UserCredentials>;
 
 export type UserKey = keyof typeof USERS;
 

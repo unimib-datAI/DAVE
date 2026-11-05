@@ -1,23 +1,11 @@
-// Token counting for the RAG token-budget checks (see vectorSearch.ts),
-// ported from qavectorizer's `AutoTokenizer.from_pretrained("microsoft/Phi-3.5-mini-instruct")`.
-
-type Tokenizer = { encode: (text: string) => number[] };
-
-let tokenizerPromise: Promise<Tokenizer> | null = null;
-
-function getTokenizer(): Promise<Tokenizer> {
-  if (!tokenizerPromise) {
-    tokenizerPromise = (async () => {
-      const { AutoTokenizer } = await import('@xenova/transformers');
-      return (await AutoTokenizer.from_pretrained(
-        'microsoft/Phi-3.5-mini-instruct'
-      )) as unknown as Tokenizer;
-    })();
-  }
-  return tokenizerPromise;
-}
+// Rough token count for the RAG token-budget check (see vectorSearch.ts).
+//
+// It only decides whether the retrieved full documents fit the prompt budget,
+// so an estimate is enough: no tokenizer model to download or run. Typical
+// tokenizers produce one token per ~4 characters of English and ~3 for
+// Italian/other languages, so 3 chars/token errs on the side of over-counting.
+const CHARS_PER_TOKEN = 3;
 
 export async function countTokens(text: string): Promise<number> {
-  const tokenizer = await getTokenizer();
-  return tokenizer.encode(text).length;
+  return Math.ceil(text.length / CHARS_PER_TOKEN);
 }

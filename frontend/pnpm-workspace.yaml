@@ -1,0 +1,21 @@
+# pnpm 11+ settings (see https://pnpm.io/settings)
+
+# Dependencies allowed to run install scripts. Anything not listed is skipped,
+# which fails `pnpm install` until it is decided here.
+allowBuilds:
+  bcrypt: true # compiles the native binding
+  '@heroui/shared-utils': false # postinstall only prints a banner
+  core-js-pure: false # postinstall only prints a banner
+
+# next 16.4.4 is newer than the default release-age gate
+minimumReleaseAgeExclude:
+  - '@next/env@16.4.4'
+  - '@next/swc-darwin-arm64@16.4.4'
+  - '@next/swc-darwin-x64@16.4.4'
+  - '@next/swc-linux-arm64-gnu@16.4.4'
+  - '@next/swc-linux-arm64-musl@16.4.4'
+  - '@next/swc-linux-x64-gnu@16.4.4'
+  - '@next/swc-linux-x64-musl@16.4.4'
+  - '@next/swc-win32-arm64-msvc@16.4.4'
+  - '@next/swc-win32-x64-msvc@16.4.4'
+  - 'next@16.4.4'

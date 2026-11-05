@@ -1,7 +1,5 @@
-# Debian-based (glibc), not alpine: onnxruntime-node (pulled in by
-# @xenova/transformers, used for in-process embeddings) ships prebuilt
-# native binaries that require glibc's dynamic linker and fail to load
-# under musl (ERR_DLOPEN_FAILED: "ld-linux-x86-64.so.2").
+# Debian-based (glibc), not alpine: native modules with prebuilt binaries
+# (sharp, bcrypt) are built for glibc's dynamic linker.
 FROM node:20-slim
 
 ARG ACCESS_USERNAME
@@ -27,11 +25,10 @@ ARG NEXT_PUBLIC_LLM_NAME
 ARG USE_AUTH
 ARG NEXT_PUBLIC_USE_AUTH
 
-# Pinned to match the committed pnpm-lock.yaml (lockfileVersion 6.0, written
-# by pnpm 8). An unpinned `pnpm` installs whatever is latest, which can't
-# read that lockfile and also refuses to run native-module build scripts
-# (bcrypt, sharp, ...) without interactive approval - both break this build.
-RUN npm install -g pnpm@8
+# pnpm 12 matches the committed pnpm-lock.yaml (lockfileVersion 9.0). Which
+# dependencies may run install scripts (bcrypt, ...) is declared in
+# pnpm-workspace.yaml, so the install needs no interactive approval.
+RUN npm install -g pnpm@12
 
 # Create the directory on the node image
 # where our Next.js app will live
@@ -42,7 +39,7 @@ WORKDIR /app
 
 # Copy package.json and package-lock.json
 # to the /app working directory
-COPY package.json /app/
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml /app/
 
 # Install dependencies in /app
 RUN pnpm install
