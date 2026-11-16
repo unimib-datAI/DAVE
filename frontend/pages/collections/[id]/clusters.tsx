@@ -81,11 +81,11 @@ const ClustersPage: NextPage = () => {
             {selectedMode === Mode.document && (
               <MergeClustersButton onClick={onOpen} />
             )}
-            <ModeSelectionTabs
+            {/* <ModeSelectionTabs
               modes={modes}
               selectedMode={selectedMode}
               setSelectedMode={setSelectedMode}
-            />
+            /> */}
           </ToolbarContent>
         </ToolbarCenteredContent>
       }
