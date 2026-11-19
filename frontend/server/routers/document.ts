@@ -625,6 +625,16 @@ const UPLOAD_JOB_CONCURRENCY = Math.max(
   1,
   Number(process.env.UPLOAD_JOB_CONCURRENCY) || 2
 );
+/**
+ * Files of a single upload job processed in parallel. Each file costs a few
+ * seconds of mostly waiting on other services (embeddings, Elasticsearch,
+ * MongoDB), so overlapping them speeds up large batches; lower it if those
+ * services start timing out.
+ */
+const UPLOAD_FILE_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.UPLOAD_FILE_CONCURRENCY) || 4
+);
 const queuedUploadJobs: Array<() => Promise<void>> = [];
 let runningUploadJobs = 0;
 
@@ -2037,18 +2047,26 @@ export const documents = createRouter()
       // token is available. Best-effort: if refreshing fails (or no
       // refresh token was supplied), the caller proceeds with whatever
       // token it has and lets the downstream call fail normally.
+      let tokenRefresh: Promise<void> | null = null;
       const ensureFreshToken = async () => {
         if (!refreshTokenForApi || !isAccessTokenStale(tokenForApi)) return;
-        try {
-          const refreshed = await refreshKeycloakToken(refreshTokenForApi);
-          tokenForApi = refreshed.accessToken;
-          refreshTokenForApi = refreshed.refreshToken;
-        } catch (error) {
-          console.error(
-            'Failed to refresh Keycloak access token for upload job:',
-            error
-          );
-        }
+        // Files of a job are processed in parallel; share one refresh (the
+        // refresh token is single-use) instead of racing several.
+        tokenRefresh ??= (async () => {
+          try {
+            const refreshed = await refreshKeycloakToken(refreshTokenForApi);
+            tokenForApi = refreshed.accessToken;
+            refreshTokenForApi = refreshed.refreshToken;
+          } catch (error) {
+            console.error(
+              'Failed to refresh Keycloak access token for upload job:',
+              error
+            );
+          } finally {
+            tokenRefresh = null;
+          }
+        })();
+        await tokenRefresh;
       };
 
       let job: any;
@@ -2117,19 +2135,17 @@ export const documents = createRouter()
 
           let anyFailed = false;
           let wasCancelled = false;
-          for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+          // Files of a job run UPLOAD_FILE_CONCURRENCY at a time.
+          let nextFileIndex = 0;
+          const processFile = async (fileIndex: number) => {
             const file = files[fileIndex];
-            if (cancelledUploadJobIds.has(jobId)) {
-              wasCancelled = true;
-              break;
-            }
             const fileTag = `${jobTag} file ${fileIndex + 1}/${files.length} "${
               file.fileName
             }"`;
             const fileStartedAt = Date.now();
 
             const fileId = fileIdByName.get(file.fileName);
-            if (!fileId) continue;
+            if (!fileId) return;
 
             await ensureFreshToken();
 
@@ -2183,7 +2199,22 @@ export const documents = createRouter()
                 error: error instanceof Error ? error.message : String(error),
               });
             }
-          }
+          };
+          const worker = async () => {
+            while (nextFileIndex < files.length) {
+              if (cancelledUploadJobIds.has(jobId)) {
+                wasCancelled = true;
+                return;
+              }
+              await processFile(nextFileIndex++);
+            }
+          };
+          await Promise.all(
+            Array.from(
+              { length: Math.min(UPLOAD_FILE_CONCURRENCY, files.length) },
+              worker
+            )
+          );
 
           // If cancelled, the 'cancelled' status was already set by
           // `cancelUploadJob` - don't overwrite it with completed/failed.
