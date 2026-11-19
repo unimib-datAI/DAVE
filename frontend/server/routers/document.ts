@@ -1041,7 +1041,8 @@ async function runSave({
   if (features !== undefined) {
     featuresUpdateResult = await DocumentController.updateDocumentFeatures(
       docId,
-      features
+      features,
+      collectionId
     );
   }
 

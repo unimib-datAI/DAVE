@@ -75,6 +75,10 @@ export function MergeClustersDrawer({
     null
   );
 
+  // Clusters merged away in this session; their suggestions are hidden
+  // right away, without waiting for the suggestions to be recomputed
+  const [mergedAwayIds, setMergedAwayIds] = useState<number[]>([]);
+
   // Fetch clusters every time the selected document changes
   const {
     clusters,
@@ -92,6 +96,7 @@ export function MergeClustersDrawer({
       // Reset selected clusters
       setFirstCluster(sourceCluster ?? null);
       setSecondCluster(null);
+      setMergedAwayIds([]);
     } else {
       // Clean up the state of the drawer
       setIsOpeningAnimationComplete(false);
@@ -104,6 +109,7 @@ export function MergeClustersDrawer({
 
     setFirstCluster(null);
     setSecondCluster(null);
+    setMergedAwayIds([]);
 
     if (key === null) {
       setSelectedDocument(undefined);
@@ -136,6 +142,8 @@ export function MergeClustersDrawer({
 
     merge(pendingMergePair, {
       onSuccess: () => {
+        setMergedAwayIds((prev) => [...prev, pendingMergePair.mergeAway.id]);
+
         // Reset state of autocompletes
         setFirstCluster(null);
         setSecondCluster(null);
@@ -238,6 +246,7 @@ export function MergeClustersDrawer({
                   enabled={
                     isOpen && isOpeningAnimationComplete && !isLoadingClusters
                   }
+                  mergedAwayIds={mergedAwayIds}
                   onEditSuggestion={onEditSuggestion}
                   onMergePress={onMergePress}
                 />

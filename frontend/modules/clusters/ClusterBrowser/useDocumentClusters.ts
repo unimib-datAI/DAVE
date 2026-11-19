@@ -1,8 +1,9 @@
 import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
-import { createTaxonomy } from '@/modules/document/DocumentProvider/utils';
+import { applyTypeColors, createTaxonomy } from '@/modules/document/DocumentProvider/utils';
 import { Cluster } from '@/server/routers/document';
 import { useQuery } from '@/utils/trpc';
 import { useMemo } from 'react';
+import { useSession } from 'next-auth/react';
 import { ClusterWithDocId } from './types';
 import { anonymizedCluster, useAnonymization } from './anonymization';
 
@@ -12,6 +13,19 @@ export default function useDocumentClusters(
 ) {
   // Same toggle as the document viewer: off requests the de-anonymized document
   const { isAnonymized, deAnonimize } = useAnonymization();
+
+  // Same per-type colors the document view uses (collection.config.typeColors)
+  const { data: session } = useSession();
+  const token = (session as any)?.accessToken as string | undefined;
+  const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
+  const { data: collections } = useQuery(['collection.getAll', { token }], {
+    enabled: authDisabled || !!token,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const typeColors = (
+    (collections as any[] | undefined)?.find((c) => c.id === collectionId) as any
+  )?.config?.typeColors as Record<string, string> | undefined;
 
   const { data: documentData, isLoading } = useQuery(
     ['document.getDocument', { id: docId ?? '', deAnonimize, collectionId }],
@@ -25,7 +39,10 @@ export default function useDocumentClusters(
     ).filter((set) => set.name === 'entities_');
 
     // Need this to get the correct colors for the types
-    const taxonomy = createTaxonomy(baseTaxonomy, entityAnnotationSet);
+    const taxonomy = applyTypeColors(
+      createTaxonomy(baseTaxonomy, entityAnnotationSet),
+      typeColors
+    );
     const annotations = entityAnnotationSet[0]?.annotations;
 
     // Some mentions do not have a corresponding
@@ -50,5 +67,5 @@ export default function useDocumentClusters(
       clusters: filteredClusters,
       isLoading,
     };
-  }, [documentData, isLoading, isAnonymized]);
+  }, [documentData, isLoading, isAnonymized, typeColors]);
 }

@@ -11,6 +11,8 @@ type SuggestionsListProps = {
   clusters: ClusterWithDocId[];
   taxonomy: { [x: string]: FlatTreeNode };
   enabled: boolean;
+  // Ids of clusters already merged away: suggestions involving them are hidden
+  mergedAwayIds?: number[];
   onEditSuggestion: (
     keep: ClusterWithDocId,
     mergeAway: ClusterWithDocId
@@ -25,6 +27,7 @@ export default function SuggestionsList({
   clusters,
   taxonomy,
   enabled,
+  mergedAwayIds = [],
   onEditSuggestion,
   onMergePress,
 }: SuggestionsListProps) {
@@ -36,16 +39,22 @@ export default function SuggestionsList({
 
   // Compute suggestions based on clusters received
   const {
-    suggestions,
+    suggestions: allSuggestions,
     isLoading: isLoadingSuggestions,
     hasJobFailed,
     retry: retrySuggestions,
   } = useSimilaritySuggestions(clusters, SIMILARITY_THRESHOLD, enabled);
 
+  const suggestions = allSuggestions?.filter(
+    (s) =>
+      !mergedAwayIds.includes(s.keep.id) &&
+      !mergedAwayIds.includes(s.mergeAway.id)
+  );
+
   useEffect(() => {
     // When new suggestions are computed, go back to the first page
     setVisibleSuggestionsCount(PAGE_SIZE);
-  }, [suggestions]);
+  }, [allSuggestions]);
 
   if (hasJobFailed) {
     return (

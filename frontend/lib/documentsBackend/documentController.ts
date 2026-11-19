@@ -144,10 +144,18 @@ export const DocumentController = {
     }
   },
 
-  updateClusters: async (docId: string, annSet: string, clusters: any) => {
+  updateClusters: async (
+    docId: string,
+    annSet: string,
+    clusters: any,
+    collectionId?: string
+  ) => {
     await dbConnect();
     try {
-      const query = { id: docId };
+      // Document ids are shared across collections: scope the write, or it
+      // may land on another collection's copy of the document.
+      const query: Record<string, any> = { id: docId };
+      if (collectionId) query.collectionId = collectionId;
       const update = {
         $set: {
           [`features.clusters.${annSet}`]: clusters,
@@ -159,10 +167,16 @@ export const DocumentController = {
     }
   },
 
-  updateDocumentFeatures: async (docId: string, features: any) => {
+  updateDocumentFeatures: async (
+    docId: string,
+    features: any,
+    collectionId?: string
+  ) => {
     await dbConnect();
     try {
-      const query = { id: docId };
+      // Same as updateClusters: only touch the copy in this collection.
+      const query: Record<string, any> = { id: docId };
+      if (collectionId) query.collectionId = collectionId;
       const update = { $set: { features } };
       return await DocumentModel.findOneAndUpdate(query, update, { new: true });
     } catch (error) {
