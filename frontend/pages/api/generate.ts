@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
+import { withAdaptiveParams } from '@/lib/llmCapabilities';
 import { executeMultiAgent } from '@/lib/multiAgent';
 
 /**
@@ -78,10 +79,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     }
 
     // Initialize OpenAI client with configured settings
-    const openai = new OpenAI({
-      baseURL: baseURL,
-      apiKey: apiKey,
-    });
+    const openai = withAdaptiveParams(new OpenAI({ baseURL, apiKey }), baseURL);
     let rawMessages = messages;
     if (!rawMessages && prompt) {
       rawMessages = [
@@ -183,14 +181,19 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       // Thinking control. `reasoning_effort` is the OpenAI-compatible knob;
       // `chat_template_kwargs.enable_thinking` is honoured by vLLM/SGLang
       // chat templates (Qwen3, etc.) to switch thinking off entirely.
+      // Hosted APIs (Azure, OpenAI) reject chat_template_kwargs with a 400, so
+      // only send it to self-hosted servers (vLLM/SGLang/llama.cpp).
+      const isHostedApi = /azure\.com|openai\.com/i.test(baseURL);
       const thinkingParams: Record<string, any> = {};
       if (['off', 'low', 'medium', 'high'].includes(thinking_effort)) {
         if (thinking_effort === 'off') {
           thinkingParams.reasoning_effort = 'none';
-          thinkingParams.chat_template_kwargs = { enable_thinking: false };
+          if (!isHostedApi) thinkingParams.chat_template_kwargs = { enable_thinking: false };
         } else {
-          thinkingParams.reasoning_effort = thinking_effort;
-          thinkingParams.chat_template_kwargs = { enable_thinking: true };
+          // DeepSeek on Azure only accepts none/high/max
+          thinkingParams.reasoning_effort =
+            /deepseek/i.test(modelToUse) && isHostedApi ? 'high' : thinking_effort;
+          if (!isHostedApi) thinkingParams.chat_template_kwargs = { enable_thinking: true };
         }
       }
       console.log(

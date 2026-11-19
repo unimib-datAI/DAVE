@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { withAdaptiveParams } from './llmCapabilities';
 import { search as runVectorSearch } from './vectorSearch';
 
 /**
@@ -313,10 +314,10 @@ class MultiAgentSystem {
   }
 
   constructor(options: MultiAgentOptions) {
-    this.openai = new OpenAI({
-      baseURL: options.baseURL,
-      apiKey: options.apiKey,
-    });
+    this.openai = withAdaptiveParams(
+      new OpenAI({ baseURL: options.baseURL, apiKey: options.apiKey }),
+      options.baseURL
+    );
     this.model = options.model;
     this.temperature = options.temperature ?? 0.7;
     this.max_tokens = options.max_tokens ?? 4096;
