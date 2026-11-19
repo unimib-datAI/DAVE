@@ -505,7 +505,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                           onChange={(e) => {
                             setMaxTokensInput(e.target.value);
                             const val = parseInt(e.target.value);
-                            if (!isNaN(val) && val >= 256 && val <= 32768) {
+                            if (!isNaN(val) && val >= 256 && val <= 131072) {
                               fieldMaxNewTokens.onChange(val);
                             }
                           }}
@@ -519,7 +519,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                         fieldMaxNewTokens.onChange(value);
                       }}
                       value={[fieldMaxNewTokens.value]}
-                      max={32768}
+                      max={131072}
                       min={256}
                       step={256}
                     />

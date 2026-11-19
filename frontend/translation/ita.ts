@@ -671,7 +671,7 @@ const t: Translation = {
         "Controlla la casualità. Valori più bassi rendono l'output più focalizzato e deterministico (0.0-2.0). Predefinito: 0.7",
       maxTokens: 'Token Massimi',
       maxTokensHelp:
-        'Lunghezza massima del testo generato (100-32768). Predefinito: 8192',
+        'Lunghezza massima del testo generato (100-131072). Predefinito: 8192',
       topP: 'Top P',
       topPHelp:
         'Soglia di campionamento del nucleo (0.0-1.0). Predefinito: 0.65',

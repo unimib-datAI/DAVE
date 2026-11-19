@@ -668,7 +668,7 @@ const t: Translation = {
         'Controls randomness. Lower values make output more focused and deterministic (0.0-2.0). Default: 0.7',
       maxTokens: 'Max Tokens',
       maxTokensHelp:
-        'Maximum length of generated text (100-32768). Default: 8192',
+        'Maximum length of generated text (100-131072). Default: 8192',
       topP: 'Top P',
       topPHelp: 'Nucleus sampling threshold (0.0-1.0). Default: 0.65',
       topK: 'Top K',

@@ -785,7 +785,7 @@ const LLMSettingsPage = () => {
               type="number"
               step="256"
               min="256"
-              max="32768"
+              max="131072"
               placeholder="8192"
               value={rawMaxTokens}
               onChange={(e) => {
@@ -801,7 +801,7 @@ const LLMSettingsPage = () => {
                   const fallback = formData.defaultMaxTokens ?? 8192;
                   setRawMaxTokens(String(fallback));
                 } else {
-                  const clamped = Math.min(32768, Math.max(256, parsed));
+                  const clamped = Math.min(131072, Math.max(256, parsed));
                   setRawMaxTokens(String(clamped));
                   handleInputChange('defaultMaxTokens', clamped);
                 }
@@ -811,7 +811,7 @@ const LLMSettingsPage = () => {
             />
             <HelpText>
               {t('generationDefaults.maxTokensHelp') ||
-                'Maximum length of generated text (256-32768). Default: 8192'}
+                'Maximum length of generated text (256-131072). Default: 8192'}
             </HelpText>
           </FormGroup>
 
