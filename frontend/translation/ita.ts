@@ -143,11 +143,23 @@ const t: Translation = {
     typesSaved: 'Tipi salvati',
     errorSavingTypes: 'Errore nel salvataggio dei tipi',
     typesOrder: 'Ordine dei filtri facet',
+    typeColors: 'Colori dei tipi di entità',
+    typeColorsHint:
+      'I colori vengono assegnati automaticamente ai nuovi tipi e restano fissi. Clicca su un campione per cambiarlo.',
+    resetColor: 'Ripristina',
   },
   chat: {
     initialMessage: 'Ciao, come posso aiutarti?',
     resources: 'Risorse',
     typeQuestionPlaceholder: 'Scrivi la tua domanda qui',
+    thinking: 'Sto pensando',
+    thinkingEffort: 'Livello di ragionamento',
+    thinkingEffortTooltip:
+      'Quanto il modello ragiona prima di rispondere. Disattivato esclude il ragionamento; livelli più alti sono più lenti ma possono essere più accurati.',
+    thinkingOff: 'Disattivato',
+    thinkingLow: 'Basso',
+    thinkingMedium: 'Medio',
+    thinkingHigh: 'Alto',
     send: 'Invia',
     resetChat: 'Resetta chat',
     predefinedQuestions: 'Domande predefinite',
@@ -401,17 +413,6 @@ const t: Translation = {
       metadataContent: {
         title: 'Metadati del documento',
         description: 'Visualizza i metadati del documento',
-        fields: {
-          name: 'Nome',
-          nomegiudice: 'Nome Giudice',
-          cf_giudice: 'Codice Fiscale Giudice',
-          parte: 'Parte',
-          controparte: 'Controparte',
-          gradogiudizio: 'Grado Giudizio',
-          start_time: 'Ora di Inizio',
-          participants: 'Partecipanti',
-          number_of_messages: 'Numero di Messaggi',
-        },
       },
       addContent: {
         title: 'Aggiungi annotazione',
@@ -670,7 +671,7 @@ const t: Translation = {
         "Controlla la casualità. Valori più bassi rendono l'output più focalizzato e deterministico (0.0-2.0). Predefinito: 0.7",
       maxTokens: 'Token Massimi',
       maxTokensHelp:
-        'Lunghezza massima del testo generato (100-4096). Predefinito: 1024',
+        'Lunghezza massima del testo generato (100-131072). Predefinito: 8192',
       topP: 'Top P',
       topPHelp:
         'Soglia di campionamento del nucleo (0.0-1.0). Predefinito: 0.65',

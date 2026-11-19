@@ -17,6 +17,7 @@ import {
   addAnnotation,
   getAnnotationTypes,
   getEntityIndex,
+  applyTypeColors,
   getTypeFilter,
   isSameAction,
   toggleLeftSidebar,
@@ -83,10 +84,6 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
   udpateAnnotationSets: (state, payload) => {
     const { annotationSets } = payload;
 
-    console.log(
-      `Updating annotation sets:`,
-      annotationSets.map((set) => set.name).join(', ')
-    );
 
     let before = {};
     Object.keys(state.data.annotation_sets).forEach((key) => {
@@ -98,11 +95,6 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
     });
 
     annotationSets.forEach((set) => {
-      console.log(
-        `Updating set "${set.name}" with ${
-          set.annotations?.length || 0
-        } annotations`
-      );
       state.data.annotation_sets[set.name] = {
         ...set,
       };
@@ -117,8 +109,6 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
       };
     });
 
-    console.log('Annotation sets before update:', JSON.stringify(before));
-    console.log('Annotation sets after update:', JSON.stringify(after));
   },
   setCurrentEntityId: (state, payload) => {
     const { viewIndex, annotationId } = payload;
@@ -173,10 +163,6 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
     // Clear any highlighted annotation when adding a new one
     state.ui.highlightAnnotation.entityId = -1;
 
-    console.log(
-      `Adding annotation: type=${type}, start=${start}, end=${end}, text="${text}"`
-    );
-    console.log(`Active annotation set: ${activeAnnotationSet}`);
 
     // Make sure the annotation set exists
     if (!state.data.annotation_sets[activeAnnotationSet]) {
@@ -187,9 +173,6 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
     const { next_annid, annotations } =
       state.data.annotation_sets[activeAnnotationSet];
 
-    console.log(
-      `Current annotations count: ${annotations.length}, next_annid: ${next_annid}`
-    );
 
     // Initialize clusters if they don't exist
     if (!state.data.features.clusters) {
@@ -202,35 +185,18 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
 
     // Map the annotation type to the proper taxonomy type (e.g., Person -> persona)
     const mappedType = mapEntityType(type);
-    console.log(`🔍 Mapped annotation type "${type}" -> "${mappedType}"`);
 
     // Check if there's a matching cluster by lowercase label within clusters of the same type
     const lowerCaseText = text.replace('vault:v1:', '').toLowerCase();
     const clusters = state.data.features.clusters[activeAnnotationSet];
-    console.log(
-      `🔍 Searching for cluster matching "${lowerCaseText}" in ${clusters.length} total clusters`
-    );
 
     // First filter clusters by type, then search for matching title
     const clustersOfSameType = clusters.filter(
       (cluster) => cluster.type === mappedType
     );
-    console.log(
-      `🔍 Found ${clustersOfSameType.length} clusters of type "${mappedType}"`
-    );
-    console.log(
-      `🔍 Clusters of same type:`,
-      clustersOfSameType.map((c) => ({ title: c.title, type: c.type }))
-    );
 
     let matchingCluster = clustersOfSameType.find(
       (cluster) => cluster.title.toLowerCase() === lowerCaseText
-    );
-    console.log(
-      `🔍 Matching cluster found:`,
-      matchingCluster
-        ? `"${matchingCluster.title}" (id: ${matchingCluster.id})`
-        : 'none'
     );
 
     let clusterId: number;
@@ -253,14 +219,8 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
       // Add to clusters
       state.data.features.clusters[activeAnnotationSet].push(newCluster);
       matchingCluster = newCluster;
-      console.log(
-        `Created new cluster "${text}" with id ${clusterId} and mapped type "${mappedType}"`
-      );
     } else {
       clusterId = matchingCluster.id;
-      console.log(
-        `Found matching cluster "${matchingCluster.title}" with id ${clusterId} and type "${mappedType}"`
-      );
     }
 
     const newAnnotation: any = {
@@ -280,7 +240,6 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
       },
     };
 
-    console.log(`New annotation created:`, JSON.stringify(newAnnotation));
 
     state.data.annotation_sets[activeAnnotationSet].annotations = addAnnotation(
       annotations,
@@ -294,16 +253,9 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
       mention: text,
     });
 
-    console.log(
-      `Updated annotations count: ${state.data.annotation_sets[activeAnnotationSet].annotations.length}`
-    );
-    console.log(
-      `Updated cluster "${matchingCluster.title}" mentions count: ${matchingCluster.mentions.length}`
-    );
 
     if (typeFilter.indexOf(type) === -1) {
       typeFilter.push(type);
-      console.log(`Added type "${type}" to type filter`);
     }
 
     // Add this annotation to the global Jotai state by dispatching a custom event
@@ -379,10 +331,6 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
 
     if (indexToDelete !== -1) {
       const annToDelete = annotations[indexToDelete];
-      console.log(
-        'deleting annotation',
-        JSON.parse(JSON.stringify(annToDelete))
-      );
       const newAnnotations = [
         ...annotations.slice(0, indexToDelete),
         ...annotations.slice(indexToDelete + 1, annotations.length),
@@ -399,14 +347,12 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
           activeAnnotationSet
         ].map((cluster) => {
           if (cluster.id === annToDelete.features.cluster) {
-            console.log('🗑️ Found cluster to update:', cluster);
             const updatedCluster = {
               ...cluster,
               mentions: cluster.mentions.filter(
                 (mention) => mention.id !== annToDelete.id
               ),
             };
-            console.log('🗑️ Updated cluster:', updatedCluster);
             return updatedCluster;
           }
           return cluster;
@@ -416,7 +362,6 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
           (cluster) => cluster.mentions.length > 0
         );
 
-        console.log('🗑️ Final clusters after filtering:', filteredClusters);
         state.data.features.clusters[activeAnnotationSet] = filteredClusters;
 
         // Notify the global state about the deletion
@@ -434,7 +379,6 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
         }
       }
     } else {
-      console.log('🗑️ Annotation not found in annotations array');
     }
   },
   addTaxonomyType: (state, payload) => {
@@ -488,6 +432,9 @@ const baseDocumentReducer = createImmerReducer<State, Action>({
       ...state.ui.views[viewIndex],
       ...view,
     };
+  },
+  setTypeColors: (state, payload) => {
+    state.taxonomy = applyTypeColors(state.taxonomy, payload.typeColors);
   },
   addView: (state) => {
     state.ui.views = [...state.ui.views, state.ui.views[0]];

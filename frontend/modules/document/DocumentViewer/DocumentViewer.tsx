@@ -86,7 +86,6 @@ const DocumentViewer = () => {
   const handleTagClick = useCallback(
     (event: MouseEvent, annotation: EntityAnnotation) => {
       // Log the full annotation to the console
-      console.log('Entity annotation clicked:', annotation);
 
       // Batch related dispatch actions to improve performance
       requestAnimationFrame(() => {

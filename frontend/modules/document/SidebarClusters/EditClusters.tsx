@@ -222,7 +222,6 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-    console.log('dragend', active, over);
     if (!over) return;
 
     const activeList = sourceList.find((item) => item.id === active.id)
@@ -373,7 +372,6 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
         <Button
           style={{ margin: 15, zIndex: 1 }}
           onPress={() => {
-            console.log('setting is ope');
             setIsOpen(true);
           }}
         >

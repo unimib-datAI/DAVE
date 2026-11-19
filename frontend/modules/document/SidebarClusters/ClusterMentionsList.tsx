@@ -92,8 +92,6 @@ const ClusterMentionsList = ({
   const dispatch = useDocumentDispatch();
   const text = useSelector(selectDocumentText);
 
-  console.log('📋 ClusterMentionsList received mentions:', mentions);
-  console.log('📋 ClusterMentionsList received annotations:', annotations);
 
   // Smart mention click handler for virtualized NER
   const handleOnClick = useCallback(
@@ -114,7 +112,6 @@ const ClusterMentionsList = ({
       const isAddMode =
         currentAction && currentAction.classList.contains('active');
       if (isAddMode) {
-        console.log('In add annotation mode - skipping highlight');
         return;
       }
 

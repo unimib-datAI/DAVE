@@ -11,6 +11,11 @@ const getBasePath = () => {
 
 const nextConfig = {
   reactStrictMode: true,
+  // tRPC queries are GETs carrying the access token in the query string, so
+  // per-request logging both floods the console and leaks tokens into logs.
+  logging: {
+    incomingRequests: false,
+  },
   experimental: {
     emotion: true,
     // Increase proxy body size limit to handle large document uploads (Next.js 16+)

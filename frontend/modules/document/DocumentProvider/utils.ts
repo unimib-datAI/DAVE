@@ -9,6 +9,7 @@ import {
   ChildNode,
   flattenTree,
   FlatTreeNode,
+  FlatTreeObj,
   getNode,
   mapEntityType,
 } from '../../../components/Tree';
@@ -328,6 +329,25 @@ export const getTypeFilter = (annotations: EntityAnnotation[]) => {
 export const getEntityIndex = (id: string) => {
   const [viewIndex, index] = id.split('/');
   return [parseInt(viewIndex), parseInt(index)] as const;
+};
+
+/**
+ * Returns the taxonomy with the collection's per-type colors applied. Types
+ * that aren't in the taxonomy are ignored.
+ */
+export const applyTypeColors = (
+  taxonomy: FlatTreeObj,
+  typeColors: Record<string, string> | undefined
+): FlatTreeObj => {
+  if (!typeColors) return taxonomy;
+  const next = { ...taxonomy };
+  for (const [type, color] of Object.entries(typeColors)) {
+    const node = next[type];
+    if (node && (node as { color?: string }).color !== color) {
+      next[type] = { ...node, color } as FlatTreeNode;
+    }
+  }
+  return next;
 };
 
 export const createTaxonomy = (

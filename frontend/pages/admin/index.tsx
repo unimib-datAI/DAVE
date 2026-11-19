@@ -20,6 +20,7 @@ import { Button, Spinner } from '@heroui/react';
 import { Shield, Lock, Users } from 'lucide-react';
 import type { DAVEPermissions } from '@/server/routers/permission';
 import type { User } from '@/server/routers/user';
+import { loadLocale } from '@/translation';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Static config – roles and permission map
@@ -878,8 +879,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
   }
 
-  const locale = context.req.cookies.locale || process.env.LOCALE || 'eng';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(context.req.cookies.locale, process.env.LOCALE, 'eng');
 
   return {
     props: { locale: localeObj },

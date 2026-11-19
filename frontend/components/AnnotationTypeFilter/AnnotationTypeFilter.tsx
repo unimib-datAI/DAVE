@@ -151,6 +151,7 @@ const AnnotationTypeFilter = ({
     <Container>
       <FilterButton onClick={handleAllClick}>
         <Checkbox
+          className="pointer-events-none"
           aria-label="select all"
           isSelected={isAllSelected}
           isIndeterminate={isAllIndeterminate}
@@ -160,6 +161,7 @@ const AnnotationTypeFilter = ({
       {items.map((item) => (
         <FilterButton key={item.key} onClick={() => handleItemClick(item.key)}>
           <Checkbox
+            className="pointer-events-none"
             aria-label="item"
             size="sm"
             isSelected={value.some(

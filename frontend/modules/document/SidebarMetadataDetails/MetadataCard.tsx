@@ -1,10 +1,9 @@
-import { useText } from '@/components';
 import styled from '@emotion/styled';
 import { darken } from 'polished';
 
 type MetadataCardProps = {
   title: string;
-  content: String | Number;
+  content: string | number;
 };
 
 const ClusterContainer = styled.button<{}>(() => ({
@@ -48,12 +47,18 @@ const Tag = styled.span<{ color: string }>(({ color }) => ({
   border: `1px solid ${darken(0.05, color)}`,
 }));
 
-const MetadataCard = ({ title, content }: MetadataCardProps) => {
-  const t = useText('document');
+/** `cf_giudice` / `startTime` -> `Cf giudice` / `Start time` */
+const humanizeKey = (key: string) => {
+  const spaced = key
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_\-.]+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+};
 
-  // Translate the title using the metadata fields
-  const translatedTitle =
-    t(`leftSidebar.metadataContent.fields.${title}`) || title;
+const MetadataCard = ({ title, content }: MetadataCardProps) => {
+  const translatedTitle = humanizeKey(title);
 
   return (
     <>

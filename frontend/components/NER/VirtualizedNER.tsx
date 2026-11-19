@@ -70,6 +70,23 @@ const VirtualItem = styled.div({
   // Allow natural content sizing - no height restrictions
 });
 
+/**
+ * Everything about an annotation that changes how it renders. Used to decide
+ * whether the NER tree must be rebuilt, so it has to cover every edit the
+ * annotation modal can make (type(s) and link), not just positions.
+ */
+const annotationSignature = (ann: EntityAnnotation) =>
+  [
+    ann.id,
+    ann.start,
+    ann.end,
+    ann.type,
+    (ann.features?.types || []).join(','),
+    ann.features?.url ?? '',
+    ann.features?.title ?? '',
+    ann.features?.is_nil ?? '',
+  ].join('|');
+
 const VirtualizedNER = memo(
   ({
     text,
@@ -92,14 +109,7 @@ const VirtualizedNER = memo(
       () => entityAnnotations,
       [
         // Only update if the actual annotations have changed
-        JSON.stringify(
-          entityAnnotations.map(
-            (ann) =>
-              `${ann.id}-${ann.start}-${ann.end}-${ann.type}-${(
-                ann.features?.types || []
-              ).join(',')}`
-          )
-        ),
+        JSON.stringify(entityAnnotations.map(annotationSignature)),
       ]
     );
 
@@ -389,9 +399,20 @@ const VirtualizedNER = memo(
   (prevProps, nextProps) => {
     // Custom equality function to prevent unnecessary re-renders
     // Only re-render if text content changed or annotations meaningfully changed
+    // Comparing only the length used to swallow in-place edits (changing an
+    // entity's type or link keeps the count), leaving the view stale until a
+    // reload. Unchanged annotations keep their reference across reducer
+    // updates, so the signature is only computed for the ones that changed.
     const annotationsEqual =
       prevProps.entityAnnotations.length ===
         nextProps.entityAnnotations.length &&
+      prevProps.entityAnnotations.every(
+        (ann, i) =>
+          ann === nextProps.entityAnnotations[i] ||
+          annotationSignature(ann) ===
+            annotationSignature(nextProps.entityAnnotations[i])
+      ) &&
+      prevProps.taxonomy === nextProps.taxonomy &&
       prevProps.highlightAnnotation === nextProps.highlightAnnotation;
 
     // For text, we only care if it's the same reference since text rarely changes

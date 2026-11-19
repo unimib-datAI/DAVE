@@ -139,18 +139,9 @@ async function addAnnotationsToDocument(
   try {
     const index = process.env.ELASTIC_INDEX as string;
 
-    console.log('========== SERVER: ANNOTATION SAVE REQUEST ==========');
-    console.log('Index name:', indexName);
-    console.log('Document ID:', documentId);
-    console.log('Number of annotations:', mentions.length);
-    console.log('Annotations:', JSON.stringify(mentions, null, 2));
-    console.log('====================================================');
 
     const result = await addAnnotationsToDocumentEs(index, documentId, mentions);
 
-    console.log('========== SERVER: ANNOTATION SAVE RESPONSE ==========');
-    console.log('Response:', JSON.stringify(result, null, 2));
-    console.log('======================================================');
 
     return result as unknown as AddAnnotationsResponse;
   } catch (error) {
@@ -177,10 +168,11 @@ export const search = createRouter()
       retrievalMethod: z.string().optional(),
       force_rag: z.boolean().optional(),
       collectionId: z.string().optional(),
+      // max chunks to return across all documents
+      topK: z.number().int().min(1).max(50).optional(),
     }),
     resolve: async ({ input }) => {
       const index = process.env.ELASTIC_INDEX as string;
-      console.log('*** most similar collection id ***', input.collectionId);
       // forward collectionId (if provided) to restrict the search to a single collection
       const documents = (await runVectorSearch({
         collectionName: index,
@@ -189,6 +181,7 @@ export const search = createRouter()
         retrievalMethod: input.retrievalMethod || 'full',
         forceRag: input.force_rag,
         collectionId: input.collectionId,
+        topK: input.topK,
       })) as unknown as GetSimilarDocumentResponse;
 
       return processResponseMostSImilartDocuments(documents);
@@ -258,9 +251,6 @@ export const search = createRouter()
     }),
     resolve: async ({ input }) => {
       const { indexName, documentId, annotations } = input;
-      console.log('========== SERVER: ANNOTATION REQUEST RECEIVED ==========');
-      console.log('Input received:', JSON.stringify(input, null, 2));
-      console.log('=========================================================');
       return addAnnotationsToDocument(indexName, documentId, annotations);
     },
   });

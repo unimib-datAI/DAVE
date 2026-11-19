@@ -1,7 +1,11 @@
 import { activeCollectionAtom } from '@/atoms/collection';
 import { DocumentWithChunk } from '@/server/routers/search';
 import { getPromptAndMessage } from '@/utils/textGeneration';
-import { llmSettingsAtom, DEFAULT_SYSTEM_PROMPT } from '@/atoms/llmSettings';
+import {
+  llmSettingsAtom,
+  DEFAULT_SYSTEM_PROMPT,
+  ThinkingEffort,
+} from '@/atoms/llmSettings';
 import { useAtom } from 'jotai';
 import { useEffect, useState } from 'react';
 import { useChatState, useChatDispatch } from '@/modules/chat/ChatProvider';
@@ -39,10 +43,13 @@ export type GenerateOptions = {
   max_new_tokens?: number;
   top_p?: number;
   top_k?: number;
+  thinking_effort?: ThinkingEffort;
   token_repetition_penalty_max?: number;
   system?: string;
   context?: DocumentWithChunk[];
   useMultiAgent?: boolean;
+  /** How much the model reasons before answering (sent to /api/generate) */
+  thinking?: 'off' | 'low' | 'medium' | 'high';
   /** Document IDs to restrict retrieval to (used by the multi-agent pipeline) */
   filterIds?: string[];
 };
@@ -130,9 +137,13 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           temperature:
             options.temperature ?? llmSettings.defaultTemperature ?? 0.7,
           max_new_tokens:
-            options.max_new_tokens ?? llmSettings.defaultMaxTokens ?? 1024,
-          top_p: options.top_p ?? llmSettings.defaultTopP ?? 0.65,
+            options.max_new_tokens ?? llmSettings.defaultMaxTokens ?? 8192,
+          top_p: options.top_p ?? llmSettings.defaultTopP ?? 0.95,
           top_k: options.top_k ?? llmSettings.defaultTopK ?? 40,
+          thinking_effort:
+            options.thinking_effort ??
+            llmSettings.defaultThinkingEffort ??
+            'medium',
           token_repetition_penalty_max:
             options.token_repetition_penalty_max ??
             llmSettings.defaultFrequencyPenalty ??

@@ -8,11 +8,11 @@ import path from 'path';
 import base from '@/components/TranslationProvider/translations/base';
 import { indexDocument } from '@/lib/documentIndexer';
 import { ServiceModel, serviceDTO } from '@/lib/db/models/Service';
+import { ConfigurationModel, configurationDTO } from '@/lib/db/models/Configuration';
 import {
-  ConfigurationModel,
-  configurationDTO,
-} from '@/lib/db/models/Configuration';
-import { DocumentController } from '@/lib/documentsBackend/documentController';
+  DocumentController,
+  annotationSetScope,
+} from '@/lib/documentsBackend/documentController';
 import { dbConnect } from '@/lib/db/connection';
 import { getRequestUser } from '@/lib/documentsBackend/keycloakAuth';
 import {
@@ -33,6 +33,10 @@ import {
   makeBatchDecryptionRequest,
 } from '@/lib/documentsBackend/anonymization';
 import { UploadJobController } from '@/lib/documentsBackend/uploadJobController';
+import {
+  refreshKeycloakToken,
+  isAccessTokenStale,
+} from '@/lib/documentsBackend/keycloakRefresh';
 
 export type Document = {
   _id: string;
@@ -107,6 +111,93 @@ export type AdditionalAnnotationProps = {
 export type EntityAnnotation = Annotation<AdditionalAnnotationProps>;
 export type SectionAnnotation = Annotation;
 
+const TRANSIENT_ERROR_MARKERS = [
+  'fetch failed',
+  'aborted',
+  'econnreset',
+  'econnrefused',
+  'etimedout',
+  'socket hang up',
+  'connectionerror',
+  'timeouterror',
+  'bad gateway',
+  'service unavailable',
+  'gateway timeout',
+];
+const TRANSIENT_MAX_ATTEMPTS = 3;
+const TRANSIENT_BACKOFF_MS = 2000;
+
+/**
+ * Node's fetch reports every network failure as a bare "fetch failed"; the
+ * actual reason (ECONNREFUSED, socket closed, ...) is on `error.cause`.
+ */
+function describeError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const cause = (error as any)?.cause;
+  const causeText = cause ? cause.code || cause.message || String(cause) : '';
+  return causeText && causeText !== message
+    ? `${message} (${causeText})`
+    : message;
+}
+
+function isTransientError(error: unknown): boolean {
+  const text = `${(error as any)?.name ?? ''} ${describeError(error)}`.toLowerCase();
+  return TRANSIENT_ERROR_MARKERS.some((marker) => text.includes(marker));
+}
+
+/**
+ * Runs one step of the upload pipeline, retrying it with backoff when it
+ * fails for a transient reason (a downstream service dropping the
+ * connection or timing out under load). The error finally thrown names the
+ * step, so a failed upload-job file shows which call failed.
+ */
+async function withTransientRetry<T>(
+  step: string,
+  fn: (attempt: number) => Promise<T>
+): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await fn(attempt);
+    } catch (error) {
+      if (error instanceof PermissionDeniedError) throw error;
+      if (attempt >= TRANSIENT_MAX_ATTEMPTS || !isTransientError(error)) {
+        throw new Error(`${step}: ${describeError(error)}`);
+      }
+      console.warn(
+        `${step} failed (attempt ${attempt}/${TRANSIENT_MAX_ATTEMPTS}), retrying:`,
+        describeError(error)
+      );
+      await new Promise((resolve) =>
+        setTimeout(resolve, TRANSIENT_BACKOFF_MS * 2 ** (attempt - 1))
+      );
+    }
+  }
+}
+
+/**
+ * Indexes a freshly-inserted document, retrying transient failures. A failed
+ * attempt may still have written to Elasticsearch (e.g. the response timed
+ * out), so a retry first removes this collection's copy.
+ */
+async function indexCreatedDocumentWithRetry(doc: any, token: string) {
+  const elasticIndex = process.env.ELASTIC_INDEX;
+  await withTransientRetry(
+    `indexing (embeddings at ${process.env.API_INDEXER}, Elasticsearch)`,
+    async (attempt) => {
+      if (attempt > 1 && elasticIndex && doc?.id) {
+        // Best-effort: if this cleanup fails too, let the indexing attempt
+        // below report the actual problem.
+        await deleteElasticDocument(
+          elasticIndex,
+          String(doc.id),
+          doc.collectionId
+        ).catch(() => undefined);
+      }
+      await indexCreatedDocument(doc, token);
+    }
+  );
+}
+
 /**
  * Indexes a just-created document into Elasticsearch (chunking + embedding +
  * write - see lib/documentIndexer.ts). This used to be a side effect of the
@@ -124,6 +215,18 @@ async function indexCreatedDocument(doc: any, token: string) {
   const elasticIndex = process.env.ELASTIC_INDEX;
   if (!elasticIndex || !doc?.id) return;
 
+  // `doc` is the bare Document record (no annotation sets), and its id is
+  // a content hash shared with other collections' copies - re-read this
+  // collection's copy with its annotation sets.
+  const fullDocument = await DocumentController.getFullDocById(
+    String(doc.id),
+    true,
+    false,
+    false,
+    false,
+    doc.collectionId
+  );
+
   let textDeanonymized: string | undefined;
   try {
     const deanonymized = await DocumentController.getFullDocById(
@@ -131,7 +234,8 @@ async function indexCreatedDocument(doc: any, token: string) {
       true,
       false,
       true,
-      true
+      true,
+      doc.collectionId
     );
     textDeanonymized = deanonymized?.text;
   } catch (error) {
@@ -142,14 +246,14 @@ async function indexCreatedDocument(doc: any, token: string) {
   }
 
   await indexDocument(elasticIndex, {
-    id: String(doc.id),
-    text: doc.text,
-    collectionId: doc.collectionId,
-    annotationSets: doc.annotation_sets,
-    preview: doc.preview,
-    name: doc.name,
-    features: doc.features,
-    offsetType: doc.offset_type,
+    id: String(fullDocument.id),
+    text: fullDocument.text,
+    collectionId: fullDocument.collectionId,
+    annotationSets: fullDocument.annotation_sets,
+    preview: fullDocument.preview,
+    name: fullDocument.name,
+    features: fullDocument.features,
+    offsetType: fullDocument.offset_type,
     textDeanonymized,
   });
 }
@@ -174,12 +278,35 @@ async function insertDocumentAndUpdateFacetsCache(
 
   const doc = await DocumentController.insertFullDocument(body);
 
+  // Scoped by collection: the id is a content hash, so without it this
+  // could read another collection's copy (e.g. the plaintext original of a
+  // just-anonymized upload) and slice its text with this copy's offsets.
   const fullDocument = await DocumentController.getFullDocById(
     String(doc.id),
     true,
     false,
-    false
+    false,
+    false,
+    doc.collectionId
   );
+
+  // Give any entity type new to this collection a persistent color.
+  try {
+    const types: string[] = [];
+    for (const [name, annSet] of Object.entries<any>(
+      fullDocument.annotation_sets || {}
+    )) {
+      if (!name.startsWith('entities')) continue;
+      for (const ann of annSet.annotations || []) {
+        if (typeof ann.type === 'string') types.push(ann.type);
+      }
+    }
+    if (collectionId && types.length > 0) {
+      await CollectionController.ensureTypeColors(collectionId, types);
+    }
+  } catch (e) {
+    console.error('Failed to assign type colors for collection', collectionId, e);
+  }
 
   // Always update facets cache for the collection when a document is
   // created. This ensures batch uploads update the cache for every document.
@@ -262,7 +389,7 @@ export async function runCreateDocument(input: {
       tokenForApi
     );
 
-    await indexCreatedDocument(result, tokenForApi);
+    await indexCreatedDocumentWithRetry(result, tokenForApi);
 
     return result;
   } catch (error) {
@@ -345,7 +472,6 @@ export async function runAnnotateAndUpload(input: {
       }
     }
   } catch (error: any) {
-    console.log('No active configuration found, using defaults');
     selectedServices = undefined;
   }
 
@@ -411,10 +537,6 @@ export async function runAnnotateAndUpload(input: {
   }
 
   // If no steps configured, fall through to upload without annotation
-  console.log(
-    `Pipeline has ${pipelineSteps.length} steps:`,
-    pipelineSteps.map((s) => `${s.name} -> ${s.uri}`)
-  );
 
   try {
     // Create initial gatenlp Document
@@ -428,17 +550,17 @@ export async function runAnnotateAndUpload(input: {
     // Execute each pipeline step sequentially
     for (let i = 0; i < pipelineSteps.length; i++) {
       const step = pipelineSteps[i];
-      console.log(
-        `Pipeline step ${i + 1}/${pipelineSteps.length}: ${step.name} -> ${
-          step.uri
-        }`
+      const stepInput = gdoc;
+      gdoc = await withTransientRetry(
+        `pipeline step "${step.name}" (${step.uri})`,
+        () =>
+          fetchJson<any, any>(step.uri, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: stepInput,
+            timeout: 300000, // 5 minutes per step
+          })
       );
-      gdoc = await fetchJson<any, any>(step.uri, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: gdoc,
-        timeout: 300000, // 5 minutes per step
-      });
     }
 
     // Clean up encoding features from linking (artifact of some pipeline steps)
@@ -451,7 +573,6 @@ export async function runAnnotateAndUpload(input: {
       }
     }
 
-    console.log('Uploading annotated document...');
     // Upload the annotated document
     const documentToUpload = {
       ...gdoc,
@@ -465,9 +586,8 @@ export async function runAnnotateAndUpload(input: {
       tokenForApi
     );
 
-    await indexCreatedDocument(result, tokenForApi);
+    await indexCreatedDocumentWithRetry(result, tokenForApi);
 
-    console.log('Document uploaded successfully');
     return result;
   } catch (error) {
     console.error('Error in annotateAndUpload:', error);
@@ -493,6 +613,51 @@ export async function runAnnotateAndUpload(input: {
  * mid-flight abort.
  */
 const cancelledUploadJobIds = new Set<string>();
+
+/**
+ * Upload jobs run on this Next.js server process, a bounded number at a
+ * time. Each job walks its files sequentially, so this is also the number
+ * of documents being annotated/embedded/indexed at once - running every
+ * submitted job at the same time swamps the annotation and embedding
+ * services. Jobs beyond the limit stay 'pending' until a slot frees up.
+ */
+const UPLOAD_JOB_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.UPLOAD_JOB_CONCURRENCY) || 2
+);
+/**
+ * Files of a single upload job processed in parallel. Each file costs a few
+ * seconds of mostly waiting on other services (embeddings, Elasticsearch,
+ * MongoDB), so overlapping them speeds up large batches; lower it if those
+ * services start timing out.
+ */
+const UPLOAD_FILE_CONCURRENCY = Math.max(
+  1,
+  Number(process.env.UPLOAD_FILE_CONCURRENCY) || 4
+);
+const queuedUploadJobs: Array<() => Promise<void>> = [];
+let runningUploadJobs = 0;
+
+function drainUploadJobQueue() {
+  while (
+    runningUploadJobs < UPLOAD_JOB_CONCURRENCY &&
+    queuedUploadJobs.length > 0
+  ) {
+    const run = queuedUploadJobs.shift()!;
+    runningUploadJobs += 1;
+    run()
+      .catch((error) => console.error('Upload job crashed:', error))
+      .finally(() => {
+        runningUploadJobs -= 1;
+        drainUploadJobQueue();
+      });
+  }
+}
+
+function enqueueUploadJob(run: () => Promise<void>) {
+  queuedUploadJobs.push(run);
+  drainUploadJobQueue();
+}
 
 /**
  * Best-effort progress updates sent to the durable UploadJob record in the
@@ -548,9 +713,9 @@ const getDocumentById = async (
       true, // lightFeatures: only return fields needed by the frontend
       collectionId
     );
-    console.log('*** current document text ***', document.text);
     return document;
   } catch (err) {
+    console.error('Failed to load document', id, err);
     throw new TRPCError({
       code: 'NOT_FOUND',
       message: `Document with id '${id}' not found.`,
@@ -761,7 +926,8 @@ async function runSave({
   // Update annotation sets in MongoDB
   const resUpdate = await DocumentController.updateEntitiesAnnotationSet(
     docId,
-    annotationSets
+    annotationSets,
+    collectionId
   );
 
   // Update facets cache entries for the collection based on saved annotations
@@ -894,7 +1060,6 @@ async function runSave({
         );
         clustersToUse = doc.features?.clusters;
       } else {
-        console.log('Using clusters from provided features');
       }
 
       if (clustersToUse) {
@@ -965,12 +1130,8 @@ async function runSave({
             collectionId
           );
         } else {
-          console.log(
-            'No entities annotation set found or no clusters in that set'
-          );
         }
       } else {
-        console.log('No clusters found in features');
       }
     } catch (error: any) {
       console.error('Error updating Elasticsearch annotations:', error.message);
@@ -1482,7 +1643,6 @@ export const documents = createRouter()
           destinationCluster,
           token
         );
-        console.log('moveRes', moveRes);
         return moveRes;
       } catch (error: any) {
         if (error instanceof PermissionDeniedError) {
@@ -1531,23 +1691,28 @@ export const documents = createRouter()
     },
   })
   .mutation('deleteDocument', {
-    input: z.object({ docId: z.string() }),
+    // `docId` is a content hash that other collections' copies may share -
+    // `collectionId` says which copy to delete.
+    input: z.object({ docId: z.string(), collectionId: z.string().optional() }),
     resolve: async ({ input }) => {
-      const { docId } = input;
+      const { docId, collectionId } = input;
       try {
         await dbConnect();
         const elasticIndex = process.env.ELASTIC_INDEX;
 
-        const deletedDoc: any = await DocumentModel.findOneAndDelete({
-          id: docId,
-        });
-        const annotationSets = await AnnotationSetModel.find({ docId });
-        await Promise.all(
-          annotationSets.map(async (annSet) => {
-            await AnnotationModel.deleteMany({ annotationSetId: annSet._id });
-          })
+        // Resolve the scope before deleting: annotationSetScope counts the
+        // copies sharing this id, which includes the one being deleted.
+        const target: any = await DocumentModel.findOne(
+          collectionId ? { id: docId, collectionId } : { id: docId }
+        ).lean();
+        if (!target) return null;
+        const annotationSets = await AnnotationSetModel.find(
+          await annotationSetScope(docId, target.collectionId, { forWrite: true })
         );
-        await AnnotationSetModel.deleteMany({ docId });
+        const deletedDoc: any = await DocumentModel.findOneAndDelete({ _id: target._id });
+        const annSetIds = annotationSets.map((annSet) => annSet._id);
+        await AnnotationModel.deleteMany({ annotationSetId: { $in: annSetIds } });
+        await AnnotationSetModel.deleteMany({ _id: { $in: annSetIds } });
         if (deletedDoc?.collectionId && deletedDoc?.id) {
           await CollectionController.deleteCacheForDoc(
             deletedDoc.id,
@@ -1556,7 +1721,7 @@ export const documents = createRouter()
         }
         if (elasticIndex) {
           try {
-            await deleteElasticDocument(elasticIndex, docId);
+            await deleteElasticDocument(elasticIndex, docId, target.collectionId);
           } catch (error: any) {
             console.error(
               `Error deleting document from Elasticsearch: ${error.message}`
@@ -1605,8 +1770,6 @@ export const documents = createRouter()
       const { docId, annotationSets, features, token, collectionId } = input;
       const elasticIndex = process.env.ELASTIC_INDEX;
       try {
-        console.log('Saving annotations for document:', docId);
-        console.log('Features being saved:', features);
 
         const result = await runSave({
           docId,
@@ -1617,7 +1780,6 @@ export const documents = createRouter()
           token,
         });
 
-        console.log('Successfully saved annotations for document:', docId);
 
         // runSave() returns { annotationSets, features, success } - the real
         // array of DB-persisted annotation sets (with server-assigned _ids
@@ -1807,14 +1969,7 @@ export const documents = createRouter()
         return [];
       }
       try {
-        const result = await fetchDocumentsByIdsEnriched(
-          ids,
-          deAnonimize ?? false
-        );
-        console.log(
-          '[trpc.document.fetchFacetDocuments] fetched',
-          Array.isArray(result) ? result.length : 'non-array'
-        );
+        const result = await fetchDocumentsByIdsEnriched(ids, deAnonimize ?? false);
         return result || [];
       } catch (error: any) {
         // Log detailed error for debugging (including possible FetchError.data)
@@ -1867,6 +2022,7 @@ export const documents = createRouter()
         .array(z.object({ fileName: z.string(), content: z.string() }))
         .min(1),
       token: z.string().optional(),
+      refreshToken: z.string().optional(),
       configurationId: z.string().optional(),
       toAnonymize: z.boolean().optional(),
       anonymizeTypes: z.array(z.string()).optional(),
@@ -1877,11 +2033,41 @@ export const documents = createRouter()
         uploadType,
         files,
         token,
+        refreshToken,
         configurationId,
         toAnonymize,
         anonymizeTypes,
       } = input;
-      const tokenForApi = token ?? '';
+      // Mutable - refreshed in place as the (potentially long-running)
+      // job below outlives the short-lived access token it started with.
+      let tokenForApi = token ?? '';
+      let refreshTokenForApi = refreshToken ?? '';
+
+      // Refreshes `tokenForApi` when it's stale/near-expiry and a refresh
+      // token is available. Best-effort: if refreshing fails (or no
+      // refresh token was supplied), the caller proceeds with whatever
+      // token it has and lets the downstream call fail normally.
+      let tokenRefresh: Promise<void> | null = null;
+      const ensureFreshToken = async () => {
+        if (!refreshTokenForApi || !isAccessTokenStale(tokenForApi)) return;
+        // Files of a job are processed in parallel; share one refresh (the
+        // refresh token is single-use) instead of racing several.
+        tokenRefresh ??= (async () => {
+          try {
+            const refreshed = await refreshKeycloakToken(refreshTokenForApi);
+            tokenForApi = refreshed.accessToken;
+            refreshTokenForApi = refreshed.refreshToken;
+          } catch (error) {
+            console.error(
+              'Failed to refresh Keycloak access token for upload job:',
+              error
+            );
+          } finally {
+            tokenRefresh = null;
+          }
+        })();
+        await tokenRefresh;
+      };
 
       let job: any;
       try {
@@ -1912,24 +2098,36 @@ export const documents = createRouter()
       }
 
       const jobId: string = job.jobId;
+      const jobTag = `[upload ${jobId}]`;
+      console.log(
+        `${jobTag} queued: ${files.length} ${uploadType} file(s) for collection ${collectionId}` +
+          ` (anonymize: ${toAnonymize ?? false}, ${queuedUploadJobs.length} job(s) ahead)`
+      );
       const fileIdByName = new Map<string, string>(
         (job.files || []).map((f: any) => [f.fileName, f.fileId])
       );
 
-      // Fire-and-forget: this loop keeps running on the Next.js server after
-      // this resolver returns. The server process (`next start`) is
+      // Fire-and-forget: this loop runs on the Next.js server (queued behind
+      // other upload jobs, see `enqueueUploadJob`) after this resolver
+      // returns. The server process (`next start`) is
       // persistent, so it is fully decoupled from the client connection —
       // closing the browser tab does not stop it. Every state change is
       // persisted to MongoDB via the upload-jobs API so any tab (or a fresh
       // one after a refresh) can pick up the current progress at any time.
-      (async () => {
+      enqueueUploadJob(async () => {
         try {
           // Cancelled before processing even started (e.g. the user clicked
           // cancel while the job was still "pending") - leave the
           // already-set 'cancelled' status alone.
           if (cancelledUploadJobIds.has(jobId)) {
+            console.log(`${jobTag} cancelled before it started`);
             return;
           }
+
+          console.log(`${jobTag} started`);
+          const jobStartedAt = Date.now();
+          let completedCount = 0;
+          let failedCount = 0;
 
           await patchUploadJobStatus(jobId, tokenForApi, {
             status: 'processing',
@@ -1937,19 +2135,25 @@ export const documents = createRouter()
 
           let anyFailed = false;
           let wasCancelled = false;
-          for (const file of files) {
-            if (cancelledUploadJobIds.has(jobId)) {
-              wasCancelled = true;
-              break;
-            }
+          // Files of a job run UPLOAD_FILE_CONCURRENCY at a time.
+          let nextFileIndex = 0;
+          const processFile = async (fileIndex: number) => {
+            const file = files[fileIndex];
+            const fileTag = `${jobTag} file ${fileIndex + 1}/${files.length} "${
+              file.fileName
+            }"`;
+            const fileStartedAt = Date.now();
 
             const fileId = fileIdByName.get(file.fileName);
-            if (!fileId) continue;
+            if (!fileId) return;
+
+            await ensureFreshToken();
 
             await patchUploadJobFile(jobId, fileId, tokenForApi, {
               status: 'processing',
             });
 
+            console.log(`${fileTag}: processing`);
             try {
               let doc: any;
               if (uploadType === 'json') {
@@ -1977,14 +2181,40 @@ export const documents = createRouter()
                 progress: 100,
                 documentId: String(doc?.id ?? doc?._id ?? ''),
               });
+              completedCount++;
+              console.log(
+                `${fileTag}: done in ${Date.now() - fileStartedAt}ms (document ${String(
+                  doc?.id ?? doc?._id ?? ''
+                )})`
+              );
             } catch (error) {
               anyFailed = true;
+              failedCount++;
+              console.error(
+                `${fileTag}: failed after ${Date.now() - fileStartedAt}ms:`,
+                error instanceof Error ? error.message : String(error)
+              );
               await patchUploadJobFile(jobId, fileId, tokenForApi, {
                 status: 'failed',
                 error: error instanceof Error ? error.message : String(error),
               });
             }
-          }
+          };
+          const worker = async () => {
+            while (nextFileIndex < files.length) {
+              if (cancelledUploadJobIds.has(jobId)) {
+                wasCancelled = true;
+                return;
+              }
+              await processFile(nextFileIndex++);
+            }
+          };
+          await Promise.all(
+            Array.from(
+              { length: Math.min(UPLOAD_FILE_CONCURRENCY, files.length) },
+              worker
+            )
+          );
 
           // If cancelled, the 'cancelled' status was already set by
           // `cancelUploadJob` - don't overwrite it with completed/failed.
@@ -1993,6 +2223,17 @@ export const documents = createRouter()
               status: anyFailed ? 'completed_with_errors' : 'completed',
             });
           }
+          console.log(
+            `${jobTag} ${
+              wasCancelled
+                ? 'cancelled'
+                : anyFailed
+                ? 'finished with errors'
+                : 'finished'
+            } in ${((Date.now() - jobStartedAt) / 1000).toFixed(1)}s: ${completedCount} done, ${failedCount} failed, ${
+              files.length - completedCount - failedCount
+            } not processed`
+          );
         } catch (error) {
           console.error('Upload job processing failed:', jobId, error);
           await patchUploadJobStatus(jobId, tokenForApi, {
@@ -2002,7 +2243,7 @@ export const documents = createRouter()
         } finally {
           cancelledUploadJobIds.delete(jobId);
         }
-      })();
+      });
 
       return { jobId };
     },

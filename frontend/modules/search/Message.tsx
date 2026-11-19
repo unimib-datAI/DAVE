@@ -368,6 +368,33 @@ const SkeletonMessage = () => {
   );
 };
 
+const ThinkingMessage = () => {
+  const t = useText('chat');
+  return (
+    <div
+      data-testid="chat-thinking-indicator"
+      className="flex flex-row gap-2 items-center"
+    >
+      <div className="rounded-full h-8 w-8 flex items-center justify-center flex-shrink-0 bg-slate-100">
+        <Sparkles size={18} />
+      </div>
+      <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl text-sm text-slate-500">
+        <span>{t('thinking')}</span>
+        <span className="flex gap-1">
+          {[0, 1, 2].map((i) => (
+            <motion.span
+              key={i}
+              className="h-1.5 w-1.5 rounded-full bg-slate-400"
+              animate={{ opacity: [0.3, 1, 0.3] }}
+              transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }}
+            />
+          ))}
+        </span>
+      </div>
+    </div>
+  );
+};
+
 const variants: Variants = {
   visible: (i) => ({
     opacity: 1,
@@ -533,4 +560,4 @@ const Message = ({
   );
 };
 
-export { Message, SkeletonMessage };
+export { Message, SkeletonMessage, ThinkingMessage };

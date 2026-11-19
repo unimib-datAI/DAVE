@@ -7,7 +7,7 @@ import { getCandidateId } from '../../DocumentProvider/utils';
 
 const LinkListContainer = styled.div({
   display: 'grid',
-  gridTemplateColumns: '1fr 1fr',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
   gap: '10px',
 });
 
@@ -29,6 +29,8 @@ const ItemContainer = styled.div({
 const LinkItemDetailsContainer = styled.div({
   display: 'flex',
   flexDirection: 'column',
+  minWidth: 0,
+  overflowWrap: 'anywhere',
 });
 
 type LinkItemProps = {

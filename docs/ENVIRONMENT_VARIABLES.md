@@ -740,11 +740,11 @@ CHROMA_PORT=8000
 
 - **Type:** String (Hugging Face model ID)
 - **Required:** No
-- **Default:** `Alibaba-NLP/gte-multilingual-base`
+- **Default:** `ibm-granite/granite-embedding-311m-multilingual-r2`
 - **Description:** Sentence transformer model for generating embeddings.
 
 ```env
-SENTENCE_TRANSFORMER_EMBEDDING_MODEL=Alibaba-NLP/gte-multilingual-base
+SENTENCE_TRANSFORMER_EMBEDDING_MODEL=ibm-granite/granite-embedding-311m-multilingual-r2
 ```
 
 **Popular alternatives:**
@@ -754,7 +754,7 @@ SENTENCE_TRANSFORMER_EMBEDDING_MODEL=Alibaba-NLP/gte-multilingual-base
 - `BAAI/bge-large-en-v1.5` (English, high quality)
 
 **Selection guide:**
-- **Multilingual support:** Use `Alibaba-NLP/gte-multilingual-base` or `multilingual-e5-large`
+- **Multilingual support:** Use `ibm-granite/granite-embedding-311m-multilingual-r2` or `multilingual-e5-large`
 - **English only:** Use `all-MiniLM-L6-v2` or `bge-large-en-v1.5`
 - **Low GPU memory:** Use `MiniLM` variants
 - **High quality:** Use `large` variants
@@ -957,7 +957,7 @@ HOST_BASE_URL=http://0.0.0.0
 QAVECTORIZER_ADDR=7863
 API_INDEXER=http://qavectorizer:7863
 CHROMA_PORT=8000
-SENTENCE_TRANSFORMER_EMBEDDING_MODEL=Alibaba-NLP/gte-multilingual-base
+SENTENCE_TRANSFORMER_EMBEDDING_MODEL=ibm-granite/granite-embedding-311m-multilingual-r2
 SENTENCE_TRANSFORMER_DEVICE=cuda
 OGG2NAME_INDEX=dave_production_ogg2name
 

@@ -1,3 +1,4 @@
+import { loadLocale } from '@/translation';
 import { GetStaticProps, GetStaticPropsContext } from 'next';
 
 type StaticPropsResult = {
@@ -13,10 +14,8 @@ type StaticPropsWithLocale = StaticPropsResult & {
 };
 
 const withLocale = (handler: GetStaticProps) => {
-  const locale = process.env.LOCALE || 'eng';
-
   return async (context: GetStaticPropsContext) => {
-    const localeObj = (await import(`@/translation/${locale}`)).default;
+    const localeObj = await loadLocale(process.env.LOCALE);
     const res = (await handler(context)) as StaticPropsResult;
 
     return {

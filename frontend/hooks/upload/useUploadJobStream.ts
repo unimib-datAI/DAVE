@@ -12,12 +12,23 @@ import {
   notifiedUploadJobIdsAtom,
   uploadJobsMapAtom,
   uploadNotificationsAtom,
+  untrackUploadJobAtom,
 } from '@/atoms/uploadJobs';
 import { isTerminalStatus, UploadJob } from '@/lib/upload/types';
-import { useQuery, useContext as useTrpcContext } from '@/utils/trpc';
+import {
+  getTrpcErrorCode,
+  isPermanentTrpcError,
+  useQuery,
+  useContext as useTrpcContext,
+} from '@/utils/trpc';
 
 const MAX_SSE_FAILURES = 3;
 const FALLBACK_POLL_MS = 4000;
+
+// The job is gone or belongs to another account: it can never be watched from
+// this session, so it should be dropped from the tracked list altogether.
+const isDeadJobCode = (code: unknown) =>
+  code === 'NOT_FOUND' || code === 'FORBIDDEN';
 
 export function useUploadJobStream(jobId: string | null | undefined) {
   const { data: session } = useSession();
@@ -27,6 +38,7 @@ export function useUploadJobStream(jobId: string | null | undefined) {
   const setNotifications = useSetAtom(uploadNotificationsAtom);
   const notifiedUploadJobIds = useAtomValue(notifiedUploadJobIdsAtom);
   const setNotifiedUploadJobIds = useSetAtom(notifiedUploadJobIdsAtom);
+  const untrack = useSetAtom(untrackUploadJobAtom);
   const trpcContext = useTrpcContext();
   const notifiedTerminalRef = useRef(false);
   // Kept in a ref so `applyJob` always sees the current persisted set without
@@ -102,13 +114,15 @@ export function useUploadJobStream(jobId: string | null | undefined) {
       // Codes that will never resolve by retrying (wrong owner, deleted job,
       // expired session) - polling on these forever just spams the server
       // with the identical rejected request every FALLBACK_POLL_MS.
-      const isPermanentError = (error: any) => {
-        const code = error?.data?.code ?? error?.shape?.data?.code;
-        return (
-          code === 'FORBIDDEN' ||
-          code === 'UNAUTHORIZED' ||
-          code === 'NOT_FOUND'
-        );
+      // Dead jobs are also untracked, otherwise the same rejected request is
+      // repeated on every page load and token refresh. UNAUTHORIZED stays
+      // tracked so watching resumes after re-login.
+      const stopOnPermanentError = (error: any) => {
+        if (!isPermanentTrpcError(error)) return false;
+        if (!cancelled && isDeadJobCode(getTrpcErrorCode(error))) {
+          untrack(jobId);
+        }
+        return true;
       };
 
       const tick = async () => {
@@ -120,11 +134,11 @@ export function useUploadJobStream(jobId: string | null | undefined) {
             if (isTerminalStatus((job.data as UploadJob).status)) {
               return;
             }
-          } else if (job.error && isPermanentError(job.error)) {
+          } else if (job.error && stopOnPermanentError(job.error)) {
             return;
           }
         } catch (error) {
-          if (isPermanentError(error)) return;
+          if (stopOnPermanentError(error)) return;
           // best-effort; keep polling on transient/network errors
         }
         if (!cancelled) pollTimer = setTimeout(tick, FALLBACK_POLL_MS);
@@ -155,7 +169,25 @@ export function useUploadJobStream(jobId: string | null | undefined) {
         source = null;
       });
 
-      es.onerror = () => {
+      es.onerror = (event: Event) => {
+        // A server-sent `error` frame (unlike a network failure) carries data.
+        // If it says the job is gone or not ours, reconnecting or falling back
+        // to polling can only repeat the same rejection: drop the job instead.
+        const frame = (event as MessageEvent).data;
+        if (typeof frame === 'string') {
+          let code: unknown;
+          try {
+            code = JSON.parse(frame)?.code;
+          } catch {
+            // ignore malformed frame
+          }
+          if (isDeadJobCode(code)) {
+            es.close();
+            source = null;
+            if (!cancelled) untrack(jobId);
+            return;
+          }
+        }
         failureCount += 1;
         if (failureCount >= MAX_SSE_FAILURES) {
           es.close();

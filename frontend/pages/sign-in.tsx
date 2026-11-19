@@ -7,6 +7,7 @@ import { signIn, useSession, getSession } from 'next-auth/react';
 import { Button } from '@/components';
 import { useText } from '@/components/TranslationProvider';
 import { isAuthDisabled, getAuthRedirectUrl } from '@/utils/auth';
+import { loadLocale } from '@/translation';
 
 const Container = styled.div`
   display: flex;
@@ -83,6 +84,7 @@ const Login: NextPage<{}> = () => {
           <p style={{ textAlign: 'center', color: '#6b7280' }}>
             {t('subtitle')}
           </p>
+          <p>Test di prova</p>
           <div style={{ height: 8 }} />
 
           {error && (
@@ -124,8 +126,7 @@ const Login: NextPage<{}> = () => {
 };
 
 export const getServerSideProps: GetServerSideProps = async () => {
-  const locale = process.env.LOCALE || 'ita';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(process.env.LOCALE);
 
   return {
     props: {

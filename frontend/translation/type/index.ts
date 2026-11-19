@@ -137,11 +137,21 @@ export type Translation = {
     typesSaved: string;
     errorSavingTypes: string;
     typesOrder: string;
+    typeColors: string;
+    typeColorsHint: string;
+    resetColor: string;
   };
   chat: {
     initialMessage: string;
     resources: string;
     typeQuestionPlaceholder: string;
+    thinking: string;
+    thinkingEffort: string;
+    thinkingEffortTooltip: string;
+    thinkingOff: string;
+    thinkingLow: string;
+    thinkingMedium: string;
+    thinkingHigh: string;
     send: string;
     resetChat: string;
     predefinedQuestions: string;

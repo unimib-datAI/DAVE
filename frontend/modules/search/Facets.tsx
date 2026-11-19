@@ -7,12 +7,8 @@ import { FacetFilter } from './FacetFilter';
 // import { DeAnonymizeFacetsButton } from './DeAnonymizeFacetsButton';
 import { useText } from '@/components/TranslationProvider';
 import { useAtom } from 'jotai';
-import {
-  deanonymizeFacetsAtom,
-  deanonymizedFacetNamesAtom,
-  isLoadingAnonymizationAtom,
-} from '@/utils/atoms';
-import { useMutation, useQuery } from '@/utils/trpc';
+import { useQuery } from '@/utils/trpc';
+import { useDeanonymizedFacetNames } from './useDeanonymizedFacetNames';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { useSession } from 'next-auth/react';
 
@@ -98,7 +94,10 @@ const getNormalizedEntityGroup = (key: string): string => {
 type FacetsProps = {
   facets: FacetedQueryOutput['facets'];
   selectedFilters: string[];
-  setSelectedFilters: (filters: string[]) => void;
+  // `names` maps newly selected ids to their raw (possibly anonymized)
+  // display name, for ids the page's own facet data may not include
+  // (e.g. loaded through "show more").
+  setSelectedFilters: (filters: string[], names?: Record<string, string>) => void;
   // list of currently loaded backend hit ids (mongo_id/_id/id) to avoid re-fetching
   loadedDocIds?: string[];
 };
@@ -270,13 +269,7 @@ const Facets = ({
     filter: '',
   });
 
-  const [deanonymize] = useAtom(deanonymizeFacetsAtom);
-  const [deanonymizedNames, setDeanonymizedNames] = useAtom(
-    deanonymizedFacetNamesAtom
-  );
   const [collection] = useAtom(activeCollectionAtom);
-  const deanonymizeMutation = useMutation(['document.deanonymizeKeys']);
-  const [, setGlobalLoading] = useAtom(isLoadingAnonymizationAtom);
   const { data: session } = useSession();
   const token = (session as any)?.accessToken as string | undefined;
 
@@ -344,59 +337,16 @@ const Facets = ({
   }, [paginatedQuery.isFetching, paginatedQuery.isSuccess]);
 
 
-  // Fetch de-anonymized names when global toggle is activated
-  useEffect(() => {
-    const fetchDeAnonymizedNames = async () => {
-      setGlobalLoading(true);
-      setDeanonymizedNames({});
-      if (!deanonymize) {
-        setGlobalLoading(false);
-        return;
-      }
-
-      try {
-        const displayNames = new Set<string>();
-        // allFacets is an array of groups with children
-        allFacets.forEach((group: any) => {
-          (group.children || []).forEach((child: any) => {
-            if (child.display_name && child.display_name.trim() !== '') {
-              displayNames.add(child.display_name);
-            }
-          });
-        });
-
-        const keysArray = Array.from(displayNames).filter((displayName) =>
-          displayName.startsWith('vault:v1')
-        );
-
-        if (keysArray.length > 0) {
-          const result = await deanonymizeMutation.mutateAsync({
-            keys: keysArray,
-          });
-          setDeanonymizedNames(result);
-        }
-      } catch (error) {
-        console.error('Failed to de-anonymize facet names:', error);
-      } finally {
-        setGlobalLoading(false);
-      }
-    };
-
-    // Only fetch if there are vault keys in the facets
-    const hasVaultKeys = allFacets.some((group: any) =>
-      (group.children || []).some((child: any) =>
-        child.display_name && child.display_name.startsWith('vault:v1')
-      )
-    );
-    
-    if (hasVaultKeys) {
-      fetchDeAnonymizedNames();
-    } else {
-      setGlobalLoading(false);
-    }
-    // Only run when deanonymize toggle changes, not when allFacets changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deanonymize]);
+  // Decrypt anonymized facet names as they load (not only when the toggle
+  // flips - facets often arrive after it).
+  const facetDisplayNames = useMemo(
+    () =>
+      allFacets.flatMap((group: any) =>
+        (group.children || []).map((child: any) => child.display_name)
+      ),
+    [allFacets]
+  );
+  useDeanonymizedFacetNames(facetDisplayNames);
 
   const filteredFacets = useMemo(() => {
     // When using backend search/pagination, results are already filtered
@@ -493,14 +443,14 @@ const Facets = ({
                       ))
                   }
                   selectedFilters={selectedFilters}
-                  onFilterChange={(filterType, updatedFilters) => {
+                  onFilterChange={(filterType, updatedFilters, names) => {
                     // Filter out empty or whitespace-only strings before setting
                     const cleanedFilters = updatedFilters.filter(
                       (filter) => filter && filter.trim() !== ''
                     );
                     // Remove duplicates while preserving order
                     const uniqueFilters = Array.from(new Set(cleanedFilters));
-                    setSelectedFilters(uniqueFilters);
+                    setSelectedFilters(uniqueFilters, names);
                   }}
                   loadedDocIds={loadedDocIds}
                 />
@@ -530,14 +480,14 @@ const Facets = ({
                         ))
                     }
                     selectedFilters={selectedFilters}
-                    onFilterChange={(filterType, updatedFilters) => {
+                    onFilterChange={(filterType, updatedFilters, names) => {
                       // Filter out empty or whitespace-only strings before setting
                       const cleanedFilters = updatedFilters.filter(
                         (filter) => filter && filter.trim() !== ''
                       );
                       // Remove duplicates while preserving order
                       const uniqueFilters = Array.from(new Set(cleanedFilters));
-                      setSelectedFilters(uniqueFilters);
+                      setSelectedFilters(uniqueFilters, names);
                     }}
                     loadedDocIds={loadedDocIds}
                   />

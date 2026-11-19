@@ -22,12 +22,13 @@ import {
   globalAnonymizationAtom,
   filteredDocumentIdsAtom,
 } from '@/utils/atoms';
-import { deanonymizedFacetNamesAtom } from '@/utils/atoms';
+import { useDeanonymizedFacetNames } from '@/modules/search/useDeanonymizedFacetNames';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { GetServerSideProps } from 'next';
 import { useText } from '@/components/TranslationProvider';
 import FilterChip from '@/components/FilterChip';
+import { loadLocale } from '@/translation';
 
 const variants = {
   isFetching: { opacity: 0.5 },
@@ -67,7 +68,12 @@ const Search = () => {
   const [facetedDocuments, setFacetedDocuments] = useAtom(facetsDocumentsAtom);
   const [selectedFilters, setSelectedFiltersRaw] = useAtom(selectedFiltersAtom);
   const [, setFilteredDocumentIds] = useAtom(filteredDocumentIdsAtom);
-  const [deanonymizedNames] = useAtom(deanonymizedFacetNamesAtom);
+  // Selected filters store the raw (possibly anonymized) display name; the
+  // real name is resolved at render time only, so switching back to the
+  // anonymized view never leaves real names behind in chips/highlights.
+  const resolveFacetName = useDeanonymizedFacetNames(
+    useMemo(() => (selectedFilters || []).map((f) => f?.display_name), [selectedFilters])
+  );
   const [seelctedFiltersDetails, setSelectedFiltersDetails] = useState([]);
   const [activeCollection] = useAtom(activeCollectionAtom);
   const [isAnonymized] = useAtom(globalAnonymizationAtom);
@@ -175,7 +181,6 @@ const Search = () => {
   useEffect(() => {
     if (data) {
       const newFacetedDocuments = data.pages.flatMap((page) => page.hits);
-      console.log('newFacetedDocuments', newFacetedDocuments);
       // Merge new hits with previously loaded facet-fetched documents, preserving already-loaded items
       setFacetedDocuments((prev = []) => {
         const seen = new Set<string>(prev.map((d: any) => String(d.id)));
@@ -198,10 +203,6 @@ const Search = () => {
   }, [text, activeCollection?.id]);
   // Log facetedDocuments whenever it changes (helps debug merges from facet fetches)
   useEffect(() => {
-    console.log(
-      '[page] facetedDocuments atom changed, count:',
-      (facetedDocuments || []).length
-    );
   }, [facetedDocuments]);
 
   // Build id_ER to display_name map from facets (prefer cache when available)
@@ -290,10 +291,7 @@ const Search = () => {
       id: f.id_ER.toLowerCase().trim(),
       name: (f.display_name || '').toLowerCase().trim(),
       display:
-        (f.display_name && deanonymizedNames[f.display_name]) ||
-        f.display_name ||
-        filterIdToDisplayName[f.id_ER] ||
-        f.id_ER,
+        resolveFacetName(f.display_name || filterIdToDisplayName[f.id_ER]) || f.id_ER,
     }));
 
     return (hit: any): string[] => {
@@ -315,34 +313,35 @@ const Search = () => {
             (n) =>
               (n.id && n.id === annId) || (n.name && n.name === annName)
           );
-          if (match) names.add(ann.display_name || match.display);
+          if (match) names.add(resolveFacetName(ann.display_name) || match.display);
         });
       }
 
       return Array.from(names);
     };
-  }, [selectedFilters, filterIdToDocIds, filterIdToDisplayName, deanonymizedNames]);
+  }, [selectedFilters, filterIdToDocIds, filterIdToDisplayName, resolveFacetName]);
 
   // Wrapper to ensure we never set empty filters. Accepts an array of `id_ER` strings
-  // and stores objects of shape `{ id_ER, display_name }` in the atom.
-  const setSelectedFilters = (filters: string[]) => {
+  // and stores objects of shape `{ id_ER, display_name }` in the atom, where
+  // `display_name` is the RAW stored name (a vault key for anonymized
+  // entities) - see resolveFacetName. `names` (from FacetFilter) covers ids
+  // this page's facet data doesn't include, e.g. loaded via "show more".
+  const setSelectedFilters = (filters: string[], names?: Record<string, string>) => {
     const validFilters = filters.filter((f) => f && f.trim() !== '');
     const unique = Array.from(new Set(validFilters));
+    const previousNames = new Map(
+      (selectedFilters || []).map((f) => [f.id_ER, f.display_name])
+    );
     const mapped = unique.map((id) => ({
       id_ER: id,
       display_name:
-        // prefer deanonymized name when available
-        (filterIdToDisplayName[id] &&
-          deanonymizedNames[filterIdToDisplayName[id]]) ||
-        filterIdToDisplayName[id] ||
-        '',
+        names?.[id] || previousNames.get(id) || filterIdToDisplayName[id] || '',
     }));
     setSelectedFiltersRaw(mapped);
   };
 
   // Reorder documents based on selectedFilters
   const reorderedDocuments = useMemo(() => {
-    console.log('filters', selectedFilters);
     // Merge backend hits with any documents fetched via facets (facetedDocuments)
     const backendHits = data ? data.pages.flatMap((page) => page.hits) : [];
     const facetFetchedHits = facetedDocuments || [];
@@ -351,18 +350,6 @@ const Search = () => {
     try {
       const backendIds = backendHits.map((h: any) => String(h.id));
       const facetIds = facetFetchedHits.map((h: any) => String(h.id));
-      console.log(
-        '[reorder] backendIds count',
-        backendIds.length,
-        'sample:',
-        backendIds.slice(0, 10)
-      );
-      console.log(
-        '[reorder] facetIds count',
-        facetIds.length,
-        'sample:',
-        facetIds.slice(0, 10)
-      );
     } catch (e) {}
 
     // Merge and deduplicate by _id (prefer backendHits ordering)
@@ -399,7 +386,6 @@ const Search = () => {
     const nonMatches = allHits.filter(
       (hit) => matchedFilterNamesForHit(hit).length === 0
     );
-    console.log('processed documents', [...matches, ...nonMatches]);
     return [...matches, ...nonMatches];
   }, [data, selectedFilters, facetedDocuments, matchedFilterNamesForHit]);
 
@@ -477,12 +463,12 @@ const Search = () => {
                         .map((h: any) => String(h.id))
                     : []
                 }
-                setSelectedFilters={(filters) => {
+                setSelectedFilters={(filters, names) => {
                   // Filter out empty strings or whitespace-only strings
                   const validFilters = filters.filter(
                     (f) => f && f.trim() !== ''
                   );
-                  setSelectedFilters(validFilters);
+                  setSelectedFilters(validFilters, names);
                 }}
               />
             </div>
@@ -516,7 +502,9 @@ const Search = () => {
                   }
                   {Object.entries(
                     (selectedFilters || []).reduce((acc: any, f: any) => {
-                      const name = (f && f.display_name) || '';
+                      // Group by the resolved name: one de-anonymized person
+                      // spans many vault keys (one per mention).
+                      const name = resolveFacetName(f && f.display_name) || '';
                       if (!acc[name]) acc[name] = [];
                       acc[name].push(f.id_ER);
                       return acc;
@@ -526,12 +514,10 @@ const Search = () => {
                       key={String(displayName) + (ids as string[]).join('-')}
                       value={displayName}
                       handleClear={() =>
-                        // remove all filters that have this display name
+                        // remove all filters in this chip
                         setSelectedFilters(
                           (selectedFilters || [])
-                            .filter(
-                              (filter) => filter.display_name !== displayName
-                            )
+                            .filter((filter) => !(ids as string[]).includes(filter.id_ER))
                             .map((f) => f.id_ER)
                         )
                       }
@@ -605,8 +591,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
   }
 
-  const locale = process.env.LOCALE || 'eng';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(process.env.LOCALE, 'eng');
 
   return {
     props: {

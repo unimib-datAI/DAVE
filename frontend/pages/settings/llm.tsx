@@ -22,6 +22,7 @@ import { FiXCircle } from '@react-icons/all-files/fi/FiXCircle';
 import Link from 'next/link';
 import { useText } from '@/components/TranslationProvider';
 import { useLLMPermissions } from '@/hooks/use-permissions';
+import { loadLocale } from '@/translation';
 
 const Container = styled.div({
   maxWidth: '800px',
@@ -203,9 +204,10 @@ const LLMSettingsPage = () => {
     useCustomSettings: false,
     enableMessageHistory: true,
     defaultTemperature: 0.7,
-    defaultMaxTokens: 1024,
-    defaultTopP: 0.65,
+    defaultMaxTokens: 8192,
+    defaultTopP: 0.95,
     defaultTopK: 40,
+    defaultThinkingEffort: 'medium',
     defaultFrequencyPenalty: 1.15,
     defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
   });
@@ -250,8 +252,8 @@ const LLMSettingsPage = () => {
         setFormData(mergedData);
         // Sync raw string state with loaded settings
         setRawTemperature(String(data.defaultTemperature ?? 0.7));
-        setRawMaxTokens(String(data.defaultMaxTokens ?? 1024));
-        setRawTopP(String(data.defaultTopP ?? 0.65));
+        setRawMaxTokens(String(data.defaultMaxTokens ?? 8192));
+        setRawTopP(String(data.defaultTopP ?? 0.95));
         setRawTopK(String(data.defaultTopK ?? 40));
         setRawFrequencyPenalty(String(data.defaultFrequencyPenalty ?? 1.15));
       } catch (error) {
@@ -332,9 +334,10 @@ const LLMSettingsPage = () => {
           useCustomSettings: false,
           enableMessageHistory: true,
           defaultTemperature: 0.7,
-          defaultMaxTokens: 1024,
-          defaultTopP: 0.65,
+          defaultMaxTokens: 8192,
+          defaultTopP: 0.95,
           defaultTopK: 40,
+          defaultThinkingEffort: 'medium',
           defaultFrequencyPenalty: 1.15,
           defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
         });
@@ -342,8 +345,8 @@ const LLMSettingsPage = () => {
         setSaveGenSuccess(false);
         // Sync raw string state with cleared defaults
         setRawTemperature('0.7');
-        setRawMaxTokens('1024');
-        setRawTopP('0.65');
+        setRawMaxTokens('8192');
+        setRawTopP('0.95');
         setRawTopK('40');
         setRawFrequencyPenalty('1.15');
       } catch (error) {
@@ -780,10 +783,10 @@ const LLMSettingsPage = () => {
             <Input
               id="defaultMaxTokens"
               type="number"
-              step="50"
-              min="100"
-              max="4096"
-              placeholder="1024"
+              step="256"
+              min="256"
+              max="131072"
+              placeholder="8192"
               value={rawMaxTokens}
               onChange={(e) => {
                 setRawMaxTokens(e.target.value);
@@ -795,10 +798,10 @@ const LLMSettingsPage = () => {
               onBlur={() => {
                 const parsed = parseInt(rawMaxTokens);
                 if (isNaN(parsed) || rawMaxTokens.trim() === '') {
-                  const fallback = formData.defaultMaxTokens ?? 1024;
+                  const fallback = formData.defaultMaxTokens ?? 8192;
                   setRawMaxTokens(String(fallback));
                 } else {
-                  const clamped = Math.min(4096, Math.max(100, parsed));
+                  const clamped = Math.min(131072, Math.max(256, parsed));
                   setRawMaxTokens(String(clamped));
                   handleInputChange('defaultMaxTokens', clamped);
                 }
@@ -808,7 +811,7 @@ const LLMSettingsPage = () => {
             />
             <HelpText>
               {t('generationDefaults.maxTokensHelp') ||
-                'Maximum length of generated text (100-4096). Default: 1024'}
+                'Maximum length of generated text (256-131072). Default: 8192'}
             </HelpText>
           </FormGroup>
 
@@ -822,7 +825,7 @@ const LLMSettingsPage = () => {
               step="0.05"
               min="0"
               max="1"
-              placeholder="0.65"
+              placeholder="0.95"
               value={rawTopP}
               onChange={(e) => {
                 setRawTopP(e.target.value);
@@ -834,7 +837,7 @@ const LLMSettingsPage = () => {
               onBlur={() => {
                 const parsed = parseFloat(rawTopP);
                 if (isNaN(parsed) || rawTopP.trim() === '') {
-                  const fallback = formData.defaultTopP ?? 0.65;
+                  const fallback = formData.defaultTopP ?? 0.95;
                   setRawTopP(String(fallback));
                 } else {
                   const clamped = Math.min(1, Math.max(0, parsed));
@@ -847,7 +850,7 @@ const LLMSettingsPage = () => {
             />
             <HelpText>
               {t('generationDefaults.topPHelp') ||
-                'Nucleus sampling threshold (0.0-1.0). Default: 0.65'}
+                'Nucleus sampling threshold (0.0-1.0). Default: 0.95'}
             </HelpText>
           </FormGroup>
 
@@ -929,6 +932,30 @@ const LLMSettingsPage = () => {
             </HelpText>
           </FormGroup>
 
+          <FormGroup>
+            <Label htmlFor="defaultThinkingEffort">
+              {t('generationDefaults.thinkingEffort') || 'Thinking effort'}
+            </Label>
+            <select
+              id="defaultThinkingEffort"
+              value={formData.defaultThinkingEffort ?? 'medium'}
+              disabled={!canEditLLM}
+              onChange={(e) =>
+                handleInputChange('defaultThinkingEffort', e.target.value)
+              }
+              className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm"
+            >
+              <option value="off">Off</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+            </select>
+            <HelpText>
+              {t('generationDefaults.thinkingEffortHelp') ||
+                'How much the model reasons before answering. Off disables thinking. Default: Medium'}
+            </HelpText>
+          </FormGroup>
+
           <ButtonGroup>
             <Button
               color="primary"
@@ -950,15 +977,16 @@ const LLMSettingsPage = () => {
                 setFormData({
                   ...formData,
                   defaultTemperature: 0.7,
-                  defaultMaxTokens: 1024,
-                  defaultTopP: 0.65,
+                  defaultMaxTokens: 8192,
+                  defaultTopP: 0.95,
                   defaultTopK: 40,
+                  defaultThinkingEffort: 'medium',
                   defaultFrequencyPenalty: 1.15,
                   defaultSystemPrompt: DEFAULT_SYSTEM_PROMPT,
                 });
                 setRawTemperature('0.7');
-                setRawMaxTokens('1024');
-                setRawTopP('0.65');
+                setRawMaxTokens('8192');
+                setRawTopP('0.95');
                 setRawTopK('40');
                 setRawFrequencyPenalty('1.15');
               }}
@@ -1004,8 +1032,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
   }
 
-  const locale = process.env.LOCALE || 'ita';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(process.env.LOCALE);
 
   return {
     props: {

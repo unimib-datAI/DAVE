@@ -4,6 +4,7 @@ import { useQuery } from '@/utils/trpc';
 import { useSession, getSession } from 'next-auth/react';
 import styled from '@emotion/styled';
 import { useState } from 'react';
+import { useRouter } from 'next/router';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { useAtom } from 'jotai';
 import {
@@ -14,6 +15,7 @@ import {
 import { collectionDocInfo } from '@/server/routers/collection';
 import { Button, useDisclosure } from '@heroui/react';
 import { FiGitMerge } from '@react-icons/all-files/fi/FiGitMerge';
+import { loadLocale } from '@/translation';
 
 const PageContainer = styled.div`
   height: calc(100vh - var(--toolbar-height));
@@ -50,8 +52,12 @@ const Mode = {
 const ClustersPage: NextPage = () => {
   const t = useText('clusters');
 
+  const router = useRouter();
   const [activeCollection] = useAtom(activeCollectionAtom);
-  const collectionId = activeCollection?.id;
+  // The collection in the URL, not the toolbar's selection: documents are
+  // looked up by (id, collectionId), as one file can be in several collections.
+  const collectionId =
+    typeof router.query.id === 'string' ? router.query.id : activeCollection?.id;
   const { data: session } = useSession();
 
   // Use this to open the merge drawer
@@ -94,13 +100,17 @@ const ClustersPage: NextPage = () => {
         {selectedMode === Mode.document && (
           <DocumentClusterBrowser
             docsInfo={docsInfo}
+            collectionId={collectionId}
             isDrawerOpen={isOpen}
             onDrawerChange={onOpenChange}
             openDrawer={onOpen}
           />
         )}
         {selectedMode === Mode.collection && (
-          <CollectionClusterBrowser docsInfo={docsInfo} />
+          <CollectionClusterBrowser
+            docsInfo={docsInfo}
+            collectionId={collectionId}
+          />
         )}
       </PageContainer>
     </ToolbarLayout>
@@ -162,8 +172,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
   }
 
-  const locale = process.env.LOCALE || 'eng';
-  const localeObj = (await import(`@/translation/${locale}`)).default;
+  const localeObj = await loadLocale(process.env.LOCALE, 'eng');
 
   return {
     props: {

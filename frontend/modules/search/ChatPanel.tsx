@@ -2,7 +2,7 @@ import { Slider } from '@/components/Slider';
 import { useForm } from '@/hooks';
 import { Button, Switch, Tooltip } from '@heroui/react';
 import { Select } from 'antd';
-import { Message, SkeletonMessage } from './Message';
+import { Message, ThinkingMessage } from './Message';
 import { AgentStepProgress } from './AgentStepProgress';
 // import { Button } from '@/components';
 import {
@@ -124,10 +124,10 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     (llmSettings.defaultTemperature ?? 0.7).toString()
   );
   const [maxTokensInput, setMaxTokensInput] = useState(
-    (llmSettings.defaultMaxTokens ?? 1024).toString()
+    (llmSettings.defaultMaxTokens ?? 8192).toString()
   );
   const [topPInput, setTopPInput] = useState(
-    (llmSettings.defaultTopP ?? 0.65).toString()
+    (llmSettings.defaultTopP ?? 0.95).toString()
   );
   const [topKInput, setTopKInput] = useState(
     (llmSettings.defaultTopK ?? 40).toString()
@@ -151,8 +151,8 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
 
   const { register, value, onSubmit, setValue } = useForm<Form>({
     temperature: llmSettings.defaultTemperature ?? 0.7,
-    max_new_tokens: llmSettings.defaultMaxTokens ?? 1024,
-    top_p: llmSettings.defaultTopP ?? 0.65,
+    max_new_tokens: llmSettings.defaultMaxTokens ?? 8192,
+    top_p: llmSettings.defaultTopP ?? 0.95,
     token_repetition_penalty_max: llmSettings.defaultFrequencyPenalty ?? 1.15,
     system:
       llmSettings.defaultSystemPrompt ||
@@ -163,14 +163,17 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     retrievalMethod: 'full',
     useCurrentDocumentContext: false,
     top_k: llmSettings.defaultTopK ?? 40,
+    thinking_effort: llmSettings.defaultThinkingEffort ?? 'medium',
     force_rag: false,
     useMultiAgent: false,
+    thinking: 'off',
   });
 
   const fieldTemperature = register('temperature');
   const fieldMaxNewTokens = register('max_new_tokens');
   const fieldTopP = register('top_p');
   const fieldTopk = register('top_k');
+  const fieldThinkingEffort = register('thinking_effort');
   const fieldFrequencyPenalty = register('token_repetition_penalty_max');
   const fieldUseDocumentContext = register('useDocumentContext');
   const fieldRetrievalMethod = register('retrievalMethod');
@@ -232,6 +235,15 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     });
   };
 
+  // Show the indicator from submit until the first assistant token arrives
+  const lastMessage = state.messages[state.messages.length - 1];
+  const isThinking =
+    isLoading ||
+    (isStreaming &&
+      (!lastMessage ||
+        lastMessage.role !== 'assistant' ||
+        lastMessage.content === ''));
+
   const chatState = mostSimilarDocumentsMutation.isLoading
     ? 'searching'
     : isStreaming
@@ -265,7 +277,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
               }
               // Include all non-system messages, even if content is empty for user messages
             })}
-            {isLoading && <SkeletonMessage />}
+            {isThinking && <ThinkingMessage />}
             {/* Agent pipeline progress – visible during AND after multi-agent streaming.
                 During: shows real-time running/done indicators.
                 After: persists as a compact summary until the next query starts. */}
@@ -297,6 +309,31 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                 {...register('message')}
               />
             </div>
+            <Tooltip content={t('thinkingTooltip')} placement="top">
+              <div className="flex-shrink-0">
+                <Select
+                  id="chat-thinking-select"
+                  aria-label={t('thinking')}
+                  size="large"
+                  style={{ width: 150 }}
+                  value={value.thinking ?? 'off'}
+                  disabled={chatState !== 'idle' || value.useMultiAgent}
+                  onChange={(thinking) => setValue({ thinking })}
+                  // The chat window closes on any mousedown outside its DOM node, and
+                  // antd renders the dropdown on document.body by default.
+                  getPopupContainer={(trigger) =>
+                    trigger.parentElement || document.body
+                  }
+                  placement="topLeft"
+                  options={[
+                    { value: 'off', label: t('thinkingOff') },
+                    { value: 'low', label: t('thinkingLow') },
+                    { value: 'medium', label: t('thinkingMedium') },
+                    { value: 'high', label: t('thinkingHigh') },
+                  ]}
+                />
+              </div>
+            </Tooltip>
             {(window.location.href.includes('documents') ||
               window.location.href.includes('search')) && (
               <Tooltip
@@ -468,7 +505,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                           onChange={(e) => {
                             setMaxTokensInput(e.target.value);
                             const val = parseInt(e.target.value);
-                            if (!isNaN(val) && val >= 100 && val <= 4096) {
+                            if (!isNaN(val) && val >= 256 && val <= 131072) {
                               fieldMaxNewTokens.onChange(val);
                             }
                           }}
@@ -482,9 +519,9 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                         fieldMaxNewTokens.onChange(value);
                       }}
                       value={[fieldMaxNewTokens.value]}
-                      max={4096}
-                      min={100}
-                      step={50}
+                      max={131072}
+                      min={256}
+                      step={256}
                     />
                   </div>
                   <div className="flex flex-col gap-3">
@@ -591,6 +628,28 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                       min={-2}
                       step={0.1}
                     />
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <Tooltip
+                      className="w-full"
+                      placement="left"
+                      content={t('thinkingEffortTooltip')}
+                    >
+                      <span className="text-sm font-semibold">
+                        {t('thinkingEffort')}
+                      </span>
+                    </Tooltip>
+                    <Radio.Group
+                      value={fieldThinkingEffort.value}
+                      onChange={(e) =>
+                        fieldThinkingEffort.onChange(e.target.value)
+                      }
+                    >
+                      <Radio value="off">{t('thinkingOff')}</Radio>
+                      <Radio value="low">{t('thinkingLow')}</Radio>
+                      <Radio value="medium">{t('thinkingMedium')}</Radio>
+                      <Radio value="high">{t('thinkingHigh')}</Radio>
+                    </Radio.Group>
                   </div>
                   <div className="flex flex-col gap-3">
                     {/*<Tooltip

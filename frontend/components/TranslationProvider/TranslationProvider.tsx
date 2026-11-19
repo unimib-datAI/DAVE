@@ -1,4 +1,5 @@
 import { Translation } from '@/translation/type';
+import { fallbackTranslation, loadLocale } from '@/translation';
 import {
   Fragment,
   PropsWithChildren,
@@ -64,6 +65,36 @@ const renderRich = (
   return out;
 };
 
+// Looks the key up in the active locale and, when it is missing or empty there
+// (or no locale is loaded at all), in English. Only if English lacks it too is the
+// key's last segment shown.
+const warned = new Set<string>();
+const warnOnce = (message: string) => {
+  if (warned.has(message)) return;
+  warned.add(message);
+  console.warn(message);
+};
+
+const lookup = (
+  locale: Translation | undefined,
+  namespace: keyof Translation,
+  key: string
+): string => {
+  const own = get(locale?.[namespace], key);
+  if (typeof own === 'string' && own !== '') return own;
+  const fallback = get(fallbackTranslation[namespace], key);
+  if (typeof fallback === 'string' && fallback !== '') {
+    warnOnce(
+      `[i18n] missing "${namespace}.${key}" in active locale, using English`
+    );
+    return fallback;
+  }
+  warnOnce(
+    `[i18n] missing "${namespace}.${key}" in every locale, showing the key`
+  );
+  return key.split('.').pop() || key;
+};
+
 export const useText = <NS extends keyof Translation>(namespace: NS) => {
   const context = useContext(TranslationContext);
 
@@ -75,13 +106,7 @@ export const useText = <NS extends keyof Translation>(namespace: NS) => {
    * @example t('greeting', {name: 'World'}) // returns "Hello World" if the translation string is "Hello {name}"
    */
   const t = <K extends Leaves<Translation[NS]>>(key: K, param?: tParam) => {
-    if (!context || !context.locale) {
-      const keyStr = String(key);
-      return keyStr.split('.').pop() || keyStr;
-    }
-
-    const translation = get(context.locale[namespace], key, '') as string;
-    return interpolate(translation, param);
+    return interpolate(lookup(context?.locale, namespace, String(key)), param);
   };
 
   /**
@@ -95,11 +120,7 @@ export const useText = <NS extends keyof Translation>(namespace: NS) => {
     key: K,
     params: Record<string, RichParam> = {}
   ): ReactNode => {
-    if (!context || !context.locale) {
-      const keyStr = String(key);
-      return keyStr.split('.').pop() || keyStr;
-    }
-    const str = get(context.locale[namespace], key, '') as string;
+    const str = lookup(context?.locale, namespace, String(key));
     return renderRich(str, { ...defaultTags, ...params });
   };
 
@@ -126,7 +147,9 @@ const TranslationProvider = ({
   locale: initialLocale,
   children,
 }: TranslationProviderProps) => {
-  const [locale, setLocale] = useState<Translation | any>(initialLocale);
+  const [locale, setLocale] = useState<Translation | any>(
+    initialLocale ?? fallbackTranslation
+  );
   const [localeKey, setLocaleKey] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('locale');
@@ -138,16 +161,15 @@ const TranslationProvider = ({
   const applyLocale = async (key: string | null) => {
     if (typeof window === 'undefined') return;
     if (!key) {
-      setLocale(initialLocale);
+      setLocale(initialLocale ?? fallbackTranslation);
       setLocaleKey(null);
       return;
     }
     try {
-      console.debug('TranslationProvider: applying locale', key);
-      const mod = (await import(`@/translation/${key}`)).default;
+      // Unsupported locales (e.g. a stale value in localStorage) load English
+      const mod = await loadLocale(key);
       setLocale(mod);
       setLocaleKey(key);
-      console.debug('TranslationProvider: applied locale', key);
     } catch (e) {
       console.error('TranslationProvider: failed to apply locale', key, e);
     }

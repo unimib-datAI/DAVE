@@ -142,11 +142,23 @@ const t: Translation = {
     typesSaved: 'Types saved',
     errorSavingTypes: 'Error saving types',
     typesOrder: 'Facet filters order',
+    typeColors: 'Entity type colors',
+    typeColorsHint:
+      'Colors are assigned automatically to new types and stay fixed. Click a swatch to change one.',
+    resetColor: 'Reset',
   },
   chat: {
     initialMessage: 'Hi, how can i help you?',
     resources: 'Resources',
     typeQuestionPlaceholder: 'Type your question here',
+    thinking: 'Thinking',
+    thinkingEffort: 'Thinking effort',
+    thinkingEffortTooltip:
+      'How much the model reasons before answering. Off disables thinking; higher levels are slower but may be more accurate.',
+    thinkingOff: 'Off',
+    thinkingLow: 'Low',
+    thinkingMedium: 'Medium',
+    thinkingHigh: 'High',
     send: 'Send',
     resetChat: 'Reset chat',
     predefinedQuestions: 'Predefined Questions',
@@ -400,17 +412,6 @@ const t: Translation = {
       metadataContent: {
         title: "Document's metadata",
         description: 'Below are shown the document metadata',
-        fields: {
-          name: 'Name',
-          nomegiudice: 'Judge Name',
-          cf_giudice: 'Judge Fiscal Code',
-          parte: 'Party',
-          controparte: 'Counterparty',
-          gradogiudizio: 'Judgment Grade',
-          start_time: 'Start Time',
-          participants: 'Participants',
-          number_of_messages: 'Number of Messages',
-        },
       },
       addContent: {
         title: 'Add annotation',
@@ -667,7 +668,7 @@ const t: Translation = {
         'Controls randomness. Lower values make output more focused and deterministic (0.0-2.0). Default: 0.7',
       maxTokens: 'Max Tokens',
       maxTokensHelp:
-        'Maximum length of generated text (100-4096). Default: 1024',
+        'Maximum length of generated text (100-131072). Default: 8192',
       topP: 'Top P',
       topPHelp: 'Nucleus sampling threshold (0.0-1.0). Default: 0.65',
       topK: 'Top K',

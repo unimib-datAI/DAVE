@@ -10,6 +10,25 @@ export const getJWTHeader = (token?: string) => {
   }
   return `Bearer ${token}`;
 };
+const PERMANENT_TRPC_ERROR_CODES = [
+  'FORBIDDEN',
+  'UNAUTHORIZED',
+  'NOT_FOUND',
+  'BAD_REQUEST',
+];
+
+export const getTrpcErrorCode = (error: any): string | undefined =>
+  error?.data?.code ?? error?.shape?.data?.code;
+
+/**
+ * Errors that will never resolve by repeating the identical request (wrong
+ * owner, missing resource, expired session, invalid input).
+ */
+export const isPermanentTrpcError = (error: any) => {
+  const code = getTrpcErrorCode(error);
+  return !!code && PERMANENT_TRPC_ERROR_CODES.includes(code);
+};
+
 export const {
   useQuery,
   useMutation,

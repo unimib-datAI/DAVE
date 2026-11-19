@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
+import { withAdaptiveParams } from '@/lib/llmCapabilities';
 import { executeMultiAgent } from '@/lib/multiAgent';
 
 /**
@@ -9,6 +10,23 @@ import { executeMultiAgent } from '@/lib/multiAgent';
  *
  * Supports custom LLM settings passed via request body
  */
+const THINKING_EFFORTS = ['low', 'medium', 'high'];
+
+// The model-side switches for the chat's thinking select. chat_template_kwargs
+// is what llama.cpp and vLLM pass to the chat template (Qwen3, Gemma, gpt-oss
+// read enable_thinking / reasoning_effort there); reasoning_effort is the
+// OpenAI-style field for servers that read it from the request itself.
+function thinkingParams(thinking: unknown): Record<string, unknown> {
+  if (typeof thinking === 'string' && THINKING_EFFORTS.includes(thinking)) {
+    return {
+      reasoning_effort: thinking,
+      chat_template_kwargs: { enable_thinking: true, reasoning_effort: thinking },
+    };
+  }
+  const on = thinking === undefined && process.env.CHAT_LLM_THINKING === 'true';
+  return on ? {} : { chat_template_kwargs: { enable_thinking: false } };
+}
+
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== 'POST') {
     res.status(405).json({ message: 'Method Not Allowed' });
@@ -29,7 +47,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     const {
       messages,
       prompt,
-      max_tokens = 1000,
+      max_tokens: maxTokensParam,
+      max_new_tokens, // sent by the chat UI
+      thinking_effort, // 'off' | 'low' | 'medium' | 'high'
       temperature = 0.7,
       top_p = 0.9,
       model,
@@ -37,8 +57,11 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       customSettings, // Custom LLM settings from frontend
       collectionId, // Collection to restrict retrieval to
       filterIds, // Document IDs to restrict retrieval to
+      thinking, // 'off' | 'low' | 'medium' | 'high' (chat's thinking select)
       ...otherParams
     } = req.body;
+
+    const max_tokens = max_new_tokens ?? maxTokensParam ?? 8192;
 
     // Determine which settings to use
     let baseURL = process.env.API_LLM || 'http://localhost:8000/v1';
@@ -56,10 +79,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
     }
 
     // Initialize OpenAI client with configured settings
-    const openai = new OpenAI({
-      baseURL: baseURL,
-      apiKey: apiKey,
-    });
+    const openai = withAdaptiveParams(new OpenAI({ baseURL, apiKey }), baseURL);
     let rawMessages = messages;
     if (!rawMessages && prompt) {
       rawMessages = [
@@ -158,6 +178,24 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           }
         }
       }
+      // Thinking control. `reasoning_effort` is the OpenAI-compatible knob;
+      // `chat_template_kwargs.enable_thinking` is honoured by vLLM/SGLang
+      // chat templates (Qwen3, etc.) to switch thinking off entirely.
+      // Hosted APIs (Azure, OpenAI) reject chat_template_kwargs with a 400, so
+      // only send it to self-hosted servers (vLLM/SGLang/llama.cpp).
+      const isHostedApi = /azure\.com|openai\.com/i.test(baseURL);
+      const thinkingParams: Record<string, any> = {};
+      if (['off', 'low', 'medium', 'high'].includes(thinking_effort)) {
+        if (thinking_effort === 'off') {
+          thinkingParams.reasoning_effort = 'none';
+          if (!isHostedApi) thinkingParams.chat_template_kwargs = { enable_thinking: false };
+        } else {
+          // DeepSeek on Azure only accepts none/high/max
+          thinkingParams.reasoning_effort =
+            /deepseek/i.test(modelToUse) && isHostedApi ? 'high' : thinking_effort;
+          if (!isHostedApi) thinkingParams.chat_template_kwargs = { enable_thinking: true };
+        }
+      }
       console.log(
         'calling generation with ',
         JSON.stringify({
@@ -167,6 +205,7 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           temperature: temperature,
           top_p: top_p,
           stream: true,
+          ...thinkingParams,
           ...filteredOtherParams,
         })
       );
@@ -177,12 +216,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
         temperature: temperature,
         top_p: top_p,
         stream: true,
+        ...thinkingParams,
         ...filteredOtherParams,
-      });
+      } as any);
 
       // Stream the response to the client
-      for await (const chunk of stream) {
+      let answered = false;
+      let finishReason: string | null | undefined;
+      for await (const chunk of stream as any) {
+        finishReason = chunk.choices[0]?.finish_reason ?? finishReason;
         const content = chunk.choices[0]?.delta?.content || '';
+        if (content) answered = true;
 
         if (content) {
           // Write each chunk as it arrives
@@ -193,6 +237,17 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
             (res as any).flush();
           }
         }
+      }
+
+      if (!answered) {
+        // reasoning_content is not forwarded, so an empty stream would show an
+        // empty message with no clue why.
+        console.warn(`[API] The model returned no answer (finish_reason: ${finishReason})`);
+        res.write(
+          finishReason === 'length'
+            ? 'The model used its whole token limit before answering (it was probably still reasoning). Increase the max tokens in the chat settings or use a model without thinking.'
+            : 'The model returned an empty answer.'
+        );
       }
 
       // End the response when done
