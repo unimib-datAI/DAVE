@@ -159,10 +159,11 @@ services:
       ELASTIC_INDEX: $ELASTIC_INDEX
       ELASTIC_HOST: ${ELASTIC_HOST:-es}
       ELASTIC_PORT: ${ELASTIC_PORT:-9200}
-      # Upload jobs processed at the same time (each one walks its files in order)
+      # Upload jobs processed at the same time, and files processed in parallel within each job
       UPLOAD_JOB_CONCURRENCY: ${UPLOAD_JOB_CONCURRENCY:-2}
       # Send the chat request with thinking/reasoning enabled unless the client overrides it
       CHAT_LLM_THINKING: ${CHAT_LLM_THINKING:-false}
+      UPLOAD_FILE_CONCURRENCY: ${UPLOAD_FILE_CONCURRENCY:-4}
       # RAG retrieval tuning (lib/vectorSearch.ts) and chunking (lib/documentIndexer.ts)
       RAG_TOP_K: ${RAG_TOP_K:-10}
       RAG_MAX_CHUNKS_PER_DOC: ${RAG_MAX_CHUNKS_PER_DOC:-5}
@@ -277,6 +278,13 @@ services:
     build:
       context: ./backend/annotationPipeline
       dockerfile: Dockerfile
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     environment:
       - ANNOTATION_PIPELINE_PORT=${ANNOTATION_PIPELINE_PORT:-8002}
       - HF_HOME=/root/.cache

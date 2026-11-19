@@ -5,11 +5,16 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+# PyTorch wheel index. The default PyPI wheel targets CUDA 13, which needs a
+# newer driver than the host's; cu124 runs on drivers >= 525.
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu124
+
 COPY requirements.txt /app/requirements.txt
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential git wget ca-certificates \
     && pip install --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir torch --index-url ${TORCH_INDEX_URL} \
     && pip install --no-cache-dir --prefer-binary -r /app/requirements.txt \
     && apt-get purge -y --auto-remove build-essential git wget \
     && rm -rf /var/lib/apt/lists/* /root/.cache/pip
