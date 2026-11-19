@@ -849,6 +849,7 @@ const t: Translation = {
           'Do you confirm that you want to merge the following clusters? This action is <strong>permanent</strong>. All mentions of {source} will be transferred to {destination}.',
         cancel: 'Cancel',
         confirm: 'Merge',
+        merging: 'Merging...',
       },
       toast: {
         successTitle: 'Merge successful!',

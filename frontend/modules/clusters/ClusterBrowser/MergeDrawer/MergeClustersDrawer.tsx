@@ -40,6 +40,7 @@ export function MergeClustersDrawer({
   const {
     isOpen: isModalOpen,
     onOpen: onModalOpen,
+    onClose: onModalClose,
     onOpenChange: onModalOpenChange,
   } = useDisclosure();
 
@@ -80,7 +81,7 @@ export function MergeClustersDrawer({
   } = useDocumentClusters(selectedDocument?.id);
 
   // Utility hook to handle the merging of cluster when requested
-  const { merge } = useMergeClusters(selectedDocument?.id);
+  const { merge, isMerging } = useMergeClusters(selectedDocument?.id);
 
   useEffect(() => {
     if (isOpen) {
@@ -137,6 +138,9 @@ export function MergeClustersDrawer({
         setFirstCluster(null);
         setSecondCluster(null);
         setPendingMergePair(null);
+      },
+      onSettled: () => {
+        onModalClose();
       },
     });
   };
@@ -241,6 +245,7 @@ export function MergeClustersDrawer({
         </DrawerContent>
       </StyledDrawer>
       <ConfirmMergeModal
+        isMerging={isMerging}
         isOpen={isModalOpen}
         onOpenChange={onModalOpenChange}
         onMergeConfirm={onMergeConfirm}

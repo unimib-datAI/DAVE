@@ -653,6 +653,7 @@ export type Translation = {
         message : string;
         cancel : string;
         confirm : string;
+        merging: string;
       },
       toast : {
         successTitle: string;

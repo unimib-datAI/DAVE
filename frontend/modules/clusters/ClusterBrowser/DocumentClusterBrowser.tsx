@@ -62,9 +62,8 @@ export function DocumentClusterBrowser({
     for that specific entity
   */
 
-  const { documentData, taxonomy, annotations, clusters } = useDocumentClusters(
-    selectedDoc?.id
-  );
+  const { documentData, taxonomy, annotations, clusters, isLoading } =
+    useDocumentClusters(selectedDoc?.id);
 
   // Group entities by type
   const clusterGroups: Record<string, Cluster[]> = groupBy(
@@ -162,6 +161,7 @@ export function DocumentClusterBrowser({
           emptyMessage={
             !selectedDoc?.id ? t('selectDocument') : t('noEntitiesFound')
           }
+          isLoading={isLoading}
           selectedType={selectedType}
           clustersByType={clusterGroups}
           onTypeSelection={handleTypeSelection}

@@ -2,6 +2,7 @@ import { IconType } from '@react-icons/all-files';
 import { Pane } from './Pane';
 import { ReactNode } from 'react';
 import styled from '@emotion/styled';
+import { Spinner } from '@heroui/react';
 
 type ListPaneProps = {
   title: string;
@@ -9,6 +10,7 @@ type ListPaneProps = {
   children: ReactNode;
   actions?: ReactNode;
   isEmpty: boolean;
+  isLoading?: boolean;
   emptyMessage: string;
 };
 
@@ -18,11 +20,20 @@ export function ListPane({
   children,
   actions,
   isEmpty,
+  isLoading,
   emptyMessage,
 }: ListPaneProps) {
   return (
     <Pane title={title} icon={icon} actions={actions}>
-      {isEmpty ? <Message>{emptyMessage}</Message> : <List>{children}</List>}
+      {isLoading ? (
+        <LoadingContainer>
+          <Spinner variant="spinner" />
+        </LoadingContainer>
+      ) : isEmpty ? (
+        <Message>{emptyMessage}</Message>
+      ) : (
+        <List>{children}</List>
+      )}
     </Pane>
   );
 }
@@ -39,4 +50,11 @@ const List = styled.div`
   overflow-y: auto;
   flex: 1;
   min-height: 0;
+`;
+
+const LoadingContainer = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 24px 0;
 `;

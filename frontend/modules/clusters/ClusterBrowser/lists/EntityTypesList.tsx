@@ -8,8 +8,9 @@ import { ListItem } from '../ui/ListItem';
 import { ListPane } from '../ui/ListPane';
 
 type EntityTypesListProps = {
-  isEmpty : boolean;
-  emptyMessage : string;
+  isEmpty: boolean;
+  isLoading?: boolean;
+  emptyMessage: string;
   selectedType: string | undefined;
   clustersByType: Record<string, Cluster[]>;
   onTypeSelection: (type: string) => void;
@@ -18,6 +19,7 @@ type EntityTypesListProps = {
 
 export function EntityTypesList({
   isEmpty,
+  isLoading,
   emptyMessage,
   selectedType,
   clustersByType,
@@ -26,12 +28,12 @@ export function EntityTypesList({
 }: EntityTypesListProps) {
   const t = useText('clusters');
 
-
   return (
     <ListPane
       title={t('types')}
       icon={FiList}
       isEmpty={isEmpty}
+      isLoading={isLoading}
       emptyMessage={emptyMessage}
     >
       {!isEmpty &&

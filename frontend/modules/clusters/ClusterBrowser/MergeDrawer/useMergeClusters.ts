@@ -38,7 +38,7 @@ export function useMergeClusters(docId: string | undefined) {
 
   const merge = (
     mergePair: MergePair,
-    options?: { onSuccess?: () => void }
+    options?: { onSuccess?: () => void; onSettled?: () => void }
   ) => {
     if (!collectionId || !docId) {
       spawnToast(
@@ -46,6 +46,7 @@ export function useMergeClusters(docId: string | undefined) {
         t('merge.toast.failTitle'),
         t('merge.toast.failMessage')
       );
+      options?.onSettled?.();
       return;
     }
 
@@ -82,6 +83,9 @@ export function useMergeClusters(docId: string | undefined) {
               destination: mergePair.keep.title,
             })
           );
+        },
+        onSettled: () => {
+          options?.onSettled?.();
         },
       }
     );

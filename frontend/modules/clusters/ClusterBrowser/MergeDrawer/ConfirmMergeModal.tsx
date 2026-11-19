@@ -14,6 +14,7 @@ import { useText } from '@/components';
 
 type ConfirmMergeModalProps = {
   isOpen: boolean;
+  isMerging: boolean;
   onOpenChange: () => void;
   onMergeConfirm: () => void;
   keep: ClusterWithDocId | null;
@@ -22,6 +23,7 @@ type ConfirmMergeModalProps = {
 
 export default function ConfirmMergeModal({
   isOpen,
+  isMerging,
   onOpenChange,
   onMergeConfirm,
   keep,
@@ -31,6 +33,9 @@ export default function ConfirmMergeModal({
   return (
     <Modal
       isOpen={isOpen}
+      isDismissable={!isMerging}
+      isKeyboardDismissDisabled={isMerging}
+      hideCloseButton={isMerging}
       onOpenChange={onOpenChange}
       classNames={{ base: 'w-fit min-w-[min(28rem,90vw)] max-w-[90vw]' }}
     >
@@ -66,12 +71,14 @@ export default function ConfirmMergeModal({
               </Button>
               <Button
                 color="danger"
+                isLoading={isMerging}
                 onPress={() => {
                   onMergeConfirm();
-                  onClose();
                 }}
               >
-                {t('merge.modal.confirm')}
+                {isMerging
+                  ? t('merge.modal.merging')
+                  : t('merge.modal.confirm')}
               </Button>
             </ModalFooter>
           </>
