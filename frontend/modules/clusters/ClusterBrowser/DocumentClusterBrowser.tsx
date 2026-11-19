@@ -170,6 +170,7 @@ export function DocumentClusterBrowser({
           emptyMessage={
             !selectedDoc?.id ? t('selectDocument') : t('noEntitiesFound')
           }
+          isLoading={isLoading}
           selectedType={selectedType}
           clustersByType={clusterGroups}
           onTypeSelection={handleTypeSelection}

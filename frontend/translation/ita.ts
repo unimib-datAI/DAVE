@@ -854,6 +854,7 @@ const t: Translation = {
           'Confermi di voler unire le due entità seguenti? Questa azione è <strong>definitiva</strong>. Tutte le menzioni di {source} verranno trasferite a {destination}.',
         cancel: 'Annulla',
         confirm: 'Unisci',
+        merging: 'Unendo...',
       },
       toast: {
         successTitle: 'Unione completata con successo!',
