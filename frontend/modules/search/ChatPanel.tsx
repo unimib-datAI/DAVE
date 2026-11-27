@@ -170,7 +170,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     top_k: llmSettings.defaultTopK ?? 40,
     thinking_effort: llmSettings.defaultThinkingEffort ?? 'medium',
     force_rag: false,
-    mode: 'standard',
+    mode: 'agent', // the multi-agent pipeline is the default chat mode
     thinking: 'off',
   });
 
@@ -326,7 +326,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                   aria-label={t('mode')}
                   size="large"
                   style={{ width: 160 }}
-                  value={value.mode ?? 'standard'}
+                  value={value.mode ?? 'agent'}
                   disabled={chatState !== 'idle'}
                   onChange={(mode: ChatMode) => setValue({ mode })}
                   onOpenChange={setModeOpen}

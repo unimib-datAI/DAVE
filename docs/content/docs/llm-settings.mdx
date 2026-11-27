@@ -27,6 +27,8 @@ The chat no longer sends the endpoint with each request. The one exception is th
 
 Generation defaults (temperature, max tokens, system prompt...) are still stored per browser.
 
+The chat has three **modes** (`frontend/lib/chatMode.ts`): `standard` (retrieval in the browser and one LLM call), `agent` (the multi-agent pipeline, `lib/multiAgent.ts`) and `deep` (deep research report). The chat panel starts in **agent** mode; the user can switch in the panel. A request that names no mode is still answered in standard mode by `pages/api/generate.ts`.
+
 The **default system prompt** (`DEFAULT_SYSTEM_PROMPT` in `frontend/atoms/llmSettings.ts`) asks the model to base its answer on the retrieved context, but lets it draw reasonable conclusions, answer partially when the context covers only part of the question, and say it cannot answer only when nothing relevant was found. An earlier, stricter default made some models refuse almost every question. Because the settings page stores the prompt per browser even when it was never edited, a stored prompt identical to an earlier built-in default (`PREVIOUS_DEFAULT_SYSTEM_PROMPTS`) is replaced by the current one when settings load; a customized prompt is kept. When the default changes again, add the old text to that list.
 
 ## API (`server/routers/llm.ts`)
