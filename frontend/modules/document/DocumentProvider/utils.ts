@@ -12,7 +12,7 @@ import {
   FlatTreeObj,
   getNode,
 } from '../../../components/Tree';
-import { stableTypeColor } from '@/lib/typeColors';
+import { assignTypeColors, stableTypeColor } from '@/lib/typeColors';
 import { Action, FlattenedTaxonomy, State, Taxonomy } from './types';
 
 /**
@@ -220,22 +220,25 @@ export const getEntityIndex = (id: string) => {
 };
 
 /**
- * Returns the taxonomy with the collection's per-type colors applied. Types
- * that aren't in the taxonomy are ignored.
+ * Returns the taxonomy with a color for every type, all clearly different from
+ * each other (see assignTypeColors in lib/typeColors.ts): the collection's
+ * stored per-type colors are kept as they are, the other types get the
+ * nearest color to their usual one that does not look like any color in use.
  */
 export const applyTypeColors = (
   taxonomy: FlatTreeObj,
   typeColors: Record<string, string> | undefined
 ): FlatTreeObj => {
-  if (!typeColors) return taxonomy;
-  const next = { ...taxonomy };
-  for (const [type, color] of Object.entries(typeColors)) {
-    const node = next[type];
+  const colors = assignTypeColors(Object.keys(taxonomy), typeColors ?? {});
+  let next: FlatTreeObj | null = null;
+  for (const [type, color] of Object.entries(colors)) {
+    const node = taxonomy[type];
     if (node && (node as { color?: string }).color !== color) {
+      next ??= { ...taxonomy };
       next[type] = { ...node, color } as FlatTreeNode;
     }
   }
-  return next;
+  return next ?? taxonomy;
 };
 
 /**

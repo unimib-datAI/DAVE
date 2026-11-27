@@ -39,8 +39,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { baseTaxonomy } from '@/modules/document/DocumentProvider/state';
-import { flattenTree, getAllNodeData } from '@/components/Tree';
+import { assignTypeColors, stableTypeColor } from '@/lib/typeColors';
 import { GripVertical } from 'lucide-react';
 import { loadLocale } from '@/translation';
 const PageContainer = styled.div`
@@ -175,11 +174,15 @@ const Collection: NextPage = () => {
   // user-edited / persisted colors per entity type (config.typeColors)
   const [typeColors, setTypeColors] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
-  const flatBaseTaxonomy = useMemo(() => flattenTree(baseTaxonomy), []);
   // what the document view shows for a type: the collection's color if set,
-  // otherwise the taxonomy color / stable generated one
+  // otherwise a generated one that looks clearly different from all the
+  // others (same assignment as the document view, see lib/typeColors.ts)
+  const generatedTypeColors = useMemo(
+    () => assignTypeColors(typesOrder, typeColors),
+    [typesOrder, typeColors]
+  );
   const effectiveTypeColor = (type: string) =>
-    typeColors[type] ?? getAllNodeData(flatBaseTaxonomy, type).color;
+    typeColors[type] ?? generatedTypeColors[type] ?? stableTypeColor(type);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
