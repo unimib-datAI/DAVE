@@ -1,3 +1,4 @@
+import { useText } from '@/components/TranslationProvider';
 import { BaseSelect, Option } from '@/components/BaseSelect';
 import { Checkbox } from '@heroui/react';
 import { useState, useMemo, MouseEvent } from 'react';
@@ -12,6 +13,7 @@ type SelectTypeProps = {
 };
 
 const SelectType = ({ onChange, value }: SelectTypeProps) => {
+  const t = useText('document');
   // const [value, setValue] = useState(valueProp);
   const taxonomy = useSelector(selectDocumentTaxonomy);
 
@@ -31,7 +33,7 @@ const SelectType = ({ onChange, value }: SelectTypeProps) => {
       multiple
       inputProps={{
         'aria-label': 'Entity type',
-        placeholder: 'Type',
+        placeholder: t('typePlaceholder'),
         shadow: false,
         bordered: true,
       }}

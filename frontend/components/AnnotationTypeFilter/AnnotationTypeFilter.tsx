@@ -7,7 +7,7 @@ import { EntityAnnotation } from '@/server/routers/document';
 import styled from '@emotion/styled';
 import { Checkbox } from '@heroui/react';
 import { useMemo, useState } from 'react';
-import { getNormalizedEntityType } from '@/modules/document/DocumentProvider/utils';
+import { useText } from '@/components/TranslationProvider';
 
 const Container = styled.div({
   display: 'flex',
@@ -59,6 +59,7 @@ type Item = {
   key: string;
   label: string;
   n: number;
+  types: string[];
 };
 
 const AnnotationTypeFilter = ({
@@ -67,85 +68,40 @@ const AnnotationTypeFilter = ({
   value,
   onChange,
 }: AnnotationTypeListProps) => {
-  // Create grouped items by normalized entity type
-  const items = useMemo(() => {
-    // Group annotations by their normalized type
-    const groupedAnnotations = new Map<string, EntityAnnotation[]>();
-
-    annotations.forEach((annotation) => {
-      if (!groupedAnnotations.has(annotation.type)) {
-        groupedAnnotations.set(annotation.type, []);
-      }
-      groupedAnnotations.get(annotation.type)!.push(annotation);
-    });
-
-    // Convert to the format expected by the component
-    const result = Array.from(groupedAnnotations.entries()).map(
-      ([normalizedType, anns]) => {
-        // Get the node from taxonomy - case insensitive matching
-        const lowerNormalizedType = normalizedType.toLowerCase();
-        const node = taxonomy[normalizedType] ||
-          Object.values(taxonomy).find(
-            (n) => n.key.toLowerCase() === lowerNormalizedType
-          ) || { key: normalizedType, label: normalizedType };
-
-        return {
-          key: normalizedType,
-          label: node.label || normalizedType,
-          n: anns.length,
-        };
-      }
-    );
-
-    // Sort by count descending
-    return result.sort((a, b) => b.n - a.n);
-  }, [taxonomy, annotations]);
+  const t = useText('document');
+  // One chip per displayed type; a chip covers every raw type shown as that
+  // type (PERSON from the NER and persona added by hand are both "Person").
+  const items = useMemo(
+    () => getAnnotationTypes(taxonomy, annotations),
+    [taxonomy, annotations]
+  );
 
   const total = useMemo(() => {
     return items.reduce((acc, item) => acc + item.n, 0);
   }, [items]);
 
+  // `value` holds RAW types (that is what annotations are filtered by); a chip
+  // is selected when all of its raw types are.
+  const active = useMemo(
+    () => new Set((value ?? []).map((v) => v.toLowerCase())),
+    [value]
+  );
+  const isItemSelected = (item: Item) =>
+    item.types.every((t) => active.has(t.toLowerCase()));
+  const selectedCount = items.filter(isItemSelected).length;
+
   const handleAllClick = () => {
-    let newValue: string[] = [];
-    if (value.length !== items.length) {
-      newValue = items.map((item) => item.key);
-    }
-
-    onChange(newValue);
+    onChange(selectedCount === items.length ? [] : items.flatMap((item) => item.types));
   };
 
-  const handleItemClick = (key: string) => {
-    let newValue = Array.isArray(value) ? value.slice() : [];
-    // Case-insensitive check for the key in the value array
-    const itemIndex = value.findIndex(
-      (v) => v.toLowerCase() === key.toLowerCase()
-    );
-
-    if (itemIndex === -1) {
-      newValue.push(key);
-    } else {
-      newValue.splice(itemIndex, 1);
-    }
-    onChange(newValue);
+  const handleItemClick = (item: Item) => {
+    const own = new Set(item.types.map((t) => t.toLowerCase()));
+    const others = (value ?? []).filter((v) => !own.has(v.toLowerCase()));
+    onChange(isItemSelected(item) ? others : [...others, ...item.types]);
   };
 
-  // Get all original types that map to the same group
-  const getOriginalTypesForItem = (item: Item): string[] => {
-    // Look through all annotations to find original types that map to this item's key - case insensitive
-    const originalTypes = new Set<string>();
-    const lowerItemKey = item.key.toLowerCase();
-
-    annotations.forEach((ann) => {
-      if (ann.type.toLowerCase() === lowerItemKey) {
-        originalTypes.add(ann.type);
-      }
-    });
-
-    return Array.from(originalTypes);
-  };
-
-  const isAllSelected = value.length === items.length;
-  const isAllIndeterminate = value.length < items.length && value.length > 0;
+  const isAllSelected = items.length > 0 && selectedCount === items.length;
+  const isAllIndeterminate = selectedCount > 0 && selectedCount < items.length;
 
   return (
     <Container>
@@ -156,17 +112,15 @@ const AnnotationTypeFilter = ({
           isSelected={isAllSelected}
           isIndeterminate={isAllIndeterminate}
         />
-        All - {total}
+        {t('typeFilterAll')} - {total}
       </FilterButton>
       {items.map((item) => (
-        <FilterButton key={item.key} onClick={() => handleItemClick(item.key)}>
+        <FilterButton key={item.key} onClick={() => handleItemClick(item)}>
           <Checkbox
             className="pointer-events-none"
             aria-label="item"
             size="sm"
-            isSelected={value.some(
-              (v) => v.toLowerCase() === item.key.toLowerCase()
-            )}
+            isSelected={isItemSelected(item)}
           />
           {item.label} - {item.n}
         </FilterButton>

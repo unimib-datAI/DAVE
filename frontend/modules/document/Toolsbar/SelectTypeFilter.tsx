@@ -24,29 +24,41 @@ const SelectTypeFilter = () => {
   );
   const dispatch = useDocumentDispatch();
 
+  // One item per displayed type; each covers one or more raw types
+  // (PERSON and persona are both "Person"), see getAnnotationTypes.
+  const items = useMemo(() => {
+    return getAnnotationTypes(taxonomy, annotations);
+  }, [taxonomy, annotations]);
+
+  // The view's filter holds RAW types (that is what annotations are filtered
+  // by); an item is selected when all of its raw types are.
+  const selectedKeys = useMemo(() => {
+    const active = new Set(typeFilters.map((t) => t.toLowerCase()));
+    return items
+      .filter((item) => item.types.every((t) => active.has(t.toLowerCase())))
+      .map((item) => item.key);
+  }, [items, typeFilters]);
+
   const handleChange = (event: MouseEvent, value: string | string[]) => {
     if (!Array.isArray(value)) {
       return;
     }
+    const chosen = new Set(value);
     dispatch({
       type: 'setView',
       payload: {
         viewIndex,
         view: {
-          typeFilter: value,
+          typeFilter: items.filter((item) => chosen.has(item.key)).flatMap((item) => item.types),
         },
       },
     });
   };
 
-  const items = useMemo(() => {
-    return getAnnotationTypes(taxonomy, annotations);
-  }, [taxonomy, annotations]);
-
   return (
     <BaseSelect
       onChange={handleChange}
-      value={typeFilters}
+      value={selectedKeys}
       multiple
       inputProps={{
         labelLeft: t('subToolbar.types.label'),
@@ -58,7 +70,7 @@ const SelectTypeFilter = () => {
           <Checkbox
             className="pointer-events-none"
             aria-label="Select item"
-            isSelected={typeFilters.indexOf(item.key) !== -1}
+            isSelected={selectedKeys.includes(item.key)}
           />
           {item.label}
         </Option>

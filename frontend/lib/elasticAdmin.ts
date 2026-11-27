@@ -94,8 +94,6 @@ export async function deleteElasticDocument(
 
 // ── POST /elastic/index/{index_name}/doc/{document_id}/annotations ──────
 
-const ANONYMIZE_TYPES = ['persona', 'parte', 'controparte'];
-
 function anonymizeMention(s: string) {
   if (!s) return '';
   return s
@@ -146,7 +144,9 @@ export async function addAnnotationsToDocumentEs(
 
   const annotations = mentions.map((mention) => {
     const type = mention.type ?? 'unknown';
-    const shouldAnonymize = ANONYMIZE_TYPES.includes(type);
+    // The caller decides (from the types the user chose to anonymize, see
+    // isAnonymizedAnnotation); there is no fixed list of types here.
+    const shouldAnonymize = mention.anonymize === true;
     return {
       id: mention.id,
       id_ER: mention.id_ER ?? '',
@@ -212,27 +212,11 @@ export async function indexElasticDocumentFromMongo(
     type: cluster.type,
     mention: cluster.title,
     is_linked: Boolean(cluster.url),
-    // Mirrors qavectorizer's (swapped-argument) call exactly:
-    // anonymize(cluster["type"], cluster["title"]) - `cluster.type` is only
-    // anonymized if `cluster.title` happens to equal "persona", which is
-    // never true in practice, so this always returns `cluster.type` as-is.
-    display_name: anonymizeLegacy(cluster.type, cluster.title),
+    // What qavectorizer's (swapped-argument) anonymize(cluster["type"],
+    // cluster["title"]) call always produced in practice: the cluster type,
+    // unchanged. Kept as is; it never applied a list of types to anonymize.
+    display_name: cluster.type || '',
   }));
 
   return indexElasticDocumentRaw(indexName, doc);
-}
-
-function anonymizeLegacy(
-  s: string,
-  sType: string = 'persona',
-  anonymizeTypes: string[] = ['persona']
-) {
-  if (!s) return '';
-  if (anonymizeTypes.includes(sType)) {
-    return s
-      .split(' ')
-      .map((word) => word[0] + '*'.repeat(Math.max(word.length - 1, 0)))
-      .join(' ');
-  }
-  return s;
 }

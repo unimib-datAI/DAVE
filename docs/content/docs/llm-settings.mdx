@@ -1,0 +1,57 @@
+---
+title: LLM endpoint
+description: How DAVE decides which LLM URL, key and model every feature uses.
+---
+
+There is **one** LLM configuration for the whole app. Every server-side LLM call resolves it through `frontend/lib/llmConfig.ts`:
+
+- `getLlmConfig()` returns `{ baseURL, apiKey, model, source }`;
+- `getLlmClient()` returns an OpenAI-compatible client plus the model name.
+
+Resolution order:
+
+1. **Settings > LLM** (custom settings enabled): the values saved there, stored in MongoDB (`llmSettings`, a singleton row). The API key is encrypted with `FIELD_ENCRYPTION_KEY` when that is set.
+2. Otherwise the environment: `API_LLM`, `LLM_KEY`, `LLM_NAME` (or `DEFAULT_MODEL`).
+
+A save takes effect immediately in the process that handled it, and within 5 seconds elsewhere (short read cache).
+
+## Who uses it
+
+| Caller | Where |
+| --- | --- |
+| Chat (standard, agent and deep-research modes) | `pages/api/generate.ts` |
+
+Any new feature that calls an LLM must use `getLlmClient()` / `getLlmConfig()`; never read `API_LLM`, `LLM_KEY` or `LLM_NAME` directly.
+
+The chat no longer sends the endpoint with each request. The one exception is the **Test connection** button in the settings page, which sends the unsaved form values with `endpointTest: true` so they can be tried before saving.
+
+Generation defaults (temperature, max tokens, system prompt...) are still stored per browser.
+
+The **default system prompt** (`DEFAULT_SYSTEM_PROMPT` in `frontend/atoms/llmSettings.ts`) asks the model to base its answer on the retrieved context, but lets it draw reasonable conclusions, answer partially when the context covers only part of the question, and say it cannot answer only when nothing relevant was found. An earlier, stricter default made some models refuse almost every question. Because the settings page stores the prompt per browser even when it was never edited, a stored prompt identical to an earlier built-in default (`PREVIOUS_DEFAULT_SYSTEM_PROMPTS`) is replaced by the current one when settings load; a customized prompt is kept. When the default changes again, add the old text to that list.
+
+## API (`server/routers/llm.ts`)
+
+| Procedure | Permission | Purpose |
+| --- | --- | --- |
+| `llm.info` | signed-in user | Model currently in use and its source (no secrets), shown in the chat |
+| `llm.get` | `settings.llm` | Saved endpoint settings, for the form |
+| `llm.save` | `settings.llm` | Save URL, key, model and the enable switch |
+| `llm.clear` | `settings.llm` | Delete the saved settings (back to the environment) |
+
+An endpoint saved by an older version in a browser's local storage is moved to the server the first time someone with the `settings.llm` permission opens the settings page.
+
+## Self-healing requests (`frontend/lib/llmCompat.ts`)
+
+Servers that speak the OpenAI API do not all accept the same request fields. DAVE sends a few that only some servers know - `chat_template_kwargs` (vLLM, llama.cpp, SGLang: switches the model's thinking on or off), `reasoning_effort`, `top_p`... - and a strict server such as Azure AI rejects the whole request:
+
+```
+400 Unrecognized request argument supplied: chat_template_kwargs
+```
+
+Every LLM client is wrapped with `healClient` (in `getLlmClient`, the chat route `pages/api/generate.ts` and `agentCore.ts`, so the chat, the agents and deep research are all covered). When a request is rejected:
+
+1. `rejectedParams` reads the error to find which parameter the server refused. It understands the common wordings: "Unrecognized request argument(s) supplied", "Unsupported parameter", "Unsupported value", "Invalid value for 'x'", "Unknown parameter", and FastAPI/pydantic "Extra inputs are not permitted" with the field in `detail[].loc`;
+2. that parameter is removed and the request is sent again (up to 4 times). `max_tokens` refused with a hint to use `max_completion_tokens` is renamed instead of dropped;
+3. the fix is remembered per server URL and model, so the following requests leave the parameter out from the start and cost no failed round trip. The server log shows one `[llm] ... rejected chat_template_kwargs: retrying without it` line per learned fix.
+
+Only optional tuning parameters (`OPTIONAL_PARAMS`) are ever dropped - never `model`, `messages` or `stream` - and any other error is passed on unchanged. Dropping a parameter can change behaviour: without `chat_template_kwargs` the thinking on/off switch has no effect on that server. The learned fixes live in memory and are relearned after a restart.

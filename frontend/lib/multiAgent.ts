@@ -1,58 +1,68 @@
 import OpenAI from 'openai';
-import { search as runVectorSearch } from './vectorSearch';
+import { z } from 'zod';
+import { findEntityDocuments } from './entityLookup';
+import {
+  legalAssistantEnabled,
+  legalPassagesToDocuments,
+  queryLegalAssistant,
+} from './legalAssistant';
+import {
+  findCitedSentences,
+  parseJSONWithSchema,
+  summarizeForTrace,
+} from './agentUtils';
+import {
+  AgentLLM,
+  RESET_SENTINEL,
+  buildContextSentinel,
+  buildNumberedContext,
+  emitStepChunk,
+  reciprocalRankFusion,
+  searchArchive,
+  verifyCitations,
+  type DocumentChunk,
+  type Message,
+  type RetrievedDocument,
+} from './agentCore';
+
+export type { Message } from './agentCore';
 
 /**
  * Multi-Agent RAG System
  *
  * Pipeline:
  *  1. QueryAnalyzer        – understand intent, topics, language
+ *     (also turns follow-up questions into a standalone query using the chat history)
  *  2. QueryRewriter        – expand into multiple search queries
  *  3. Orchestrator         – choose retrieval strategy (dense / fulltext / hybrid / summary)
- *  4. Retrievers           – dense, fulltext, or document-summary retrievers
+ *  4. Retrievers           – dense, fulltext, or document-summary retrievers, plus an
+ *                            EntityRetriever that finds the documents mentioning the
+ *                            entities named in the question (via the stored annotations)
  *  5. ResultFusion         – RRF (Reciprocal Rank Fusion) across retriever results
  *  6. RelevanceCoverage    – check if context is sufficient; if not, loop back (max 2 iterations)
- *  7. ContextCompressor    – rewrite context to extract only relevant information
- *  8. AnswerGenerator      – generate the final answer from compressed context
+ *  7. ContextSelector      – keep only the retrieved chunks relevant to the question
+ *  8. AnswerGenerator      – write the answer from the numbered chunks, STREAMING the
+ *                            tokens live with inline [n] citations
  *  9. AnswerEvaluator      – score for coverage / hallucinations; if bad, loop back (max 2 iterations)
+ *                            (skipped for simple factual questions with sufficient context)
+ * 10. CitationAgent        – fallback only: adds [n] markers when the model wrote none
+ * 11. CitationVerifier     – drop markers whose chunk does not support the sentence
+ *                            (if anything changed the streamed text is replaced)
  */
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface Message {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
-
-interface DocumentChunk {
-  id: string;
-  distance: number;
-  text: string;
-  text_anonymized?: string;
-  metadata: { doc_id: string; chunk_size: number };
-}
-
-interface RetrievedDocument {
-  id: number | string;
-  title: string;
-  preview: string;
-  chunks: DocumentChunk[];
-  full_docs?: boolean;
-}
-
-// Raw shape returned by the indexer backend
-interface RawIndexerDoc {
-  doc: { id: number; name: string; preview?: string };
-  chunks: DocumentChunk[];
-  full_docs?: boolean;
-}
-
 type OrchestratorStrategy = 'dense' | 'fulltext' | 'hybrid' | 'summary';
 
 interface QueryAnalysis {
   intent: string;
+  /** The question rewritten to be understandable without the chat history. */
+  standaloneQuery: string;
   keyTopics: string[];
+  /** Named entities (people, places, organisations...) written in the question. */
+  entities: string[];
   queryType:
     | 'factual'
     | 'analytical'
@@ -105,6 +115,8 @@ interface AgentTrace {
 
 interface AgentState {
   originalQuery: string;
+  /** originalQuery resolved against the chat history; what the agents search for. */
+  searchQuery: string;
   messages: Message[];
   // step 1
   queryAnalysis: QueryAnalysis | null;
@@ -117,6 +129,12 @@ interface AgentState {
   denseResults: RetrievedDocument[];
   fulltextResults: RetrievedDocument[];
   summaryResults: RetrievedDocument[];
+  /** Chunks of the documents that mention the entities named in the question. */
+  entityResults: RetrievedDocument[];
+  entityLookupDone: boolean;
+  /** Passages returned by the legal-assistant service (when enabled). */
+  legalResults: RetrievedDocument[];
+  legalLookupDone: boolean;
   // step 5
   fusedResults: RetrievedDocument[];
   // step 6
@@ -125,7 +143,8 @@ interface AgentState {
   gapQueries: string[];
   retrievalIteration: number;
   // step 7
-  compressedContext: string;
+  /** The numbered chunks ([n] text) the answer is written from. */
+  answerContext: string;
   // step 8
   draftAnswer: string;
   answerIteration: number;
@@ -163,94 +182,70 @@ export interface MultiAgentOptions {
 const MAX_RETRIEVAL_ITERATIONS = 2;
 const MAX_ANSWER_ITERATIONS = 2;
 const MAX_QUERIES_PER_RETRIEVER = 3; // how many expanded queries to actually fire
+// Retrieved context shorter than this goes to the answer generator whole:
+// selecting chunks costs an LLM call and saves nothing.
+const SELECTION_MIN_CHARS = 4000;
+// Upper bound on the context the answer is written from (whole chunks only).
+const ANSWER_CONTEXT_MAX_CHARS = 8000;
+// Token budget of the JSON agents. Thinking models spend it on reasoning before
+// the JSON: with a few hundred tokens their reply comes back empty ("length"),
+// the agent silently uses its fallback and the circuit breaker trips. Models
+// that do not think stop early, so a large budget costs them nothing.
+const JSON_AGENT_TOKENS = (() => {
+  const n = parseInt(process.env.AGENT_JSON_MAX_TOKENS ?? '', 10);
+  return Number.isFinite(n) && n > 0 ? n : 4000;
+})();
+const HISTORY_MESSAGES = 6; // earlier chat messages shown to the query analyzer
+const HISTORY_MESSAGE_CHARS = 400;
+const MAX_VERIFIED_SENTENCES = 40;
+
+// Shapes the agents' JSON replies must fit. Every field is lenient (`catch`):
+// a missing or mistyped field takes its default instead of failing the reply.
+const QUERY_TYPES = [
+  'factual',
+  'analytical',
+  'comparative',
+  'summary',
+  'procedural',
+] as const;
+
+const QueryAnalysisSchema = z.object({
+  intent: z.string().catch(''),
+  standaloneQuery: z.string().catch(''),
+  keyTopics: z.array(z.string()).catch([]),
+  entities: z.array(z.string()).catch([]),
+  queryType: z.enum(QUERY_TYPES).catch('factual'),
+  language: z.string().catch('it'),
+  requiresFullDocument: z.boolean().catch(false),
+});
+
+const QueriesSchema = z.array(z.string());
+
+const OrchestratorSchema = z.object({
+  strategy: z.enum(['dense', 'fulltext', 'hybrid', 'summary']),
+  reasoning: z.string().catch(''),
+});
+
+const CoverageSchema = z.object({
+  isSufficient: z.boolean().catch(true),
+  coverageIssues: z.array(z.string()).catch([]),
+  gapQueries: z.array(z.string()).catch([]),
+});
+
+const EvaluationSchema = z.object({
+  isGood: z.boolean().catch(true),
+  score: z.number().catch(7),
+  issues: z.array(z.string()).catch([]),
+  additionalInstructions: z.string().catch(''),
+});
+
+const ChunkSelectionSchema = z.object({
+  keep: z.array(z.number()).catch([]),
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pure Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-
-/** Try to parse JSON from an LLM text response (handles markdown code fences). */
-function extractJSON<T>(text: string): T | null {
-  // 1. direct parse
-  try {
-    return JSON.parse(text) as T;
-  } catch {
-    /* continue */
-  }
-
-  // 2. markdown code block
-  const codeBlock = text.match(/```(?:json)?\s*([\s\S]+?)\s*```/);
-  if (codeBlock) {
-    try {
-      return JSON.parse(codeBlock[1]) as T;
-    } catch {
-      /* continue */
-    }
-  }
-
-  // 3. first {...} in the text
-  const objMatch = text.match(/\{[\s\S]+\}/);
-  if (objMatch) {
-    try {
-      return JSON.parse(objMatch[0]) as T;
-    } catch {
-      /* continue */
-    }
-  }
-
-  return null;
-}
-
-/** Try to parse a JSON array from an LLM text response. */
-function extractJSONArray(text: string): string[] | null {
-  const arrMatch = text.match(/\[[\s\S]+\]/);
-  if (arrMatch) {
-    try {
-      const arr = JSON.parse(arrMatch[0]);
-      if (Array.isArray(arr)) return arr as string[];
-    } catch {
-      /* continue */
-    }
-  }
-  return null;
-}
-
-/**
- * Reciprocal Rank Fusion
- * score(d) = Σ  1 / (k + rank(d, list_i))
- * Chunks from the same document that appear in multiple lists are merged.
- */
-function reciprocalRankFusion(
-  lists: RetrievedDocument[][],
-  k = 60
-): RetrievedDocument[] {
-  const scores = new Map<string, number>();
-  const docMap = new Map<string, RetrievedDocument>();
-
-  for (const list of lists) {
-    list.forEach((doc, rank) => {
-      const key = String(doc.id);
-      scores.set(key, (scores.get(key) ?? 0) + 1 / (k + rank + 1));
-
-      if (!docMap.has(key)) {
-        docMap.set(key, { ...doc, chunks: [...doc.chunks] });
-      } else {
-        // merge unique chunks
-        const existing = docMap.get(key)!;
-        const existingIds = new Set(existing.chunks.map((c) => c.id));
-        for (const chunk of doc.chunks) {
-          if (!existingIds.has(chunk.id)) {
-            existing.chunks.push(chunk);
-          }
-        }
-      }
-    });
-  }
-
-  return Array.from(scores.entries())
-    .sort(([, a], [, b]) => b - a)
-    .map(([key]) => docMap.get(key)!)
-    .filter(Boolean);
-}
 
 /** Build the <document> context string passed to the answer generator. */
 function buildContextString(docs: RetrievedDocument[]): string {
@@ -272,8 +267,10 @@ function buildContextString(docs: RetrievedDocument[]): string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class MultiAgentSystem {
+  private llm: AgentLLM;
   private openai: OpenAI;
   private model: string;
+  private baseURL: string;
   private temperature: number;
   private max_tokens: number;
   private indexerBaseURL: string;
@@ -283,41 +280,24 @@ class MultiAgentSystem {
   /** Callback used to stream both text chunks and progress sentinel events. */
   private streamChunk?: (chunk: string) => void;
 
-  private async withRetry<T>(
-    fn: () => Promise<T>,
-    maxAttempts = 3
-  ): Promise<T> {
-    let lastErr: unknown;
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return await fn();
-      } catch (err: unknown) {
-        lastErr = err;
-        const isRetryable =
-          (err as any)?.status >= 500 ||
-          (err as any)?.code === 'ECONNRESET' ||
-          (err as any)?.name === 'FetchError';
-        if (attempt < maxAttempts && isRetryable) {
-          const delay = attempt * 1000;
-          console.warn(
-            `[MultiAgent] LLM call failed (attempt ${attempt}), retrying in ${delay}ms...`,
-            err
-          );
-          await new Promise((r) => setTimeout(r, delay));
-        } else {
-          break;
-        }
-      }
-    }
-    throw lastErr;
+  private get withRetry() {
+    return this.llm.withRetry.bind(this.llm);
+  }
+
+  private get askJSON() {
+    return this.llm.askJSON.bind(this.llm);
   }
 
   constructor(options: MultiAgentOptions) {
-    this.openai = new OpenAI({
-      baseURL: options.baseURL,
-      apiKey: options.apiKey,
-    });
+    this.llm = new AgentLLM(
+      options.baseURL,
+      options.apiKey,
+      options.model,
+      'MultiAgent'
+    );
+    this.openai = this.llm.openai;
     this.model = options.model;
+    this.baseURL = options.baseURL;
     this.temperature = options.temperature ?? 0.7;
     this.max_tokens = options.max_tokens ?? 4096;
     this.indexerBaseURL =
@@ -340,6 +320,7 @@ class MultiAgentSystem {
     try {
       const state: AgentState = {
         originalQuery: this.extractUserQuery(messages),
+        searchQuery: this.extractUserQuery(messages),
         messages,
         queryAnalysis: null,
         rewrittenQueries: [],
@@ -348,12 +329,16 @@ class MultiAgentSystem {
         denseResults: [],
         fulltextResults: [],
         summaryResults: [],
+        entityResults: [],
+        entityLookupDone: false,
+        legalResults: [],
+        legalLookupDone: false,
         fusedResults: [],
         isContextSufficient: false,
         coverageIssues: [],
         gapQueries: [],
         retrievalIteration: 0,
-        compressedContext: '',
+        answerContext: '',
         draftAnswer: '',
         answerIteration: 0,
         answerFeedback: '',
@@ -371,6 +356,7 @@ class MultiAgentSystem {
         'Analysing query intent, topics and language',
         async () => {
           state.queryAnalysis = await this.queryAnalyzer(state);
+          state.searchQuery = state.queryAnalysis.standaloneQuery;
           return state.queryAnalysis;
         }
       );
@@ -378,6 +364,9 @@ class MultiAgentSystem {
       // ── 2 + 3. Query Rewriting & Orchestration — run IN PARALLEL ─────────────
       // Both agents only READ state.queryAnalysis (set in step 1) and write to
       // completely disjoint state fields, so there is no race condition.
+      // The question itself is searched at the same time (see
+      // startEarlyRetrieval) so the retrieval is already done when they finish.
+      const earlyRetrieval = this.startEarlyRetrieval(state);
       await Promise.all([
         this.runStep(
           state,
@@ -401,13 +390,28 @@ class MultiAgentSystem {
         ),
       ]);
 
-      // ── 4-5-6. Retrieval → Fusion → Coverage (loop) ──────────────────────────
+      const early = await earlyRetrieval;
+
+      // ── 4-5-6. Retrieval → Fusion → Coverage ∥ Selection (loop) ──────────────
       do {
         state.retrievalIteration++;
-        const queries =
+        let queries =
           state.retrievalIteration === 1
             ? state.rewrittenQueries
             : state.gapQueries;
+
+        // First round: the question was already searched early (unless the
+        // strategy fetches whole documents); only the other queries are left.
+        if (state.retrievalIteration === 1 && state.strategy !== 'summary') {
+          const asked = state.searchQuery.trim().toLowerCase();
+          queries = queries.filter((q) => q.trim().toLowerCase() !== asked);
+          if (state.strategy !== 'fulltext') {
+            state.denseResults.push(...early.dense);
+          }
+          if (state.strategy !== 'dense') {
+            state.fulltextResults.push(...early.fulltext);
+          }
+        }
 
         if (state.strategy === 'summary') {
           // ── Summary path ──────────────────────────────────────────────────
@@ -429,12 +433,14 @@ class MultiAgentSystem {
             'DenseRetriever',
             `Vector (dense) retrieval (iter ${state.retrievalIteration})`,
             async () => {
-              const results = await this.denseRetriever(queries);
+              const results = queries.length
+                ? await this.denseRetriever(queries)
+                : [];
               state.denseResults.push(...results);
               return { docCount: results.length };
             }
           );
-          state.fusedResults = state.denseResults;
+          state.fusedResults = reciprocalRankFusion([state.denseResults]);
         } else if (state.strategy === 'fulltext') {
           // ── Full-text path ────────────────────────────────────────────────
           await this.runStep(
@@ -442,12 +448,14 @@ class MultiAgentSystem {
             'FulltextRetriever',
             `Full-text (BM25) retrieval (iter ${state.retrievalIteration})`,
             async () => {
-              const results = await this.fulltextRetriever(queries);
+              const results = queries.length
+                ? await this.fulltextRetriever(queries)
+                : [];
               state.fulltextResults.push(...results);
               return { docCount: results.length };
             }
           );
-          state.fusedResults = state.fulltextResults;
+          state.fusedResults = reciprocalRankFusion([state.fulltextResults]);
         } else {
           // ── Hybrid path (dense + fulltext) ────────────────────────────────
           await this.runStep(
@@ -455,10 +463,12 @@ class MultiAgentSystem {
             'HybridRetriever',
             `Hybrid retrieval (dense + fulltext, iter ${state.retrievalIteration})`,
             async () => {
-              const [dense, fulltext] = await Promise.all([
-                this.denseRetriever(queries),
-                this.fulltextRetriever(queries),
-              ]);
+              const [dense, fulltext] = queries.length
+                ? await Promise.all([
+                    this.denseRetriever(queries),
+                    this.fulltextRetriever(queries),
+                  ])
+                : [[], []];
               state.denseResults.push(...dense);
               state.fulltextResults.push(...fulltext);
               return {
@@ -484,53 +494,82 @@ class MultiAgentSystem {
           );
         }
 
-        // ── 6. Relevance & Coverage Check ────────────────────────────────────
-        await this.runStep(
-          state,
-          'RelevanceCoverage',
-          `Checking context sufficiency (iter ${state.retrievalIteration})`,
-          async () => {
-            const result = await this.relevanceCoverageChecker(state);
-            state.isContextSufficient = result.isSufficient;
-            state.coverageIssues = result.coverageIssues;
-            state.gapQueries = result.gapQueries;
-            return result;
+        // ── Entity retrieval (once) and fusion into the main results ─────────
+        if (state.strategy !== 'summary' && state.entityResults.length) {
+          state.fusedResults = reciprocalRankFusion([
+            state.fusedResults,
+            state.entityResults,
+          ]);
+        }
+
+        // ── Legal assistant passages (once, optional) ────────────────────────
+        if (legalAssistantEnabled() && state.strategy !== 'summary') {
+          if (!state.legalLookupDone) {
+            state.legalLookupDone = true;
+            await this.runStep(
+              state,
+              'LegalAssistant',
+              'Querying the legal assistant',
+              async () => {
+                try {
+                  const answer = await queryLegalAssistant(state.searchQuery);
+                  state.legalResults = legalPassagesToDocuments(answer);
+                } catch (err) {
+                  console.warn('[MultiAgent][LegalAssistant] failed:', err);
+                }
+                return { documents: state.legalResults.length };
+              }
+            );
           }
-        );
+          if (state.legalResults.length) {
+            state.fusedResults = reciprocalRankFusion([
+              state.fusedResults,
+              state.legalResults,
+            ]);
+          }
+        }
+
+        // ── 6 + 7. Coverage check ∥ context selection ────────────────────────
+        // Selecting the chunks does not depend on the verdict: it runs while the
+        // coverage check is thinking, and is simply redone on the next round
+        // when the verdict is "insufficient". The last round's selection is the
+        // one used, because it is made from the final set of documents.
+        this.buildChunkMaps(state);
+        await Promise.all([
+          this.runStep(
+            state,
+            'RelevanceCoverage',
+            `Checking context sufficiency (iter ${state.retrievalIteration})`,
+            async () => {
+              const result = await this.relevanceCoverageChecker(state);
+              state.isContextSufficient = result.isSufficient;
+              state.coverageIssues = result.coverageIssues;
+              state.gapQueries = result.gapQueries;
+              return result;
+            }
+          ),
+          this.runStep(
+            state,
+            'ContextSelector',
+            'Selecting the chunks relevant to the question',
+            async () => {
+              state.answerContext = await this.contextSelector(state);
+              return { contextLength: state.answerContext.length };
+            }
+          ),
+        ]);
       } while (
         !state.isContextSufficient &&
         state.retrievalIteration < MAX_RETRIEVAL_ITERATIONS
       );
 
-      // ── Build chunk maps ─────────────────────────────────────────────────────
-      // Number every chunk across all fused documents sequentially (1-based).
-      // Done once here so both the citation agent and the frontend sentinel
-      // share the same numbering.
-      {
-        let n = 0;
-        for (const doc of state.fusedResults) {
-          for (const chunk of doc.chunks) {
-            n++;
-            state.chunkMap[chunk.id] = chunk.text;
-            state.chunkIndexMap[chunk.id] = n;
-          }
-        }
-      }
-
-      // ── 7. Context Compression ───────────────────────────────────────────────
-      await this.runStep(
-        state,
-        'ContextCompressor',
-        'Compressing and extracting relevant context',
-        async () => {
-          state.compressedContext = await this.contextCompressor(state);
-          return { contextLength: state.compressedContext.length };
-        }
-      );
-
-      // ── 8-9. Answer Generation → Evaluation (loop) ──────────────────────────
+      // ── 8-9. Answer Generation (streamed) → Evaluation (loop) ───────────────
+      // The generator streams its tokens to the browser as they are produced,
+      // with [n] citations inline. When the evaluator rejects a draft the text
+      // streamed so far is discarded (RESET) and the answer is rewritten.
       do {
         state.answerIteration++;
+        if (state.answerIteration > 1) onChunk?.(RESET_SENTINEL);
 
         await this.runStep(
           state,
@@ -542,7 +581,21 @@ class MultiAgentSystem {
           }
         );
 
-        if (state.answerIteration < MAX_ANSWER_ITERATIONS) {
+        // The citations of this draft are checked while the evaluator judges
+        // it. If the evaluator asks for a rewrite, that result is thrown away.
+        const verification = this.verifyDraft(state, state.draftAnswer);
+
+        // A simple factual question answered from sufficient context on the
+        // first retrieval pass does not need a second LLM judging the answer.
+        const skipEvaluation =
+          state.queryAnalysis?.queryType === 'factual' &&
+          state.isContextSufficient &&
+          state.retrievalIteration === 1;
+
+        if (skipEvaluation) {
+          state.citedAnswer = await verification;
+          break;
+        } else if (state.answerIteration < MAX_ANSWER_ITERATIONS) {
           await this.runStep(
             state,
             'AnswerEvaluator',
@@ -555,31 +608,27 @@ class MultiAgentSystem {
               return result;
             }
           );
-          if (!state.answerFeedback) break; // evaluator approved – exit loop
+          if (!state.answerFeedback) {
+            // evaluator approved – exit loop
+            state.citedAnswer = await verification;
+            break;
+          }
         } else {
-          break; // max iterations reached
+          // max iterations reached
+          state.citedAnswer = await verification;
+          break;
         }
       } while (state.answerIteration < MAX_ANSWER_ITERATIONS);
 
       state.finalAnswer = state.draftAnswer;
+      if (!state.citedAnswer) state.citedAnswer = state.draftAnswer;
 
-      // ── 10. Citation Agent ───────────────────────────────────────────────────
-      await this.runStep(
-        state,
-        'CitationAgent',
-        'Annotating answer with inline chunk citations',
-        async () => {
-          state.citedAnswer = await this.citationAgent(state);
-          return { citedLength: state.citedAnswer.length };
-        }
-      );
-
-      // ── Stream the cited answer ──────────────────────────────────────────────
-      const answerToStream = state.citedAnswer || state.finalAnswer;
-      if (onChunk && answerToStream) {
-        const CHUNK_SIZE = 40;
-        for (let i = 0; i < answerToStream.length; i += CHUNK_SIZE) {
-          onChunk(answerToStream.slice(i, i + CHUNK_SIZE));
+      // ── Replace the streamed text if verification or the fallback changed it ─
+      if (onChunk && state.citedAnswer !== state.draftAnswer) {
+        onChunk(RESET_SENTINEL);
+        const CHUNK_SIZE = 200;
+        for (let i = 0; i < state.citedAnswer.length; i += CHUNK_SIZE) {
+          onChunk(state.citedAnswer.slice(i, i + CHUNK_SIZE));
         }
       }
 
@@ -589,33 +638,19 @@ class MultiAgentSystem {
       //  • populate the context panel (docs) shown under the user message
       //  • render [n] citation tooltips on the assistant message
       if (onChunk && state.fusedResults.length > 0) {
-        const contextPayload = JSON.stringify({
-          docs: state.fusedResults.map((doc) => ({
-            id:
-              typeof doc.id === 'string'
-                ? parseInt(doc.id, 10) || doc.id
-                : doc.id,
-            title: doc.title,
-            preview: doc.preview,
-            chunks: doc.chunks.map((c) => ({
-              id: c.id,
-              distance: c.distance,
-              text: c.text,
-              text_anonymized: c.text_anonymized,
-              metadata: c.metadata,
-            })),
-            full_docs: doc.full_docs ?? false,
-          })),
-          chunkMap: state.chunkMap,
-          chunkIndexMap: state.chunkIndexMap,
-        });
-        onChunk(`\x02DAVE_CTX\x1E${contextPayload}\x03`);
+        onChunk(
+          buildContextSentinel(
+            state.fusedResults,
+            state.chunkMap,
+            state.chunkIndexMap
+          )
+        );
       }
 
       // ── Print trace ──────────────────────────────────────────────────────────
       this.logTrace(state);
 
-      return state.finalAnswer;
+      return state.citedAnswer || state.finalAnswer;
     } catch (err: unknown) {
       // If a mid-pipeline error occurs and we haven't streamed anything yet,
       // send a graceful error message to the frontend so the user isn't left
@@ -640,15 +675,10 @@ class MultiAgentSystem {
     agent: string,
     step: string,
     status: 'start' | 'done',
-    durationMs?: number
+    durationMs?: number,
+    details?: string
   ) {
-    const payload = JSON.stringify({
-      agent,
-      step,
-      status,
-      ...(durationMs !== undefined ? { durationMs } : {}),
-    });
-    this.streamChunk?.(`\x02DAVE_STEP\x1E${payload}\x03`);
+    emitStepChunk(this.streamChunk, agent, step, status, durationMs, details);
   }
 
   private async runStep<T>(
@@ -669,7 +699,7 @@ class MultiAgentSystem {
       durationMs,
       output,
     });
-    this.emitStep(agent, step, 'done', durationMs);
+    this.emitStep(agent, step, 'done', durationMs, summarizeForTrace(output));
     console.log(`[MultiAgent][${agent}] ✓ ${durationMs}ms`);
     return output;
   }
@@ -680,39 +710,59 @@ class MultiAgentSystem {
 
   private async queryAnalyzer(state: AgentState): Promise<QueryAnalysis> {
     const system = `You are a Query Analysis Agent.
-Analyse the user query and return ONLY a JSON object with this exact schema:
+Analyse the user's latest message, using the earlier conversation only to understand it, and return ONLY a JSON object with this exact schema:
 {
   "intent": "<one-sentence description of what the user wants>",
+  "standaloneQuery": "<the latest message rewritten so it is fully understandable WITHOUT the conversation: resolve pronouns and references such as 'and in 2019?' or 'what about him?'; keep the same language; if it is already self-contained, repeat it unchanged>",
   "keyTopics": ["<topic1>", "<topic2>"],
+  "entities": ["<people, places, organisations or other named entities written in the message, exactly as written; empty array if none>"],
   "queryType": "factual|analytical|comparative|summary|procedural",
   "language": "<ISO 639-1 code, e.g. 'it' or 'en'>",
   "requiresFullDocument": <true if the user needs an overview/summary of an entire document, false otherwise>
 }
 RESPOND ONLY WITH THE JSON OBJECT. No other text.`;
 
-    const resp = await this.withRetry(() =>
-      this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: `Query: ${state.originalQuery}` },
-        ],
-        temperature: 0.1,
-        max_tokens: 350,
-        stream: false,
-      })
-    );
+    const history = state.messages
+      .slice(0, -1)
+      .filter((m) => m.role !== 'system')
+      .slice(-HISTORY_MESSAGES)
+      .map(
+        (m) =>
+          `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.slice(
+            0,
+            HISTORY_MESSAGE_CHARS
+          )}`
+      )
+      .join('\n');
 
-    const text = resp.choices[0]?.message?.content ?? '';
-    return (
-      extractJSON<QueryAnalysis>(text) ?? {
-        intent: state.originalQuery,
-        keyTopics: [state.originalQuery],
-        queryType: 'factual',
-        language: 'it',
-        requiresFullDocument: false,
-      }
-    );
+    const fallback: QueryAnalysis = {
+      intent: state.originalQuery,
+      standaloneQuery: state.originalQuery,
+      keyTopics: [state.originalQuery],
+      entities: [],
+      queryType: 'factual',
+      language: 'it',
+      requiresFullDocument: false,
+    };
+
+    const analysis = await this.askJSON<QueryAnalysis>({
+      agent: 'QueryAnalyzer',
+      system,
+      user: `${
+        history ? `Earlier conversation:\n${history}\n\n` : ''
+      }Latest message: ${state.originalQuery}`,
+      schema: QueryAnalysisSchema,
+      fallback,
+      maxTokens: JSON_AGENT_TOKENS,
+    });
+    // The model may leave these empty: keep the original wording usable.
+    return {
+      ...analysis,
+      standaloneQuery: analysis.standaloneQuery.trim() || state.originalQuery,
+      keyTopics: analysis.keyTopics.length
+        ? analysis.keyTopics
+        : [state.originalQuery],
+    };
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -730,28 +780,22 @@ Rules:
 - Do NOT add queries that are completely unrelated to the original intent
 RESPOND ONLY WITH A JSON ARRAY OF STRINGS: ["q1", "q2", "q3"]`;
 
-    const resp = await this.withRetry(() =>
-      this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: system },
-          {
-            role: 'user',
-            content: `Original query: ${
-              state.originalQuery
-            }\nKey topics: ${analysis.keyTopics.join(', ')}\nQuery type: ${
-              analysis.queryType
-            }`,
-          },
-        ],
-        temperature: 0.4,
-        max_tokens: 350,
-        stream: false,
-      })
-    );
-
-    const text = resp.choices[0]?.message?.content ?? '';
-    return extractJSONArray(text) ?? [state.originalQuery];
+    const queries = await this.askJSON<string[]>({
+      agent: 'QueryRewriter',
+      system,
+      user: `Original query: ${
+        state.searchQuery
+      }\nKey topics: ${analysis.keyTopics.join(', ')}\nQuery type: ${
+        analysis.queryType
+      }`,
+      schema: QueriesSchema,
+      fallback: [state.searchQuery],
+      maxTokens: JSON_AGENT_TOKENS,
+      temperature: 0.4,
+      expectArray: true,
+    });
+    const clean = queries.map((q) => q.trim()).filter(Boolean);
+    return clean.length ? clean : [state.searchQuery];
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -780,33 +824,21 @@ Strategies:
 
 RESPOND ONLY WITH JSON: {"strategy": "...", "reasoning": "..."}`;
 
-    const resp = await this.withRetry(() =>
-      this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: system },
-          {
-            role: 'user',
-            content: `User query: ${state.originalQuery}\nIntent: ${
-              analysis.intent
-            }\nKey topics: ${analysis.keyTopics.join(', ')}\nQuery type: ${
-              analysis.queryType
-            }`,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 200,
-        stream: false,
-      })
-    );
-
-    const text = resp.choices[0]?.message?.content ?? '';
-    return (
-      extractJSON<OrchestratorDecision>(text) ?? {
+    return this.askJSON<OrchestratorDecision>({
+      agent: 'Orchestrator',
+      system,
+      user: `User query: ${state.searchQuery}\nIntent: ${
+        analysis.intent
+      }\nKey topics: ${analysis.keyTopics.join(', ')}\nQuery type: ${
+        analysis.queryType
+      }`,
+      schema: OrchestratorSchema,
+      fallback: {
         strategy: 'hybrid',
         reasoning: 'Defaulting to hybrid strategy',
-      }
-    );
+      },
+      maxTokens: JSON_AGENT_TOKENS,
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -846,82 +878,19 @@ RESPOND ONLY WITH JSON: {"strategy": "...", "reasoning": "..."}`;
   private async callIndexer(
     queries: string[],
     retrievalMethod: string,
-    forceRag: boolean
+    forceRag: boolean,
+    filterIdsOverride?: string[]
   ): Promise<RetrievedDocument[]> {
-    if (!this.indexName) {
-      console.warn('[MultiAgent] indexName not set – skipping retrieval');
-      return [];
-    }
-
-    const seenIds = new Set<string>();
-    const docs: RetrievedDocument[] = [];
-
-    // Fire all queries concurrently (each with its own timeout) and merge
-    // results after. This reduces retrieval latency from O(n) sequential
-    // round-trips to O(1) — the slowest single request sets the pace.
-    const batchResults = await Promise.all(
-      queries.slice(0, MAX_QUERIES_PER_RETRIEVER).map(async (query) => {
-        const timeout = new Promise<'timeout'>((resolve) =>
-          setTimeout(() => resolve('timeout'), 15_000)
-        );
-        try {
-          const result = await Promise.race([
-            runVectorSearch({
-              collectionName: this.indexName,
-              query,
-              filterIds: this.filterIds,
-              retrievalMethod,
-              forceRag,
-              collectionId: this.collectionId,
-            }),
-            timeout,
-          ]);
-
-          if (result === 'timeout') {
-            console.warn(
-              `[MultiAgent][callIndexer] Timeout for query "${query}"`
-            );
-            return [] as RawIndexerDoc[];
-          }
-
-          return result as unknown as RawIndexerDoc[];
-        } catch (err) {
-          console.error(
-            `[MultiAgent][callIndexer] Error for query "${query}":`,
-            err
-          );
-          return [] as RawIndexerDoc[];
-        }
-      })
-    );
-
-    // Merge parallel results, deduplicating by document id and merging chunks
-    for (const rawDocs of batchResults) {
-      for (const raw of rawDocs) {
-        const key = String(raw.doc.id);
-        if (!seenIds.has(key)) {
-          seenIds.add(key);
-          docs.push({
-            id: raw.doc.id,
-            title: raw.doc.name,
-            preview: raw.doc.preview ?? '',
-            chunks: raw.chunks,
-            full_docs: raw.full_docs,
-          });
-        } else {
-          // Merge new chunks into the already-seen document
-          const existing = docs.find((d) => String(d.id) === key)!;
-          const existingIds = new Set(existing.chunks.map((c) => c.id));
-          for (const chunk of raw.chunks) {
-            if (!existingIds.has(chunk.id)) {
-              existing.chunks.push(chunk);
-            }
-          }
-        }
-      }
-    }
-
-    return docs;
+    return searchArchive({
+      indexName: this.indexName,
+      collectionId: this.collectionId,
+      filterIds: filterIdsOverride ?? this.filterIds,
+      queries,
+      retrievalMethod,
+      forceRag,
+      maxQueries: MAX_QUERIES_PER_RETRIEVER,
+      label: 'MultiAgent',
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -935,7 +904,7 @@ RESPOND ONLY WITH JSON: {"strategy": "...", "reasoning": "..."}`;
       return {
         isSufficient: false,
         coverageIssues: ['No documents were retrieved'],
-        gapQueries: [state.originalQuery],
+        gapQueries: [state.searchQuery],
       };
     }
 
@@ -957,76 +926,180 @@ Return ONLY a JSON object:
 If sufficient, coverageIssues and gapQueries may be empty arrays.
 RESPOND ONLY WITH THE JSON OBJECT.`;
 
-    const resp = await this.withRetry(() =>
-      this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: system },
-          {
-            role: 'user',
-            content: `User query: ${state.originalQuery}\n\nRetrieved context (excerpt):\n${contextExcerpt}`,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 400,
-        stream: false,
-      })
-    );
+    return this.askJSON<CoverageResult>({
+      agent: 'RelevanceCoverage',
+      system,
+      user: `User query: ${state.searchQuery}\n\nRetrieved context (excerpt):\n${contextExcerpt}`,
+      schema: CoverageSchema,
+      fallback: { isSufficient: true, coverageIssues: [], gapQueries: [] },
+      maxTokens: JSON_AGENT_TOKENS,
+    });
+  }
 
-    const text = resp.choices[0]?.message?.content ?? '';
-    return (
-      extractJSON<CoverageResult>(text) ?? {
-        isSufficient: true,
-        coverageIssues: [],
-        gapQueries: [],
+  // ─────────────────────────────────────────────────────────────────────────
+  // Parallel helpers
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * Numbers every chunk across the fused documents (1-based) so the answer
+   * generator, the citation checks and the frontend's tooltips all use the same
+   * [n]. Rebuilt for every retrieval round: the last one matches the final set.
+   */
+  private buildChunkMaps(state: AgentState) {
+    state.chunkMap = {};
+    state.chunkIndexMap = {};
+    let n = 0;
+    for (const doc of state.fusedResults) {
+      for (const chunk of doc.chunks) {
+        n++;
+        state.chunkMap[chunk.id] = chunk.text;
+        state.chunkIndexMap[chunk.id] = n;
       }
-    );
+    }
+  }
+
+  /**
+   * Retrieval that does not need the rewritten queries or the strategy: the
+   * question itself, dense and full-text, plus the entity lookup. It runs while
+   * the rewriter and the orchestrator (LLM calls) are still working, so the
+   * search time hides behind theirs. Never rejects.
+   */
+  private startEarlyRetrieval(state: AgentState) {
+    state.entityLookupDone = true;
+    const empty = { dense: [], fulltext: [] } as {
+      dense: RetrievedDocument[];
+      fulltext: RetrievedDocument[];
+    };
+    const question = [state.searchQuery];
+
+    const main = this.runStep(
+      state,
+      'EarlyRetrieval',
+      'Searching with the question while the queries are planned',
+      async () => {
+        const [dense, fulltext] = await Promise.all([
+          this.denseRetriever(question),
+          this.fulltextRetriever(question),
+        ]);
+        return { dense, fulltext };
+      }
+    ).catch(() => empty);
+
+    const entities = this.runStep(
+      state,
+      'EntityRetriever',
+      'Finding documents that mention the entities in the question',
+      async () => this.entityRetriever(state)
+    ).catch(() => undefined);
+
+    return Promise.all([main, entities]).then(([early]) => early);
+  }
+
+  /**
+   * Makes a draft answer citable: annotates it when the model wrote no [n]
+   * markers, then checks each marker. Returns the draft unchanged on any
+   * failure. Runs while the evaluator judges the same draft, so its result is
+   * simply dropped when the evaluator asks for a rewrite.
+   */
+  private async verifyDraft(state: AgentState, draft: string): Promise<string> {
+    try {
+      if (!draft || Object.keys(state.chunkIndexMap).length === 0) return draft;
+      let text = draft;
+
+      // The generator cites inline. A model that ignored that gets its answer
+      // annotated afterwards.
+      if (findCitedSentences(text).length === 0) {
+        text = await this.runStep(
+          state,
+          'CitationAgent',
+          'Annotating answer with inline chunk citations',
+          async () => this.citationAgent(state, draft)
+        );
+      }
+
+      if (findCitedSentences(text).length) {
+        const current = text;
+        text = await this.runStep(
+          state,
+          'CitationVerifier',
+          'Checking that each citation supports its sentence',
+          async () => {
+            const { answer, removed } = await this.citationVerifier(
+              state,
+              current
+            );
+            return { answer, removed };
+          }
+        ).then((r) => r.answer);
+      }
+      return text;
+    } catch (err) {
+      console.error(
+        '[MultiAgent] citation step failed, keeping the draft',
+        err
+      );
+      return draft;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Agent 7 — Context Compressor
+  // Agent 7 — Context Selector
   // ─────────────────────────────────────────────────────────────────────────
 
-  private async contextCompressor(state: AgentState): Promise<string> {
-    const rawContext = buildContextString(state.fusedResults);
-    if (!rawContext) return '';
-    // Short enough already → skip LLM call
-    if (rawContext.length < 1200) return rawContext;
+  /**
+   * Picks which retrieved chunks the answer is written from. It selects whole
+   * chunks instead of rewriting them, so the text stays exactly as indexed and
+   * the generator can cite the chunk numbers inline.
+   */
+  private async contextSelector(state: AgentState): Promise<string> {
+    const all = buildNumberedContext(
+      state.fusedResults,
+      state.chunkIndexMap,
+      null,
+      Number.POSITIVE_INFINITY
+    );
+    if (!all) return '';
+    // Short enough already → keep everything, no LLM call
+    if (all.length < SELECTION_MIN_CHARS) return all;
 
-    const system = `You are a Context Compression Agent.
-Your task: extract and restructure ONLY the information from the provided context that is necessary to answer the user's query.
+    const numbers = Object.values(state.chunkIndexMap);
+    const listing = Object.entries(state.chunkIndexMap)
+      .sort(([, a], [, b]) => a - b)
+      .map(([id, n]) => `[${n}] ${(state.chunkMap[id] ?? '').slice(0, 300)}`)
+      .join('\n')
+      .slice(0, 12000);
 
+    const system = `You are a Context Selection Agent.
+Given the user's question and numbered text chunks, choose the chunks needed to answer it.
 Rules:
-- Keep ALL factual content relevant to the query; remove nothing important
-- Remove passages that are clearly unrelated or duplicate
-- Preserve document attribution (document titles / IDs)
-- Write in the same language as the source documents
-- Do NOT add information that is not present in the source
-- Output should be plain text, structured and easy to read`;
+- Keep every chunk that contains information relevant to the question
+- Drop chunks that are unrelated or only repeat another kept chunk
+- Prefer keeping a borderline chunk over losing relevant information
+Return ONLY a JSON object: {"keep": [<chunk numbers>]}
+RESPOND ONLY WITH THE JSON OBJECT.`;
 
-    const resp = await this.withRetry(() =>
-      this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: system },
-          {
-            role: 'user',
-            content: `User query: ${
-              state.originalQuery
-            }\n\nFull context:\n${rawContext.slice(0, 8000)}`,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: Math.min(this.max_tokens, 4096),
-        stream: false,
-      })
+    const selection = await this.askJSON({
+      agent: 'ContextSelector',
+      system,
+      user: `Question: ${state.searchQuery}\n\nChunks:\n${listing}`,
+      schema: ChunkSelectionSchema,
+      fallback: { keep: [] },
+      maxTokens: JSON_AGENT_TOKENS,
+    });
+
+    // Only numbers that exist; an empty or unusable choice keeps everything.
+    const valid = new Set(numbers);
+    const keep = new Set(selection.keep.filter((n) => valid.has(n)));
+    return buildNumberedContext(
+      state.fusedResults,
+      state.chunkIndexMap,
+      keep.size ? keep : null,
+      ANSWER_CONTEXT_MAX_CHARS
     );
-
-    return resp.choices[0]?.message?.content ?? rawContext;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Agent 8 — Answer Generator
+  // Agent 8 — Answer Generator (streams its tokens)
   // ─────────────────────────────────────────────────────────────────────────
 
   private async answerGenerator(state: AgentState): Promise<string> {
@@ -1043,29 +1116,46 @@ Rules:
 Use ONLY the provided context to answer the question.
 Be accurate, comprehensive, and well-structured (use bullet points or numbered lists when appropriate).
 If the context does not contain enough information to fully answer, say so explicitly rather than guessing.
-Do NOT hallucinate facts that are not present in the context.${correctionNote}`;
+Do NOT hallucinate facts that are not present in the context.
+
+Cite your sources: the context is split into numbered chunks like "[3] text". After each statement that a chunk supports, add that chunk's number in square brackets, e.g. "... was approved [3]." or "[2][5]" for several chunks. Cite only numbers that appear in the context, never invent one, and do not add a list of sources at the end.${correctionNote}`;
 
     const context =
-      state.compressedContext ||
-      buildContextString(state.fusedResults).slice(0, 6000);
+      state.answerContext ||
+      buildNumberedContext(
+        state.fusedResults,
+        state.chunkIndexMap,
+        null,
+        ANSWER_CONTEXT_MAX_CHARS
+      );
 
-    const resp = await this.withRetry(() =>
+    const stream = await this.withRetry(() =>
       this.openai.chat.completions.create({
         model: this.model,
         messages: [
           { role: 'system', content: system },
           {
             role: 'user',
-            content: `Context:\n${context}\n\nQuestion: ${state.originalQuery}`,
+            content: `Context:\n${context}\n\nQuestion: ${state.searchQuery}`,
           },
         ],
         temperature: this.temperature,
         max_tokens: this.max_tokens,
-        stream: false,
+        stream: true,
       })
     );
 
-    return resp.choices[0]?.message?.content ?? '';
+    // Forward each token as it arrives. Reasoning deltas (a separate field on
+    // thinking models) are not part of the answer and are not forwarded.
+    let text = '';
+    for await (const part of stream) {
+      const delta = part.choices[0]?.delta?.content;
+      if (delta) {
+        text += delta;
+        this.streamChunk?.(delta);
+      }
+    }
+    return text;
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1074,7 +1164,7 @@ Do NOT hallucinate facts that are not present in the context.${correctionNote}`;
 
   private async answerEvaluator(state: AgentState): Promise<EvaluationResult> {
     const contextExcerpt = (
-      state.compressedContext || buildContextString(state.fusedResults)
+      state.answerContext || buildContextString(state.fusedResults)
     ).slice(0, 3000);
 
     const system = `You are an Answer Quality Evaluation Agent.
@@ -1095,31 +1185,19 @@ Return ONLY a JSON object:
 }
 RESPOND ONLY WITH THE JSON OBJECT.`;
 
-    const resp = await this.withRetry(() =>
-      this.openai.chat.completions.create({
-        model: this.model,
-        messages: [
-          { role: 'system', content: system },
-          {
-            role: 'user',
-            content: `User query: ${state.originalQuery}\n\nContext (excerpt):\n${contextExcerpt}\n\nGenerated answer:\n${state.draftAnswer}`,
-          },
-        ],
-        temperature: 0.1,
-        max_tokens: 400,
-        stream: false,
-      })
-    );
-
-    const text = resp.choices[0]?.message?.content ?? '';
-    return (
-      extractJSON<EvaluationResult>(text) ?? {
+    return this.askJSON<EvaluationResult>({
+      agent: 'AnswerEvaluator',
+      system,
+      user: `User query: ${state.searchQuery}\n\nContext (excerpt):\n${contextExcerpt}\n\nGenerated answer:\n${state.draftAnswer}`,
+      schema: EvaluationSchema,
+      fallback: {
         isGood: true,
         score: 7,
         issues: [],
         additionalInstructions: '',
-      }
-    );
+      },
+      maxTokens: JSON_AGENT_TOKENS,
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -1128,9 +1206,12 @@ RESPOND ONLY WITH THE JSON OBJECT.`;
   // Agent 10 — Citation Agent
   // ─────────────────────────────────────────────────────────────────
 
-  private async citationAgent(state: AgentState): Promise<string> {
-    if (!state.finalAnswer || Object.keys(state.chunkIndexMap).length === 0) {
-      return state.finalAnswer;
+  private async citationAgent(
+    state: AgentState,
+    answer: string
+  ): Promise<string> {
+    if (!answer || Object.keys(state.chunkIndexMap).length === 0) {
+      return answer;
     }
 
     // Build a numbered chunk list for the prompt (sorted by display number).
@@ -1158,15 +1239,16 @@ RULES — read carefully:
           { role: 'system', content: system },
           {
             role: 'user',
-            content: `ANSWER:\n${
-              state.finalAnswer
-            }\n\nCONTEXT CHUNKS:\n${chunkLines.slice(0, 5000)}`,
+            content: `ANSWER:\n${answer}\n\nCONTEXT CHUNKS:\n${chunkLines.slice(
+              0,
+              5000
+            )}`,
           },
         ],
         temperature: 0.1,
         // Give the model enough room for the original answer plus citation markers
         max_tokens: Math.min(
-          Math.ceil(state.finalAnswer.length / 3) + 400,
+          Math.ceil(answer.length / 3) + 400 + JSON_AGENT_TOKENS,
           this.max_tokens
         ),
         stream: false,
@@ -1177,14 +1259,81 @@ RULES — read carefully:
 
     // Sanity guard: if the model returned something radically longer than the
     // original (hallucinated text), fall back to the uncited answer.
-    if (!cited || cited.length > state.finalAnswer.length * 2.5) {
+    if (!cited || cited.length > answer.length * 2.5) {
       console.warn(
         '[CitationAgent] Output suspicious – falling back to uncited answer'
       );
-      return state.finalAnswer;
+      return answer;
     }
 
     return cited;
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Retriever — Entities (documents that mention the named entities)
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * The annotations stored with every document say where people, places and
+   * organisations are mentioned. This finds the documents mentioning the
+   * entities written in the question (and, for linked entities, under any
+   * other spelling), then pulls their best chunks with the regular vector
+   * search restricted to those documents. Vector similarity alone often
+   * misses them for short, name-only questions.
+   */
+  private async entityRetriever(state: AgentState) {
+    const names = state.queryAnalysis?.entities ?? [];
+    if (!names.length || !this.indexName) {
+      return { entities: names, documents: 0 };
+    }
+
+    const lookup = await findEntityDocuments({
+      indexName: this.indexName,
+      names,
+      collectionId: this.collectionId,
+      filterIds: this.filterIds,
+    });
+    if (!lookup.docIds.length) {
+      return { entities: names, documents: 0 };
+    }
+
+    state.entityResults = await this.callIndexer(
+      state.rewrittenQueries.length
+        ? state.rewrittenQueries
+        : [state.searchQuery],
+      'dense',
+      false,
+      lookup.docIds
+    );
+    return {
+      entities: names,
+      linked: lookup.entities.map((e) => `${e.name} (${e.type})`),
+      documents: lookup.docIds.length,
+      chunkDocuments: state.entityResults.length,
+    };
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Agent 11 — Citation Verifier
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * The CitationAgent only inserts [n] markers and may cite loosely. This
+   * removes markers that point at no chunk, then asks the model whether each
+   * remaining cited chunk really supports its sentence and drops the ones that
+   * do not. Any failure keeps the citations as they were.
+   */
+  private async citationVerifier(
+    state: AgentState,
+    draft: string
+  ): Promise<{ answer: string; removed: number }> {
+    return verifyCitations({
+      llm: this.llm,
+      draft,
+      chunkIndexMap: state.chunkIndexMap,
+      chunkMap: state.chunkMap,
+      maxSentences: MAX_VERIFIED_SENTENCES,
+    });
   }
 
   // ─────────────────────────────────────────────────────────────────

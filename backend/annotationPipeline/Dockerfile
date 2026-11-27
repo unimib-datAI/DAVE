@@ -7,9 +7,15 @@ ENV PYTHONUNBUFFERED=1
 
 COPY requirements.txt /app/requirements.txt
 
+# PyTorch: CPU wheel by default; set TORCH_INDEX_URL to a CUDA index
+# (e.g. https://download.pytorch.org/whl/cu128, needed for RTX 50xx) to build for a GPU.
+# Installed before requirements.txt so ReFinED/transformers reuse it.
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends build-essential git wget ca-certificates \
     && pip install --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir torch --index-url ${TORCH_INDEX_URL} \
     && pip install --no-cache-dir --prefer-binary -r /app/requirements.txt \
     && apt-get purge -y --auto-remove build-essential git wget \
     && rm -rf /var/lib/apt/lists/* /root/.cache/pip

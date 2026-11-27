@@ -104,6 +104,7 @@ const t: Translation = {
   collections: {
     backToCollections: 'Torna alle collezioni',
     collectionDocuments: 'Documenti della collezione {name}',
+    backToCollection: 'Torna alla collezione',
     untitled: 'senza titolo',
     tableHeaders: {
       id: 'Id',
@@ -160,6 +161,14 @@ const t: Translation = {
     thinkingLow: 'Basso',
     thinkingMedium: 'Medio',
     thinkingHigh: 'Alto',
+    thinkingTooltip:
+      'Quanto il modello ragiona prima di rispondere. Più alto è più lento ma può essere più accurato. Non usato nelle modalità agenti e ricerca approfondita.',
+    mode: 'Modalità di risposta',
+    modeTooltip:
+      'Standard: un solo passaggio di recupero, poi la risposta. Agenti: più agenti AI riformulano la domanda, recuperano dai documenti, verificano il contesto e controllano le citazioni; più lento ma più accurato. Ricerca approfondita: divide la domanda in sotto-domande, cerca nei documenti in più passaggi e scrive un report lungo con citazioni; richiede minuti.',
+    modeStandard: 'RAG standard',
+    modeAgent: 'Modalità agenti',
+    modeDeep: 'Ricerca approfondita',
     send: 'Invia',
     resetChat: 'Resetta chat',
     predefinedQuestions: 'Domande predefinite',
@@ -192,7 +201,7 @@ const t: Translation = {
       "Forza l'uso di RAG anche se il recupero regolare sarebbe sufficiente.",
     useMultiAgentSystem: 'Usa sistema multi-agente',
     useMultiAgentTooltip:
-      'Abilita il Sistema Multi-Agente per risposte migliorate utilizzando agenti AI specializzati (Ricercatore, Scrittore, Revisore)',
+      'Abilita il Sistema Multi-Agente per risposte migliorate utilizzando più agenti AI che riformulano la domanda, recuperano dai documenti, verificano il contesto e controllano le citazioni',
     systemPrompt: 'Prompt di sistema',
     systemPromptTooltip:
       'Qui puoi aggiungere il tuo prompt di sistema che determina il comportamento del modello AI.',
@@ -222,124 +231,6 @@ const t: Translation = {
     devModeNotAllowedDescription:
       'Non hai il permesso di utilizzare la modalità sviluppatore.',
   },
-  document: {
-    toolbar: {
-      logout: 'Esci',
-      save: 'Salva',
-      saving: 'Salvataggio...',
-      saved: 'Salvato',
-      retry: 'Riprova',
-      saveError: 'Errore',
-      lastSaved: 'Ultimo salvataggio:',
-      justNow: 'adesso',
-      minuteAgo: 'minuto fa',
-      minutesAgo: 'minuti fa',
-      hourAgo: 'ora fa',
-      hoursAgo: 'ore fa',
-      dayAgo: 'giorno fa',
-      daysAgo: 'giorni fa',
-      lastSavedAt: 'Ultimo salvataggio alle',
-      savingTooltip: 'Salvataggio in corso...',
-      savedTooltip: 'Tutte le modifiche salvate',
-      errorTooltip: 'Errore durante il salvataggio. Clicca per riprovare.',
-      unsavedChanges: 'Modifiche non salvate',
-    },
-    subToolbar: {
-      anonimize: 'Anonimizza i nomi di persona',
-      deAnonimize: 'De-anonimizza documento',
-      annotationSet: {
-        label: 'Set',
-        new: 'Nuovo set di annotazioni',
-      },
-      types: {
-        label: 'Tipi',
-      },
-    },
-    leftSidebar: {
-      actionsTooltips: {
-        select: 'Seleziona',
-        add: 'Aggiungi annotazione',
-        delete: 'Elimina annotazione',
-        clusters: 'Cluster entità',
-        filter: 'Filtra annotazioni',
-        settings: 'Impostazioni',
-        data: 'Mostra metadati',
-      },
-      clustersContent: {
-        alphabeticalOrder: 'Alfabetico',
-        mentionOrder: 'Numero di menzioni',
-        title: 'Cluster entità',
-        description: 'Visualizza i cluster delle entità con le loro menzioni',
-        mentions: '{n} menzioni',
-        edit: 'Modifica',
-      },
-      metadataContent: {
-        title: 'Metadati del documento',
-        description: 'Visualizza i metadati del documento',
-      },
-      addContent: {
-        title: 'Aggiungi annotazione',
-        description:
-          'Aggiungi una nuova annotazione selezionando uno span di testo',
-        addType: 'Aggiungi tipo',
-        loadTaxonomy: 'Carica tassonomia',
-        tooltipNotRecognized:
-          "Questo tipo non è riconosciuto automaticamente dall' algoritmo",
-      },
-    },
-    rightSidebar: {
-      title: 'Dettagli annotazione',
-      description: "Ispeziona i dettagli per l'annotazione selezionata.",
-      entityContext: 'Contesto entità',
-      typeHierarchy: 'Gerarchia tipi',
-      links: 'Link',
-      editBtn: 'Modifica',
-      emptyLinks: 'Questa annotazione non presenta alcun link.',
-    },
-    modals: {
-      addType: {
-        title: 'Aggiungi tipo entità',
-        description:
-          'Crea un nuovo tipo con cui annotare entità nei tuoi documenti.',
-        typeNameInput: 'Nome del nuovo tipo',
-        tagInput: 'Tag',
-        subClassOf: 'Sottoclasse di',
-        parentTypeInput: 'Tipo',
-        btnConfirm: 'Aggiungi',
-        btnCancel: 'Annulla',
-      },
-      addAnnotationSet: {
-        title: 'Crea un nuovo set di annotazioni',
-        description:
-          'Crea un nuovo set di annotazioni. Seleziona un preset vuoto, oppure parti da un set esistente',
-        nameInput: 'Nome set di annotazione',
-        presetInput: 'Preset',
-      },
-      editAnnotation: {
-        title: 'Modifica annotazione',
-        context: 'Contesto',
-        type: 'Tipo',
-        typeDescription:
-          "Modifica il tipo dell'entità selezionando tra quelli disponibili.",
-        links: 'Link',
-        linksDescription:
-          'Modifica i link selezionando il vero candidato fra le entità disponibili',
-        searchLink: 'Cerca link...',
-        addCandidate: {
-          btn: 'Aggiungi candidato',
-          title: 'Aggiungi nuovo candidato',
-          description:
-            'Aggiungi un nuovo candidato inserendo direttamente il link della risorsa, oppure compilando il form.',
-          add: 'Aggiungi',
-          candidateTitle: 'Titolo candidato',
-          candidateDescription: 'Descrizione candidato',
-          resourceLink: 'Link alla risorsa...',
-        },
-        btnConfirm: 'Conferma',
-        btnCancel: 'Annulla',
-      },
-    },
-  },
   search: {
     facets: {
       deAnonymize: 'Mostra nomi reali',
@@ -361,7 +252,18 @@ const t: Translation = {
     showMore: 'Mostra di più',
   },
   document: {
+    typeFilterAll: 'Tutti',
+    documentNotFound: 'Documento non trovato',
+    notAuthorized: 'Non autorizzato',
+    noLinks: 'Non ci sono collegamenti.',
+    clustersUpdated: 'Cluster aggiornati',
+    swapClusters: 'Scambia i cluster',
+    candidateAdded: 'Candidato aggiunto',
+    resourceLinkPlaceholder: 'Link alla risorsa...',
+    typePlaceholder: 'Tipo',
+    deleteAnnotationSetConfirm: 'Stai per eliminare un insieme di annotazioni e tutte le sue annotazioni. Sei sicuro?',
     toolbar: {
+      logout: 'Esci',
       save: 'Salva',
       saving: 'Salvataggio...',
       saved: 'Salvato',

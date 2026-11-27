@@ -80,7 +80,7 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
   const taxonomyNode = useMemo(() => {
     const node = getAllNodeData(taxonomy, type);
     return node;
-  }, [taxonomy]);
+  }, [taxonomy, type]);
 
   const typesPath = useMemo(() => {
     const nodes = getNodesPath(taxonomy, type);
@@ -96,8 +96,10 @@ const ClusterGroup = ({ type, clusters, selected, onClick }: ClusterGroup) => {
     //   return `${type}`;
     // }
 
-    return type;
-  }, [type]);
+    // The localized label path (e.g. "Person", "Law / Article of law"), not
+    // the raw type key ("persona", "PERSON").
+    return path || type;
+  }, [taxonomy, type]);
 
   // Filter and sort clusters based on searchTerm and selectedSort
   useEffect(() => {

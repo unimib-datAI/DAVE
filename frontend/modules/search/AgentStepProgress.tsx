@@ -19,14 +19,32 @@ const AGENT_LABELS: Record<string, string> = {
   SummaryRetriever: 'Document Fetch',
   ResultFusion: 'Result Fusion (RRF)',
   RelevanceCoverage: 'Coverage Check',
-  ContextCompressor: 'Context Compression',
+  ContextSelector: 'Context Selection',
   AnswerGenerator: 'Answer Generation',
   AnswerEvaluator: 'Answer Evaluation',
+  EarlyRetrieval: 'Early Retrieval',
+  EntityRetriever: 'Entity Retrieval',
   CitationAgent: 'Citation Annotation',
+  CitationVerifier: 'Citation Check',
+  // Deep research
+  Planner: 'Research Planning',
+  Researcher: 'Research',
+  Reflector: 'Gap Analysis',
+  SectionWriter: 'Section Writing',
+  Synthesizer: 'Report Synthesis',
 };
 
 function formatMs(ms: number): string {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+}
+
+/** The details arrive as compact JSON: pretty-print it when it still parses. */
+function formatDetails(details: string): string {
+  try {
+    return JSON.stringify(JSON.parse(details), null, 2);
+  } catch {
+    return details; // truncated for length: show as is
+  }
 }
 
 export function AgentStepProgress({ steps, isStreaming = false }: Props) {
@@ -73,8 +91,9 @@ export function AgentStepProgress({ steps, isStreaming = false }: Props) {
               initial={{ opacity: 0, x: -6 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.15 }}
-              className="flex items-start gap-2 text-xs"
+              className="flex flex-col text-xs"
             >
+              <div className="flex items-start gap-2">
               {/* Status icon */}
               <span className="mt-0.5 flex-shrink-0 w-3.5">
                 {isDone ? (
@@ -114,6 +133,19 @@ export function AgentStepProgress({ steps, isStreaming = false }: Props) {
                 <span className="ml-auto flex-shrink-0 text-[10px] text-slate-300 tabular-nums">
                   {formatMs(step.durationMs)}
                 </span>
+              )}
+              </div>
+
+              {/* What the step produced, for checking how the answer was built */}
+              {isDone && step.details && (
+                <details className="ml-[22px] mt-0.5">
+                  <summary className="cursor-pointer select-none text-[10px] text-slate-400 hover:text-slate-600">
+                    Details
+                  </summary>
+                  <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded bg-slate-50 p-2 text-[10px] text-slate-500">
+                    {formatDetails(step.details)}
+                  </pre>
+                </details>
               )}
             </motion.div>
           );

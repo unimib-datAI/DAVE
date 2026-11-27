@@ -277,6 +277,17 @@ services:
     build:
       context: ./backend/annotationPipeline
       dockerfile: Dockerfile
+      args:
+        TORCH_INDEX_URL: ${TORCH_INDEX_URL:-https://download.pytorch.org/whl/cpu}
+    # GPU access (needs NVIDIA Container Toolkit + a CUDA TORCH_INDEX_URL).
+    # Remove this block to run on CPU only.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     environment:
       - ANNOTATION_PIPELINE_PORT=${ANNOTATION_PIPELINE_PORT:-8002}
       - HF_HOME=/root/.cache

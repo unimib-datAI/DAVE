@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import { DocumentModel } from '../db/models/Document';
 import { AnnotationSetModel, annotationSetDTO } from '../db/models/AnnotationSet';
 import { AnnotationModel, annotationDTO } from '../db/models/Annotation';
-import { decode } from './anonymization';
+import { decode, isAnonymizedAnnotation } from './anonymization';
 import { deleteElasticDocument } from '../elasticAdmin';
 import { CollectionController } from './collectionController';
 import { dbConnect } from '../db/connection';
@@ -446,7 +446,8 @@ export const DocumentController = {
       if (annset.name.startsWith('entities_consolidated')) {
         for (const annot of annset.annotations) {
           if (
-            ['persona', 'parte', 'controparte', 'luogo', 'altro'].includes(annot.type) &&
+            // only the entities the user chose to anonymize at upload
+            isAnonymizedAnnotation(annot, document.features) &&
             annot.start < document.preview.length
           ) {
             let end = 0;

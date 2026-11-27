@@ -1,6 +1,10 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import OpenAI from 'openai';
+import { healClient } from '@/lib/llmCompat';
+import { getLlmConfig } from '@/lib/llmConfig';
 import { executeMultiAgent } from '@/lib/multiAgent';
+import { executeDeepResearch } from '@/lib/deepResearch';
+import { parseChatMode } from '@/lib/chatMode';
 
 /**
  * Server-side proxy for text generation using OpenAI-compatible API
@@ -9,30 +13,12 @@ import { executeMultiAgent } from '@/lib/multiAgent';
  *
  * Supports custom LLM settings passed via request body
  */
-const THINKING_EFFORTS = ['low', 'medium', 'high'];
-
-// The model-side switches for the chat's thinking select. chat_template_kwargs
-// is what llama.cpp and vLLM pass to the chat template (Qwen3, Gemma, gpt-oss
-// read enable_thinking / reasoning_effort there); reasoning_effort is the
-// OpenAI-style field for servers that read it from the request itself.
-function thinkingParams(thinking: unknown): Record<string, unknown> {
-  if (typeof thinking === 'string' && THINKING_EFFORTS.includes(thinking)) {
-    return {
-      reasoning_effort: thinking,
-      chat_template_kwargs: { enable_thinking: true, reasoning_effort: thinking },
-    };
-  }
-  const on = thinking === undefined && process.env.CHAT_LLM_THINKING === 'true';
-  return on ? {} : { chat_template_kwargs: { enable_thinking: false } };
-}
-
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
   if (req.method !== 'POST') {
     res.status(405).json({ message: 'Method Not Allowed' });
     return;
   }
 
-  console.log('request', req.body);
 
   try {
     // Set appropriate headers for streaming
@@ -52,7 +38,8 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       temperature = 0.7,
       top_p = 0.9,
       model,
-      useMultiAgent = false,
+      mode: modeParam, // 'standard' | 'agent' | 'deep'
+      useMultiAgent = false, // legacy flag, same as mode 'agent'
       customSettings, // Custom LLM settings from frontend
       collectionId, // Collection to restrict retrieval to
       filterIds, // Document IDs to restrict retrieval to
@@ -62,26 +49,29 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
 
     const max_tokens = max_new_tokens ?? maxTokensParam ?? 8192;
 
-    // Determine which settings to use
-    let baseURL = process.env.API_LLM || 'http://localhost:8000/v1';
-    let apiKey = process.env.LLM_KEY || 'dummy-key';
-    // Prefer model from request, then environment, then fallback default
-    const envModel =
-      process.env.LLM_NAME || process.env.DEFAULT_MODEL || 'phi4-mini';
-    let modelToUse = model ?? envModel;
-
-    // If custom settings are provided and enabled, use them
-    if (customSettings?.useCustomSettings) {
+    // The endpoint, key and model come from the app-wide settings (Settings >
+    // LLM, falling back to the environment) - see lib/llmConfig.ts. The only
+    // client-supplied override is the settings page's "Test connection",
+    // which has to try values that are not saved yet.
+    const llmConfig = await getLlmConfig();
+    let baseURL = llmConfig.baseURL;
+    let apiKey = llmConfig.apiKey;
+    let modelToUse = llmConfig.model;
+    if (customSettings?.endpointTest === true) {
       baseURL = customSettings.baseURL || baseURL;
       apiKey = customSettings.apiKey || apiKey;
       modelToUse = customSettings.model || modelToUse;
     }
 
-    // Initialize OpenAI client with configured settings
-    const openai = new OpenAI({
-      baseURL: baseURL,
-      apiKey: apiKey,
-    });
+    // Initialize OpenAI client with configured settings. Self-healing: a
+    // parameter the server rejects (e.g. chat_template_kwargs on Azure) is
+    // dropped and the request retried, see lib/llmCompat.ts.
+    const openai = healClient(
+      new OpenAI({
+        baseURL: baseURL,
+        apiKey: apiKey,
+      })
+    );
     let rawMessages = messages;
     if (!rawMessages && prompt) {
       rawMessages = [
@@ -117,8 +107,46 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       throw new Error('No valid messages after filtering');
     }
 
-    // Check if multi-agent system should be used
-    if (useMultiAgent) {
+    const mode = parseChatMode(modeParam, useMultiAgent);
+    const streamToClient = (chunk: string) => {
+      res.write(chunk);
+      // Force immediate sending of the chunk without buffering
+      if (typeof (res as any).flush === 'function') {
+        (res as any).flush();
+      }
+    };
+    // collectionId may arrive as a full collection object or a plain string
+    const resolvedCollectionId =
+      typeof collectionId === 'string'
+        ? collectionId
+        : collectionId?.id ?? undefined;
+
+    if (mode === 'deep') {
+      console.log('[API] Using Deep Research');
+
+      // Stop the research if the client goes away before the response ends
+      const abort = new AbortController();
+      res.on('close', () => {
+        if (!res.writableEnded) abort.abort();
+      });
+
+      await executeDeepResearch(
+        chatMessages,
+        {
+          baseURL: baseURL,
+          apiKey: apiKey,
+          model: modelToUse,
+          temperature: temperature,
+          max_tokens: max_tokens,
+          indexName: process.env.ELASTIC_INDEX,
+          collectionId: resolvedCollectionId,
+          filterIds: Array.isArray(filterIds) ? filterIds : undefined,
+          signal: abort.signal,
+        },
+        streamToClient
+      );
+      res.end();
+    } else if (mode === 'agent') {
       console.log('[API] Using Multi-Agent System');
 
       // Execute multi-agent system with streaming
@@ -133,22 +161,10 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
           // Retrieval params – used by the multi-agent's internal retrievers
           indexerBaseURL: process.env.API_INDEXER,
           indexName: process.env.ELASTIC_INDEX,
-          // collectionId may arrive as a full collection object or a plain string
-          collectionId:
-            typeof collectionId === 'string'
-              ? collectionId
-              : collectionId?.id ?? undefined,
+          collectionId: resolvedCollectionId,
           filterIds: Array.isArray(filterIds) ? filterIds : undefined,
         },
-        (chunk: string) => {
-          // Stream each chunk to the client
-          res.write(chunk);
-
-          // Force immediate sending of the chunk without buffering
-          if (typeof (res as any).flush === 'function') {
-            (res as any).flush();
-          }
-        }
+        streamToClient
       );
 
       // End the response when done
@@ -239,7 +255,9 @@ const handler = async (req: NextApiRequest, res: NextApiResponse) => {
       if (!answered) {
         // reasoning_content is not forwarded, so an empty stream would show an
         // empty message with no clue why.
-        console.warn(`[API] The model returned no answer (finish_reason: ${finishReason})`);
+        console.warn(
+          `[API] The model returned no answer (finish_reason: ${finishReason})`
+        );
         res.write(
           finishReason === 'length'
             ? 'The model used its whole token limit before answering (it was probably still reasoning). Increase the max tokens in the chat settings or use a model without thinking.'

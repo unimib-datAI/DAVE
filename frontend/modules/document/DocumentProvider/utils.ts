@@ -11,88 +11,9 @@ import {
   FlatTreeNode,
   FlatTreeObj,
   getNode,
-  mapEntityType,
 } from '../../../components/Tree';
+import { stableTypeColor } from '@/lib/typeColors';
 import { Action, FlattenedTaxonomy, State, Taxonomy } from './types';
-
-// Get normalized entity type with robust case-insensitive handling
-export const getNormalizedEntityType = (type: string): string => {
-  const lowerType = type.toLowerCase();
-
-  // Person types
-  if (/^(person|per|people|individual)s?$/i.test(lowerType)) {
-    return 'persona';
-  }
-
-  // Location types
-  if (/^(location|loc|place|gpe)s?$/i.test(lowerType)) {
-    return 'luogo';
-  }
-
-  // Organization types
-  if (/^(organization|org|company|institution)s?$/i.test(lowerType)) {
-    return 'organizzazione';
-  }
-
-  // Date/Time types
-  if (/^(date|time|temporal)$/i.test(lowerType)) {
-    return 'data';
-  }
-
-  // Money types
-  if (/^(money|monetary|currency|financial|denaro)$/i.test(lowerType)) {
-    return 'money';
-  }
-
-  // Legal types
-  if (/^(law|legal|statute)s?$/i.test(lowerType)) {
-    return 'norma';
-  }
-
-  // ID types
-  if (/^(id|identifier|number|code)s?$/i.test(lowerType)) {
-    return 'id';
-  }
-
-  // Facility types
-  if (/^fac$/i.test(lowerType)) {
-    return 'facility';
-  }
-
-  // Nationality/Religion/Political (NORP) types
-  if (/^norp$/i.test(lowerType)) {
-    return 'norp';
-  }
-
-  // Numeric types
-  if (/^(cardinal|ordinal|quantity|percent)$/i.test(lowerType)) {
-    return 'numeric';
-  }
-
-  // Creative work types
-  if (/^(work_of_art)$/i.test(lowerType)) {
-    return 'creative_work';
-  }
-
-  // Event types
-  if (/^event$/i.test(lowerType)) {
-    return 'event';
-  }
-
-  // Product types
-  if (/^product$/i.test(lowerType)) {
-    return 'product';
-  }
-
-  // Language types
-  if (/^language$/i.test(lowerType)) {
-    return 'language';
-  }
-
-  // Fallback to mapEntityType for any other mappings
-  const mappedType = mapEntityType(type);
-  return mappedType === type ? type : mappedType;
-};
 
 /**
  * Add a new annotation - optimized for performance
@@ -240,60 +161,27 @@ export const isSameAction = (
   newAction: State['ui']['action']
 ) => deepEqual(oldAction, newAction);
 
+/**
+ * The entity types of some annotations, for the type filters: one item per
+ * type, as named by the annotations, with its count (most frequent first).
+ * `types` is the list of raw types the item stands for (just its own).
+ */
 export const getAnnotationTypes = (
   taxonomy: FlattenedTaxonomy,
   annotations: EntityAnnotation[]
 ) => {
-  // First group annotations by their normalized types to consolidate similar entity types
-  let groupedMap = {} as Record<
-    string,
-    {
-      key: string;
-      label: string;
-      n: number;
-      originalTypes: Set<string>; // Keep track of original types
-    }
-  >;
-
+  const groups = new Map<string, { key: string; label: string; n: number; types: string[] }>();
   for (const ann of annotations) {
-    // Get the original type and its normalized equivalent
-    const originalType = ann.type;
-
-    // Use the node from taxonomy for the normalized type to get the proper label
-    const node = getNode(taxonomy, originalType);
-
-    if (!groupedMap[originalType]) {
-      groupedMap[originalType] = {
-        key: originalType,
-        label: node.label,
-        n: 1,
-        originalTypes: new Set([originalType]),
-      };
-    } else {
-      groupedMap[originalType].n += 1;
-      groupedMap[originalType].originalTypes.add(originalType);
+    const node = getNode(taxonomy, ann.type);
+    let group = groups.get(node.key);
+    if (!group) {
+      group = { key: node.key, label: node.label, n: 0, types: [] };
+      groups.set(node.key, group);
     }
+    group.n += 1;
+    if (!group.types.includes(ann.type)) group.types.push(ann.type);
   }
-
-  // Convert to the expected format
-  let map = {} as Record<
-    string,
-    {
-      key: string;
-      label: string;
-      n: number;
-    }
-  >;
-
-  for (const [normalizedType, group] of Object.entries(groupedMap)) {
-    map[normalizedType] = {
-      key: normalizedType,
-      label: group.label,
-      n: group.n,
-    };
-  }
-
-  return Object.values(map).sort((a, b) => b.n - a.n);
+  return Array.from(groups.values()).sort((a, b) => b.n - a.n);
 };
 
 // Cache for getTypeFilter to avoid recreating the array on every call
@@ -350,31 +238,28 @@ export const applyTypeColors = (
   return next;
 };
 
+/**
+ * The taxonomy of a document: exactly the entity types its annotations carry,
+ * each a top-level node named as the annotations name it (PERSON, ORG,
+ * persona...), with a stable color. No predefined types, no renaming, no
+ * grouping: `taxonomy` only adds types that are not already present (e.g. kept
+ * empty, see baseTaxonomy).
+ */
 export const createTaxonomy = (
   taxonomy: Taxonomy,
   annotationSets: AnnotationSet<EntityAnnotation>[]
 ) => {
-  const flatTaxonomy = flattenTree(taxonomy);
-  const unknownNodes: Record<string, FlatTreeNode> = {};
-
+  const flat = flattenTree(taxonomy);
   annotationSets.forEach((annSet) => {
     annSet.annotations.forEach((ann) => {
-      if (!unknownNodes[ann.type] && !flatTaxonomy[ann.type]) {
-        const node: ChildNode = {
-          key: ann.type,
-          label: `${ann.type[0].toUpperCase()}${ann.type
-            .slice(1)
-            .toLowerCase()}`,
-          parent: 'UNKNOWN',
-          recognizable: false,
-        };
-        unknownNodes[ann.type] = node;
-      }
+      if (!ann.type || flat[ann.type]) return;
+      flat[ann.type] = {
+        key: ann.type,
+        label: ann.type,
+        color: stableTypeColor(ann.type),
+        parent: null,
+      } as FlatTreeNode;
     });
   });
-
-  return {
-    ...flatTaxonomy,
-    ...unknownNodes,
-  };
+  return flat;
 };

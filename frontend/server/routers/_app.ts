@@ -10,6 +10,7 @@ import { taxonomy } from './taxonomy';
 import { wikipedia } from './wikipedia';
 import { users } from './user';
 import { similarity } from './similarity';
+import { llm } from './llm';
 
 // export type definition of API
 export type AppRouter = typeof appRouter;
@@ -25,4 +26,5 @@ export const appRouter = createRouter()
   .merge('search.', search)
   .merge('user.', users)
   .merge('permission.', permissions)
-  .merge('similarity.', similarity);
+  .merge('similarity.', similarity)
+  .merge('llm.', llm);

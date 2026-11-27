@@ -32,6 +32,7 @@
     "pages/old/review/[source]"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "lib/tests"
   ]
 }

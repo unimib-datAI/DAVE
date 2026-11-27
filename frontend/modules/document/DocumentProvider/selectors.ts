@@ -10,7 +10,6 @@ import {
   getAllNodeData,
   mapEntityType,
 } from '../../../components/Tree';
-import { getNormalizedEntityType } from './utils';
 import SelectAnnotationSet from '../Toolsbar/SelectAnnotationSet';
 import { DocumentContext, documentStateAtom } from './DocumentContext';
 import { ProcessedCluster, State, Action } from './types';
@@ -240,9 +239,17 @@ export const selectDocumentClusters = createSelector(
         // repeated mentions with the same text get distinct snippets
         const usedOrphanOffsets = new Set<number>();
         let orphanCount = 0;
+        // Types of the annotations this cluster's mentions point to: the
+        // ORIGINAL entity types (PERSON, ORG...). The type stored on the
+        // cluster itself may be a translated one (persona, organizzazione...)
+        // written back by an older version of this view.
+        const annotationTypes = new Map<string, number>();
 
         const mentions = cluster.mentions.map((mention) => {
           const ann = annSet.annotations.find((ann) => ann.id === mention.id);
+          if (ann?.type) {
+            annotationTypes.set(ann.type, (annotationTypes.get(ann.type) ?? 0) + 1);
+          }
 
           let start: number | null = null;
           let end: number | null = null;
@@ -289,9 +296,16 @@ export const selectDocumentClusters = createSelector(
           );
         }
 
-        // Normalize cluster type using robust case-insensitive mapping
-        // Ensure the normalized type is consistently cased
-        const normalizedType = cluster.type;
+        // Show the cluster with the type its annotations carry (the most
+        // frequent one); the stored cluster type only when none matches.
+        let normalizedType = cluster.type;
+        let best = 0;
+        annotationTypes.forEach((n, type) => {
+          if (n > best) {
+            best = n;
+            normalizedType = type;
+          }
+        });
 
         return {
           ...cluster,
@@ -303,6 +317,7 @@ export const selectDocumentClusters = createSelector(
       .filter((cluster) => cluster.mentions.length > 0); // Filter out empty clusters
 
 
+    // One group per entity type, as named by the annotations.
     const clusterGroups = groupBy(clusters, (cluster) => cluster.type);
 
     return clusterGroups;

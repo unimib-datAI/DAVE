@@ -18,7 +18,7 @@ import { baseTaxonomy, initialUIState } from './state';
 import { SkeletonLayout } from '../SkeletonLayout';
 import { orderAnnotations } from '@/lib/ner/core';
 import { applyTypeColors, createTaxonomy } from './utils';
-import { mapEntityType } from '../../../components/Tree/utils';
+import { useText } from '@/components/TranslationProvider';
 import { DocumentContext } from './DocumentContext';
 import {
   globalAnonymizationAtom,
@@ -34,6 +34,7 @@ import { useSession } from 'next-auth/react';
  * (deAnonimize = !globalAnonymizationAtom).
  */
 const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
+  const t = useText('document');
   const [id] = useParam<string>('id');
   // Disambiguates between duplicate documents sharing the same content-hash
   // id across different collections (see documentController.ts findOne()) -
@@ -52,7 +53,7 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
     setIsAnonymized(!value);
   };
 
-  const { data, isFetching } = useQuery(
+  const { data, isFetching, error } = useQuery(
     [
       'document.getDocument',
       { id: id, deAnonimize, collectionId: urlCollectionId },
@@ -97,11 +98,19 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   const typeColors = (docCollection as any)?.config?.typeColors as
     | Record<string, string>
     | undefined;
+  // Sync once per opened document (when its collection becomes known), NOT on
+  // every change of the active collection: otherwise picking another
+  // collection in the toolbar while a document is open was immediately
+  // reverted to the document's one, so the user could not switch.
+  const syncedForCollectionRef = useRef<string | null>(null);
   useEffect(() => {
-    if (docCollection && docCollection.id !== activeCollection?.id) {
+    if (!docCollection || syncedForCollectionRef.current === docCollection.id) return;
+    syncedForCollectionRef.current = docCollection.id;
+    if (docCollection.id !== activeCollection?.id) {
       setActiveCollection(docCollection as any);
     }
-  }, [docCollection, activeCollection?.id, setActiveCollection]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docCollection?.id, setActiveCollection]);
 
   // Keep isLoadingAnonymizationAtom in sync with the actual fetch state so the
   // toolbar toggle spinner reflects real loading (not a separate effect-driven state).
@@ -130,7 +139,7 @@ const DocumentProvider = ({ children }: PropsWithChildren<{}>) => {
   if (!isFetching && !effectiveData && error) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-2 text-center">
-        <span className="text-lg font-semibold">Document not found</span>
+        <span className="text-lg font-semibold">{t('documentNotFound')}</span>
         <span className="text-sm text-gray-500">{error.message}</span>
       </div>
     );
@@ -173,7 +182,6 @@ const DocumentStateProvider = ({
 }: PropsWithChildren<DocumentStateProviderProps>) => {
   const typeColorsRef = useRef(typeColors);
   typeColorsRef.current = typeColors;
-
   const store = useMemo(() => {
     const s = createStore();
     s.set(documentStateAtom, initializeState(data, typeColors));
@@ -186,7 +194,8 @@ const DocumentStateProvider = ({
   // Re-initialize when data changes (e.g. after refetch)
   useEffect(() => {
     const current = store.get(documentStateAtom);
-    const newState = initializeState(data);
+    // Keep the collection's colors: a refetch must not reset them.
+    const newState = initializeState(data, typeColorsRef.current);
     // Need to keep the previous highlightAnnotation value if existing,
     // otherwise the scroll to the specified annotation (through
     // the URL hash) will not work because highlightAnnotation will
@@ -271,29 +280,6 @@ const initializeState = (
   Object.values(data.annotation_sets).forEach((annSet) => {
     annSet.annotations = orderAnnotations(annSet.annotations);
   });
-
-  // Normalize cluster types to use taxonomy mapping (e.g., Person -> persona)
-  if (data.features?.clusters) {
-    Object.keys(data.features.clusters).forEach((annotationSetName) => {
-      if (data.features.clusters[annotationSetName]) {
-
-        data.features.clusters[annotationSetName] = data.features.clusters[
-          annotationSetName
-        ].map((cluster) => {
-          const originalType = cluster.type;
-          const mappedType = mapEntityType(cluster.type);
-
-          if (originalType !== mappedType) {
-          }
-
-          return {
-            ...cluster,
-            type: mappedType,
-          };
-        });
-      }
-    });
-  }
 
   return {
     data,

@@ -19,7 +19,30 @@ export type LLMSettings = {
   defaultSystemPrompt: string;
 };
 
-export const DEFAULT_SYSTEM_PROMPT = `You are an expert assistant that answers questions based on provided context.
+export const DEFAULT_SYSTEM_PROMPT = `You are a helpful assistant that answers questions about the user's documents.
+
+<context>
+{{CONTEXT}}
+</context>
+
+<question>
+{{QUESTION}}
+</question>
+
+<instructions>
+- Base your answer on the context above, combining information from several documents when it helps.
+- You may draw reasonable conclusions from what the context says and use general knowledge to explain or connect it; make clear what comes from the documents and what is your own reasoning.
+- If the context only partly answers the question, answer the part it covers and briefly say what is missing. Say that you cannot answer only when the context contains nothing relevant at all.
+- Do not refuse just because the answer is not stated word for word: give the most useful answer the context supports.
+- Always answer in the same language as the question, whatever the language of the documents.
+- Write clearly, in a style suited to the subject.
+</instructions>`;
+
+// Earlier built-in defaults. A stored prompt equal to one of these was never
+// customized by the user (the settings page saves the default as-is), so it
+// is upgraded to the current default when the settings load.
+const PREVIOUS_DEFAULT_SYSTEM_PROMPTS = [
+  `You are an expert assistant that answers questions based on provided context.
 
 <input>
 
@@ -46,7 +69,8 @@ Always assume that the user is asking you about information contained in the doc
 Make sure to ALWAYS answer in the same language used by the user to ask the question, don't ming the documents language
 </instructions>
 
-</input>`;
+</input>`,
+];
 
 export const DEFAULT_LLM_SETTINGS: LLMSettings = {
   baseURL: '',
@@ -135,6 +159,17 @@ export const loadLLMSettingsAtom = atom(null, async (get, set) => {
         GENERATION_DEFAULTS_STORAGE_KEY
       ),
     ]);
+
+    // An unedited old built-in prompt becomes the current default; a prompt
+    // the user wrote is kept as is.
+    if (
+      storedDefaults?.defaultSystemPrompt &&
+      PREVIOUS_DEFAULT_SYSTEM_PROMPTS.some(
+        (p) => p.trim() === storedDefaults.defaultSystemPrompt!.trim()
+      )
+    ) {
+      storedDefaults.defaultSystemPrompt = DEFAULT_SYSTEM_PROMPT;
+    }
 
     const mergedSettings: LLMSettings = {
       ...DEFAULT_LLM_SETTINGS,

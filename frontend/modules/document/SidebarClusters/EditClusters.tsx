@@ -343,7 +343,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
 
               onEdit(clusterGroups);
               context.updateData(data);
-              message.success('Clusters aggiornati con successo');
+              message.success(t('clustersUpdated'));
               success = true;
               // Close drawer only after successful save
               setIsOpen(false);
@@ -470,7 +470,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
                           ).color
                         }
                       >
-                        <span>{groupKey}</span>
+                        <span>{getAllNodeData(taxonomy, groupKey).label}</span>
                       </Tag>
                     </span>
                   ),
@@ -500,7 +500,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
                     if (temp) setDestCluster(temp);
                   }
                 }}
-                title="Swap clusters"
+                title={t('swapClusters')}
                 style={{
                   backgroundColor: '#6366f1',
                   border: 'none',
@@ -566,7 +566,7 @@ const EditClusters = ({ clusterGroups, onEdit }: EditClustersProps) => {
                           ).color
                         }
                       >
-                        <span>{groupKey}</span>
+                        <span>{getAllNodeData(taxonomy, groupKey).label}</span>
                       </Tag>
                     </span>
                   ),

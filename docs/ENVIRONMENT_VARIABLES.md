@@ -645,6 +645,33 @@ API_LLM=http://text-generation:8000/v1
 
 ---
 
+#### LEGAL_ASSISTANT_ENABLED
+
+- **Type:** Boolean
+- **Required:** No
+- **Default:** `false`
+- **Description:** In agent mode, also query the legal-assistant service (EU digital-regulation law) and fuse its passages into the retrieved context.
+
+#### API_LEGAL_ASSISTANT
+
+- **Type:** URL
+- **Required:** No
+- **Default:** `http://legal-assistant:8080`
+- **Description:** Base URL of the legal-assistant REST API (`legal-assistant serve`).
+
+#### LEGAL_ASSISTANT_API_KEY
+
+- **Type:** String
+- **Required:** No
+- **Description:** Sent as `X-API-Key` if the legal-assistant server has `LEGAL_ASSISTANT_API_KEY` set.
+
+```env
+LEGAL_ASSISTANT_ENABLED=true
+API_LEGAL_ASSISTANT=http://legal-assistant:8080
+```
+
+---
+
 #### TEXT_GENERATION_GPU_LAYERS
 
 - **Type:** Integer

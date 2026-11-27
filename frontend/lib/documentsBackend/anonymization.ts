@@ -450,6 +450,23 @@ export async function decode(doc: any): Promise<any> {
  * - Encrypts using API.
  * - Adjusts subsequent annotations correctly ACROSS ALL ANNOTATION SETS.
  */
+/**
+ * Was this annotation anonymized? True when encode() encrypted it (it then
+ * carries `originalKey`), or when the document was anonymized and the
+ * annotation's type is one the user chose (`features.anonymizeTypes`; null or
+ * missing = every type). Use this instead of any fixed list of type names:
+ * the types to anonymize are the ones picked in the upload dialog.
+ */
+export function isAnonymizedAnnotation(
+  annotation: any,
+  docFeatures: { anonymized?: boolean; anonymizeTypes?: string[] | null } | undefined
+): boolean {
+  if (annotation?.originalKey) return true;
+  if (!docFeatures?.anonymized) return false;
+  const types = docFeatures.anonymizeTypes;
+  return !types || types.includes(annotation?.type);
+}
+
 export async function encode(doc: any, anonymizeTypes: string[] | null = null): Promise<any> {
   if (!doc || typeof doc !== 'object') {
     throw new TypeError('encode: doc must be an object');
@@ -463,13 +480,24 @@ export async function encode(doc: any, anonymizeTypes: string[] | null = null): 
   }
 
   const encryptedTitles: Record<string, any[]> = {};
+  // The types the user chose (null = all of them, as for the annotations below).
+  const chosen = (type: string) => !anonymizeTypes || anonymizeTypes.includes(type);
 
-  // Encrypt all cluster titles and store mapping
+  // Encrypt the titles of the clusters to anonymize and store the mapping. A
+  // cluster is anonymized if its own type was chosen OR the annotations its
+  // mentions point to have a chosen type (stored cluster types can differ
+  // from the annotation types, e.g. translated names in older data).
   for (const clusterAnnSet of Object.keys(doc.features.clusters)) {
     encryptedTitles[clusterAnnSet] = [];
+    const annTypeById = new Map<any, string>(
+      (doc.annotation_sets[clusterAnnSet]?.annotations ?? []).map((a: any) => [a.id, a.type])
+    );
     for (let i = 0; i < doc.features.clusters[clusterAnnSet].length; i++) {
       const cluster = doc.features.clusters[clusterAnnSet][i];
-      if (anonymizeTypes && anonymizeTypes.includes(cluster.type)) {
+      const mentionTypes = (cluster.mentions ?? [])
+        .map((m: any) => annTypeById.get(m.id))
+        .filter(Boolean) as string[];
+      if (chosen(cluster.type) || mentionTypes.some(chosen)) {
         const originalTitle = cluster.title;
         const result = await makeEncryptionRequest(originalTitle);
         const encryptedTitle = result.vaultKey || originalTitle;
@@ -624,6 +652,9 @@ export async function encode(doc: any, anonymizeTypes: string[] | null = null): 
   // Only mark the document as anonymized if the anonymization service actually
   // ran; otherwise values are still plaintext.
   doc.features.anonymized = anonymizationEnabled;
+  // Remember which types the user chose (null = all), so later steps (saving,
+  // re-indexing, previews) anonymize the same ones - see isAnonymizedAnnotation.
+  doc.features.anonymizeTypes = anonymizationEnabled ? anonymizeTypes ?? null : undefined;
   return doc;
 }
 

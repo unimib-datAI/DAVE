@@ -6,8 +6,8 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { Popover, Button as AntButton } from 'antd';
 import { ChatProvider } from '@/modules/chat/ChatProvider';
-import { useAtom } from 'jotai';
-import { persistedLLMSettingsAtom } from '@/atoms/llmSettings';
+import { useSession } from 'next-auth/react';
+import { useQuery } from '@/utils/trpc';
 import { GlobalAnonymizationToggle } from '@/components/GlobalAnonymizationToggle';
 import { useCanUseChat, useCanDevModeChat } from '@/hooks';
 import { useText } from '@/components/TranslationProvider';
@@ -19,7 +19,16 @@ type LLMSearchProps = {
 const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
   ({ onClose }, ref) => {
     const [devMode, setDevMode] = useState(false);
-    const [settings] = useAtom(persistedLLMSettingsAtom);
+    const { data: session } = useSession();
+    const token =
+      process.env.NEXT_PUBLIC_USE_AUTH === 'false'
+        ? undefined
+        : ((session as any)?.accessToken as string | undefined);
+    // The model in use is decided server-side (Settings > LLM or env).
+    const llmInfo = useQuery(['llm.info', { token }], {
+      enabled: process.env.NEXT_PUBLIC_USE_AUTH === 'false' || Boolean(token),
+      refetchOnWindowFocus: true,
+    });
     const canUseChat = useCanUseChat();
     const canDevMode = useCanDevModeChat();
     const t = useText('chat');
@@ -62,9 +71,9 @@ const LLMSearch = forwardRef<HTMLDivElement, LLMSearchProps>(
                   <p>
                     The model used for generation is:{' '}
                     <strong>
-                      {settings?.useCustomSettings && settings.model
-                        ? settings.model
-                        : process.env.NEXT_PUBLIC_LLM_NAME || 'unknown'}
+                      {llmInfo.data?.model ||
+                        process.env.NEXT_PUBLIC_LLM_NAME ||
+                        'unknown'}
                     </strong>
                   </p>
                 </div>

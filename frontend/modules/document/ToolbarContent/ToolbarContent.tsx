@@ -70,12 +70,12 @@ const ToolbarContent = () => {
 
     // Prevent saves when user lacks update permission
     if (!canUpdate) {
-      message.warning(t('toolbar.notAllowed') || 'Not Authorized');
+      message.warning(t('noUpdatePermission'));
       return;
     }
 
     if (!token || !document.collectionId) {
-      message.warning('Not Authorized');
+      message.warning(t('notAuthorized'));
       return;
     }
 
@@ -239,8 +239,7 @@ const ToolbarContent = () => {
           disabled={!canUpdate}
           title={
             !canUpdate
-              ? t('toolbar.noUpdatePermission') ||
-                'You do not have permission to update this document'
+              ? t('noUpdatePermission')
               : undefined
           }
           color={

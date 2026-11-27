@@ -12,12 +12,15 @@ import { useChatState, useChatDispatch } from '@/modules/chat/ChatProvider';
 import { useText } from '@/components/TranslationProvider';
 import { globalAnonymizationAtom } from '@/utils/atoms';
 import { splitSentences, findMatchingChunks } from '@/utils/stringUtilities';
+import { isServerSideMode, type ChatMode } from '@/lib/chatMode';
 
 export type AgentStep = {
   agent: string;
   step: string;
   status: 'running' | 'done';
   durationMs?: number;
+  /** Compact JSON of what the step produced (queries, strategy, scores...). */
+  details?: string;
 };
 
 export type Message = {
@@ -47,7 +50,8 @@ export type GenerateOptions = {
   token_repetition_penalty_max?: number;
   system?: string;
   context?: DocumentWithChunk[];
-  useMultiAgent?: boolean;
+  /** standard RAG, multi-agent pipeline or deep research (default: standard) */
+  mode?: ChatMode;
   /** How much the model reasons before answering (sent to /api/generate) */
   thinking?: 'off' | 'low' | 'medium' | 'high';
   /** Document IDs to restrict retrieval to (used by the multi-agent pipeline) */
@@ -157,7 +161,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
     // When multi-agent is active the pipeline handles retrieval and context
     // internally, so we use a minimal system prompt instead of embedding context.
     let finalSystemPrompt: string;
-    if (options.useMultiAgent) {
+    if (isServerSideMode(options.mode)) {
       finalSystemPrompt = 'You are a helpful AI assistant.';
     } else {
       finalSystemPrompt =
@@ -257,9 +261,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           collectionId: activeCollection,
           // Pass filter IDs so the multi-agent pipeline can scope retrieval
           filterIds: options.filterIds,
-          customSettings: llmSettings.useCustomSettings
-            ? llmSettings
-            : undefined,
+          // The endpoint/key/model are applied server-side from the global settings.
         }),
       });
 
@@ -289,6 +291,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       const STEP_RE = /\x02DAVE_STEP\x1E([\s\S]*?)\x03/g;
       const CTX_PARTIAL_RE = /\x02DAVE_CTX\x1E[\s\S]*$/; // partial CTX at tail
       const CTX_FULL_RE = /\x02DAVE_CTX\x1E[\s\S]*?\x03/g;
+      const RESET_SENTINEL = '\x02DAVE_RESET\x03';
 
       // Start reading the stream
       while (true) {
@@ -303,6 +306,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           step: string;
           status: string;
           durationMs?: number;
+          details?: string;
         }[] = [];
         rawAccumulator = rawAccumulator.replace(STEP_RE, (_, json) => {
           try {
@@ -317,10 +321,13 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
             const updated = [...prev];
             for (const s of pendingSteps) {
               if (s.status === 'done') {
-                // Mark the last matching 'running' entry as done
+                // Mark the last matching 'running' entry as done. Steps of
+                // the same agent can run in parallel (deep research), so the
+                // step text must match too; start and done carry the same one.
                 for (let i = updated.length - 1; i >= 0; i--) {
                   if (
                     updated[i].agent === s.agent &&
+                    updated[i].step === s.step &&
                     updated[i].status === 'running'
                   ) {
                     updated[i] = {
@@ -328,6 +335,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
                       step: s.step,
                       status: 'done',
                       durationMs: s.durationMs,
+                      details: s.details,
                     };
                     break;
                   }
@@ -344,10 +352,24 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
           });
         }
 
+        // ── The pipeline discarded the answer streamed so far (it is being
+        // regenerated or corrected): keep only what follows the last RESET.
+        const resetAt = rawAccumulator.lastIndexOf(RESET_SENTINEL);
+        if (resetAt !== -1) {
+          rawAccumulator = rawAccumulator.slice(
+            resetAt + RESET_SENTINEL.length
+          );
+        }
+
         // ── Compute visible content (strip CTX sentinel from tail) ──────────
-        const visibleContent = rawAccumulator
+        let visibleContent = rawAccumulator
           .replace(CTX_FULL_RE, '')
           .replace(CTX_PARTIAL_RE, '');
+        // A sentinel split across two reads must not flash on screen.
+        const openAt = visibleContent.lastIndexOf('\x02');
+        if (openAt !== -1 && visibleContent.indexOf('\x03', openAt) === -1) {
+          visibleContent = visibleContent.slice(0, openAt);
+        }
 
         // Only start showing the assistant message once actual text is present
         if (isFirstChunk && visibleContent.length > 0) {
@@ -418,7 +440,7 @@ function useChat({ endpoint, initialMessages = [] }: UseChatOptions) {
       let displayText: string;
       let matchingChunks: { [sentenceIndex: number]: string[] } = {};
 
-      if (options.useMultiAgent || processedChunks.length === 0) {
+      if (isServerSideMode(options.mode) || processedChunks.length === 0) {
         // Preserve the full Markdown structure untouched.
         displayText = finalText;
       } else {

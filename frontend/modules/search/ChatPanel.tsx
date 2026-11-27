@@ -34,6 +34,7 @@ import RateConversation from '@/components/RateConversation/RateConversation';
 import { activeCollectionAtom } from '@/atoms/collection';
 import { llmSettingsAtom, DEFAULT_SYSTEM_PROMPT } from '@/atoms/llmSettings';
 import { useState, useEffect } from 'react';
+import { isServerSideMode, type ChatMode } from '@/lib/chatMode';
 
 type Form = GenerateOptions & {
   message: string;
@@ -41,7 +42,7 @@ type Form = GenerateOptions & {
   useDocumentContext: boolean;
   useCurrentDocumentContext: boolean;
   force_rag: boolean;
-  useMultiAgent: boolean;
+  mode: ChatMode;
 };
 
 function urlToPathArray(url: string) {
@@ -117,6 +118,10 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
   });
   const [filteredDocumentIds] = useAtom(filteredDocumentIdsAtom);
   const [activeCollection] = useAtom(activeCollectionAtom);
+  // A tooltip above a select would cover its dropdown, which opens upwards:
+  // the tooltip is switched off while the dropdown is open.
+  const [modeOpen, setModeOpen] = useState(false);
+  const [thinkingOpen, setThinkingOpen] = useState(false);
   const [llmSettings] = useAtom(llmSettingsAtom);
 
   // Local state for input fields
@@ -165,7 +170,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     top_k: llmSettings.defaultTopK ?? 40,
     thinking_effort: llmSettings.defaultThinkingEffort ?? 'medium',
     force_rag: false,
-    useMultiAgent: false,
+    mode: 'standard',
     thinking: 'off',
   });
 
@@ -179,7 +184,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
   const fieldRetrievalMethod = register('retrievalMethod');
   const useCurrentDocumentContext = register('useCurrentDocumentContext');
   const fieldForceRag = register('force_rag');
-  const fieldUseMultiAgent = register('useMultiAgent');
 
   const handleFormSubmit = async (formValues: Form) => {
     if (formValues.message === '') {
@@ -211,8 +215,8 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
     // internally (dense / fulltext / hybrid / summary). We skip the pre-fetch
     // here and instead pass filterIds so the pipeline can scope results.
     let context;
-    if (formValues.useMultiAgent) {
-      context = undefined; // multi-agent fetches its own context
+    if (isServerSideMode(formValues.mode)) {
+      context = undefined; // agent and deep research fetch their own context
     } else if (useDocumentContext) {
       context = await mostSimilarDocumentsMutation.mutateAsync({
         query: formValues.message,
@@ -281,7 +285,7 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
             {/* Agent pipeline progress – visible during AND after multi-agent streaming.
                 During: shows real-time running/done indicators.
                 After: persists as a compact summary until the next query starts. */}
-            {value.useMultiAgent && agentSteps.length > 0 && (
+            {isServerSideMode(value.mode) && agentSteps.length > 0 && (
               <AgentStepProgress
                 steps={agentSteps}
                 isStreaming={isLoading || isStreaming}
@@ -309,7 +313,44 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                 {...register('message')}
               />
             </div>
-            <Tooltip content={t('thinkingTooltip')} placement="top">
+            <Tooltip
+              content={t('modeTooltip')}
+              placement="top"
+              isDisabled={modeOpen}
+              closeDelay={0}
+              className="max-w-xs pointer-events-none"
+            >
+              <div className="flex-shrink-0">
+                <Select
+                  id="chat-mode-select"
+                  aria-label={t('mode')}
+                  size="large"
+                  style={{ width: 160 }}
+                  value={value.mode ?? 'standard'}
+                  disabled={chatState !== 'idle'}
+                  onChange={(mode: ChatMode) => setValue({ mode })}
+                  onOpenChange={setModeOpen}
+                  // Same as the thinking select: the chat window closes on a
+                  // mousedown outside its DOM node.
+                  getPopupContainer={(trigger) =>
+                    trigger.parentElement || document.body
+                  }
+                  placement="topLeft"
+                  options={[
+                    { value: 'standard', label: t('modeStandard') },
+                    { value: 'agent', label: t('modeAgent') },
+                    { value: 'deep', label: t('modeDeep') },
+                  ]}
+                />
+              </div>
+            </Tooltip>
+            <Tooltip
+              content={t('thinkingTooltip')}
+              placement="top"
+              isDisabled={thinkingOpen}
+              closeDelay={0}
+              className="max-w-xs pointer-events-none"
+            >
               <div className="flex-shrink-0">
                 <Select
                   id="chat-thinking-select"
@@ -317,8 +358,11 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                   size="large"
                   style={{ width: 150 }}
                   value={value.thinking ?? 'off'}
-                  disabled={chatState !== 'idle' || value.useMultiAgent}
+                  disabled={
+                    chatState !== 'idle' || isServerSideMode(value.mode)
+                  }
                   onChange={(thinking) => setValue({ thinking })}
+                  onOpenChange={setThinkingOpen}
                   // The chat window closes on any mousedown outside its DOM node, and
                   // antd renders the dropdown on document.body by default.
                   getPopupContainer={(trigger) =>
@@ -722,8 +766,10 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                       <div className="flex flex-row items-center gap-2 w-full">
                         <Checkbox
                           id="use-multi-agent"
-                          checked={fieldUseMultiAgent.value}
-                          onCheckedChange={fieldUseMultiAgent.onChange}
+                          checked={value.mode === 'agent'}
+                          onCheckedChange={(checked) =>
+                            setValue({ mode: checked ? 'agent' : 'standard' })
+                          }
                         />
                         <label
                           htmlFor="use-multi-agent"
@@ -752,37 +798,6 @@ const ChatPanel = ({ devMode, canDevMode }: ChatPanel) => {
                         className="text-slate-800 resize-none bg-transparent w-full border-none text-sm h-full"
                         spellCheck="false"
                         rows={10}
-                        defaultValue={
-                          process.env.NEXT_PUBLIC_SYSTEM_PROMPT ||
-                          `You are an expert assistant that answers questions based on provided context.
-
-<input>
-
-<context>
-{{CONTEXT}}
-</context>
-
-<question language="auto">
-{{QUESTION}}
-</question>
-
-<instructions>
-- Answer the question using ONLY information explicitly stated in the context.
-- Integrate information from multiple documents only if they are consistent.
-- Do NOT infer, speculate, generalize, or rely on external knowledge.
-- The answer MUST be written in the same language as the question.
-- If answering requires translating information from the context, translate faithfully
-  without adding, omitting, or reinterpreting any content.
-- Do NOT mention documents, context, retrieval, or sources explicitly.
-- If the context is insufficient, incomplete, or ambiguous, respond EXACTLY with:
-  "The information provided is not sufficient to answer with certainty." and give an explanation about why you can't answer.
-Always assume that the user is asking you about information contained in the documents provided
-- Use a clear, precise, and domain-appropriate technical style.
-Make sure to ALWAYS answer in the same language used by the user to ask the question, don't ming the documents language
-</instructions>
-
-</input>`
-                        }
                         {...register('system')}
                       />
                     </div>

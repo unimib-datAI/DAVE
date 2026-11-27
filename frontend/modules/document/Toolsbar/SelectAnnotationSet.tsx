@@ -155,7 +155,7 @@ const SelectAnnotationSet = () => {
       <ConfirmationDialog
         {...bindingsDeleteAnnSet}
         {...propsDeleteAnnSet}
-        content="You are trying to delete an annotation set and all of its annotations. Are you sure?" />
+        content={t('deleteAnnotationSetConfirm')} />
     </>
 
   )

@@ -1,0 +1,29 @@
+---
+title: Entity types
+description: How the document view shows entity types - exactly as the annotations name them, with no predefined taxonomy.
+---
+
+## No predefined types
+
+The document view shows **exactly the entity types its annotations carry**, under their own names: `PERSON`, `ORG`, `GPE`, `persona`... There is no built-in list of types, no renaming and no grouping. If a document contains both `PERSON` and `persona`, both are shown, because both are in the data.
+
+- `createTaxonomy` (`frontend/modules/document/DocumentProvider/utils.ts`) builds the taxonomy from the annotation sets: one top-level node per distinct type, labelled with the type itself. `baseTaxonomy` (`state.ts`) is empty and only kept so the pages that import it keep working.
+- Each type gets a **stable color** (`stableTypeColor` in `frontend/lib/typeColors.ts`, a pure function of the name), unless the collection sets one for that exact type (`config.typeColors`, applied by `applyTypeColors`).
+- `getNode` (`frontend/components/Tree/utils.ts`) never falls back to a generic "Other" type: a type with no node yet (e.g. one typed in by hand) is shown as itself, with its stable color.
+- The type filters (chips and toolbar select), the entity sidebar groups and the type tags all list types as named, one entry per distinct name.
+
+**Entity clusters** (left sidebar) are shown with the type of the annotations their mentions point to, the most frequent one (`selectDocumentClusters`). The type stored on a cluster is used only when no mention matches an annotation: in existing data it is often a translated name (`persona`, `organizzazione`, `numeric`...), written back by an older version of the document view that mapped cluster types and saved them. That mapping has been removed.
+
+The collection page, the query view and the cluster browsers use the same functions, so a type has the same name and color everywhere.
+
+Stored annotations are never rewritten.
+
+## Anonymization follows the user's choice
+
+The entity types to anonymize are the ones the user picks in the upload dialog (**Anonymize** → types dropdown), sent as `anonymizeTypes`. No selection means every type. There is no fixed list of type names anywhere:
+
+- `encode` (`frontend/lib/documentsBackend/anonymization.ts`) encrypts the annotations of the chosen types (each gets an `originalKey`) and the clusters whose type, or whose mentions' annotation types, were chosen. It records the choice on the document as `features.anonymizeTypes` (null = all), next to `features.anonymized`.
+- `isAnonymizedAnnotation(annotation, features)` answers "is this entity anonymized?" from that record: an `originalKey`, or an anonymized document whose chosen types include the annotation's type. Saving a document (`document.save` → `addAnnotationsToDocumentEs`) and the preview masking (`documentController.ts`) both use it.
+- `addAnnotationsToDocumentEs` (`lib/elasticAdmin.ts`) masks a mention's `display_name` only when its caller sets `anonymize: true` on it.
+
+Documents uploaded before `features.anonymizeTypes` existed are still handled through `originalKey`.

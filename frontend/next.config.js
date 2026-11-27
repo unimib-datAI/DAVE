@@ -17,6 +17,7 @@ const nextConfig = {
     incomingRequests: false,
   },
   experimental: {
+    agentUpgrade: 'security',
     emotion: true,
     // Increase proxy body size limit to handle large document uploads (Next.js 16+)
     proxyClientMaxBodySize: '150mb',

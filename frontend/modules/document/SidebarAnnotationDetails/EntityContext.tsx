@@ -63,15 +63,14 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
     types_set.add(annotation.type);
     const types = Array.from(types_set);
 
-    // Map types to display format
-    const typeLabels = types.map((t) => {
+    // Map types to display format. Each type is listed once.
+    const shown = new Set<string>();
+    const typeLabels = types.flatMap((t) => {
       const node = getAllNodeData(taxonomy, t);
-      // If the node is the UNKNOWN node (Altro) but the original type isn't "UNKNOWN",
-      // show "Altro/originalType"
-      if (node.key === 'UNKNOWN' && t !== 'UNKNOWN') {
-        return `${node.label}/${t}`;
-      }
-      return node.label;
+      const label = node.label;
+      if (shown.has(label)) return [];
+      shown.add(label);
+      return [label];
     });
 
     const nMoreTypes = typeLabels.length - 1;
@@ -86,7 +85,7 @@ const EntityContext = ({ text, annotation }: EntityContextProps) => {
     types_set.add(annotation.type);
     const types = Array.from(types_set);
     return getAllNodeData(taxonomy, types[0]);
-  }, [annotation]);
+  }, [annotation, taxonomy]);
 
   return (
     <span

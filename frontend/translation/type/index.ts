@@ -98,6 +98,7 @@ export type Translation = {
   collections: {
     backToCollections: string;
     collectionDocuments: string;
+    backToCollection: string;
     untitled: string;
     tableHeaders: {
       id: string;
@@ -152,6 +153,12 @@ export type Translation = {
     thinkingLow: string;
     thinkingMedium: string;
     thinkingHigh: string;
+    thinkingTooltip: string;
+    mode: string;
+    modeTooltip: string;
+    modeStandard: string;
+    modeAgent: string;
+    modeDeep: string;
     send: string;
     resetChat: string;
     predefinedQuestions: string;
@@ -202,6 +209,16 @@ export type Translation = {
     devModeNotAllowedDescription: string;
   };
   document: {
+    typeFilterAll: string;
+    documentNotFound: string;
+    notAuthorized: string;
+    noLinks: string;
+    clustersUpdated: string;
+    swapClusters: string;
+    candidateAdded: string;
+    resourceLinkPlaceholder: string;
+    typePlaceholder: string;
+    deleteAnnotationSetConfirm: string;
     toolbar: {
       logout: string;
       save: string;

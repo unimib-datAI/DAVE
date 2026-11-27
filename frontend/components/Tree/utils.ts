@@ -407,25 +407,16 @@ export const isPersonType = (type: string): boolean => {
   return /^(person|per|people|individual)s?$/i.test(lower);
 };
 
+/**
+ * The node of an entity type. Types are displayed exactly as the annotations
+ * name them, with no predefined taxonomy: a type that has no node yet (e.g. a
+ * type typed in by hand) is shown as itself, with its stable color.
+ */
 export const getNode = (obj: FlatTreeObj, key: string): FlatTreeNode => {
-  // First try the original key
-  let node = obj[key];
-
-  // NOTE: Previously we attempted a secondary lookup using localized mappings
-  // (entityTypeMapping). That mapping is intentionally disabled now and we
-  // will not perform alternate mapped lookups. This ensures we always use the
-  // raw type keys present in the taxonomy/object.
-  //
-  // If not found, fall back to UNKNOWN
-  if (!node) {
-    // Avoid infinite recursion by checking if we're already looking for UNKNOWN
-    if (key === 'UNKNOWN') {
-      throw new Error(`UNKNOWN node not found in taxonomy`);
-    }
-    // if there is no node return the 'unknown node'
-    return getNode(obj, 'UNKNOWN');
-  }
-  return node;
+  return (
+    obj[key] ??
+    ({ key, label: key, parent: null, color: stableTypeColor(key) } as FlatTreeNode)
+  );
 };
 
 export const ascend = (obj: FlatTreeObj, key: string): FlatTreeNode => {
@@ -445,13 +436,9 @@ export const getAllNodeData = (
   const { parent, ...nodeProps } = node;
 
   // A node can carry its own color (a per-collection override); otherwise it
-  // inherits its root's. Unknown types get a stable generated color instead of
-  // the gray UNKNOWN one.
+  // inherits its root's, and a type with neither gets its stable color.
   const ownColor = (node as { color?: string }).color;
-  let color = ownColor ?? parentNode.color;
-  if (!ownColor && parentNode.key === 'UNKNOWN' && key !== 'UNKNOWN') {
-    color = getRandomColorForEntityType(key);
-  }
+  const color = ownColor ?? parentNode.color ?? getRandomColorForEntityType(key);
 
   return {
     color,

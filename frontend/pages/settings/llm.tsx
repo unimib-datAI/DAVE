@@ -1,5 +1,6 @@
 import { GetServerSideProps } from 'next';
-import { getSession } from 'next-auth/react';
+import { getSession, useSession } from 'next-auth/react';
+import { useMutation, useQuery } from '@/utils/trpc';
 import { ToolbarLayout } from '@/components/ToolbarLayout';
 import styled from '@emotion/styled';
 import { useAtom } from 'jotai';
@@ -226,6 +227,27 @@ const LLMSettingsPage = () => {
   } | null>(null);
   const { canEdit: canEditLLM } = useLLMPermissions();
 
+  // The endpoint (URL, key, model) is stored on the server and applies to
+  // every LLM call in the app; only the generation defaults stay per-browser.
+  const { data: session } = useSession();
+  const authDisabled = process.env.NEXT_PUBLIC_USE_AUTH === 'false';
+  const token = authDisabled ? undefined : ((session as any)?.accessToken as string | undefined);
+  const serverEnabled = authDisabled || Boolean(token);
+  const serverSettings = useQuery(['llm.get', { token }], {
+    enabled: serverEnabled,
+    refetchOnWindowFocus: false,
+  });
+  const saveEndpoint = useMutation(['llm.save']);
+  const clearEndpoint = useMutation(['llm.clear']);
+  const pushEndpoint = (d: LLMSettings) =>
+    saveEndpoint.mutateAsync({
+      token,
+      useCustomSettings: d.useCustomSettings,
+      baseURL: d.baseURL,
+      apiKey: d.apiKey,
+      model: d.model,
+    });
+
   // Local string state for numeric fields so users can freely type values
   const [rawTemperature, setRawTemperature] = useState(
     String(formData.defaultTemperature)
@@ -266,6 +288,27 @@ const LLMSettingsPage = () => {
     loadStoredSettings();
   }, []);
 
+  const [serverSynced, setServerSynced] = useState(false);
+  useEffect(() => {
+    const server = serverSettings.data;
+    if (!server || isLoading || serverSynced) return;
+    setServerSynced(true);
+    const serverEmpty = !server.useCustomSettings && !server.baseURL && !server.model;
+    if (serverEmpty && formData.useCustomSettings && formData.baseURL) {
+      // Endpoint saved by an older version in this browser only: move it to
+      // the server so it applies everywhere.
+      pushEndpoint(formData).catch((e) => console.warn('Could not migrate LLM settings', e));
+      return;
+    }
+    setFormData((prev) => ({
+      ...prev,
+      useCustomSettings: server.useCustomSettings,
+      baseURL: server.baseURL,
+      apiKey: server.apiKey,
+      model: server.model,
+    }));
+  }, [serverSettings.data, isLoading, serverSynced]);
+
   const handleInputChange = async (
     field: keyof LLMSettings,
     value: string | boolean | number
@@ -282,6 +325,7 @@ const LLMSettingsPage = () => {
     if (field === 'useCustomSettings') {
       setIsSavingLLM(true);
       try {
+        await pushEndpoint(newFormData);
         await setSettings(newFormData);
         setSaveLLMSuccess(true);
         setTimeout(() => setSaveLLMSuccess(false), 3000);
@@ -297,6 +341,7 @@ const LLMSettingsPage = () => {
   const handleSaveLLM = async () => {
     setIsSavingLLM(true);
     try {
+      await pushEndpoint(formData);
       await setSettings(formData);
       setSaveLLMSuccess(true);
       setTimeout(() => setSaveLLMSuccess(false), 3000);
@@ -326,6 +371,7 @@ const LLMSettingsPage = () => {
     if (confirm(t('messages.confirmClear'))) {
       setIsSavingLLM(true);
       try {
+        await clearEndpoint.mutateAsync({ token });
         await clearSettings();
         setFormData({
           baseURL: '',
@@ -398,7 +444,8 @@ const LLMSettingsPage = () => {
           model: formData.model,
           max_tokens: 100,
           temperature: 0.7,
-          customSettings: formData,
+          // Try the values in the form even if they are not saved yet.
+          customSettings: { ...formData, endpointTest: true },
         }),
       });
 

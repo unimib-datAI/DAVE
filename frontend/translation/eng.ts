@@ -103,6 +103,7 @@ const t: Translation = {
   collections: {
     backToCollections: 'Back to collections',
     collectionDocuments: 'Collection {name} documents',
+    backToCollection: 'Back to collection',
     untitled: 'untitled',
     tableHeaders: {
       id: 'Id',
@@ -159,6 +160,14 @@ const t: Translation = {
     thinkingLow: 'Low',
     thinkingMedium: 'Medium',
     thinkingHigh: 'High',
+    thinkingTooltip:
+      'How much the model reasons before answering. Higher is slower but can be more accurate. Not used in agent and deep research modes.',
+    mode: 'Answer mode',
+    modeTooltip:
+      'Standard: one retrieval step, then the answer. Agent: several AI agents rewrite the question, retrieve from the documents, check the context and verify the citations; slower but more thorough. Deep research: splits the question into sub-questions, searches the documents over several rounds and writes a long, cited report; takes minutes.',
+    modeStandard: 'Standard RAG',
+    modeAgent: 'Agent mode',
+    modeDeep: 'Deep research',
     send: 'Send',
     resetChat: 'Reset chat',
     predefinedQuestions: 'Predefined Questions',
@@ -191,7 +200,7 @@ const t: Translation = {
       'Forces RAG to be used even if regular retrieval would be sufficient.',
     useMultiAgentSystem: 'Use Multi-Agent System',
     useMultiAgentTooltip:
-      'Enable Multi-Agent System for enhanced responses using specialized AI agents (Researcher, Writer, Reviewer)',
+      'Enable Multi-Agent System for enhanced responses using several AI agents that rewrite the question, retrieve from the documents, check the context and verify the citations',
     systemPrompt: 'System prompt',
     systemPromptTooltip:
       'Here you can add your system prompt which determins the behaviour of the AI model.',
@@ -220,124 +229,6 @@ const t: Translation = {
     devModeNotAllowedDescription:
       'You do not have permission to use developer mode.',
   },
-  document: {
-    toolbar: {
-      logout: 'Logout',
-      save: 'Salva',
-      saving: 'Saving...',
-      saved: 'Saved',
-      retry: 'Retry',
-      saveError: 'Error',
-      lastSaved: 'Last saved:',
-      justNow: 'just now',
-      minuteAgo: 'minute ago',
-      minutesAgo: 'minutes ago',
-      hourAgo: 'hour ago',
-      hoursAgo: 'hours ago',
-      dayAgo: 'day ago',
-      daysAgo: 'days ago',
-      lastSavedAt: 'Last saved at',
-      savingTooltip: 'Saving your changes...',
-      savedTooltip: 'All changes saved',
-      errorTooltip: 'Failed to save changes. Click to retry.',
-      unsavedChanges: 'Unsaved changes',
-    },
-    subToolbar: {
-      anonimize: "Anonimize person's names",
-      deAnonimize: 'De-anonymize document',
-      annotationSet: {
-        label: 'Set',
-        new: 'New annotation set',
-      },
-      types: {
-        label: 'Tipi',
-      },
-    },
-    leftSidebar: {
-      actionsTooltips: {
-        select: 'Select',
-        add: 'Add annotation',
-        delete: 'Delete annotation',
-        filter: 'Filter annotation',
-        settings: 'Settings',
-        clusters: 'Entities clusters',
-        data: 'Show metadata',
-      },
-      clustersContent: {
-        alphabeticalOrder: 'Alphabetical',
-        mentionOrder: 'Number of mentions',
-        title: 'Entities Clusters',
-        description:
-          'Below are shown the entities clusters with their mentions',
-        mentions: '{n} mentions',
-        edit: 'Edit',
-      },
-      metadataContent: {
-        title: "Document's metadata",
-        description: 'Below are shown the document metadata',
-      },
-      addContent: {
-        title: 'Add annotation',
-        description: 'Add a new annotation by selecting a span of text',
-        addType: 'Add new type',
-        loadTaxonomy: 'Load taxonomy',
-        tooltipNotRecognized:
-          'This type is not automatically\nrecognized by the algorithm.',
-      },
-    },
-    rightSidebar: {
-      title: 'Annotation details',
-      description: 'Inspect the details for a selected annotation.',
-      entityContext: 'Enity context',
-      typeHierarchy: 'Type hierarchy',
-      links: 'Links',
-      editBtn: 'Edit',
-      emptyLinks: 'This annotation has not been linked to anything yet.',
-    },
-    modals: {
-      addType: {
-        title: 'Add entity type',
-        description:
-          'Create a new type to be used to annotate entities in your documents.',
-        typeNameInput: 'Name of new type',
-        tagInput: 'Tag',
-        subClassOf: 'Subclass of',
-        parentTypeInput: 'Type',
-        btnConfirm: 'Add',
-        btnCancel: 'Cancel',
-      },
-      addAnnotationSet: {
-        title: 'Create a new Annotation Set',
-        description:
-          'Create a new annotation set. Select an empty preset or an existing set of annotations as starting point:',
-        nameInput: 'Annotation Set name',
-        presetInput: 'Preset',
-      },
-      editAnnotation: {
-        title: 'Edit entity annotation',
-        context: 'Context',
-        type: 'Type',
-        typeDescription:
-          'Edit the type of the entity by selecting it among the available ones.',
-        links: 'Links',
-        linksDescription:
-          'Edit links by selecting the true candidate for the entity.',
-        searchLink: 'Search link...',
-        addCandidate: {
-          btn: 'Add candidate',
-          title: 'Add a new candidate',
-          description:
-            'Add a new candidate by either inserting a link to a resource or by manually filling in the form below.',
-          add: 'Aggiungi',
-          candidateTitle: 'Candidate title',
-          candidateDescription: 'Candidate description',
-          resourceLink: 'Resource link...',
-        },
-        btnConfirm: 'Confirm',
-        btnCancel: 'Cancel',
-      },
-    },
-  },
   search: {
     facets: {
       deAnonymize: 'Show real names',
@@ -359,7 +250,18 @@ const t: Translation = {
     showMore: 'Show more',
   },
   document: {
+    typeFilterAll: 'All',
+    documentNotFound: 'Document not found',
+    notAuthorized: 'Not authorized',
+    noLinks: 'There are no links.',
+    clustersUpdated: 'Clusters updated',
+    swapClusters: 'Swap clusters',
+    candidateAdded: 'Candidate added',
+    resourceLinkPlaceholder: 'Resource link...',
+    typePlaceholder: 'Type',
+    deleteAnnotationSetConfirm: 'You are about to delete an annotation set and all of its annotations. Are you sure?',
     toolbar: {
+      logout: 'Logout',
       save: 'Save',
       saving: 'Saving...',
       saved: 'Saved',

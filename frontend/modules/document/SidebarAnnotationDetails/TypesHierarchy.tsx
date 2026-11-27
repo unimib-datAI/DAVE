@@ -22,12 +22,12 @@ const TypesHierarchy = ({ type }: { type: string }) => {
   const typesPath = useMemo(() => {
     const nodes = getNodesPath(taxonomy, type);
     return nodes.map((n) => n.label).join(' / ');
-  }, [type]);
+  }, [taxonomy, type]);
 
   const taxonomyNode = useMemo(() => {
     const node = getAllNodeData(taxonomy, type);
     return node;
-  }, [taxonomy]);
+  }, [taxonomy, type]);
 
 
 

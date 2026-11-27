@@ -68,7 +68,7 @@ const AddCandidateLink = ({ url, setUrl }: AddCandidateLinkProps) => {
         value={url}
         onChange={handleChange}
         labelLeft={label}
-        placeholder="Resource link..."
+        placeholder={t('resourceLinkPlaceholder')}
         shadow={false}
         fullWidth
       />
@@ -139,7 +139,7 @@ const AddCandidateForm = ({
         additional_candidates: updatedCandidates,
       },
     });
-    message.success('Candidate added successfully');
+    message.success(t('candidateAdded'));
     if (setVisible) setVisible(false);
   };
 

@@ -1,3 +1,4 @@
+import { useText } from '@/components/TranslationProvider';
 import { Flex } from '@/components';
 import { Candidate } from '@/server/routers/document';
 import styled from '@emotion/styled';
@@ -74,9 +75,10 @@ type LinkListProps = {
 };
 
 const LinkList = ({ candidates, value, onChange }: LinkListProps) => {
+  const t = useText('document');
   if (!candidates || candidates.length === 0) {
     return (
-      <span style={{ color: 'rgba(0,0,0,0.7)' }}>There are no links.</span>
+      <span style={{ color: 'rgba(0,0,0,0.7)' }}>{t('noLinks')}</span>
     );
   }
 

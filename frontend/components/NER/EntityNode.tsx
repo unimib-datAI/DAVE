@@ -196,15 +196,14 @@ const EntityNodeInner = React.forwardRef<HTMLSpanElement, EntityNodeProps>(
         types_set.add(ann.type);
         const types = Array.from(types_set);
 
-        // Map each type to its label
-        const typeLabels = types.map((t) => {
+        // Map each type to its label. Each type is listed once.
+        const shown = new Set<string>();
+        const typeLabels = types.flatMap((t) => {
           const node = getTaxonomyNode(t);
-          // If the node is the UNKNOWN node (Altro) but the original type isn't "UNKNOWN",
-          // show "Altro/originalType"
-          if (node.key === 'UNKNOWN' && t !== 'UNKNOWN') {
-            return `${node.label}/${t}`;
-          }
-          return node.label;
+          const label = node.label;
+          if (shown.has(label)) return [];
+          shown.add(label);
+          return [label];
         });
 
         const nMoreTypes = typeLabels.length - 1;

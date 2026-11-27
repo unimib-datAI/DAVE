@@ -29,6 +29,7 @@ import {
 } from '@/lib/elasticAdmin';
 import {
   encode,
+  isAnonymizedAnnotation,
   makeDecryptionRequest,
   makeBatchDecryptionRequest,
 } from '@/lib/documentsBackend/anonymization';
@@ -362,12 +363,63 @@ async function insertDocumentAndUpdateFacetsCache(
 }
 
 /**
+ * Deletes one copy of a document (Mongo rows, annotations, facet cache and
+ * Elasticsearch). `docId` is a content hash other collections may share, so
+ * `collectionId` says which copy. Also used by knowledge-service sync.
+ */
+export async function runDeleteDocument(docId: string, collectionId?: string) {
+  try {
+    await dbConnect();
+    const elasticIndex = process.env.ELASTIC_INDEX;
+
+    // Resolve the scope before deleting: annotationSetScope counts the
+    // copies sharing this id, which includes the one being deleted.
+    const target: any = await DocumentModel.findOne(
+      collectionId ? { id: docId, collectionId } : { id: docId }
+    ).lean();
+    if (!target) return null;
+    const annotationSets = await AnnotationSetModel.find(
+      await annotationSetScope(docId, target.collectionId, { forWrite: true })
+    );
+    const deletedDoc: any = await DocumentModel.findOneAndDelete({ _id: target._id });
+    const annSetIds = annotationSets.map((annSet) => annSet._id);
+    await AnnotationModel.deleteMany({ annotationSetId: { $in: annSetIds } });
+    await AnnotationSetModel.deleteMany({ _id: { $in: annSetIds } });
+    if (deletedDoc?.collectionId && deletedDoc?.id) {
+      await CollectionController.deleteCacheForDoc(
+        deletedDoc.id,
+        deletedDoc.collectionId
+      );
+    }
+    if (elasticIndex) {
+      try {
+        await deleteElasticDocument(elasticIndex, docId, target.collectionId);
+      } catch (error: any) {
+        console.error(
+          `Error deleting document from Elasticsearch: ${error.message}`
+        );
+      }
+    }
+    return deletedDoc;
+  } catch (error: any) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: `Failed to delete document: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+    });
+  }
+}
+
+/**
  * Uploads a single pre-annotated JSON document. Extracted from the
  * `createDocument` mutation so it can also be called from the background
  * upload-job processing loop (see `createUploadJob` below).
  */
 export async function runCreateDocument(input: {
   document: {
+    /** Stable id; omit to use the content hash. */
+    id?: string;
     text: string;
     annotation_sets: Record<string, any>;
     preview?: string;
@@ -1041,15 +1093,18 @@ async function runSave({
       // Get the updated document with clusters from features
       // Use the features that were just saved, or fetch from DB if not provided
       let clustersToUse = features?.clusters;
+      // Which entities are anonymized follows the user's choice at upload
+      // (features.anonymized / anonymizeTypes), never a fixed list of types.
+      let docFeatures: any = features;
 
-      if (!clustersToUse) {
+      if (!clustersToUse || (features as any)?.anonymized === undefined) {
         const doc: any = await DocumentController.findOne(
           docId,
           null,
           collectionId
         );
-        clustersToUse = doc.features?.clusters;
-      } else {
+        clustersToUse ??= doc.features?.clusters;
+        docFeatures = { ...(doc.features ?? {}), ...(features ?? {}) };
       }
 
       if (clustersToUse) {
@@ -1086,11 +1141,7 @@ async function runSave({
               const cluster = clusters.find((c: any) => c.id === clusterId);
               const type = annotation.type || 'unknown';
               const mention = annotation.features?.mention || '';
-              const shouldAnonymize = [
-                'persona',
-                'parte',
-                'controparte',
-              ].includes(type);
+              const shouldAnonymize = isAnonymizedAnnotation(annotation, docFeatures);
               const isLinked = cluster ? Boolean(cluster.url) : false;
               const id_ER = isLinked ? cluster.url : `${docId}_${mention}`;
               return {
@@ -1101,6 +1152,7 @@ async function runSave({
                 type,
                 mention,
                 is_linked: isLinked,
+                anonymize: shouldAnonymize,
                 display_name: cluster?.title
                   ? shouldAnonymize
                     ? anonymizeMentionForEs(cluster.title)
@@ -1684,50 +1736,7 @@ export const documents = createRouter()
     // `docId` is a content hash that other collections' copies may share -
     // `collectionId` says which copy to delete.
     input: z.object({ docId: z.string(), collectionId: z.string().optional() }),
-    resolve: async ({ input }) => {
-      const { docId, collectionId } = input;
-      try {
-        await dbConnect();
-        const elasticIndex = process.env.ELASTIC_INDEX;
-
-        // Resolve the scope before deleting: annotationSetScope counts the
-        // copies sharing this id, which includes the one being deleted.
-        const target: any = await DocumentModel.findOne(
-          collectionId ? { id: docId, collectionId } : { id: docId }
-        ).lean();
-        if (!target) return null;
-        const annotationSets = await AnnotationSetModel.find(
-          await annotationSetScope(docId, target.collectionId, { forWrite: true })
-        );
-        const deletedDoc: any = await DocumentModel.findOneAndDelete({ _id: target._id });
-        const annSetIds = annotationSets.map((annSet) => annSet._id);
-        await AnnotationModel.deleteMany({ annotationSetId: { $in: annSetIds } });
-        await AnnotationSetModel.deleteMany({ _id: { $in: annSetIds } });
-        if (deletedDoc?.collectionId && deletedDoc?.id) {
-          await CollectionController.deleteCacheForDoc(
-            deletedDoc.id,
-            deletedDoc.collectionId
-          );
-        }
-        if (elasticIndex) {
-          try {
-            await deleteElasticDocument(elasticIndex, docId, target.collectionId);
-          } catch (error: any) {
-            console.error(
-              `Error deleting document from Elasticsearch: ${error.message}`
-            );
-          }
-        }
-        return deletedDoc;
-      } catch (error: any) {
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to delete document: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        });
-      }
-    },
+    resolve: async ({ input }) => runDeleteDocument(input.docId, input.collectionId),
   })
   .mutation('deleteAnnotationSet', {
     input: z.object({
